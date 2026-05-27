@@ -1,0 +1,292 @@
+"""
+Workout Summary Orchestrator
+Version: 1.0.0
+
+Single per-activity entry point that combines all engines into one cohesive
+report: a coach can ingest one FIT file, set FTP / LTHR / weight, optionally
+provide an existing metabolic snapshot or HRV timeline, and get back a
+complete summary covering:
+
+  - Power metrics (FTP/NP/IF/TSS/VI/MMP, sprints, CP+W')
+  - Coggan power zones (time-in-zone, 7 buckets)
+  - Friel HR zones (time-in-zone, 7 buckets)
+  - Seiler 3-zone polarization (with classification)
+  - Coggan rider phenotype classification
+  - DFA-α₁ analysis (if RR data present)
+  - Cardiac response analysis (drift, decoupling, recovery, kinetics, ...)
+  - Cross-validation against metabolic thresholds
+
+This module is purely an orchestrator: it does not implement any new
+calculations, only delegation. It is the single function that the
+Supabase service layer should call after FIT ingestion.
+"""
+
+from typing import Any, Dict, List, Optional
+
+from engines.athlete_context import AthleteContext
+from engines.power_engine import PowerEngine, estimate_ftp_from_mmp
+from engines.zones_engine import ZonesEngine
+from engines.coggan_classifier import classify_from_mmp
+from engines.cardiac_engine import CardiacResponseAnalyzer, ActivitySample
+from engines.hrv_engine import analyze_rr_stream
+
+
+def build_workout_summary(
+    stream,
+    weight_kg: float,
+    ftp: Optional[float] = None,
+    lthr: Optional[float] = None,
+    context: Optional[AthleteContext] = None,
+    metabolic_snapshot: Optional[Dict[str, Any]] = None,
+    vt1_w: Optional[float] = None,
+    vt2_w: Optional[float] = None,
+    vt1_bpm: Optional[float] = None,
+    vt2_bpm: Optional[float] = None,
+    hrv_window_seconds: int = 120,
+) -> Dict[str, Any]:
+    """
+    Produce the full per-activity report.
+
+    Parameters
+    ----------
+    stream : ActivityStream-like
+        From engines.fit_parser.parse_fit_file or parse_fit_records.
+    weight_kg : float
+        Athlete weight at time of activity.
+    ftp : Optional[float]
+        Functional Threshold Power. If None, will be estimated from the
+        activity's MMP curve (20-min × 0.95 if available).
+    lthr : Optional[float]
+        Lactate Threshold Heart Rate. If None, Friel HR zones are skipped.
+    context : Optional[AthleteContext]
+        Used by HRV / cardiac engines for context-aware thresholds.
+    metabolic_snapshot : Optional[dict]
+        Output of MetabolicProfiler.generate_metabolic_snapshot() for cross-
+        validation. If provided, cardiac engine reports HR @ MLSS, etc.
+    vt1_w, vt2_w : Optional[float]
+        Power thresholds for Seiler polarization (from prior testing).
+    vt1_bpm, vt2_bpm : Optional[float]
+        HR thresholds for Seiler polarization (fallback if no power thresholds).
+
+    Returns
+    -------
+    dict with keys: status, schema_version, sections (power, zones,
+    classification, hrv, cardiac, cross_validation), and headline (the
+    six metrics a coach reviews daily).
+    """
+    if context is None:
+        context = AthleteContext()
+
+    out: Dict[str, Any] = {
+        "status": "success",
+        "schema_version": "1.0.0",
+        "stream_metadata": {
+            "sport":         getattr(stream, "sport", "unknown"),
+            "sub_sport":     getattr(stream, "sub_sport", None),
+            "start_time":    getattr(stream, "start_time", None).isoformat()
+                              if getattr(stream, "start_time", None) else None,
+            "duration_s":    int(getattr(stream, "total_elapsed_s", 0) or 0),
+            "distance_m":    getattr(stream, "total_distance_m", None),
+            "ascent_m":      getattr(stream, "total_ascent_m", None),
+            "device":        getattr(stream, "device_name", None),
+            "n_samples":     getattr(stream, "n_samples", 0),
+            "has_power":     getattr(stream, "has_power", False),
+            "has_hr":        getattr(stream, "has_heart_rate", False),
+            "has_rr":        getattr(stream, "has_rr", False),
+        },
+        "sections": {},
+        "warnings": [],
+    }
+
+    # =========================================================================
+    # 1. POWER METRICS (requires power)
+    # =========================================================================
+    power_result = None
+    ftp_used = ftp
+    ftp_source = "explicit" if ftp else None
+
+    if not getattr(stream, "has_power", False):
+        out["sections"]["power"] = {
+            "available": False,
+            "reason": "NO_POWER_DATA",
+        }
+    else:
+        # If FTP not provided, we need to estimate it for TSS/IF/VI
+        # Run a preliminary power analysis with a placeholder FTP=200 just
+        # to get the MMP, then re-run with the estimated FTP.
+        if ftp_used is None:
+            tmp_engine = PowerEngine(ftp=200.0, weight_kg=weight_kg, ftp_source="placeholder")
+            tmp_result = tmp_engine.analyze(stream)
+            if tmp_result.get("status") == "success":
+                est = estimate_ftp_from_mmp(tmp_result["mmp_curve"])
+                if est.get("ftp_w"):
+                    ftp_used = est["ftp_w"]
+                    ftp_source = f"estimated:{est['method']}"
+                    out["warnings"].append(
+                        f"FTP not provided. Estimated as {ftp_used}W via {est['method']}. "
+                        "TSS/IF/VI may be inaccurate vs a formal ramp test."
+                    )
+
+        if ftp_used is None:
+            out["sections"]["power"] = {
+                "available": False,
+                "reason": "FTP_NOT_PROVIDED_AND_NOT_ESTIMABLE",
+            }
+        else:
+            engine = PowerEngine(
+                ftp=ftp_used,
+                weight_kg=weight_kg,
+                ftp_source=ftp_source or "explicit",
+            )
+            power_result = engine.analyze(stream)
+            out["sections"]["power"] = power_result
+
+    # =========================================================================
+    # 2. ZONES (Coggan power + Friel HR + Seiler polarization)
+    # =========================================================================
+    zones_engine = ZonesEngine(ftp=ftp_used, lthr=lthr)
+    out["sections"]["zones"] = zones_engine.analyze(
+        stream,
+        vt1_w=vt1_w, vt2_w=vt2_w,
+        vt1_bpm=vt1_bpm, vt2_bpm=vt2_bpm,
+    )
+
+    # =========================================================================
+    # 3. COGGAN PHENOTYPE CLASSIFICATION (from MMP)
+    # =========================================================================
+    if power_result and power_result.get("status") == "success":
+        out["sections"]["classification"] = classify_from_mmp(
+            mmp_curve=power_result["mmp_curve"],
+            weight_kg=weight_kg,
+            gender=context.effective_gender(),
+            ftp=ftp_used,
+        )
+    else:
+        out["sections"]["classification"] = {
+            "available": False,
+            "reason": "NO_POWER_DATA_FOR_CLASSIFICATION",
+        }
+
+    # =========================================================================
+    # 4. HRV / DFA-α₁ ANALYSIS (requires RR data)
+    # =========================================================================
+    hrv_timeline = None
+    if getattr(stream, "has_rr", False):
+        # Convert ActivityStream RR format to the format hrv_engine expects:
+        # list of {"elapsed": t, "rr": [rr_ms_list]}
+        rr_samples = [
+            {"elapsed": float(stream.elapsed_s[i]), "rr": stream.rr_intervals[i]}
+            for i in range(stream.n_samples)
+            if stream.rr_intervals[i]
+        ]
+        if rr_samples:
+            try:
+                hrv_timeline = analyze_rr_stream(
+                    rr_samples,
+                    window_seconds=hrv_window_seconds,
+                    context=context,
+                )
+                out["sections"]["hrv"] = {
+                    "available": True,
+                    "n_windows": len(hrv_timeline),
+                    "timeline": hrv_timeline,
+                }
+            except Exception as exc:
+                out["sections"]["hrv"] = {
+                    "available": False,
+                    "reason": f"HRV_ANALYSIS_FAILED: {exc}",
+                }
+        else:
+            out["sections"]["hrv"] = {
+                "available": False,
+                "reason": "RR_INTERVALS_EMPTY",
+            }
+    else:
+        out["sections"]["hrv"] = {
+            "available": False,
+            "reason": "NO_RR_DATA_IN_STREAM",
+        }
+
+    # =========================================================================
+    # 5. CARDIAC RESPONSE (drift, decoupling, recovery, kinetics, CEI, ...)
+    # =========================================================================
+    if getattr(stream, "has_heart_rate", False) and getattr(stream, "has_power", False):
+        # Convert stream to ActivitySample list for cardiac_engine
+        samples = []
+        for i in range(stream.n_samples):
+            p = stream.power[i]
+            h = stream.heart_rate[i]
+            if p is None or h is None:
+                continue
+            samples.append(ActivitySample(
+                t=float(stream.elapsed_s[i]),
+                power=float(p),
+                hr=float(h),
+            ))
+        if samples:
+            cardiac = CardiacResponseAnalyzer(
+                weight=weight_kg,
+                context=context,
+                metabolic_snapshot=metabolic_snapshot,
+                hrv_timeline=hrv_timeline,
+            )
+            out["sections"]["cardiac"] = cardiac.analyze(samples)
+        else:
+            out["sections"]["cardiac"] = {
+                "available": False,
+                "reason": "NO_VALID_SAMPLES_AFTER_FILTERING",
+            }
+    else:
+        out["sections"]["cardiac"] = {
+            "available": False,
+            "reason": "MISSING_POWER_OR_HR",
+        }
+
+    # =========================================================================
+    # HEADLINE — the six metrics the coach checks daily
+    # =========================================================================
+    headline: Dict[str, Any] = {}
+
+    if power_result and power_result.get("status") == "success":
+        m = power_result["metrics"]
+        headline["ftp_w"] = ftp_used
+        headline["tss"] = m["tss"]
+        headline["intensity_factor"] = m["intensity_factor"]
+        headline["normalized_power"] = m["normalized_power"]
+        headline["wkg_average"] = m["wkg_average"]
+        headline["work_kj"] = m["work_kj"]
+        headline["wkg_5s"] = m.get("wkg_5s")
+        headline["wkg_5min"] = m.get("wkg_5min")
+        headline["wkg_20min"] = m.get("wkg_20min")
+
+    cardiac_section = out["sections"].get("cardiac", {})
+    if cardiac_section.get("status") == "success":
+        cs = cardiac_section.get("summary", {})
+        headline["cardiac_fitness_class"] = cs.get("fitness_class")
+        headline["cardiac_confidence"] = cs.get("confidence")
+        # Pull the worst drift from any steady segment (most informative)
+        drifts = [
+            d.get("drift_pct") for d in cardiac_section.get("metrics", {}).get("cardiac_drift", [])
+            if d.get("available")
+        ]
+        if drifts:
+            headline["worst_cardiac_drift_pct"] = max(drifts)
+        # Pull the worst decoupling
+        decoups = [
+            d.get("decoupling_pct") for d in cardiac_section.get("metrics", {}).get("aerobic_decoupling", [])
+            if d.get("available")
+        ]
+        if decoups:
+            headline["worst_aerobic_decoupling_pct"] = max(decoups)
+
+    polarization = out["sections"].get("zones", {}).get("seiler_polarization", {})
+    if polarization.get("available"):
+        headline["session_distribution"] = polarization.get("distribution_class")
+
+    classification = out["sections"].get("classification", {})
+    if classification.get("status") == "success":
+        headline["rider_phenotype"] = classification["overall"]["phenotype_code"]
+
+    out["headline"] = headline
+
+    return out
