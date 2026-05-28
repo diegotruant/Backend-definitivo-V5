@@ -15,6 +15,7 @@ GAP HANDLING STRATEGY:
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from io import BytesIO
 import numpy as np
 
 try:
@@ -263,6 +264,8 @@ def parse_fit_file_enhanced(
     fit_path: str,
     gap_short_s: float = 10.0,
     gap_long_s: float = 60.0,
+    check_crc: bool = True,
+    repair_synthetic_header: bool = True,
 ) -> ActivityStreamEnhanced:
     """
     Parse FIT file with gap detection and intelligent filling.
@@ -271,6 +274,11 @@ def parse_fit_file_enhanced(
         fit_path: Path to .fit file
         gap_short_s: Threshold for interpolation (default 10s)
         gap_long_s: Threshold for unreliable marking (default 60s)
+        check_crc: Whether fitparse should enforce FIT CRC validation.
+            Keep True for real files; synthetic datasets may intentionally
+            contain invalid CRCs and can be parsed with False.
+        repair_synthetic_header: Repair a known synthetic-file issue where the
+            FIT header declares 14 bytes but the data section starts at byte 12.
     
     Returns:
         ActivityStreamEnhanced with quality flags and gap summary
@@ -278,7 +286,23 @@ def parse_fit_file_enhanced(
     if not FITPARSE_AVAILABLE:
         raise RuntimeError("fitparse library not available — install with: pip install fitparse")
     
-    fitfile = fitparse.FitFile(fit_path)
+    raw = None
+    has_bad_synthetic_header = False
+    if repair_synthetic_header:
+        with open(fit_path, "rb") as fh:
+            raw = bytearray(fh.read())
+        has_bad_synthetic_header = (
+            len(raw) > 16
+            and raw[0] == 14
+            and bytes(raw[8:12]) == b".FIT"
+            and raw[12] & 0x40
+        )
+
+    if has_bad_synthetic_header:
+        raw[0] = 12
+        fitfile = fitparse.FitFile(BytesIO(raw), check_crc=False)
+    else:
+        fitfile = fitparse.FitFile(fit_path, check_crc=check_crc)
     
     # Extract session info
     session_dict = {}
