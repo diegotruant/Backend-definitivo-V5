@@ -130,18 +130,19 @@ def verify_package(package_dir: Path) -> List[str]:
     print(f"__all__ declares {len(all_list)} symbols")
     print(f"Imports {len(imports)} symbols from submodules")
     
-    # For each imported symbol, verify it exists in source module
+    # For each imported symbol, verify it exists in the source module. Relative
+    # imports are package-local; absolute imports resolve from the project root.
     for symbol_name, source_module in imports.items():
-        # Resolve module file
-        # ".module" → package_dir/module.py
-        # "module" → package_dir/module.py
         module_name = source_module.lstrip(".")
-        module_file = package_dir / f"{module_name}.py"
+        if source_module.startswith("."):
+            module_file = package_dir / f"{module_name}.py"
+        else:
+            module_file = package_dir.parent / f"{module_name}.py"
         
         if not module_file.exists():
             issues.append(
                 f"MISSING_FILE: {init_file.name} imports '{symbol_name}' "
-                f"from '{module_name}' but {module_file.name} does not exist"
+                f"from '{module_name}' but {module_file} does not exist"
             )
             continue
         
