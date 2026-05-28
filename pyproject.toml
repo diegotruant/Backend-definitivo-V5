@@ -62,5 +62,5 @@ include = ["engines*"]
 
 [tool.pytest.ini_options]
 testpaths = ["."]
-python_files = ["test_*.py"]
+python_files = ["pytest_*.py"]
 python_functions = ["test_*"]
