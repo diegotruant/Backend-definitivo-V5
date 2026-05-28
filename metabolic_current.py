@@ -12,10 +12,15 @@ Output: Current metabolic status (baseline + decayed)
 from typing import Dict, Any, List, Optional, Union
 from datetime import date, datetime
 
-# Import core engines (relative — this module is part of the engines package)
-from .metabolic_profiler import MetabolicProfiler
-from .athlete_context import AthleteContext
-from .detraining_engine import apply_detraining_model
+# Import core engines package-first, with flat-module compatibility fallback.
+try:
+    from .metabolic_profiler import MetabolicProfiler
+    from .athlete_context import AthleteContext
+    from .detraining_engine import apply_detraining_model
+except ImportError:  # pragma: no cover - compatibility path
+    from metabolic_profiler import MetabolicProfiler
+    from athlete_context import AthleteContext
+    from detraining_engine import apply_detraining_model
 
 
 def get_current_metabolic_status(
