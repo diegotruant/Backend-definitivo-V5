@@ -23,82 +23,81 @@ models are literature-informed and internally tested, but most tests use
 synthetic data or contract/range checks. There is not yet a documented external
 validation set against laboratory measurements.
 
-## High-priority bugs and scientific risks
+## Recently fixed high-priority issues
 
-### 1. W' recovery formula likely overestimates recovery
+The original audit identified five high-priority scientific bugs. They have now
+been fixed in code and covered by `test_scientific_bugfixes.py`.
 
-- File: `w_prime_balance_engine.py`
-- Risk: high
-- Issue: W' recovery below CP appears proportional to total W' rather than to
-  the remaining deficit `(W' - W'_bal)`.
-- Why it matters: W' balance is used to estimate depletion and recovery during
-  intervals. A wrong recovery equation can systematically distort interval
-  readiness and "fully depleted" flags.
-- Suggested fix:
-  - Use `recovery = (w_prime - current_balance) * (1 - exp(-dt / tau))`.
-  - Clamp balance to `[0, w_prime]`.
-  - Add a deterministic test against a known W'bal profile.
+### 1. W' recovery formula
 
-### 2. Kalman update does not consistently use the Mader observation model
+- Files: `w_prime_balance_engine.py`, `test_scientific_bugfixes.py`
+- Previous issue: W' recovery below CP was proportional to total W' rather than
+  to the remaining deficit.
+- Current status: **fixed**.
+- Current behavior:
+  - Recovery uses `(W' - W'_bal) * (1 - exp(-dt / tau))`.
+  - Balance is clamped to the available W' capacity.
+  - `fully_depleted` now uses a relative percentage threshold instead of a
+    fixed 100 J threshold.
 
-- File: `metabolic_kalman.py`
-- Risk: high
-- Issue: the automatic daily update path can call the Kalman update without
-  passing the metabolic profiler, so the observation model may fall back to a
-  simplified exponential approximation rather than the documented Mader forward
-  model.
-- Why it matters: the posterior VO2max/VLamax update can diverge from the
-  mathematical model described in the README and tests.
-- Suggested fix:
-  - Pass the profiler through `predict()` and `process_workout_history()`.
-  - Add tests showing that test anchors use the Mader observation model when a
-    profiler is provided.
+### 2. Kalman test-anchor update and Mader observation model
 
-### 3. Masked metabolic fields can crash or produce default-based outputs
+- Files: `metabolic_kalman.py`, `test_scientific_bugfixes.py`
+- Previous issue: automatic test-anchor updates could omit the profiler and
+  fall back to a simplified observation model.
+- Current status: **fixed**.
+- Current behavior:
+  - `MetabolicKalman.predict()` accepts an optional `profiler`.
+  - `process_workout_history()` passes the profiler through to automatic
+    test-anchor updates.
+  - Regression tests verify that the profiler forward model is called.
+
+### 3. Masked metabolic fields
 
 - Files:
   - `cardiac_engine.py`
   - `metabolic_profiler_phenotype.py`
   - `detraining_engine.py`
   - `metabolic_current.py`
-- Risk: high
-- Issue: the expressiveness gate can return `status == "success"` while some
-  fields such as `mlss_power_watts`, `estimated_vo2max`, or VLamax are `None`.
-  Some downstream modules cast these values to float or replace missing values
-  with generic defaults.
-- Why it matters:
-  - Potential runtime exceptions.
-  - Silent production of physiologically misleading values.
-  - Frontend/API consumers may receive apparently precise values derived from
-    defaults rather than measured or model-supported data.
-- Suggested fix:
-  - Treat masked fields as unavailable, not as generic defaults.
-  - Return `status: "partial"` or explicit `reliability` metadata.
-  - Use `unmasked_estimates` only for audit/debug, not for coach-facing values.
+  - `test_scientific_bugfixes.py`
+- Previous issue: `None` values from expressiveness masking could crash
+  downstream code or silently trigger generic defaults.
+- Current status: **fixed**.
+- Current behavior:
+  - Cardiac analysis skips MLSS cross-validation when MLSS is masked.
+  - Phenotype enhancement refuses to synthesize energy contributions from
+    generic defaults when VO2max or MLSS are masked.
+  - Detraining returns `status: "partial"` when reliable core metabolic fields
+    are unavailable.
 
-### 4. HRV threshold detection can misalign RR time and power time
+### 4. HRV threshold power alignment
 
-- File: `hrv_engine.py`
-- Risk: high
-- Issue: DFA-alpha1 window centers are derived from cumulative RR time, while
-  power is indexed as if the RR stream starts exactly at activity second zero.
-- Why it matters: if HR data starts late, has gaps, or is offset from power,
-  estimated VT1/VT2 power can be wrong.
-- Suggested fix:
-  - Use explicit FIT timestamps or elapsed seconds for RR and power.
-  - Interpolate power on the RR timeline instead of direct array indexing.
+- Files: `hrv_engine.py`, `test_scientific_bugfixes.py`
+- Previous issue: DFA-alpha1 window centers and power samples could be on
+  different time axes.
+- Current status: **fixed**.
+- Current behavior:
+  - RR windows can use elapsed activity time.
+  - Threshold power is interpolated on explicit power timestamps when provided.
+  - The fallback still works for simple 1 Hz arrays.
 
-### 5. Durability metrics compress time by removing zero-power samples
+### 5. Durability elapsed-time handling
 
-- File: `durability_engine.py`
-- Risk: high
-- Issue: removing all zero-power samples before first-hour/last-hour comparison
-  compresses the timeline.
-- Why it matters: stops, descents, traffic lights, or coasting can make the
-  "first hour" and "last hour" no longer represent real hours.
-- Suggested fix:
-  - Keep the original 1 Hz timeline.
-  - Use moving-time masks if needed, but preserve elapsed-time windows.
+- Files: `durability_engine.py`, `test_scientific_bugfixes.py`
+- Previous issue: removing zero-power samples compressed elapsed time and
+  distorted first-hour/last-hour comparisons.
+- Current status: **fixed**.
+- Current behavior:
+  - Durability uses elapsed-time windows.
+  - Zero-power samples remain part of the timeline.
+  - Regression tests verify first-hour and last-hour behavior with zeros.
+
+## Remaining high-priority scientific risks
+
+No known high-priority implementation bug from the original audit remains open.
+The main high-priority risk is now **external validation**: the backend still
+needs cohort-level comparisons against laboratory and field reference data
+before model-derived outputs should be interpreted as lab-grade measurements.
 
 ## Medium-priority mathematical and numerical risks
 
@@ -139,14 +138,17 @@ validation set against laboratory measurements.
 - Impact: inter-athlete comparison is not mass-normalized.
 - Suggested fix: either remove the parameter or implement a mass-specific model.
 
-### ACWR and monotony should expose uncertainty and caveats
+### ACWR and monotony should expose metric-contract uncertainty
 
 - File: `training_variability_engine.py`
 - Risk: medium
 - Issue: ACWR thresholds are debated in current sports-science literature and
   monotony becomes unstable when daily TSS variance approaches zero.
 - Impact: risk labels can be overinterpreted.
-- Suggested fix: expose `method: heuristic`, confidence, and edge-case flags.
+- Current status: partially addressed at architecture level by
+  `metric_contracts.py`, but not yet integrated into this specific module.
+- Suggested fix: attach the common `api_contract` / `uncertainty` fields and
+  expose edge-case flags for near-zero TSS variance.
 
 ## Lower-priority issues
 
@@ -205,20 +207,31 @@ Add functions that compare model estimates with lab data:
 Output should include bias, MAE, RMSE, confidence intervals, and Bland-Altman
 limits of agreement where enough samples exist.
 
-### 2. Stronger uncertainty reporting
+### 2. Extend unified uncertainty reporting
 
-Add a unified uncertainty object:
+Initial unified uncertainty reporting now exists in `metric_contracts.py` and is
+attached to several core outputs through `api_contract` and `uncertainty`
+fields. The next step is to extend that contract to all remaining engines.
 
-- point estimate
-- lower/upper interval
-- method
-- reliability tier
-- input coverage
-- reason for masking
-- validation source, if present
+Already introduced:
 
-This should be used by metabolic, HRV, cardiac, durability, and thermal
-outputs.
+- `MetricUncertainty`
+- `MetricEnvelope`
+- `ConfidenceLevel`
+- `build_uncertainty()`
+- `build_api_contract()`
+- `annotate_payload()`
+- `metric_envelope()`
+- `summarize_section_contracts()`
+
+Still recommended:
+
+- add validation source metadata when lab data was used;
+- attach intervals to more outputs, not only Bayesian summaries;
+- propagate source-stream quality and sample counts into every metric;
+- integrate the contract into `training_variability_engine.py`,
+  `metabolic_flexibility_engine.py`, `thermal_engine.py`,
+  `pedaling_balance.py`, and `lab_data.py`.
 
 ### 3. Public scientific provenance endpoint
 
@@ -292,14 +305,13 @@ contexts.
 
 ## Recommended implementation priority
 
-1. Fix W' recovery formula and tests.
-2. Fix Kalman profiler pass-through.
-3. Add strict handling for masked metabolic values.
-4. Preserve elapsed time in durability metrics.
-5. Align RR and power timelines for DFA threshold detection.
-6. Add lab-validation report functions.
-7. Add unified uncertainty/provenance objects.
-8. Expand HRV metrics and public API exports.
+1. Add lab-validation report functions.
+2. Extend `metric_contracts.py` integration to every remaining engine.
+3. Add scientific provenance lookup functions for API clients.
+4. Expand HRV metrics and public API exports.
+5. Add athlete-specific W' recovery tau estimation.
+6. Add alternative power-duration models and model comparison.
+7. Add environmental normalization and data-lineage metadata.
 
 ## Scientific positioning
 
