@@ -25,6 +25,7 @@ _SUBMODULE_ALIASES = [
     "metabolic_kalman",
     "metabolic_profiler",
     "metabolic_profiler_phenotype",
+    "metric_contracts",
     "mmp_quality",
     "neural_ode",
     "pedaling_balance",
@@ -89,6 +90,17 @@ from metabolic_kalman import (
 )
 from metabolic_profiler import ExpressivenessReport, MaderConstants, MetabolicProfiler
 from metabolic_profiler_phenotype import enhance_metabolic_snapshot_with_phenotype
+from metric_contracts import (
+    ConfidenceLevel,
+    MetricEnvelope,
+    MetricUncertainty,
+    annotate_payload,
+    build_api_contract,
+    build_uncertainty,
+    metric_envelope,
+    normalize_confidence,
+    summarize_section_contracts,
+)
 from mmp_quality import analyze_mmp_quality, clean_mmp, filter_mmp_by_window
 from neural_ode import (
     DynamicsTrainingResult,
@@ -139,6 +151,8 @@ __all__ = [
     "HeatAcclimationTrend",
     "KalmanTrajectory",
     "MaderConstants",
+    "MetricEnvelope",
+    "MetricUncertainty",
     "MetabolicKalman",
     "MetabolicProfiler",
     "MetabolicState",
@@ -166,10 +180,13 @@ __all__ = [
     "analyze_thermal_session",
     "analyze_w_prime_usage",
     "annotate",
+    "annotate_payload",
     "apply_detraining_model",
     "assess_data_quality",
     "bayesian_metabolic_snapshot",
     "build_workout_summary",
+    "build_api_contract",
+    "build_uncertainty",
     "calculate_acwr",
     "calculate_ctl_atl_tsb",
     "calculate_dfa_alpha1",
@@ -182,6 +199,7 @@ __all__ = [
     "classify_session",
     "clean_mmp",
     "clean_workout_data",
+    "ConfidenceLevel",
     "enhance_metabolic_snapshot_with_phenotype",
     "estimate_fat_oxidation_rate",
     "filter_mmp_by_window",
@@ -190,9 +208,12 @@ __all__ = [
     "generate_hourly_decay_curve",
     "get_current_metabolic_status",
     "mask_low_confidence",
+    "metric_envelope",
+    "normalize_confidence",
     "parse_fit_records_enhanced",
     "process_workout_history",
     "protocol_completeness",
     "should_display",
+    "summarize_section_contracts",
     "tier_for",
 ]

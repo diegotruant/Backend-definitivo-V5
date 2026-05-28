@@ -40,6 +40,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from datetime import datetime
 
+from metric_contracts import annotate_payload
+
 
 @dataclass
 class PosteriorSummary:
@@ -142,7 +144,12 @@ class BayesianMetabolicSnapshot:
             "context_used": self.context_used,
             "calculated_at": self.calculated_at,
         })
-        return d
+        return annotate_payload(
+            d,
+            module_name="bayesian_profiler",
+            method="adaptive_metropolis_mader",
+            confidence_field="bayesian_confidence",
+        )
 
 
 # =============================================================================

@@ -31,6 +31,8 @@ APPLICATIONS:
 from typing import Dict, Any, List, Tuple
 import numpy as np
 
+from metric_contracts import annotate_payload
+
 
 # =============================================================================
 # DURABILITY INDEX (Riis & Paton 2022)
@@ -61,15 +63,20 @@ def calculate_durability_index(
     duration_hours = duration_seconds / 3600
     
     if duration_hours < min_duration_hours:
-        return {
+        return annotate_payload({
             "status": "insufficient_duration",
             "duration_hours": round(duration_hours, 1),
             "required_hours": min_duration_hours,
-        }
+        }, module_name="durability_engine", method="elapsed_time_durability_index", confidence=0.0)
     
     power = np.asarray(power_stream[:duration_seconds], dtype=float)
     if power.size == 0:
-        return {"status": "invalid_data", "reason": "empty_power_stream"}
+        return annotate_payload(
+            {"status": "invalid_data", "reason": "empty_power_stream"},
+            module_name="durability_engine",
+            method="elapsed_time_durability_index",
+            confidence=0.0,
+        )
 
     # Preserve elapsed time. Removing zeros compresses stops/coasting and makes
     # the first/last hour no longer represent real clock-time windows.
@@ -82,12 +89,22 @@ def calculate_durability_index(
         last_hour = power[midpoint:]
 
     if first_hour.size == 0 or last_hour.size == 0:
-        return {"status": "invalid_data", "reason": "insufficient_power_samples"}
+        return annotate_payload(
+            {"status": "invalid_data", "reason": "insufficient_power_samples"},
+            module_name="durability_engine",
+            method="elapsed_time_durability_index",
+            confidence=0.0,
+        )
 
     first_hour_avg = float(np.nanmean(first_hour))
     last_hour_avg = float(np.nanmean(last_hour))
     if not np.isfinite(first_hour_avg) or not np.isfinite(last_hour_avg):
-        return {"status": "invalid_data", "reason": "non_finite_power_window"}
+        return annotate_payload(
+            {"status": "invalid_data", "reason": "non_finite_power_window"},
+            module_name="durability_engine",
+            method="elapsed_time_durability_index",
+            confidence=0.0,
+        )
     
     # Durability Index
     durability_index = (last_hour_avg / first_hour_avg) * 100 if first_hour_avg > 0 else 0
@@ -109,7 +126,7 @@ def calculate_durability_index(
     decay_watts = first_hour_avg - last_hour_avg
     decay_pct_per_hour = decay_watts / duration_hours
     
-    return {
+    result = {
         "status": "success",
         "durability_index": round(durability_index, 1),
         "classification": classification,
@@ -120,6 +137,14 @@ def calculate_durability_index(
         "decay_watts_per_hour": round(decay_pct_per_hour, 1),
         "duration_hours": round(duration_hours, 1),
     }
+    confidence = min(0.9, 0.55 + max(0.0, min(duration_hours, 4.0) - 2.0) * 0.15)
+    return annotate_payload(
+        result,
+        module_name="durability_engine",
+        method="elapsed_time_durability_index",
+        confidence=confidence,
+        limitations=["Durability thresholds are heuristic and context-sensitive."],
+    )
 
 
 # =============================================================================

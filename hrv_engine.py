@@ -45,6 +45,7 @@ import numpy as np
 # e la diagnostica regressiva (R², stderr, CI) provengono dalla stessa pipeline.
 from engines.hrv_dfa.analysis import clean_rr_intervals
 from engines.athlete_context import AthleteContext
+from metric_contracts import annotate_payload
 
 
 # =============================================================================
@@ -946,11 +947,11 @@ def detect_thresholds_from_activity(
         context=context,
     )
     if not results:
-        return {
+        return annotate_payload({
             "vt1": {"detected": False},
             "vt2": {"detected": False},
             "message": "No valid DFA data."
-        }
+        }, module_name="hrv_engine", method="dfa_alpha1_threshold_detection", confidence=0.0)
 
     vt1_th, vt2_th = _resolve_dfa_thresholds(context)
     confidence = _resolve_confidence(context)
@@ -979,7 +980,7 @@ def detect_thresholds_from_activity(
         if r["metadata"].get("r_squared") is not None
     ]
 
-    return {
+    result = {
         "vt1": {
             "detected": vt1_point is not None,
             "time_seconds": vt1_t,
@@ -1023,3 +1024,15 @@ def detect_thresholds_from_activity(
             "power_timestamps_provided": power_timestamps is not None,
         }
     }
+    confidence_score = {
+        "HIGH": 0.9,
+        "MEDIUM": 0.7,
+        "LOW": 0.45,
+        "NONE": 0.0,
+    }.get(str(confidence).upper(), 0.7)
+    return annotate_payload(
+        result,
+        module_name="hrv_engine",
+        method="dfa_alpha1_threshold_detection",
+        confidence=confidence_score,
+    )

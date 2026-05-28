@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from engines.athlete_context import AthleteContext
+from metric_contracts import annotate_payload
 
 
 @dataclass(frozen=True)
@@ -515,6 +516,17 @@ class MetabolicProfiler:
         """Attach the MMP quality audit if it was produced."""
         if audit is not None:
             snap["mmp_quality"] = audit
+        annotate_payload(
+            snap,
+            module_name="metabolic_profiler",
+            method="mader_least_squares",
+            confidence_field="confidence_score",
+            limitations=(
+                ["One or more metabolic outputs were masked by expressiveness gates."]
+                if snap.get("expressiveness", {}).get("fully_expressive") is False
+                else []
+            ),
+        )
         return snap
     
     def enhance_with_phenotype(

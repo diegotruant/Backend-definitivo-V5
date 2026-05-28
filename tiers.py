@@ -111,6 +111,7 @@ ENGINE_TIERS: Dict[str, Tier] = {
     "metabolic_current":             Tier.HEURISTIC,  # combines MODEL + HEURISTIC
     "explainability_engine":         Tier.HEURISTIC,
     "chart_builder":                 Tier.REFERENCE,  # pass-through formatting
+    "metric_contracts":              Tier.REFERENCE,
 }
 
 

@@ -15,6 +15,8 @@ MODEL:
 from typing import List, Dict, Any
 import numpy as np
 
+from metric_contracts import metric_envelope
+
 
 def calculate_w_prime_balance(
     power_stream: List[float],
@@ -63,6 +65,15 @@ def analyze_w_prime_usage(
         "min_balance_pct": round(min_pct, 1),
         "critical_depletions_count": critical_depletions,
         "fully_depleted": min_pct < 5.0,
+        "metric": metric_envelope(
+            "w_prime_min_balance",
+            round(min_balance, 0),
+            unit="J",
+            module_name="w_prime_balance_engine",
+            method="skiba_w_prime_balance",
+            confidence=0.75,
+            metadata={"w_prime_j": w_prime},
+        ),
     }
 
 

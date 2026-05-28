@@ -45,6 +45,7 @@ py-modules = [
     "metabolic_kalman",
     "metabolic_profiler",
     "metabolic_profiler_phenotype",
+    "metric_contracts",
     "mmp_quality",
     "neural_ode",
     "pedaling_balance",

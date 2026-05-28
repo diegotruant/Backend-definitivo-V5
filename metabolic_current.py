@@ -12,6 +12,8 @@ Output: Current metabolic status (baseline + decayed)
 from typing import Dict, Any, List, Optional, Union
 from datetime import date, datetime
 
+from metric_contracts import annotate_payload
+
 # Import core engines package-first, with flat-module compatibility fallback.
 try:
     from .metabolic_profiler import MetabolicProfiler
@@ -103,11 +105,11 @@ def get_current_metabolic_status(
     baseline_snapshot = profiler.generate_metabolic_snapshot(historical_mmp)
     
     if baseline_snapshot.get("status") != "success":
-        return {
+        return annotate_payload({
             "status": "error",
             "error": "Failed to generate baseline metabolic snapshot",
             "details": baseline_snapshot,
-        }
+        }, module_name="metabolic_current", method="mmp_detraining_current_status", confidence=0.0)
     
     # Apply detraining model
     current_status = apply_detraining_model(
@@ -117,7 +119,12 @@ def get_current_metabolic_status(
     )
     
     if current_status.get("status") != "success":
-        return current_status
+        return annotate_payload(
+            current_status,
+            module_name="metabolic_current",
+            method="mmp_detraining_current_status",
+            confidence=0.0,
+        )
     
     # Add metadata. We report the EFFECTIVE values (the ones actually used by
     # the model after resolution/defaulting), not the raw user input — so that
@@ -136,7 +143,13 @@ def get_current_metabolic_status(
         "confidence_score": baseline_snapshot.get("confidence_score"),
     }
     
-    return current_status
+    return annotate_payload(
+        current_status,
+        module_name="metabolic_current",
+        method="mmp_detraining_current_status",
+        confidence=current_status.get("uncertainty", {}).get("confidence_score"),
+        limitations=["Combines model-derived MMP estimates with heuristic detraining."],
+    )
 
 
 # =============================================================================

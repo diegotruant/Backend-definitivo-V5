@@ -19,6 +19,8 @@ from typing import Dict, Any, Optional, List
 from datetime import date, timedelta
 import numpy as np
 
+from metric_contracts import annotate_payload
+
 
 # =============================================================================
 # DECAY PARAMETERS (from literature)
@@ -199,7 +201,7 @@ def apply_detraining_model(
     }
     unavailable = [name for name, value in required_fields.items() if value is None]
     if unavailable:
-        return {
+        return annotate_payload({
             "status": "partial",
             "detraining_applied": False,
             "reference_date": today.isoformat(),
@@ -215,7 +217,7 @@ def apply_detraining_model(
                 "expressiveness": baseline_snapshot.get("expressiveness"),
                 "unmasked_estimates": baseline_snapshot.get("unmasked_estimates"),
             },
-        }
+        }, module_name="detraining_engine", method="ctl_decay_model", confidence=0.0)
 
     vo2max_baseline = required_fields["estimated_vo2max"]
     vlamax_baseline = required_fields["estimated_vlamax_mmol_L_s"]
@@ -251,7 +253,7 @@ def apply_detraining_model(
     else:
         status = "IMPROVING"
     
-    return {
+    result = {
         "status": "success",
         "detraining_applied": True,
         "reference_date": today.isoformat(),
@@ -290,6 +292,14 @@ def apply_detraining_model(
         # Recommendations
         "recommendations": _generate_recommendations(tl, status),
     }
+    confidence = 0.65 if tl["days_since_last"] <= 14 else 0.5
+    return annotate_payload(
+        result,
+        module_name="detraining_engine",
+        method="ctl_decay_model",
+        confidence=confidence,
+        limitations=["Heuristic detraining rates; not lab-validated."],
+    )
 
 
 def _generate_recommendations(tl: Dict[str, float], status: str) -> List[str]:
