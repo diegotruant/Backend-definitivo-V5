@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68.0"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "ddtraining-digital-twin"
@@ -20,6 +20,41 @@ pdf = ["pypdf>=3.0"]
 dev = [
     "pytest>=7.0",
     "pypdf>=3.0",
+]
+
+[tool.setuptools]
+py-modules = [
+    "analysis",
+    "athlete_context",
+    "audit",
+    "bayesian_profiler",
+    "cardiac_engine",
+    "chart_builder",
+    "coggan_classifier",
+    "data_quality_engine",
+    "detraining_engine",
+    "durability_engine",
+    "efforts_analyzer",
+    "explainability_engine",
+    "fit_parser",
+    "hrv_engine",
+    "interval_detector",
+    "lab_data",
+    "metabolic_current",
+    "metabolic_flexibility_engine",
+    "metabolic_kalman",
+    "metabolic_profiler",
+    "metabolic_profiler_phenotype",
+    "mmp_quality",
+    "neural_ode",
+    "pedaling_balance",
+    "power_engine",
+    "thermal_engine",
+    "tiers",
+    "training_variability_engine",
+    "w_prime_balance_engine",
+    "workout_summary",
+    "zones_engine",
 ]
 
 [tool.setuptools.packages.find]
