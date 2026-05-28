@@ -437,6 +437,7 @@ def _sliding_dfa_local(
     rr_winsorized_raw: np.ndarray,
     window_s: float,
     step_s: float,
+    beat_times_s: Optional[np.ndarray] = None,
 ) -> List[Dict[str, Any]]:
     """
     Sliding DFA-α₁ con diagnostica E qualità per-finestra.
@@ -451,15 +452,22 @@ def _sliding_dfa_local(
     if rr_corrected.size < _MIN_BEATS_DFA:
         return []
 
-    # Tempo cumulativo per ogni beat (s), basato sulla serie corretta
-    t_beats = np.cumsum(rr_corrected) / 1000.0
+    # Beat timestamps in elapsed activity seconds when available; otherwise
+    # fall back to cumulative RR time starting at zero.
+    if beat_times_s is not None and beat_times_s.size == rr_corrected.size:
+        t_beats = np.asarray(beat_times_s, dtype=float)
+        if not np.all(np.diff(t_beats) >= -1e-6):
+            t_beats = np.cumsum(rr_corrected) / 1000.0
+    else:
+        t_beats = np.cumsum(rr_corrected) / 1000.0
     total_s = float(t_beats[-1])
+    first_s = max(0.0, float(t_beats[0]))
 
     if total_s < window_s:
         return []
 
     out: List[Dict[str, Any]] = []
-    t_start = 0.0
+    t_start = first_s
     while t_start + window_s <= total_s + 1e-6:
         t_end = t_start + window_s
         mask = (t_beats >= t_start) & (t_beats < t_end)
@@ -559,10 +567,44 @@ def _apply_hysteresis_status(alpha_series: List[float], vt1: float, vt2: float) 
     return statuses
 
 
+def _power_at_elapsed(
+    power_data: List[float],
+    elapsed_s: float,
+    power_timestamps: Optional[List[float]] = None,
+) -> Optional[float]:
+    """Interpolate power on the same elapsed-time axis used by RR windows."""
+    if not power_data:
+        return None
+
+    power = np.asarray(power_data, dtype=float)
+    if power_timestamps is None:
+        times = np.arange(power.size, dtype=float)
+    else:
+        times = np.asarray(power_timestamps, dtype=float)
+        if times.size != power.size:
+            return None
+
+    valid = np.isfinite(times) & np.isfinite(power)
+    if valid.sum() == 0:
+        return None
+
+    times = times[valid]
+    power = power[valid]
+    order = np.argsort(times)
+    times = times[order]
+    power = power[order]
+
+    if elapsed_s < times[0] or elapsed_s > times[-1]:
+        return None
+
+    return float(np.interp(elapsed_s, times, power))
+
+
 def _detect_threshold_crossing(
     results: List[Dict[str, Any]],
     threshold: float,
     power_data: Optional[List[float]] = None,
+    power_timestamps: Optional[List[float]] = None,
     persistence_windows: int = _PERSISTENCE_WINDOWS,
 ) -> Tuple[Optional[Dict[str, Any]], Optional[int], Optional[float]]:
     """
@@ -603,29 +645,25 @@ def _detect_threshold_crossing(
         if not ok:
             continue
 
-        t_curr = int(curr["timestamp"])
+        t_curr_float = float(curr["timestamp"])
+        t_curr = int(round(t_curr_float))
         power_at_threshold: Optional[float] = None
 
         if power_data is not None:
-            t_prev = int(prev["timestamp"])
-            has_prev = 0 <= t_prev < len(power_data)
-            has_curr = 0 <= t_curr < len(power_data)
+            t_prev_float = float(prev["timestamp"])
+            p_prev = _power_at_elapsed(power_data, t_prev_float, power_timestamps)
+            p_curr = _power_at_elapsed(power_data, t_curr_float, power_timestamps)
 
-            if has_prev and has_curr:
-                p_prev = power_data[t_prev]
-                p_curr = power_data[t_curr]
-                if p_prev is not None and p_curr is not None:
-                    denom = (curr_a1 - prev_a1)
-                    if abs(denom) > 1e-9:
-                        power_at_threshold = float(
-                            p_prev + (threshold - prev_a1) * (p_curr - p_prev) / denom
-                        )
-                    else:
-                        power_at_threshold = float(p_prev)
-            elif has_curr:
-                p_curr = power_data[t_curr]
-                if p_curr is not None:
-                    power_at_threshold = float(p_curr)
+            if p_prev is not None and p_curr is not None:
+                denom = (curr_a1 - prev_a1)
+                if abs(denom) > 1e-9:
+                    power_at_threshold = float(
+                        p_prev + (threshold - prev_a1) * (p_curr - p_prev) / denom
+                    )
+                else:
+                    power_at_threshold = float(p_prev)
+            elif p_curr is not None:
+                power_at_threshold = float(p_curr)
 
         return curr, t_curr, power_at_threshold
 
@@ -656,8 +694,27 @@ def analyze_rr_stream(
         return []
 
     all_rr: List[float] = []
+    beat_times: List[float] = []
+    all_samples_have_elapsed = True
     for sample in rr_samples:
-        all_rr.extend(sample.get("rr") or [])
+        rr_values = [float(rr) for rr in (sample.get("rr") or [])]
+        all_rr.extend(rr_values)
+
+        elapsed_raw = sample.get("elapsed", sample.get("elapsed_s"))
+        try:
+            elapsed_s = float(elapsed_raw)
+        except (TypeError, ValueError):
+            all_samples_have_elapsed = False
+            continue
+
+        # FIT RR intervals are associated with a sample timestamp. Place each
+        # beat on elapsed activity time so downstream power interpolation uses
+        # the same clock as the power stream.
+        start_s = elapsed_s - sum(rr_values) / 1000.0
+        cursor_s = start_s
+        for rr in rr_values:
+            cursor_s += rr / 1000.0
+            beat_times.append(cursor_s)
 
     if len(all_rr) < _MIN_BEATS_DFA:
         return []
@@ -687,6 +744,9 @@ def analyze_rr_stream(
             rr_winsorized_raw=rr_w,
             window_s=float(window_seconds),
             step_s=float(step_seconds),
+            beat_times_s=np.array(beat_times, dtype=float)
+            if all_samples_have_elapsed and len(beat_times) == len(all_rr)
+            else None,
         )
     except Exception as exc:
         warnings.warn(f"Sliding DFA failed: {exc}")
@@ -867,6 +927,7 @@ def calculate_dfa_alpha1(
 def detect_thresholds_from_activity(
     rr_data: List[Dict[str, Any]],
     power_data: Optional[List[float]] = None,
+    power_timestamps: Optional[List[float]] = None,
     context: Optional[AthleteContext] = None,
     window_seconds: int = 120,
     step_seconds: float = 10.0,
@@ -894,8 +955,12 @@ def detect_thresholds_from_activity(
     vt1_th, vt2_th = _resolve_dfa_thresholds(context)
     confidence = _resolve_confidence(context)
 
-    vt1_point, vt1_t, vt1_p = _detect_threshold_crossing(results, vt1_th, power_data)
-    vt2_point, vt2_t, vt2_p = _detect_threshold_crossing(results, vt2_th, power_data)
+    vt1_point, vt1_t, vt1_p = _detect_threshold_crossing(
+        results, vt1_th, power_data, power_timestamps
+    )
+    vt2_point, vt2_t, vt2_p = _detect_threshold_crossing(
+        results, vt2_th, power_data, power_timestamps
+    )
 
     # Quality aggregato su TUTTE le finestre valide
     art_ratios = [
@@ -955,5 +1020,6 @@ def detect_thresholds_from_activity(
             "persistence_windows": _PERSISTENCE_WINDOWS,
             "dfa_n_min": _DFA_N_MIN,
             "dfa_n_max": _DFA_N_MAX,
+            "power_timestamps_provided": power_timestamps is not None,
         }
     }

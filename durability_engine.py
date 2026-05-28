@@ -67,16 +67,27 @@ def calculate_durability_index(
             "required_hours": min_duration_hours,
         }
     
-    # Remove zeros
-    power_clean = [p for p in power_stream if p > 0]
-    
-    # First hour average (samples 0:3600)
-    first_hour = power_clean[:3600] if len(power_clean) > 3600 else power_clean[:len(power_clean)//2]
-    first_hour_avg = np.mean(first_hour)
-    
-    # Last hour average (last 3600 samples)
-    last_hour = power_clean[-3600:] if len(power_clean) > 3600 else power_clean[len(power_clean)//2:]
-    last_hour_avg = np.mean(last_hour)
+    power = np.asarray(power_stream[:duration_seconds], dtype=float)
+    if power.size == 0:
+        return {"status": "invalid_data", "reason": "empty_power_stream"}
+
+    # Preserve elapsed time. Removing zeros compresses stops/coasting and makes
+    # the first/last hour no longer represent real clock-time windows.
+    if power.size >= 7200:
+        first_hour = power[:3600]
+        last_hour = power[-3600:]
+    else:
+        midpoint = power.size // 2
+        first_hour = power[:midpoint]
+        last_hour = power[midpoint:]
+
+    if first_hour.size == 0 or last_hour.size == 0:
+        return {"status": "invalid_data", "reason": "insufficient_power_samples"}
+
+    first_hour_avg = float(np.nanmean(first_hour))
+    last_hour_avg = float(np.nanmean(last_hour))
+    if not np.isfinite(first_hour_avg) or not np.isfinite(last_hour_avg):
+        return {"status": "invalid_data", "reason": "non_finite_power_window"}
     
     # Durability Index
     durability_index = (last_hour_avg / first_hour_avg) * 100 if first_hour_avg > 0 else 0

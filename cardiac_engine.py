@@ -651,7 +651,13 @@ def cross_validate_thresholds(
     # HR @ MLSS power: average HR during samples whose smoothed power is
     # within ±5% of MLSS, requiring at least 60 such samples
     if metabolic_snapshot and metabolic_snapshot.get("status") == "success":
-        mlss_w = float(metabolic_snapshot["mlss_power_watts"])
+        raw_mlss = metabolic_snapshot.get("mlss_power_watts")
+        if raw_mlss is None:
+            return out
+        try:
+            mlss_w = float(raw_mlss)
+        except (TypeError, ValueError):
+            return out
         band_lo, band_hi = mlss_w * 0.95, mlss_w * 1.05
         mask = (power >= band_lo) & (power <= band_hi)
         if mask.sum() >= 60:

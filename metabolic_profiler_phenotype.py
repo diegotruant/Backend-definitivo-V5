@@ -226,9 +226,18 @@ def enhance_metabolic_snapshot_with_phenotype(
         "description": params["description"],
     }
     
-    # Read real fields from the snapshot produced by MetabolicProfiler
-    vo2max = snapshot.get("estimated_vo2max", 50.0)
-    mlss_w = snapshot.get("mlss_power_watts", 250.0)
+    # Read only reliable, unmasked fields from the profiler output. If the
+    # expressiveness gate masked these values, do not synthesize coach-facing
+    # energy contributions from generic defaults.
+    vo2max = snapshot.get("estimated_vo2max")
+    mlss_w = snapshot.get("mlss_power_watts")
+    if vo2max is None or mlss_w is None:
+        snapshot["phenotype_enhancement_status"] = "insufficient_metabolic_fields"
+        snapshot["phenotype_enhancement_reason"] = (
+            "estimated_vo2max and mlss_power_watts must be reliable."
+        )
+        snapshot["energy_contributions"] = None
+        return snapshot
     
     # Resolve weight (not in snapshot — pass explicitly or default)
     weight = weight_kg if weight_kg is not None else 75.0

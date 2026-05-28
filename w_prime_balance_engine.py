@@ -8,7 +8,7 @@ Tracks W' (anaerobic work capacity) depletion and reconstitution during interval
 
 MODEL:
 - Depletion: W'_bal -= (Power - CP) × dt
-- Reconstitution: W'_bal += W' × (1 - exp(-dt/τ))
+- Reconstitution: W'_bal += (W' - W'_bal) × (1 - exp(-dt/τ))
 - Tau (τ) = 546s (Skiba default) or athlete-specific
 """
 
@@ -37,8 +37,8 @@ def calculate_w_prime_balance(
             depletion = (p - cp) * dt
             new_balance = max(0, balance[-1] - depletion)
         else:
-            # Reconstitution
-            recovery = w_prime * (1 - np.exp(-dt / tau))
+            # Reconstitution is proportional to the remaining W' deficit.
+            recovery = (w_prime - balance[-1]) * (1 - np.exp(-dt / tau))
             new_balance = min(w_prime, balance[-1] + recovery)
         
         balance.append(new_balance)
@@ -62,7 +62,7 @@ def analyze_w_prime_usage(
         "min_balance_j": round(min_balance, 0),
         "min_balance_pct": round(min_pct, 1),
         "critical_depletions_count": critical_depletions,
-        "fully_depleted": min_balance < 100,
+        "fully_depleted": min_pct < 5.0,
     }
 
 

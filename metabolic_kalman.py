@@ -322,7 +322,7 @@ class MetabolicKalman:
         # Record initial state
         self._record_state(observation=False, stimulus=None)
     
-    def predict(self, daily_input: DailyInput) -> MetabolicState:
+    def predict(self, daily_input: DailyInput, profiler=None) -> MetabolicState:
         """
         Predict step: advance state by one day with decay + stimulus.
         
@@ -330,6 +330,9 @@ class MetabolicKalman:
         ----------
         daily_input : DailyInput
             Training stimulus for this day.
+        profiler : MetabolicProfiler, optional
+            If provided, test-anchor updates use the full Mader observation
+            model instead of the simplified fallback.
         
         Returns
         -------
@@ -386,7 +389,7 @@ class MetabolicKalman:
         
         # If the daily input has test anchors, also do an update
         if daily_input.has_test:
-            state = self.update(daily_input.test_anchors)
+            state = self.update(daily_input.test_anchors, profiler=profiler)
         
         return state
     
@@ -698,11 +701,6 @@ def process_workout_history(
     )
     
     for di in daily_inputs:
-        if di.has_test and profiler:
-            # Set profiler for the update step
-            kalman.predict(di)
-            # update is called automatically inside predict when has_test
-        else:
-            kalman.predict(di)
+        kalman.predict(di, profiler=profiler)
     
     return kalman.get_trajectory()

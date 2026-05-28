@@ -56,6 +56,17 @@ CTL_MAINTENANCE = 40.0  # TSS/day — maintaining fitness
 CTL_PARTIAL = 20.0      # TSS/day — slow decay
 
 
+def _reliable_number(snapshot: Dict[str, Any], field: str) -> Optional[float]:
+    """Return a numeric snapshot field only if it was not masked."""
+    value = snapshot.get(field)
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 # =============================================================================
 # TRAINING LOAD CALCULATION (CTL/ATL/TSB)
 # =============================================================================
@@ -176,11 +187,40 @@ def apply_detraining_model(
     # Calculate training load
     tl = calculate_ctl_atl_tsb(workout_history, today)
     
-    # Apply decay to each parameter
-    vo2max_baseline = baseline_snapshot.get("estimated_vo2max", 50.0)
-    vlamax_baseline = baseline_snapshot.get("estimated_vlamax_mmol_L_s", 0.5)
-    mlss_baseline = baseline_snapshot.get("mlss_power_watts", 250.0)
-    map_baseline = baseline_snapshot.get("map_aerobic_watts", 400.0)
+    # Apply decay only to reliable, unmasked model outputs. Silent defaults
+    # would make API consumers see precise-looking values with no data support.
+    required_fields = {
+        "estimated_vo2max": _reliable_number(baseline_snapshot, "estimated_vo2max"),
+        "estimated_vlamax_mmol_L_s": _reliable_number(
+            baseline_snapshot, "estimated_vlamax_mmol_L_s"
+        ),
+        "mlss_power_watts": _reliable_number(baseline_snapshot, "mlss_power_watts"),
+        "map_aerobic_watts": _reliable_number(baseline_snapshot, "map_aerobic_watts"),
+    }
+    unavailable = [name for name, value in required_fields.items() if value is None]
+    if unavailable:
+        return {
+            "status": "partial",
+            "detraining_applied": False,
+            "reference_date": today.isoformat(),
+            "reason": "INSUFFICIENT_RELIABLE_METABOLIC_FIELDS",
+            "unavailable_fields": unavailable,
+            "training_load": {
+                "ctl": tl["ctl"],
+                "atl": tl["atl"],
+                "tsb": tl["tsb"],
+                "days_since_last_workout": tl["days_since_last"],
+            },
+            "baseline_snapshot": {
+                "expressiveness": baseline_snapshot.get("expressiveness"),
+                "unmasked_estimates": baseline_snapshot.get("unmasked_estimates"),
+            },
+        }
+
+    vo2max_baseline = required_fields["estimated_vo2max"]
+    vlamax_baseline = required_fields["estimated_vlamax_mmol_L_s"]
+    mlss_baseline = required_fields["mlss_power_watts"]
+    map_baseline = required_fields["map_aerobic_watts"]
     
     vo2max_decay = calculate_decay_factor(tl["days_since_last"], tl["ctl"], "vo2max")
     vlamax_decay = calculate_decay_factor(tl["days_since_last"], tl["ctl"], "vlamax")
@@ -195,8 +235,8 @@ def apply_detraining_model(
     
     # FatMax paradox: can improve during detraining if baseline was too high-intensity
     # Simple model: FatMax increases slightly if CTL drops from high levels
-    fatmax_baseline = baseline_snapshot.get("fatmax_power_watts", 180.0)
-    if tl["ctl"] < 30 and tl["days_since_last"] > 7:
+    fatmax_baseline = _reliable_number(baseline_snapshot, "fatmax_power_watts")
+    if fatmax_baseline is not None and tl["ctl"] < 30 and tl["days_since_last"] > 7:
         fatmax_current = fatmax_baseline * 1.05  # +5% (aerobic metabolism shift)
     else:
         fatmax_current = fatmax_baseline
@@ -229,14 +269,14 @@ def apply_detraining_model(
         "current_vo2max": round(vo2max_current, 1),
         "current_vlamax": round(vlamax_current, 2),
         "current_mlss_watts": round(mlss_current, 0),
-        "current_fatmax_watts": round(fatmax_current, 0),
+        "current_fatmax_watts": round(fatmax_current, 0) if fatmax_current is not None else None,
         "current_map_watts": round(map_current, 0),
         
         # Baseline (peak) values
         "baseline_vo2max": round(vo2max_baseline, 1),
         "baseline_vlamax": round(vlamax_baseline, 2),
         "baseline_mlss_watts": round(mlss_baseline, 0),
-        "baseline_fatmax_watts": round(fatmax_baseline, 0),
+        "baseline_fatmax_watts": round(fatmax_baseline, 0) if fatmax_baseline is not None else None,
         "baseline_map_watts": round(map_baseline, 0),
         
         # Decay percentages
