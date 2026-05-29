@@ -44,7 +44,8 @@ FIT file → fit_parser → interval_detector
 ```
 
 Additional engines: `pedaling_balance` (L/R), `thermal_engine` (body-temperature sensor),
-`mmp_quality`, `expressiveness`, `protocol_completeness`.
+`race_prediction_engine` (GPX race simulation), `mmp_quality`,
+`expressiveness`, `protocol_completeness`.
 
 ## What's new
 
@@ -61,6 +62,9 @@ Additional engines: `pedaling_balance` (L/R), `thermal_engine` (body-temperature
 - **`lab_data`**: Universal intake for lab results (spirometry systems,
   metabolic profiling platforms, lactate analyzers, any source). Manual entry, PDF
   parsing, or JSON API. Feeds into Kalman as gold-standard observation.
+- **`race_prediction_engine`**: GPX route ingestion for distance, elevation and
+  climb profile; simulates race time, energy demand, fueling needs and pacing
+  strategy from athlete power/metabolic inputs.
 
 ### v4.0.0 — Bayesian Metabolic Profiler
 
