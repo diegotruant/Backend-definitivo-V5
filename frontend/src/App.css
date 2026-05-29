@@ -1,0 +1,429 @@
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 292px minmax(0, 1fr);
+  background:
+    radial-gradient(circle at top left, rgba(46, 160, 255, 0.18), transparent 34rem),
+    radial-gradient(circle at 80% 10%, rgba(42, 211, 158, 0.14), transparent 28rem),
+    var(--bg);
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 28px;
+  border-right: 1px solid var(--line);
+  background: rgba(7, 13, 24, 0.78);
+  backdrop-filter: blur(22px);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.brand {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.brand-mark {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  color: #05111f;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 16px 50px rgba(42, 211, 158, 0.24);
+}
+
+.brand strong,
+.brand span {
+  display: block;
+}
+
+.brand strong {
+  color: var(--text);
+  font-size: 18px;
+}
+
+.brand span {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.nav {
+  display: grid;
+  gap: 10px;
+}
+
+.nav button,
+.link-button {
+  border: 0;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  font: inherit;
+}
+
+.nav button {
+  text-align: left;
+  padding: 13px 14px;
+  border-radius: 14px;
+  transition: 0.2s ease;
+}
+
+.nav button:hover,
+.nav button.active {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.sidebar-card,
+.kpi,
+.panel,
+.metric-card,
+.athlete-hero {
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(17, 27, 45, 0.94), rgba(10, 17, 30, 0.94));
+  box-shadow: var(--shadow);
+}
+
+.sidebar-card {
+  margin-top: auto;
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.sidebar-card span,
+.sidebar-card small,
+.kpi span,
+.kpi small,
+.panel-header span,
+.metric-card span,
+.metric-card small,
+.hero-stats span {
+  color: var(--muted);
+}
+
+.sidebar-card strong {
+  display: block;
+  color: var(--text);
+  font-size: 26px;
+  margin: 6px 0 2px;
+}
+
+.workspace {
+  padding: 32px;
+  display: grid;
+  gap: 24px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.topbar h1 {
+  margin: 12px 0 8px;
+  font-size: clamp(34px, 5vw, 62px);
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+  color: var(--text);
+}
+
+.topbar p {
+  max-width: 760px;
+  color: var(--muted);
+  margin: 0;
+}
+
+select,
+input {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  outline: none;
+}
+
+select {
+  min-width: 210px;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.kpi {
+  border-radius: 24px;
+  padding: 22px;
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi::after {
+  content: '';
+  position: absolute;
+  inset: auto -20px -55px auto;
+  width: 130px;
+  height: 130px;
+  border-radius: 999px;
+  background: var(--glow);
+  opacity: 0.28;
+  filter: blur(2px);
+}
+
+.kpi strong {
+  display: block;
+  margin: 12px 0 4px;
+  color: var(--text);
+  font-size: 34px;
+  letter-spacing: -0.04em;
+}
+
+.kpi-blue { --glow: var(--accent); }
+.kpi-green { --glow: var(--accent-2); }
+.kpi-amber { --glow: var(--amber); }
+.kpi-violet { --glow: var(--violet); }
+
+.panel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.panel,
+.athlete-hero {
+  border-radius: 28px;
+  padding: 24px;
+}
+
+.panel.full {
+  grid-column: 1 / -1;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.panel-header h2,
+.athlete-hero h2 {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: 26px;
+  letter-spacing: -0.03em;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pill-green { background: rgba(42, 211, 158, 0.14); color: #7cf0c6; }
+.pill-amber { background: rgba(245, 166, 35, 0.16); color: #ffd18b; }
+.pill-violet { background: rgba(139, 92, 246, 0.16); color: #c9b8ff; }
+
+.rank-list {
+  display: grid;
+  gap: 10px;
+}
+
+.rank-list button {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.045);
+  cursor: pointer;
+}
+
+.rank-list button:hover {
+  border-color: rgba(46, 160, 255, 0.45);
+}
+
+.rank {
+  color: var(--accent-2);
+  font-weight: 800;
+}
+
+.bar-list {
+  display: grid;
+  gap: 15px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 52px;
+  align-items: center;
+  gap: 12px;
+}
+
+.bar-row div {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.bar-row i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+
+.table-wrap {
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 880px;
+}
+
+th,
+td {
+  padding: 14px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  text-align: left;
+  white-space: nowrap;
+}
+
+th {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+td {
+  color: var(--soft);
+}
+
+td strong {
+  color: var(--text);
+}
+
+.link-button {
+  color: var(--accent-2);
+  font-weight: 700;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1.3fr repeat(2, minmax(180px, 0.5fr));
+  gap: 18px;
+}
+
+.athlete-hero {
+  grid-row: span 2;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(46, 160, 255, 0.22), transparent 25rem),
+    linear-gradient(180deg, rgba(17, 27, 45, 0.96), rgba(10, 17, 30, 0.96));
+}
+
+.athlete-hero p {
+  color: var(--muted);
+  max-width: 560px;
+}
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.hero-stats div,
+.metric-card {
+  border-radius: 20px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.hero-stats strong,
+.metric-card strong {
+  display: block;
+  color: var(--text);
+  font-size: 26px;
+  margin-top: 6px;
+}
+
+.metric-card {
+  min-height: 126px;
+}
+
+.mmp-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.error-state {
+  color: #ff9f9f;
+}
+
+@media (max-width: 1120px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+  }
+
+  .kpi-grid,
+  .panel-grid,
+  .profile-grid,
+  .mmp-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    flex-direction: column;
+  }
+
+  select {
+    width: 100%;
+  }
+}

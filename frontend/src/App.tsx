@@ -1,0 +1,477 @@
+import { useEffect, useMemo, useState } from 'react'
+import './App.css'
+
+type CsvRow = Record<string, string>
+
+type Athlete = {
+  athlete: string
+  fit_files: number
+  parsed_files: number
+  total_duration_h: number
+  total_tss: number
+  avg_quality_score: number
+  ftp_estimate: number
+  avg_power: number
+  avg_normalized_power: number
+  avg_intensity_factor: number
+  avg_hr: number
+  avg_durability_index: number
+  best_5s: number
+  best_1min: number
+  best_5min: number
+  best_20min: number
+  estimated_vo2max: number
+  estimated_vlamax: number
+  mlss_power: number
+  fatmax_power: number
+  metabolic_confidence: number
+  metabolic_status: string
+  category_counts: string
+  top_subtypes: string
+}
+
+type Activity = {
+  athlete: string
+  file: string
+  duration_min: number
+  avg_power: number
+  normalized_power: number
+  intensity_factor: number
+  tss: number
+  avg_hr: number
+  max_power: number
+  quality_score: number
+  category: string
+  subtype: string
+  durability_index: number
+  np_drift_pct: number
+  classification_confidence: number
+  parsed: string
+}
+
+type View = 'dashboard' | 'athletes' | 'activities' | 'metabolic'
+
+const number = (value: string | undefined): number => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+const parseCsv = (text: string): CsvRow[] => {
+  const rows: string[][] = []
+  let current = ''
+  let row: string[] = []
+  let inQuotes = false
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i]
+    const next = text[i + 1]
+
+    if (char === '"' && inQuotes && next === '"') {
+      current += '"'
+      i += 1
+    } else if (char === '"') {
+      inQuotes = !inQuotes
+    } else if (char === ',' && !inQuotes) {
+      row.push(current)
+      current = ''
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && next === '\n') i += 1
+      row.push(current)
+      if (row.some((cell) => cell.trim() !== '')) rows.push(row)
+      row = []
+      current = ''
+    } else {
+      current += char
+    }
+  }
+
+  if (current || row.length) {
+    row.push(current)
+    rows.push(row)
+  }
+
+  const [headers, ...body] = rows
+  return body.map((cells) =>
+    headers.reduce<CsvRow>((acc, header, index) => {
+      acc[header] = cells[index] ?? ''
+      return acc
+    }, {}),
+  )
+}
+
+const loadCsv = async (path: string): Promise<CsvRow[]> => {
+  const response = await fetch(path)
+  if (!response.ok) throw new Error(`Could not load ${path}`)
+  return parseCsv(await response.text())
+}
+
+const mapAthlete = (row: CsvRow): Athlete => ({
+  athlete: row.athlete,
+  fit_files: number(row.fit_files),
+  parsed_files: number(row.parsed_files),
+  total_duration_h: number(row.total_duration_h),
+  total_tss: number(row.total_tss),
+  avg_quality_score: number(row.avg_quality_score),
+  ftp_estimate: number(row.ftp_estimate),
+  avg_power: number(row.avg_power),
+  avg_normalized_power: number(row.avg_normalized_power),
+  avg_intensity_factor: number(row.avg_intensity_factor),
+  avg_hr: number(row.avg_hr),
+  avg_durability_index: number(row.avg_durability_index),
+  best_5s: number(row.best_5s),
+  best_1min: number(row.best_1min),
+  best_5min: number(row.best_5min),
+  best_20min: number(row.best_20min),
+  estimated_vo2max: number(row.estimated_vo2max),
+  estimated_vlamax: number(row.estimated_vlamax),
+  mlss_power: number(row.mlss_power),
+  fatmax_power: number(row.fatmax_power),
+  metabolic_confidence: number(row.metabolic_confidence),
+  metabolic_status: row.metabolic_status,
+  category_counts: row.category_counts,
+  top_subtypes: row.top_subtypes,
+})
+
+const mapActivity = (row: CsvRow): Activity => ({
+  athlete: row.athlete,
+  file: row.file,
+  duration_min: number(row.duration_min),
+  avg_power: number(row.avg_power),
+  normalized_power: number(row.normalized_power),
+  intensity_factor: number(row.intensity_factor),
+  tss: number(row.tss),
+  avg_hr: number(row.avg_hr),
+  max_power: number(row.max_power),
+  quality_score: number(row.quality_score),
+  category: row.category,
+  subtype: row.subtype,
+  durability_index: number(row.durability_index),
+  np_drift_pct: number(row.np_drift_pct),
+  classification_confidence: number(row.classification_confidence),
+  parsed: row.parsed,
+})
+
+const fmt = (value: number, digits = 0) =>
+  Number.isFinite(value) ? value.toLocaleString('it-IT', { maximumFractionDigits: digits }) : '-'
+
+const pct = (value: number) => `${fmt(value * 100, 0)}%`
+
+function KpiCard({
+  label,
+  value,
+  detail,
+  tone = 'blue',
+}: {
+  label: string
+  value: string
+  detail: string
+  tone?: 'blue' | 'green' | 'amber' | 'violet'
+}) {
+  return (
+    <article className={`kpi kpi-${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </article>
+  )
+}
+
+function Pill({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: string }) {
+  return <span className={`pill pill-${tone}`}>{children}</span>
+}
+
+function App() {
+  const [athletes, setAthletes] = useState<Athlete[]>([])
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [view, setView] = useState<View>('dashboard')
+  const [selectedAthlete, setSelectedAthlete] = useState<string>('001_Athlete_01')
+  const [query, setQuery] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    Promise.all([
+      loadCsv('/data/athlete_summary.csv'),
+      loadCsv('/data/activity_details.csv'),
+    ])
+      .then(([athleteRows, activityRows]) => {
+        const parsedAthletes = athleteRows.map(mapAthlete)
+        setAthletes(parsedAthletes)
+        setActivities(activityRows.map(mapActivity))
+        setSelectedAthlete(parsedAthletes[0]?.athlete ?? '')
+      })
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const selected = athletes.find((athlete) => athlete.athlete === selectedAthlete) ?? athletes[0]
+  const selectedActivities = activities.filter((activity) => activity.athlete === selected?.athlete)
+
+  const filteredAthletes = useMemo(() => {
+    const term = query.trim().toLowerCase()
+    if (!term) return athletes
+    return athletes.filter((athlete) => athlete.athlete.toLowerCase().includes(term))
+  }, [athletes, query])
+
+  const totals = useMemo(() => {
+    const totalTss = athletes.reduce((sum, athlete) => sum + athlete.total_tss, 0)
+    const totalHours = athletes.reduce((sum, athlete) => sum + athlete.total_duration_h, 0)
+    const meanQuality = athletes.reduce((sum, athlete) => sum + athlete.avg_quality_score, 0) / (athletes.length || 1)
+    const meanFtp = athletes.reduce((sum, athlete) => sum + athlete.ftp_estimate, 0) / (athletes.length || 1)
+    return { totalTss, totalHours, meanQuality, meanFtp }
+  }, [athletes])
+
+  const topFtp = [...athletes].sort((a, b) => b.ftp_estimate - a.ftp_estimate).slice(0, 8)
+  const topVo2 = [...athletes].sort((a, b) => b.estimated_vo2max - a.estimated_vo2max).slice(0, 8)
+  const activityRows = selectedActivities.slice(0, 50)
+
+  if (loading) {
+    return <main className="loading">Caricamento dati backend...</main>
+  }
+
+  if (error) {
+    return <main className="loading error-state">{error}</main>
+  }
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-mark">DT</div>
+          <div>
+            <strong>Digital Twin</strong>
+            <span>Coach Intelligence</span>
+          </div>
+        </div>
+
+        <nav className="nav">
+          {[
+            ['dashboard', 'Dashboard'],
+            ['athletes', 'Atleti'],
+            ['activities', 'Attivita'],
+            ['metabolic', 'Profilo metabolico'],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              className={view === key ? 'active' : ''}
+              onClick={() => setView(key as View)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar-card">
+          <span>Dataset</span>
+          <strong>{athletes.length} atleti</strong>
+          <small>{activities.length.toLocaleString('it-IT')} attivita FIT</small>
+        </div>
+      </aside>
+
+      <main className="workspace">
+        <header className="topbar">
+          <div>
+            <Pill tone="green">Backend connected</Pill>
+            <h1>Performance analytics per coach</h1>
+            <p>
+              Dashboard moderna per leggere power metrics, qualita dati, carico,
+              durability e profilo metabolico calcolati dal backend.
+            </p>
+          </div>
+          <select value={selectedAthlete} onChange={(event) => setSelectedAthlete(event.target.value)}>
+            {athletes.map((athlete) => (
+              <option key={athlete.athlete} value={athlete.athlete}>
+                {athlete.athlete}
+              </option>
+            ))}
+          </select>
+        </header>
+
+        {view === 'dashboard' && (
+          <>
+            <section className="kpi-grid">
+              <KpiCard label="Atleti monitorati" value={fmt(athletes.length)} detail="dataset completo" />
+              <KpiCard label="Ore analizzate" value={fmt(totals.totalHours, 1)} detail="timeline FIT sintetica" tone="green" />
+              <KpiCard label="TSS totale" value={fmt(totals.totalTss, 0)} detail="carico aggregato" tone="violet" />
+              <KpiCard label="Qualita media" value={pct(totals.meanQuality)} detail="power + HR + cadence" tone="amber" />
+            </section>
+
+            <section className="panel-grid">
+              <div className="panel">
+                <div className="panel-header">
+                  <div>
+                    <span>Ranking</span>
+                    <h2>Top FTP stimato</h2>
+                  </div>
+                  <Pill>FTP medio {fmt(totals.meanFtp, 1)} W</Pill>
+                </div>
+                <div className="rank-list">
+                  {topFtp.map((athlete, index) => (
+                    <button key={athlete.athlete} onClick={() => { setSelectedAthlete(athlete.athlete); setView('metabolic') }}>
+                      <span className="rank">#{index + 1}</span>
+                      <span>{athlete.athlete}</span>
+                      <strong>{fmt(athlete.ftp_estimate, 1)} W</strong>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="panel">
+                <div className="panel-header">
+                  <div>
+                    <span>Metabolic engine</span>
+                    <h2>Top VO2max stimato</h2>
+                  </div>
+                  <Pill tone="amber">model-derived</Pill>
+                </div>
+                <div className="bar-list">
+                  {topVo2.map((athlete) => (
+                    <div key={athlete.athlete} className="bar-row">
+                      <span>{athlete.athlete}</span>
+                      <div><i style={{ width: `${Math.min(100, athlete.estimated_vo2max)}%` }} /></div>
+                      <strong>{fmt(athlete.estimated_vo2max, 1)}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          </>
+        )}
+
+        {view === 'athletes' && (
+          <section className="panel full">
+            <div className="panel-header">
+              <div>
+                <span>Roster</span>
+                <h2>Atleti</h2>
+              </div>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Cerca atleta..."
+              />
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Atleta</th>
+                    <th>FIT</th>
+                    <th>FTP</th>
+                    <th>NP media</th>
+                    <th>IF</th>
+                    <th>Qualita</th>
+                    <th>VO2max</th>
+                    <th>Azioni</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAthletes.map((athlete) => (
+                    <tr key={athlete.athlete}>
+                      <td><strong>{athlete.athlete}</strong></td>
+                      <td>{athlete.parsed_files}/{athlete.fit_files}</td>
+                      <td>{fmt(athlete.ftp_estimate, 1)} W</td>
+                      <td>{fmt(athlete.avg_normalized_power, 1)} W</td>
+                      <td>{fmt(athlete.avg_intensity_factor, 3)}</td>
+                      <td>{pct(athlete.avg_quality_score)}</td>
+                      <td>{fmt(athlete.estimated_vo2max, 1)}</td>
+                      <td>
+                        <button className="link-button" onClick={() => { setSelectedAthlete(athlete.athlete); setView('metabolic') }}>
+                          Apri profilo
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {view === 'activities' && selected && (
+          <section className="panel full">
+            <div className="panel-header">
+              <div>
+                <span>{selected.athlete}</span>
+                <h2>Ultime attivita analizzate</h2>
+              </div>
+              <Pill>{selectedActivities.length} file FIT</Pill>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>File</th>
+                    <th>Durata</th>
+                    <th>Tipo</th>
+                    <th>TSS</th>
+                    <th>NP</th>
+                    <th>IF</th>
+                    <th>HR</th>
+                    <th>Durability</th>
+                    <th>Qualita</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activityRows.map((activity) => (
+                    <tr key={`${activity.athlete}-${activity.file}`}>
+                      <td><strong>{activity.file}</strong></td>
+                      <td>{fmt(activity.duration_min, 0)} min</td>
+                      <td><Pill tone={activity.category === 'HIIT' ? 'violet' : 'green'}>{activity.category}</Pill></td>
+                      <td>{fmt(activity.tss, 1)}</td>
+                      <td>{fmt(activity.normalized_power, 1)} W</td>
+                      <td>{fmt(activity.intensity_factor, 3)}</td>
+                      <td>{fmt(activity.avg_hr, 0)} bpm</td>
+                      <td>{activity.durability_index ? `${fmt(activity.durability_index, 1)}%` : '-'}</td>
+                      <td>{pct(activity.quality_score)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {view === 'metabolic' && selected && (
+          <section className="profile-grid">
+            <div className="athlete-hero">
+              <Pill tone="green">{selected.metabolic_status}</Pill>
+              <h2>{selected.athlete}</h2>
+              <p>
+                Profilo generato da MMP aggregata su {selected.parsed_files} file.
+                Le stime metaboliche sono model-derived e non lab validated.
+              </p>
+              <div className="hero-stats">
+                <div><span>FTP</span><strong>{fmt(selected.ftp_estimate, 1)} W</strong></div>
+                <div><span>Best 20'</span><strong>{fmt(selected.best_20min, 1)} W</strong></div>
+                <div><span>TSS totale</span><strong>{fmt(selected.total_tss, 0)}</strong></div>
+              </div>
+            </div>
+
+            <div className="metric-card"><span>VO2max stimato</span><strong>{fmt(selected.estimated_vo2max, 1)}</strong><small>ml/kg/min</small></div>
+            <div className="metric-card"><span>VLamax</span><strong>{fmt(selected.estimated_vlamax, 3)}</strong><small>mmol/L/s</small></div>
+            <div className="metric-card"><span>MLSS</span><strong>{fmt(selected.mlss_power, 1)}</strong><small>watt</small></div>
+            <div className="metric-card"><span>FatMax</span><strong>{fmt(selected.fatmax_power, 1)}</strong><small>watt</small></div>
+
+            <div className="panel full">
+              <div className="panel-header">
+                <div>
+                  <span>Power-duration</span>
+                  <h2>Migliori valori MMP</h2>
+                </div>
+              </div>
+              <div className="mmp-grid">
+                <KpiCard label="5 sec" value={`${fmt(selected.best_5s, 0)} W`} detail="sprint" tone="violet" />
+                <KpiCard label="1 min" value={`${fmt(selected.best_1min, 0)} W`} detail="anaerobic capacity" tone="amber" />
+                <KpiCard label="5 min" value={`${fmt(selected.best_5min, 0)} W`} detail="VO2max power" tone="blue" />
+                <KpiCard label="20 min" value={`${fmt(selected.best_20min, 0)} W`} detail="FTP proxy" tone="green" />
+              </div>
+            </div>
+          </section>
+        )}
+      </main>
+    </div>
+  )
+}
+
+export default App
