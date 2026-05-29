@@ -43,7 +43,7 @@ FIT file → fit_parser → interval_detector
                       neural_ode (learnable corrections)
 ```
 
-Additional engines: `pedaling_balance` (L/R), `thermal_engine` (CORE sensor),
+Additional engines: `pedaling_balance` (L/R), `thermal_engine` (body-temperature sensor),
 `mmp_quality`, `expressiveness`, `protocol_completeness`.
 
 ## What's new
@@ -55,11 +55,11 @@ Additional engines: `pedaling_balance` (L/R), `thermal_engine` (CORE sensor),
 - **`neural_ode`**: Physics-informed MLP learns athlete-specific corrections
   to Mader (NeuralPowerDuration) and training dynamics (NeuralDynamics).
   Pure numpy, 97-114 trainable parameters, zero external ML dependencies.
-- **`thermal_engine`**: CORE body temperature analysis — cardiac drift
+- **`thermal_engine`**: core body temperature analysis — cardiac drift
   decomposition (thermal vs fatigue), heat tolerance threshold, η correction,
   heat acclimation tracking.
-- **`lab_data`**: Universal intake for lab results (COSMED, INSCYD,
-  FlowPerformance, lactate analyzers, any source). Manual entry, PDF
+- **`lab_data`**: Universal intake for lab results (spirometry systems,
+  metabolic profiling platforms, lactate analyzers, any source). Manual entry, PDF
   parsing, or JSON API. Feeds into Kalman as gold-standard observation.
 
 ### v4.0.0 — Bayesian Metabolic Profiler
@@ -73,7 +73,7 @@ Additional engines: `pedaling_balance` (L/R), `thermal_engine` (CORE sensor),
 
 - **`pedaling_balance`**: L/R asymmetry, intra-session drift, balance by
   zone, longitudinal trend. Strict dual-side-only policy with data-driven
-  fallback detection. Validated on Quarq real data.
+  fallback detection. Validated on dual-side power meter real data.
 
 ### v3.5.0 — Expressiveness Gate + Mader Constants
 
@@ -277,7 +277,7 @@ enriched = profiler.enhance_with_phenotype(snapshot, phenotype="ALL_ROUNDER")
 
 - Validated on 9 real FIT files (session classification: 9/9). No large-scale validation.
 - No validation against lab testing (VO₂max spirometry vs Bayesian estimate).
-- No cross-tool agreement study (vs INSCYD, TrainingPeaks/WKO5).
+- No cross-tool agreement study (vs metabolic profiling platform, external analysis platforms).
 - Lab PDF parsing is regex-based — works for structured reports, may miss
   unusual layouts. Manual entry is the reliable fallback.
 - `fit_parser` now correctly preserves 0W power (coasting) instead of
@@ -310,7 +310,7 @@ digital_twin_v5.0.0/
 │   ├── bayesian_profiler.py                # MCMC posterior on Mader
 │   ├── metabolic_kalman.py                 # UKF longitudinal tracking
 │   ├── neural_ode.py                       # learnable power-duration + dynamics
-│   ├── thermal_engine.py                   # CORE body temperature analysis
+│   ├── thermal_engine.py                   # core body temperature analysis
 │   ├── lab_data.py                         # universal lab test ingestion
 │   ├── detraining_engine.py                # CTL/ATL/TSB + detraining decay
 │   ├── durability_engine.py                # long-ride power decay

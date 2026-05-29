@@ -34,9 +34,9 @@ Stimulus vector (time-in-zones) — REFERENCE (given thresholds known)
 
 Inspired by
 -----------
-- Athletica.ai Interval IQ™ — change-point detection + post-processing
-- TrainingPeaks / WKO5 — zone × duration matching
-- Golden Cheetah Find Best Intervals — sliding-window MMP scan
+- Interval-classification workflows — change-point detection + post-processing
+- external analysis platforms — zone × duration matching
+- Sliding-window best-interval extraction — MMP scan
 - Buchheit & Laursen 2013 — HIIT prescription framework (work:rest semantics)
 """
 

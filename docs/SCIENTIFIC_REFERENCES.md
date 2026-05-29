@@ -421,9 +421,9 @@ Fat oxidation, FatMax, and substrate use during exercise.
 
 - Status: **Explicit**
 - Sources handled by code:
-  - COSMED.
-  - INSCYD.
-  - FlowPerformance.
+  - spirometry system.
+  - metabolic profiling platform.
+  - metabolic profiling platform.
   - Lactate analyzers.
   - Manual or JSON input.
 - Main modules:
@@ -441,7 +441,7 @@ Fat oxidation, FatMax, and substrate use during exercise.
   - FatMax estimate vs indirect calorimetry.
   - DFA-alpha1 VT1/VT2 vs ventilatory or lactate thresholds.
   - W' balance vs controlled interval tests.
-  - Thermal drift vs CORE sensor data and controlled heat sessions.
+  - Thermal drift vs body-temperature sensor data and controlled heat sessions.
 
 ## Suggested citation language
 

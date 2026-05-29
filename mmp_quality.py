@@ -3,7 +3,7 @@ MMP Quality Analysis & Cleaning
 ================================
 
 Tools to assess and clean a Mean Maximal Power curve BEFORE passing it to
-MetabolicProfiler. Inspired by WKO5's "Find Power Spikes & Bad Cycling Data"
+MetabolicProfiler. Inspired by analysis platform's "Find Power Spikes & Bad Cycling Data"
 dashboard, but automated rather than manual.
 
 Categories of issues detected
@@ -517,7 +517,7 @@ def clean_mmp(
 
 
 # =============================================================================
-# Time-window filtering (WKO5-style "last 90 days")
+# Time-window filtering (analysis-platform-style "last 90 days")
 # =============================================================================
 
 def filter_mmp_by_window(
@@ -529,7 +529,7 @@ def filter_mmp_by_window(
     Rebuild an MMP dict from samples, keeping only those within `window_days`
     of `today`.
     
-    Replicates WKO5's "last 90 days" window for power-duration modeling.
+    Replicates analysis platform's "last 90 days" window for power-duration modeling.
     The motivation: an athlete's physiology changes over time. Anchors from
     6 months ago bias the fit toward an outdated state. Limiting to recent
     data gives a more representative snapshot of current fitness, at the
@@ -544,7 +544,7 @@ def filter_mmp_by_window(
     today : date | datetime | str, optional
         Reference date for the window. Default: today.
     window_days : int
-        Window size in days. Default 90 (matches WKO5). Use a larger
+        Window size in days. Default 90 (matches analysis platform). Use a larger
         value (180-365) for athletes with infrequent training.
     
     Returns

@@ -2,15 +2,15 @@
 Thermal Engine — Core Body Temperature Analysis
 =================================================
 
-Analyzes core body temperature data from the CORE sensor to:
+Analyzes core body temperature data from a body-temperature sensor to:
 1. Separate cardiac drift into thermal vs fatigue components
 2. Calculate heat tolerance threshold (°C at which power drops)
 3. Measure thermoregulation efficiency (°C rise per kJ of work)
 4. Produce a thermal-adjusted durability metric
 5. Track heat acclimation over time (longitudinal)
 
-Requires a CORE body temperature sensor paired to the head unit.
-When no CORE data is available, returns a graceful "no_data" status.
+Requires compatible body-temperature data paired to the activity stream.
+When no body-temperature data is available, returns a graceful "no_data" status.
 
 Physiological basis
 -------------------
@@ -39,12 +39,12 @@ from datetime import date
 # =============================================================================
 
 # Core temp zones (°C)
-CORE_TEMP_RESTING = 37.0
-CORE_TEMP_WARM = 38.0
-CORE_TEMP_HOT = 38.5
-CORE_TEMP_CAUTION = 39.0
-CORE_TEMP_DANGER = 39.5
-CORE_TEMP_CRITICAL = 40.0
+BODY_TEMP_RESTING = 37.0
+BODY_TEMP_WARM = 38.0
+BODY_TEMP_HOT = 38.5
+BODY_TEMP_CAUTION = 39.0
+BODY_TEMP_DANGER = 39.5
+BODY_TEMP_CRITICAL = 40.0
 
 # Minimum valid samples for analysis
 MIN_VALID_SAMPLES = 300   # ≥5 min of data
@@ -260,7 +260,7 @@ def analyze_thermal_session(
             n_total_samples=n_total,
             notes=[
                 f"Only {n_valid} valid core temperature samples "
-                f"(need {MIN_VALID_SAMPLES}). Is the CORE sensor connected?"
+                f"(need {MIN_VALID_SAMPLES}). Is a body-temperature sensor connected?"
             ],
         )
     
@@ -386,7 +386,7 @@ def analyze_thermal_session(
     
     # ---- Notes ----
     notes = []
-    if core_peak >= CORE_TEMP_DANGER:
+    if core_peak >= BODY_TEMP_DANGER:
         notes.append(
             f"Peak core temperature reached {core_peak:.1f}°C — approaching "
             "physiological danger zone. Monitor hydration and consider cooling "

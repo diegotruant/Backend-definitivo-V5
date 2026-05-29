@@ -106,7 +106,7 @@ def _moving_time_seconds(power: np.ndarray, t: np.ndarray) -> int:
 
 
 # =============================================================================
-# CORE METRICS
+# PRIMARY METRICS
 # =============================================================================
 
 def _causal_rolling_mean(x: np.ndarray, window: int) -> np.ndarray:

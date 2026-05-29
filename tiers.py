@@ -8,7 +8,7 @@ Tiers
 -----
 A — REFERENCE: deterministic from input. Standard formulas (NP, IF, TSS, MMP,
     rolling averages, zone time-in-zone). No model assumptions beyond the
-    formula itself. Equivalent to TrainingPeaks/WKO5/Golden Cheetah outputs.
+    formula itself. Equivalent to external analysis platforms/open-source analysis platform outputs.
 
 B — MODEL: physiological model with documented assumptions. The result is a
     prediction of a quantity that cannot be directly measured from the stream
@@ -149,10 +149,10 @@ SCOPE: Dict[str, str] = {
 
 
 # =============================================================================
-# Display gating (WKO5-style "hide instead of mislead")
+# Display gating (analysis-platform-style "hide instead of mislead")
 # =============================================================================
 #
-# WKO5's product decision: if the data is too dirty to compute reliable
+# analysis platform's product decision: if the data is too dirty to compute reliable
 # values, show "—" (em-dash) instead of the numbers. Better no information
 # than misleading information.
 #

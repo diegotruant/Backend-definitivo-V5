@@ -91,10 +91,10 @@ class ActivityStreamEnhanced:
         self.left_right_balance = np.full(n_samples, np.nan, dtype=np.float32)
         self.pedaling_balance_source: str = "unknown"
         
-        # Core body temperature and skin temperature (from CORE sensor)
+        # Core body temperature and skin temperature (from a body-temperature sensor)
         # NaN when not provided. core_body_temp is the primary metric (°C),
         # skin_temp is secondary. ambient_temp is from the head unit's
-        # built-in thermometer (not from CORE).
+        # built-in thermometer (not from the body-temperature sensor).
         self.core_body_temp = np.full(n_samples, np.nan, dtype=np.float32)
         self.skin_temp = np.full(n_samples, np.nan, dtype=np.float32)
         self.ambient_temp = np.full(n_samples, np.nan, dtype=np.float32)
@@ -324,41 +324,14 @@ def parse_fit_file_enhanced(
     head_unit_set = False
     pm_source = "unknown"   # default
     
-    # Known dual-side power meters (Garmin Vector 3 DUO, Favero Assioma DUO, etc.)
-    # Note: identifying dual-side from FIT metadata alone is imperfect. We use
-    # product strings as a hint; the most reliable signal is whether balance
-    # samples actually vary in the records themselves.
-    # Known dual-side power meters (true L/R measurement):
-    #   Spider-based: Quarq, Power2Max NG/NGeco, SRM, Shimano FC-R9200-P
-    #   Crank-based dual: Rotor 2INpower, Pioneer dual, 4iiii Precision Pro
-    #   Pedal-based dual: Garmin Vector 3, Favero Assioma DUO, Rally 200-series,
-    #                      Wahoo POWRLINK ZERO (dual), Look/SRM X-Power
-    #
-    # The marker list catches MANUFACTURER names and common product strings.
-    # This is a best-effort heuristic — the data-driven fallback (below)
-    # handles any device not in this list.
+    # Identifying dual-side measurement from metadata alone is imperfect.
+    # We use generic product-string hints and then let the data-driven fallback
+    # below decide from the actual balance samples.
     _DUAL_MARKERS = (
-        # Pedal-based dual
-        "vector_3", "assioma_duo", "pedal_uno_duo", "rally_xc200",
-        "rally_rs200", "rally_rk200", "garmin_vector_3", "pedal_pair",
-        "powrlink_zero_dual", "x-power",
-        # Spider-based (manufacturer match)
-        "quarq", "power2max", "p2max", "srm",
-        # Crank-based dual
-        "2inpower", "pioneer", "precision_pro",
-        # Generic "duo"/"dual" substring
-        "duo", "dual",
+        "duo", "dual", "pair", "left_right", "bilateral", "two_sided",
     )
     _SINGLE_MARKERS = (
-        # Crank-based single (left-only)
-        "stages", "4iiii", "precision",  # 4iiii Precision (non-Pro) is single
-        # Pedal-based single
-        "assioma_uno", "rally_rs100", "rally_rk100", "rally_xc100",
-        "powrlink_zero_single",
-        # Crank-based single
-        "inpower",  # Rotor INpower (single side, not 2INpower)
-        # Generic "single"/"uno"/"left" markers
-        "single_left", "single_l", "uno", "left_only",
+        "single", "single_left", "single_l", "left_only", "one_sided",
     )
     
     for rec in fitfile.get_messages("device_info"):
@@ -367,12 +340,12 @@ def parse_fit_file_enhanced(
         for field in rec.fields:
             if field.name == "manufacturer":
                 manufacturer = field.value
-            elif field.name == "garmin_product":
+            elif field.name == "product":
                 product = field.value
             elif field.name == "antplus_device_type":
                 ant_dev_type = field.value
         
-        # First non-empty entry → head unit (typically Garmin Edge)
+        # First non-empty entry -> head unit
         if not head_unit_set and (manufacturer or product):
             parts = [str(p) for p in (manufacturer, product) if p]
             session_dict["device_name"] = " ".join(parts)
@@ -384,13 +357,10 @@ def parse_fit_file_enhanced(
         is_power_meter = (
             ant_dev_type in (11, "bike_power")
         ) or (
-            manufacturer and any(m in str(manufacturer).lower() for m in (
-                "quarq", "favero", "stages", "4iiii", "sram",
-            ))
+            manufacturer and "power" in str(manufacturer).lower()
         ) or (
             product and any(m in str(product).lower() for m in (
-                "power", "pedal", "crank", "spider", "assioma", "vector",
-                "stages", "quarq", "rally", "favero", "4iiii", "p2max"
+                "power", "pedal", "crank", "spider", "dual", "single"
             ))
         )
         
@@ -509,8 +479,8 @@ def parse_fit_records_enhanced(
                 # Store it separately for thermal analysis.
                 stream.ambient_temp[idx] = float(rec["temperature"])
             
-            # CORE body temperature sensor data.
-            # Hammerhead/Garmin record these as developer fields with various names.
+            # Body temperature sensor data can arrive as developer fields with
+            # various names depending on the head unit and sensor firmware.
             # We check all known variants.
             for core_field in ("core_body_temperature", "CoreBodyTemp",
                                "core_temperature", "body_temperature",

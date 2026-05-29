@@ -190,7 +190,7 @@ before model-derived outputs should be interpreted as lab-grade measurements.
 - FatMax estimate vs indirect calorimetry.
 - DFA-alpha1 VT1/VT2 vs ventilatory thresholds.
 - W' balance vs controlled interval tests.
-- Thermal drift vs CORE sensor data in real heat sessions.
+- Thermal drift vs body-temperature sensor data in real heat sessions.
 
 ## Recommended functions to add
 
