@@ -19,7 +19,7 @@ Race prediction is intentionally excluded because it requires GPX course input.
 | fit_parser | {'success': 6} |
 | heat_acclimation | {'skipped_no_body_temperature': 6} |
 | hourly_decay_curve | {'success': 6} |
-| hrv_engine | {'skipped_no_rr': 6} |
+| hrv_engine | {'success': 3, 'skipped_no_rr': 3} |
 | interval_detector | {'success': 6} |
 | metabolic_current | {'success': 6} |
 | metabolic_flexibility_engine | {'success': 6} |

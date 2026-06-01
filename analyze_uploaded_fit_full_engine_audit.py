@@ -16,6 +16,7 @@ from engines import (
     AthleteContext,
     DailyInput,
     MetabolicProfiler,
+    analyze_rr_stream,
     analyze_heat_acclimation,
     analyze_pedaling_balance,
     analyze_thermal_session,
@@ -141,7 +142,7 @@ def analyze_athlete(athlete: str, files: List[Path]) -> Tuple[List[Dict[str, Any
     daily_inputs: List[DailyInput] = []
     thermal_reports = []
     balance_reports = []
-    hrv_success = cardiac_success = 0
+    hrv_success = hrv_warning = cardiac_success = 0
     hrv_skipped = cardiac_skipped = 0
     balance_success = balance_skipped = 0
     thermal_success = thermal_skipped = 0
@@ -257,9 +258,33 @@ def analyze_athlete(athlete: str, files: List[Path]) -> Tuple[List[Dict[str, Any
         else:
             cardiac_skipped += 1
 
-        # Optional-data engines.
+        # Optional-data engines: HRV from record rr_intervals or FIT hrv messages.
         if stream.has_rr:
-            hrv_success += 1  # covered via workout_summary, but count availability
+            rr_samples = [
+                {"elapsed": float(stream.elapsed_s[i]), "rr": stream.rr_intervals[i]}
+                for i in range(stream.n_samples)
+                if stream.rr_intervals[i]
+            ]
+            status, timeline, err = safe_call(
+                lambda: analyze_rr_stream(rr_samples, context=AthleteContext())
+            )
+            if status == "success" and timeline:
+                hrv_success += 1
+                row["hrv_windows"] = len(timeline)
+                per_engine_counts["hrv_engine"] += 1
+            elif status == "success":
+                hrv_warning += 1
+                row["hrv_windows"] = 0
+                per_engine_errors["hrv_engine"] += 1
+                error_rows.append({
+                    "athlete": athlete,
+                    "file": fit_path.name,
+                    "engine": "hrv_engine",
+                    "error": "RR present but DFA produced no valid windows",
+                })
+            else:
+                per_engine_errors["hrv_engine"] += 1
+                error_rows.append({"athlete": athlete, "file": fit_path.name, "engine": "hrv_engine", "error": err})
         else:
             hrv_skipped += 1
 
@@ -428,8 +453,17 @@ def analyze_athlete(athlete: str, files: List[Path]) -> Tuple[List[Dict[str, Any
         matrix.append(engine_row(athlete, "neural_ode", "skipped_missing_metabolic_fields"))
 
     # Optional data summaries.
-    matrix.append(engine_row(athlete, "hrv_engine", "success" if hrv_success else "skipped_no_rr",
-                             scope="activity", successes=hrv_success, skipped=hrv_skipped))
+    if hrv_success:
+        hrv_status = "success"
+    elif hrv_warning:
+        hrv_status = "warning"
+    elif hrv_skipped and not hrv_warning:
+        hrv_status = "skipped_no_rr"
+    else:
+        hrv_status = "skipped_no_rr"
+    matrix.append(engine_row(athlete, "hrv_engine", hrv_status,
+                             scope="activity", successes=hrv_success, skipped=hrv_skipped,
+                             warning=f"{hrv_warning} activities with RR but no DFA windows" if hrv_warning else ""))
     matrix.append(engine_row(athlete, "cardiac_engine", "success" if cardiac_success else "skipped_missing_power_or_hr",
                              scope="activity", successes=cardiac_success, skipped=cardiac_skipped))
     matrix.append(engine_row(athlete, "thermal_engine", "success" if thermal_success else "skipped_no_body_temperature",
