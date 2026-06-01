@@ -239,7 +239,9 @@ def analyze_thermal_session(
     -------
     ThermalSessionReport
     """
-    n_total = len(power_stream)
+    # Align all streams to the shortest common length to avoid shape
+    # mismatches when core/power/hr/skin streams differ in length.
+    n_total = min(len(power_stream), len(core_temp_stream))
     
     # Convert to numpy and validate
     core = np.array([float(v) if v is not None and v == v else np.nan
@@ -296,7 +298,7 @@ def analyze_thermal_session(
     # ---- Skin temperature ----
     skin_mean = None
     core_skin_grad = None
-    if skin_temp_stream is not None:
+    if skin_temp_stream is not None and len(skin_temp_stream) >= n_total:
         skin = np.array([float(v) if v is not None and v == v else np.nan
                           for v in skin_temp_stream[:n_total]], dtype=np.float32)
         skin_valid = skin[valid_mask]

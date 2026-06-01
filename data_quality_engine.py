@@ -157,7 +157,8 @@ def _assess_hr_quality(
     
     # Check 3: Unrealistic values
     max_hr = max(hr) if hr else 0
-    min_hr = min([h for h in hr if h > 0]) if hr else 0
+    positive_hr = [h for h in hr if h > 0]
+    min_hr = min(positive_hr) if positive_hr else 0
     
     if max_hr > 220:
         quality -= 0.1

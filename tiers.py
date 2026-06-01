@@ -102,8 +102,10 @@ ENGINE_TIERS: Dict[str, Tier] = {
     "workout_summary":               Tier.REFERENCE,  # aggregator inherits worst-of
     "hrv_engine":                    Tier.MODEL,
     "metabolic_profiler":            Tier.MODEL,
+    "cross_validation_engine":       Tier.MODEL,
     "w_prime_balance_engine":        Tier.MODEL,
     "race_prediction_engine":        Tier.MODEL,
+    "mmp_aggregator":                Tier.REFERENCE,
     "metabolic_profiler_phenotype":  Tier.HEURISTIC,
     "detraining_engine":             Tier.HEURISTIC,
     "durability_engine":             Tier.HEURISTIC,

@@ -11,6 +11,7 @@ _SUBMODULE_ALIASES = [
     "cardiac_engine",
     "chart_builder",
     "coggan_classifier",
+    "cross_validation_engine",
     "data_quality_engine",
     "detraining_engine",
     "durability_engine",
@@ -26,6 +27,7 @@ _SUBMODULE_ALIASES = [
     "metabolic_profiler",
     "metabolic_profiler_phenotype",
     "metric_contracts",
+    "mmp_aggregator",
     "mmp_quality",
     "neural_ode",
     "pedaling_balance",
@@ -60,7 +62,29 @@ from explainability_engine import (
     generate_acwr_narrative,
     generate_durability_narrative,
 )
-from fit_parser import parse_fit_records_enhanced
+from fit_parser import parse_fit_records_enhanced, parse_fit_file_enhanced
+from efforts_analyzer import analyze_efforts
+from mmp_aggregator import (
+    update_power_curve,
+    extract_ride_curve,
+    curve_to_mmp,
+    CurveUpdateResult,
+    CurveEntry,
+)
+from cross_validation_engine import (
+    cross_validate_metabolic_profile,
+    CrossValidationResult,
+)
+from lab_data import (
+    LabSource,
+    LabTestType,
+    LabTestResult,
+    LactatePoint,
+    create_lab_result,
+    parse_lab_text,
+    parse_lab_pdf,
+    validate_lab_result,
+)
 from hrv_engine import analyze_rr_stream, calculate_dfa_alpha1
 from interval_detector import (
     Category,
@@ -239,4 +263,21 @@ __all__ = [
     "simulate_race",
     "summarize_section_contracts",
     "tier_for",
+    "analyze_efforts",
+    "parse_fit_file_enhanced",
+    "LabSource",
+    "LabTestType",
+    "LabTestResult",
+    "LactatePoint",
+    "create_lab_result",
+    "parse_lab_text",
+    "parse_lab_pdf",
+    "validate_lab_result",
+    "cross_validate_metabolic_profile",
+    "CrossValidationResult",
+    "update_power_curve",
+    "extract_ride_curve",
+    "curve_to_mmp",
+    "CurveUpdateResult",
+    "CurveEntry",
 ]

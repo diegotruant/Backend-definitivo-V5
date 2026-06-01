@@ -16,6 +16,7 @@ GAP HANDLING STRATEGY:
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from io import BytesIO
+import time
 import numpy as np
 
 try:
@@ -23,6 +24,29 @@ try:
     FITPARSE_AVAILABLE = True
 except ImportError:
     FITPARSE_AVAILABLE = False
+
+
+def _read_file_with_retry(path: str, attempts: int = 3, delay_s: float = 0.25) -> bytes:
+    """
+    Read a file's bytes, retrying on transient I/O errors.
+
+    Cloud/network-backed storage (S3, GCS, NFS) occasionally raises
+    OSError errno 5 (EIO) on the first read of a freshly-written file.
+    A short retry resolves it without affecting genuinely missing or
+    corrupt files (which raise FileNotFoundError / persistent OSError).
+    """
+    last_err = None
+    for i in range(attempts):
+        try:
+            with open(path, "rb") as fh:
+                return fh.read()
+        except FileNotFoundError:
+            raise  # don't retry a missing file
+        except OSError as e:
+            last_err = e
+            if i < attempts - 1:
+                time.sleep(delay_s * (i + 1))  # linear backoff
+    raise last_err
 
 
 # Quality flags
@@ -289,24 +313,67 @@ def parse_fit_file_enhanced(
     raw = None
     has_bad_synthetic_header = False
     if repair_synthetic_header:
-        with open(fit_path, "rb") as fh:
-            raw = bytearray(fh.read())
-        has_bad_synthetic_header = (
-            len(raw) > 16
-            and raw[0] == 14
-            and bytes(raw[8:12]) == b".FIT"
-            and raw[12] & 0x40
+        raw = bytearray(_read_file_with_retry(fit_path))
+        # NOTE: we no longer pre-classify a file as "bad" from the 0x40 bit,
+        # because that misfires on valid files with developer-data records.
+        # raw is kept only so the fallback repair path can use it if the
+        # normal parse fails.
+
+    # Some synthetic test files declare a 14-byte header but place the data
+    # section at byte 12. That repair, however, must NEVER touch a valid file:
+    # a legitimate 14-byte header is normal, and the 0x40 bit on the first
+    # record header means "developer data", not "corrupt file". So we try to
+    # parse the file as-is first, and only attempt the byte-0 repair if normal
+    # parsing actually fails.
+    fitfile = None
+    if not has_bad_synthetic_header:
+        try:
+            if raw is not None:
+                # Parse from the bytes we already read with retry, so fitparse
+                # does not re-open the path (which is where transient network
+                # I/O errors — OSError errno 5 — were occurring).
+                fitfile = fitparse.FitFile(BytesIO(bytes(raw)), check_crc=check_crc)
+            else:
+                fitfile = fitparse.FitFile(fit_path, check_crc=check_crc)
+        except Exception:
+            fitfile = None
+
+    if fitfile is None and repair_synthetic_header and raw is not None:
+        # Attempt the synthetic-header repair as a fallback only.
+        try:
+            repaired = bytearray(raw)
+            repaired[0] = 12
+            fitfile = fitparse.FitFile(BytesIO(repaired), check_crc=False)
+        except Exception:
+            fitfile = None
+
+    if fitfile is None:
+        # Last resort: read with retry and parse from bytes so a transient
+        # I/O error doesn't propagate as a hard failure.
+        fitfile = fitparse.FitFile(
+            BytesIO(_read_file_with_retry(fit_path)), check_crc=check_crc
         )
 
-    if has_bad_synthetic_header:
-        raw[0] = 12
-        fitfile = fitparse.FitFile(BytesIO(raw), check_crc=False)
-    else:
-        fitfile = fitparse.FitFile(fit_path, check_crc=check_crc)
-    
+    # fitparse's FitFile is a single-consumption stream: calling
+    # get_messages() more than once on the same object re-iterates the
+    # decoded buffer and can raise FitParseError on some real-world files
+    # (observed: "invalid local message type 0"). To be safe we make a
+    # single pass and bucket the messages we care about by name.
+    _session_msgs = []
+    _device_info_msgs = []
+    _record_msgs = []
+    for msg in fitfile.get_messages():
+        mname = msg.name
+        if mname == "record":
+            _record_msgs.append(msg)
+        elif mname == "session":
+            _session_msgs.append(msg)
+        elif mname == "device_info":
+            _device_info_msgs.append(msg)
+
     # Extract session info
     session_dict = {}
-    for rec in fitfile.get_messages("session"):
+    for rec in _session_msgs:
         for field in rec.fields:
             if field.name == "sport":
                 session_dict["sport"] = field.value
@@ -334,7 +401,7 @@ def parse_fit_file_enhanced(
         "single", "single_left", "single_l", "left_only", "one_sided",
     )
     
-    for rec in fitfile.get_messages("device_info"):
+    for rec in _device_info_msgs:
         manufacturer = product = None
         ant_dev_type = None
         for field in rec.fields:
@@ -372,9 +439,9 @@ def parse_fit_file_enhanced(
                 pm_source = "single_estimated"
             # else stays "unknown" — we'll let the data itself decide
     
-    # Extract record messages
+    # Extract record messages (already collected in the single pass above)
     records = []
-    for rec in fitfile.get_messages("record"):
+    for rec in _record_msgs:
         data = {field.name: field.value for field in rec.fields}
         records.append(data)
     
