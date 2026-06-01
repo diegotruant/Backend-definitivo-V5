@@ -1,0 +1,7 @@
+athlete,avg_quality_score,backend_errors,category_counts,cross_validation_penalty,cross_validation_status,cross_validation_warnings,estimated_vlamax,estimated_vo2max,fatmax_power,fit_files,ftp_estimate,ftp_method,metabolic_confidence,metabolic_status,mlss_power,mmp_points,parse_errors,parsed_files,total_duration_h,total_tss
+ADRIAN,0.888,0,"{""HIIT"": 2, ""FREE"": 3, ""STEADY"": 4, ""TEST"": 1, ""UNCLASSIFIED"": 1}",0.0,coherent,[],0.4871,49.8,135.0,11,268.5,best_20min_x_0.95,0.05,success,250.0,21,0,11,83.06,3475.5
+Adriano,0.741,0,"{""STEADY"": 11, ""FREE"": 19, ""UNCLASSIFIED"": 1}",0.25,incoherent,"[""Model MLSS (185W) exceeds sustained power (124W) by 49%. The long effort may have been sub-maximal, or VO2max is overestimated.""]",0.4981,38.6,87.5,31,214.8,best_20min_x_0.95,0.05,success,185.0,21,0,31,75.7,3479.7
+Alessio,0.91,0,"{""TEST"": 5, ""FREE"": 1}",0.0,coherent,[],0.4934,39.9,92.5,6,215.3,best_20min_x_0.95,0.05,success,195.0,21,0,6,12.28,1116.6
+LELE,0.776,0,"{""TEST"": 6, ""FREE"": 5, ""UNCLASSIFIED"": 1, ""HIIT"": 1}",0.0,coherent,[],0.4842,40.1,92.5,13,224.9,best_20min_x_0.95,0.05,success,195.0,21,0,13,33.53,2007.5
+davide,0.831,0,"{""UNCLASSIFIED"": 3, ""STEADY"": 11, ""FREE"": 3, ""HIIT"": 2}",0.0,coherent,[],0.4999,43.0,105.0,19,252.9,best_20min_x_0.95,0.05,success,210.0,21,0,19,68.0,1982.3
+omar,0.903,0,"{""HIIT"": 4, ""UNCLASSIFIED"": 5, ""TEST"": 5, ""STEADY"": 9, ""FREE"": 6}",0.0,coherent,[],0.4889,52.5,147.5,29,273.1,best_20min_x_0.95,0.05,success,265.0,21,0,29,78.46,4362.3
