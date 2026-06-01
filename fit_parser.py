@@ -362,6 +362,7 @@ def parse_fit_file_enhanced(
     _session_msgs = []
     _device_info_msgs = []
     _record_msgs = []
+    _hrv_msgs = []
     for msg in fitfile.get_messages():
         mname = msg.name
         if mname == "record":
@@ -370,6 +371,8 @@ def parse_fit_file_enhanced(
             _session_msgs.append(msg)
         elif mname == "device_info":
             _device_info_msgs.append(msg)
+        elif mname == "hrv":
+            _hrv_msgs.append(msg)
 
     # Extract session info
     session_dict = {}
@@ -471,7 +474,44 @@ def parse_fit_file_enhanced(
             elif np.all(valid_balance == 50) or valid_balance.std() < 0.5:
                 # All 50 or near-constant → single-side estimated
                 stream.pedaling_balance_source = "single_estimated"
-    
+
+    # Garmin stores RR data in dedicated 'hrv' messages (not in record),
+    # each containing a 'time' field with a list of beat-to-beat intervals
+    # in seconds. We flatten the full sequence, then distribute beats to
+    # the nearest record-second bucket by walking elapsed time.
+    if _hrv_msgs and not stream.has_rr:
+        rr_seq_s: List[float] = []
+        for hmsg in _hrv_msgs:
+            for field in hmsg.fields:
+                if field.name == "time":
+                    val = field.value
+                    if isinstance(val, (list, tuple)):
+                        rr_seq_s.extend(
+                            float(v) for v in val
+                            if v is not None and float(v) > 0.0
+                        )
+                    elif val is not None and float(val) > 0.0:
+                        rr_seq_s.append(float(val))
+
+        if rr_seq_s:
+            n_samples = len(stream.elapsed_s)
+            beat_cursor_s = 0.0
+            rr_idx = 0
+            n_rr = len(rr_seq_s)
+            for idx in range(n_samples):
+                window_end = stream.elapsed_s[idx] + 0.5  # ±0.5s tolerance
+                beats_in_window: List[float] = []
+                while rr_idx < n_rr:
+                    beat_cursor_s += rr_seq_s[rr_idx]
+                    if beat_cursor_s <= window_end:
+                        beats_in_window.append(rr_seq_s[rr_idx] * 1000.0)  # → ms
+                        rr_idx += 1
+                    else:
+                        beat_cursor_s -= rr_seq_s[rr_idx]
+                        break
+                if beats_in_window:
+                    stream.rr_intervals[idx] = beats_in_window
+
     return stream
 
 
