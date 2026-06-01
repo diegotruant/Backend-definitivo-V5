@@ -152,6 +152,42 @@ check("last hour uses real final hour",
       f"got={durability.get('last_hour_avg')}")
 
 
+print("\n[6] Phase 1 weak-code fixes")
+from power_engine import normalized_power
+from engines import calculate_np_drift, calculate_monotony_strain, estimate_fat_oxidation_rate
+
+rng = np.random.default_rng(42)
+power_45m = np.clip(180 + 40 * rng.standard_normal(2700), 0, None)
+mid = power_45m.size // 2
+np_drift = calculate_np_drift(power_45m.tolist(), duration_seconds=power_45m.size)
+expected_first = normalized_power(power_45m[:mid])
+expected_second = normalized_power(power_45m[mid:])
+check("np drift uses canonical normalized_power", np_drift.get("np_method") == "power_engine.normalized_power")
+check(
+    "np drift first half matches power_engine",
+    abs(np_drift["np_first_half"] - round(expected_first, 0)) < 1.0,
+    f"got={np_drift.get('np_first_half')} expected~{round(expected_first, 0)}",
+)
+check(
+    "np drift has api_contract",
+    "api_contract" in np_drift and np_drift["api_contract"]["module"] == "durability_engine",
+)
+
+flat_week = calculate_monotony_strain([50.0] * 7)
+check("flat TSS week flags unstable monotony", flat_week.get("status") == "unstable")
+check(
+    "flat TSS week exposes edge_case_flags",
+    "near_zero_daily_tss_variance" in flat_week.get("edge_case_flags", []),
+)
+
+fat_ox = estimate_fat_oxidation_rate(fatmax_watts=210, weight_kg=70)
+check("fat oxidation uses weight_kg", fat_ox.get("fat_oxidation_mg_per_kg_per_min") is not None)
+check(
+    "fat oxidation mass-normalized value consistent",
+    abs(fat_ox["fat_oxidation_mg_per_kg_per_min"] - (210 * 0.001 * 1000 / 70)) < 0.01,
+)
+
+
 print("\n" + "=" * 60)
 passed = sum(1 for _, ok, _ in results if ok)
 total = len(results)

@@ -32,6 +32,7 @@ from typing import Dict, Any, List, Tuple
 import numpy as np
 
 from metric_contracts import annotate_payload
+from power_engine import normalized_power
 
 
 # =============================================================================
@@ -157,49 +158,43 @@ def calculate_np_drift(
 ) -> Dict[str, Any]:
     """
     Calculate Normalized Power drift between first and second half.
-    
-    Normalized Power accounts for variability — better than simple average
-    for interval workouts.
-    
-    Formula (Coggan):
-    NP = (mean(power^4))^(1/4) × 30s rolling average
+
+    Uses the canonical Coggan NP implementation from ``power_engine`` so drift
+    matches NP/IF/TSS elsewhere in the backend.
     """
     if duration_seconds < 1800:  # Need at least 30min
-        return {"status": "insufficient_duration"}
-    
-    # Split into halves
-    midpoint = len(power_stream) // 2
-    first_half = power_stream[:midpoint]
-    second_half = power_stream[midpoint:]
-    
-    # Calculate NP for each half
-    def calc_np(power_data):
-        # 30s rolling average
-        window = 30
-        rolling_avg = []
-        for i in range(len(power_data) - window + 1):
-            rolling_avg.append(np.mean(power_data[i:i+window]))
-        
-        if not rolling_avg:
-            return 0
-        
-        # Fourth power
-        fourth_powers = [p**4 for p in rolling_avg if p > 0]
-        if not fourth_powers:
-            return 0
-        
-        return np.mean(fourth_powers) ** 0.25
-    
-    np_first = calc_np(first_half)
-    np_second = calc_np(second_half)
-    
-    if np_first == 0:
-        return {"status": "invalid_data"}
-    
+        return annotate_payload(
+            {"status": "insufficient_duration"},
+            module_name="durability_engine",
+            method="normalized_power_drift",
+            confidence=0.0,
+            limitations=["Requires at least 30 minutes of power data."],
+        )
+
+    power = np.asarray(power_stream[:duration_seconds], dtype=float)
+    if power.size < 60:
+        return annotate_payload(
+            {"status": "invalid_data", "reason": "empty_power_stream"},
+            module_name="durability_engine",
+            method="normalized_power_drift",
+            confidence=0.0,
+        )
+
+    midpoint = power.size // 2
+    np_first = normalized_power(power[:midpoint])
+    np_second = normalized_power(power[midpoint:])
+
+    if np_first <= 0:
+        return annotate_payload(
+            {"status": "invalid_data", "reason": "zero_np_first_half"},
+            module_name="durability_engine",
+            method="normalized_power_drift",
+            confidence=0.0,
+        )
+
     np_drift_pct = ((np_second / np_first) - 1) * 100
-    
-    # Classification
-    if np_drift_pct > -2:  # Less than 2% decay
+
+    if np_drift_pct > -2:
         classification = "EXCELLENT"
     elif np_drift_pct > -5:
         classification = "GOOD"
@@ -207,14 +202,21 @@ def calculate_np_drift(
         classification = "FAIR"
     else:
         classification = "POOR"
-    
-    return {
-        "status": "success",
-        "np_first_half": round(np_first, 0),
-        "np_second_half": round(np_second, 0),
-        "np_drift_pct": round(np_drift_pct, 1),
-        "classification": classification,
-    }
+
+    return annotate_payload(
+        {
+            "status": "success",
+            "np_first_half": round(np_first, 0),
+            "np_second_half": round(np_second, 0),
+            "np_drift_pct": round(np_drift_pct, 1),
+            "classification": classification,
+            "np_method": "power_engine.normalized_power",
+        },
+        module_name="durability_engine",
+        method="normalized_power_drift",
+        confidence=0.75,
+        limitations=["Half-session NP drift is heuristic; compare with full-session NP from power_engine."],
+    )
 
 
 # =============================================================================

@@ -123,32 +123,26 @@ before model-derived outputs should be interpreted as lab-grade measurements.
 
 - File: `durability_engine.py`
 - Risk: medium
-- Issue: the NP drift calculation is not identical to the implementation in
-  `power_engine.py`.
-- Impact: durability NP drift may not match standard Coggan NP behavior.
-- Suggested fix: call the canonical `normalized_power()` function from
-  `power_engine.py`.
+- **Current status: fixed** — `calculate_np_drift()` calls
+  `power_engine.normalized_power()` for each half-session.
+- Regression: `test_scientific_bugfixes.py` section 6.
 
 ### Fat oxidation estimate ignores body mass
 
 - File: `metabolic_flexibility_engine.py`
 - Risk: medium
-- Issue: the public function accepts `weight_kg`, but the simple formula does
-  not use it.
-- Impact: inter-athlete comparison is not mass-normalized.
-- Suggested fix: either remove the parameter or implement a mass-specific model.
+- **Current status: fixed** — `estimate_fat_oxidation_rate()` reports
+  `fat_oxidation_mg_per_kg_per_min` and classifies on the mass-normalized rate.
+- Regression: `test_scientific_bugfixes.py` section 6.
 
 ### ACWR and monotony should expose metric-contract uncertainty
 
 - File: `training_variability_engine.py`
 - Risk: medium
-- Issue: ACWR thresholds are debated in current sports-science literature and
-  monotony becomes unstable when daily TSS variance approaches zero.
-- Impact: risk labels can be overinterpreted.
-- Current status: partially addressed at architecture level by
-  `metric_contracts.py`, but not yet integrated into this specific module.
-- Suggested fix: attach the common `api_contract` / `uncertainty` fields and
-  expose edge-case flags for near-zero TSS variance.
+- **Current status: fixed** — outputs include `api_contract`, `uncertainty`,
+  and `edge_case_flags` (`low_chronic_load`, `near_zero_daily_tss_variance`,
+  unstable monotony when daily TSS variance is very low).
+- Regression: `test_scientific_bugfixes.py` section 6.
 
 ## Lower-priority issues
 
