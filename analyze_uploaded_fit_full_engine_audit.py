@@ -390,8 +390,25 @@ def analyze_athlete(athlete: str, files: List[Path]) -> Tuple[List[Dict[str, Any
     unmasked = metabolic_snapshot.get("unmasked_estimates", {})
     vo2 = unmasked.get("estimated_vo2max") or metabolic_snapshot.get("estimated_vo2max")
     vla = unmasked.get("estimated_vlamax_mmol_L_s") or metabolic_snapshot.get("estimated_vlamax_mmol_L_s")
-    if vo2 is not None and vla is not None and len(mmp_for_profiler) >= 3:
-        status, cv, err = safe_call(lambda: cross_validate_metabolic_profile(MetabolicProfiler(weight=WEIGHT_KG), mmp_for_profiler, float(vo2), float(vla)))
+    cv_embedded = metabolic_snapshot.get("cross_validation") if metabolic_snapshot else None
+    if cv_embedded:
+        matrix.append(engine_row(
+            athlete,
+            "cross_validation_engine",
+            "success" if cv_embedded.get("coherent") else "warning",
+            key_output=cv_embedded,
+        ))
+    elif vo2 is not None and vla is not None and len(mmp_for_profiler) >= 3:
+        resolved_eta = float(
+            (metabolic_snapshot.get("context_used") or {}).get("resolved_eta") or 0.23
+        )
+        status, cv, err = safe_call(lambda: cross_validate_metabolic_profile(
+            profiler,
+            mmp_for_profiler,
+            float(vo2),
+            float(vla),
+            eta_base=resolved_eta,
+        ))
         matrix.append(engine_row(athlete, "cross_validation_engine", status if status == "error" else ("success" if cv.coherent else "warning"),
                                  key_output=cv.to_dict() if cv else "", warning=err))
     else:

@@ -158,7 +158,16 @@ def analyze_athlete(name: str, files: List[Path]) -> Tuple[Dict[str, Any], List[
             vo2 = unmasked.get("estimated_vo2max") or metabolic.get("estimated_vo2max")
             vla = unmasked.get("estimated_vlamax_mmol_L_s") or metabolic.get("estimated_vlamax_mmol_L_s")
             if vo2 is not None and vla is not None:
-                cv_result = cross_validate_metabolic_profile(profiler, mmp_for_profiler, float(vo2), float(vla))
+                resolved_eta = float(
+                    (metabolic.get("context_used") or {}).get("resolved_eta") or 0.23
+                )
+                cv_result = cross_validate_metabolic_profile(
+                    profiler,
+                    mmp_for_profiler,
+                    float(vo2),
+                    float(vla),
+                    eta_base=resolved_eta,
+                )
                 cv = cv_result.to_dict()
                 cv_status = "coherent" if cv_result.coherent else "incoherent"
         except Exception as exc:

@@ -83,6 +83,9 @@ class CrossValidationResult:
 
     # Which parameter is the most likely outlier, if incoherent
     suspected_outlier: Optional[str] = None
+    # Coach-facing hint when the audit flags a problem
+    recommended_action: Optional[str] = None
+    severity: str = "none"  # none | mild | moderate | severe
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -98,10 +101,12 @@ class CrossValidationResult:
             } if self.threshold_observed_w is not None else None,
             "coherence_penalty": round(self.coherence_penalty, 3),
             "suspected_outlier": self.suspected_outlier,
+            "severity": self.severity,
+            "recommended_action": self.recommended_action,
         }
 
 
-def _observed_threshold_power(mmp: Dict[int, float]) -> Optional[float]:
+def observed_threshold_power(mmp: Dict[int, float]) -> Optional[float]:
     """
     Extract the directly-observed threshold power from the MMP.
 
@@ -125,6 +130,15 @@ def _observed_threshold_power(mmp: Dict[int, float]) -> Optional[float]:
     if longest_d <= 1500.0:
         return longest_p * 0.97
     return longest_p
+
+
+# Backwards-compatible alias
+_observed_threshold_power = observed_threshold_power
+
+# Model MLSS / observed sustained-power ratio bands
+_MLSS_RATIO_SOFT = 1.12
+_MLSS_RATIO_MODERATE = 1.20
+_MLSS_RATIO_SEVERE = 1.30
 
 
 def cross_validate_metabolic_profile(
@@ -186,7 +200,7 @@ def cross_validate_metabolic_profile(
     # fit has collapsed onto a non-physical solution (as can happen when
     # the optimiser trades VO2max against an inflated VLamax).
     # ------------------------------------------------------------------
-    observed = _observed_threshold_power(mmp_int)
+    observed = observed_threshold_power(mmp_int)
 
     if observed is not None:
         # Aerobic demand implied by the sustained threshold power.
@@ -236,24 +250,59 @@ def cross_validate_metabolic_profile(
                 # (usually the same collapsed fit Check 1 catches).
                 result.coherent = False
                 result.coherence_penalty = max(result.coherence_penalty, 0.45)
+                result.severity = "severe"
                 if result.suspected_outlier is None:
                     result.suspected_outlier = "model_mlss_implausibly_low"
+                result.recommended_action = (
+                    "Treat VO2max and VLamax as unreliable; repeat a maximal "
+                    "threshold-duration effort or review power-meter calibration."
+                )
                 result.warnings.append(
                     f"Model MLSS ({predicted:.0f}W) is far below the sustained "
                     f"threshold power ({observed:.0f}W) — only {ratio*100:.0f}%. "
                     f"The parameter fit is physiologically inconsistent."
                 )
-            elif ratio > 1.15:
-                # Model MLSS above sustained power → the long effort was
-                # likely sub-maximal, or VO2max is overestimated.
+            elif ratio > _MLSS_RATIO_SEVERE:
                 result.coherent = False
-                result.coherence_penalty = max(result.coherence_penalty, 0.25)
+                result.coherence_penalty = max(result.coherence_penalty, 0.40)
+                result.severity = "severe"
                 if result.suspected_outlier is None:
                     result.suspected_outlier = "submaximal_long_effort"
+                result.recommended_action = (
+                    "Do not use MLSS/VO2max for prescription until a true "
+                    "20–60 min maximal effort is available in the MMP."
+                )
+                result.warnings.append(
+                    f"Model MLSS ({predicted:.0f}W) exceeds sustained power "
+                    f"({observed:.0f}W) by {(ratio-1)*100:.0f}%. Long efforts in "
+                    f"the curve were likely easy, or short efforts inflated the fit."
+                )
+            elif ratio > _MLSS_RATIO_MODERATE:
+                result.coherent = False
+                result.coherence_penalty = max(result.coherence_penalty, 0.25)
+                result.severity = "moderate"
+                if result.suspected_outlier is None:
+                    result.suspected_outlier = "submaximal_long_effort"
+                result.recommended_action = (
+                    "Interpret MLSS cautiously; prioritise a recent maximal "
+                    "steady effort (≥20 min) before threshold training."
+                )
                 result.warnings.append(
                     f"Model MLSS ({predicted:.0f}W) exceeds sustained power "
                     f"({observed:.0f}W) by {(ratio-1)*100:.0f}%. The long effort "
                     f"may have been sub-maximal, or VO2max is overestimated."
+                )
+            elif ratio > _MLSS_RATIO_SOFT:
+                result.coherence_penalty = max(result.coherence_penalty, 0.10)
+                result.severity = "mild"
+                result.recommended_action = (
+                    "Minor mismatch — confirm with a fresh maximal steady "
+                    "effort if threshold zones drive training."
+                )
+                result.warnings.append(
+                    f"Model MLSS ({predicted:.0f}W) is slightly above sustained "
+                    f"power ({observed:.0f}W) (+{(ratio-1)*100:.0f}%). "
+                    f"Consider a validation ride if precision matters."
                 )
 
     # ------------------------------------------------------------------

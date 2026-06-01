@@ -12,6 +12,10 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from engines.athlete_context import AthleteContext
+from cross_validation_engine import (
+    cross_validate_metabolic_profile,
+    observed_threshold_power,
+)
 from metric_contracts import annotate_payload
 
 
@@ -431,15 +435,17 @@ class MetabolicProfiler:
         # against an inflated VLamax. (This basin exists for some weight/
         # curve combinations and produced non-physical fits, e.g. an
         # 88 kg athlete sustaining 265 W for 1 h fitting to VO2max≈30.)
-        thr_powers = [p for d, p in zip(durs_u, pows_u) if 1200.0 <= d <= 3600.0 and p > 0]
+        mmp_for_obs = {int(d): float(p) for d, p in zip(durs_u, pows_u) if p > 0}
+        obs_thr = observed_threshold_power(mmp_for_obs)
         coeff_w_to_vo2 = 10.8 * (0.23 / fixed_eta)
-        if thr_powers:
-            obs_thr = float(np.median(thr_powers))
+        if obs_thr is not None and obs_thr > 0:
             # Aerobic demand of sustained threshold power (+ small margin,
-            # since VO2max sits above MLSS).
+            # since VO2max sits above MLSS). Uses the same observable as
+            # cross_validation_engine (longest threshold-window effort).
             vo2_floor = self.const.vo2_basale + coeff_w_to_vo2 * (obs_thr / self.weight) * 1.05
         else:
             vo2_floor = 0.0
+        mlss_ratio_ceiling = 1.10
 
         def cost_fn(x: np.ndarray) -> np.ndarray:
             vo2, vla = map(float, x)
@@ -465,6 +471,14 @@ class MetabolicProfiler:
             # walls off the non-physical region.
             if vo2_floor > 0.0 and vo2 < vo2_floor:
                 reg.append((vo2_floor - vo2) * 5.0)
+
+            # One-sided MLSS ceiling: penalize fits where Mader MLSS sits well
+            # above the independently observed sustained threshold power.
+            if obs_thr is not None and obs_thr > 0:
+                w_mlss_pred, _, _, _, _ = self._calculate_curves(vo2, vla, fixed_eta)
+                ratio = float(w_mlss_pred) / obs_thr
+                if ratio > mlss_ratio_ceiling:
+                    reg.append((ratio - mlss_ratio_ceiling) * 55.0)
 
             if np.any(durs_u <= 30.0):
                 reg.append(float(np.mean(np.abs(preds[durs_u <= 30.0] - pows_u[durs_u <= 30.0]))) * self.reg.short_mae_scale)
@@ -553,7 +567,17 @@ class MetabolicProfiler:
                 confidence_effective = min(confidence, 0.40)
             else:
                 confidence_effective = confidence
-            
+
+            cv_result = cross_validate_metabolic_profile(
+                self, mmp, vo2, vla, eta_base=fixed_eta,
+            )
+            if cv_result.coherence_penalty > 0:
+                confidence_effective = float(np.clip(
+                    confidence_effective * (1.0 - cv_result.coherence_penalty),
+                    0.05,
+                    1.0,
+                ))
+
             return self._finalize_snapshot({
                 "status": "success",
                 "estimated_vo2max": vo2_out,
@@ -566,6 +590,7 @@ class MetabolicProfiler:
                 "fatmax_power_watts": fatmax_out,
                 "map_aerobic_watts": round(map_w, 1),  # always shown; deterministic from MMP
                 "confidence_score": round(confidence_effective, 3),
+                "cross_validation": cv_result.to_dict(),
                 "expressiveness": expressiveness.to_dict(),
                 "unmasked_estimates": unmasked,    # for debugging / audit
                 "context_used": {

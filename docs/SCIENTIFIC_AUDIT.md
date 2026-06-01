@@ -99,6 +99,15 @@ The main high-priority risk is now **external validation**: the backend still
 needs cohort-level comparisons against laboratory and field reference data
 before model-derived outputs should be interpreted as lab-grade measurements.
 
+### Metabolic coherence audit (Phase 2)
+
+- `cross_validation_engine.py` now tiers MLSS mismatch severity (`mild` /
+  `moderate` / `severe`) and exposes `recommended_action` for coaches.
+- `metabolic_profiler.py` uses the same `observed_threshold_power()` for the
+  aerobic floor and an MLSS ceiling penalty during the fit; each snapshot
+  embeds `cross_validation` and down-weights `confidence_score` when the
+  audit reports a coherence penalty.
+
 ## Medium-priority mathematical and numerical risks
 
 ### Bayesian VLamax prior may be too tight

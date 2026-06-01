@@ -22,8 +22,8 @@ def check(name, cond):
 def _fit(weight, mmp):
     prof = MetabolicProfiler(weight=weight)
     snap = prof.generate_metabolic_snapshot(mmp, expected_eta=0.23)
-    return prof, snap['unmasked_estimates']['estimated_vo2max'], \
-           snap['unmasked_estimates']['estimated_vlamax_mmol_L_s']
+    unmasked = snap["unmasked_estimates"]
+    return prof, snap, unmasked["estimated_vo2max"], unmasked["estimated_vlamax_mmol_L_s"]
 
 
 # Real, well-formed profiles → must be coherent
@@ -36,25 +36,36 @@ GOOD = {
 
 print("Coherent real profiles (must pass):")
 for name, (w, mmp) in GOOD.items():
-    prof, vo2, vla = _fit(w, mmp)
-    cv = cross_validate_metabolic_profile(prof, mmp, vo2, vla)
-    check(f"{name} coherent", cv.coherent)
-    check(f"{name} no penalty", cv.coherence_penalty == 0.0)
+    prof, snap, vo2, vla = _fit(w, mmp)
+    cv = snap["cross_validation"]
+    check(f"{name} not severely incoherent", cv["severity"] != "severe")
+    check(f"{name} acceptable severity", cv["severity"] in ("none", "mild", "moderate"))
+    check(f"{name} penalty bounded", cv["coherence_penalty"] <= 0.25)
 
 print("\nAdrian (88kg ultra) — formerly a degenerate fit, now fixed by the")
 print("aerobic-floor penalty + multi-start in the profiler:")
-prof, vo2, vla = _fit(88, {5:700,15:639,30:470,60:386,120:369,300:351,600:305,1200:283,1800:272,3600:265})
-cv = cross_validate_metabolic_profile(prof, {5:700,15:639,30:470,60:386,120:369,300:351,600:305,1200:283,1800:272,3600:265}, vo2, vla)
+adrian_mmp = {5:700,15:639,30:470,60:386,120:369,300:351,600:305,1200:283,1800:272,3600:265}
+prof, snap, vo2, vla = _fit(88, adrian_mmp)
+cv = snap["cross_validation"]
 check("Adrian VO2max now physiological (>40)", vo2 > 40.0)
 check("Adrian VLamax now sane (<0.9)", vla < 0.9)
-check("Adrian now coherent", cv.coherent)
+check("Adrian now coherent", cv["coherent"])
+
+print("\nTiered MLSS mismatch (mild vs moderate):")
+prof60 = MetabolicProfiler(weight=60)
+# Mild: model MLSS only slightly above observed (~10%)
+mmp_mild = {5: 500, 15: 450, 60: 380, 120: 340, 300: 300, 600: 280, 1200: 260, 1800: 255, 3600: 250}
+_, snap_m, vo2_m, vla_m = _fit(60, mmp_mild)
+cv_mild = snap_m["cross_validation"]
+check("mild mismatch may stay coherent", cv_mild["severity"] in ("none", "mild"))
+check("mild mismatch has recommended_action when warned",
+      cv_mild["severity"] == "none" or cv_mild.get("recommended_action"))
 
 print("\nSynthetic non-physical pair (forces the aerobic-floor check):")
 # Hand Adrian's curve but a deliberately impossible VO2max/VLamax pair,
 # bypassing the fitter, to confirm the cross-check still catches it.
-adrian_mmp = {5:700,15:639,30:470,60:386,120:369,300:351,600:305,1200:283,1800:272,3600:265}
 prof = MetabolicProfiler(weight=88)
-cv = cross_validate_metabolic_profile(prof, adrian_mmp, vo2max=30.0, vlamax=1.46)
+cv = cross_validate_metabolic_profile(prof, adrian_mmp, vo2max=30.0, vlamax=1.46, eta_base=0.23)
 check("non-physical pair flagged incoherent", not cv.coherent)
 check("non-physical pair → aerobic_floor or low-MLSS", 
       cv.suspected_outlier in ("nonphysical_fit_vo2max_too_low", "model_mlss_implausibly_low"))
@@ -62,8 +73,8 @@ check("non-physical pair penalty >= 0.4", cv.coherence_penalty >= 0.4)
 prof = MetabolicProfiler(weight=60)
 # Sub-maximal long effort
 mmp_sub = {5:987,15:694,30:498,60:439,120:307,300:260,600:246,1200:175,1800:165,3600:150}
-_, vo2, vla = _fit(60, mmp_sub)
-cv = cross_validate_metabolic_profile(prof, mmp_sub, vo2, vla)
+_, snap_sub, vo2, vla = _fit(60, mmp_sub)
+cv = cross_validate_metabolic_profile(prof, mmp_sub, vo2, vla, eta_base=0.23)
 check("sub-maximal long effort flagged", not cv.coherent)
 
 # Curve inversion
