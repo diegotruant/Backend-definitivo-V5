@@ -43,7 +43,7 @@ import numpy as np
 # dfa_alpha1 e sliding_dfa_alpha1 non vengono più usati: tutto il calcolo
 # DFA passa per _dfa_alpha1_full() in questo modulo, così l'α₁ pubblicato
 # e la diagnostica regressiva (R², stderr, CI) provengono dalla stessa pipeline.
-from engines.hrv_dfa.analysis import clean_rr_intervals
+from analysis import clean_rr_intervals
 from engines.athlete_context import AthleteContext
 from metric_contracts import annotate_payload
 
