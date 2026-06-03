@@ -26,8 +26,8 @@ steps = steps_from_payload([
     {"step": 6, "power_w": 320, "lactate_mmol": 10.2},
 ])
 thr = compute_lactate_thresholds(steps)
-check("thresholds success", thr["status"] == "success")
-check("mlss dmax present", thr.get("mlss_dmax_watts", 0) > 0)
+check("mlss dmax present", (thr.mlss_dmax_w or 0) > 0)
+check("to_dict works", "mlss_dmax_watts" in thr.to_dict())
 
 
 print("\n[2] Critical power via test_protocols")

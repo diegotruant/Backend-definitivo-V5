@@ -88,6 +88,8 @@ from lab_data import (
     validate_lab_result,
 )
 from lactate_validation_engine import (
+    LactateStep,
+    LactateThresholds,
     compute_lactate_thresholds,
     steps_from_payload,
     validate_model_against_lactate,
@@ -291,6 +293,8 @@ __all__ = [
     "parse_lab_text",
     "parse_lab_pdf",
     "validate_lab_result",
+    "LactateStep",
+    "LactateThresholds",
     "compute_lactate_thresholds",
     "steps_from_payload",
     "validate_model_against_lactate",
