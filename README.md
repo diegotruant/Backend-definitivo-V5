@@ -237,6 +237,28 @@ python3 comprehensive_stress_test.py                 # → 61/61 PASS
 Total: **459/459** tests pass on synthetic + real 1Hz records.
 Validation on 9 real FIT files: **9/9 classified correctly**.
 
+## In-person tests (tablet app)
+
+Coach-led tests on a smart trainer use a single JSON envelope (`CONTRATTO_JSON_test.md`).
+The backend routes by `test_type` and reuses existing engines (no duplicate CP/Mader math).
+
+```python
+from engines import MetabolicProfiler, AthleteContext, run_in_person_test
+
+envelope = {...}  # see CONTRATTO_JSON_test.md
+profiler = MetabolicProfiler(weight=72.0, context=AthleteContext())
+result = run_in_person_test(envelope, profiler=profiler)
+```
+
+CLI: `python3 run_in_person_test.py envelope.json`  
+Tests: `python3 test_test_protocols.py`
+
+| test_type | Backend path |
+|-----------|----------------|
+| `mader` | `lactate_validation_engine` + `MetabolicProfiler` |
+| `critical_power` | `power_engine.fit_critical_power` |
+| `incrementale`, `curva_pc`, `wingate` | `test_protocols` (direct formulas) |
+
 ## Minimal end-to-end example
 
 ```python

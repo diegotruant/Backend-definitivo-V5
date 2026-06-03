@@ -103,8 +103,8 @@ ENGINE_TIERS: Dict[str, Tier] = {
     "hrv_engine":                    Tier.MODEL,
     "metabolic_profiler":            Tier.MODEL,
     "cross_validation_engine":       Tier.MODEL,
-    "lactate_validation_engine":     Tier.REFERENCE,  # lactate is measured ground truth
-    "test_protocols":                Tier.REFERENCE,  # in-person test calculations (direct formulas)
+    "lactate_validation_engine":     Tier.REFERENCE,
+    "test_protocols":                Tier.REFERENCE,
     "w_prime_balance_engine":        Tier.MODEL,
     "race_prediction_engine":        Tier.MODEL,
     "mmp_aggregator":                Tier.REFERENCE,
@@ -149,6 +149,9 @@ SCOPE: Dict[str, str] = {
         "detraining_engine", "training_variability_engine", "durability_engine",
         "w_prime_balance_engine", "metabolic_flexibility_engine",
         "explainability_engine",
+    ],
+    "in_person_test": [
+        "test_protocols", "lactate_validation_engine",
     ],
 }
 

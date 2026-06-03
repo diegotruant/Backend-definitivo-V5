@@ -21,6 +21,8 @@ _SUBMODULE_ALIASES = [
     "hrv_engine",
     "interval_detector",
     "lab_data",
+    "lactate_validation_engine",
+    "test_protocols",
     "metabolic_current",
     "metabolic_flexibility_engine",
     "metabolic_kalman",
@@ -85,6 +87,22 @@ from lab_data import (
     parse_lab_pdf,
     validate_lab_result,
 )
+from lactate_validation_engine import (
+    compute_lactate_thresholds,
+    steps_from_payload,
+    validate_model_against_lactate,
+)
+from test_protocols import (
+    run_critical_power_test,
+    run_incremental_test,
+    run_mader_test,
+    run_power_cadence_test,
+    run_test,
+    run_wingate_test,
+)
+
+# Alias for API / tablet runners
+run_in_person_test = run_test
 from hrv_engine import analyze_rr_stream, calculate_dfa_alpha1
 from interval_detector import (
     Category,
@@ -273,6 +291,16 @@ __all__ = [
     "parse_lab_text",
     "parse_lab_pdf",
     "validate_lab_result",
+    "compute_lactate_thresholds",
+    "steps_from_payload",
+    "validate_model_against_lactate",
+    "run_test",
+    "run_in_person_test",
+    "run_mader_test",
+    "run_incremental_test",
+    "run_power_cadence_test",
+    "run_critical_power_test",
+    "run_wingate_test",
     "cross_validate_metabolic_profile",
     "CrossValidationResult",
     "update_power_curve",

@@ -41,6 +41,8 @@ py-modules = [
     "hrv_engine",
     "interval_detector",
     "lab_data",
+    "lactate_validation_engine",
+    "test_protocols",
     "metabolic_current",
     "metabolic_flexibility_engine",
     "metabolic_kalman",
