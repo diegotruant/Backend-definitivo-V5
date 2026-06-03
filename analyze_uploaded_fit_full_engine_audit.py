@@ -20,6 +20,7 @@ from engines import (
     analyze_heat_acclimation,
     analyze_pedaling_balance,
     analyze_thermal_session,
+    analyze_w_prime_usage,
     apply_detraining_model,
     assess_data_quality,
     bayesian_metabolic_snapshot,
@@ -30,16 +31,20 @@ from engines import (
     calculate_metabolic_flexibility_index,
     calculate_monotony_strain,
     calculate_np_drift,
+    calculate_w_prime_balance,
     classify_session,
     cross_validate_metabolic_profile,
     curve_to_mmp,
     estimate_fat_oxidation_rate,
+    generate_acwr_narrative,
     generate_hourly_decay_curve,
     get_current_metabolic_status,
     parse_fit_file_enhanced,
     process_workout_history,
     update_power_curve,
 )
+from engines.cardiac_engine import ActivitySample, CardiacResponseAnalyzer
+from explainability_engine import calculate_vo2max_confidence, generate_workout_summary_narrative
 from chart_builder import chart_power_duration_curve, chart_training_load
 from coggan_classifier import classify_from_mmp
 from efforts_analyzer import analyze_efforts
@@ -52,6 +57,8 @@ from zones_engine import ZonesEngine
 UPLOAD_ROOT = Path("data/fit_uploads")
 OUTPUT_DIR = Path("reports/uploaded_fit_full_engine_audit")
 WEIGHT_KG = 75.0
+W_PRIME_TAU_S = 546.0
+LAB_UPLOAD_ROOT = Path("data/lab_uploads")
 
 
 def write_csv(path: Path, rows: List[Dict[str, Any]]) -> None:
@@ -120,6 +127,21 @@ def first_date_or_today(streams: List[Any]) -> date:
     return min(dates) if dates else date.today()
 
 
+def estimate_w_prime_joules(cp_w: float) -> float:
+    """Heuristic W' capacity when no formal test is available (audit default)."""
+    return float(np.clip(cp_w * 90.0, 15000.0, 35000.0))
+
+
+def athlete_has_lab_files(athlete: str) -> bool:
+    if not LAB_UPLOAD_ROOT.is_dir():
+        return False
+    for path in LAB_UPLOAD_ROOT.rglob("*"):
+        if path.is_file() and path.suffix.lower() in (".pdf", ".txt", ".csv"):
+            if athlete.lower() in str(path).lower():
+                return True
+    return False
+
+
 def analyze_athlete(athlete: str, files: List[Path]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
     matrix: List[Dict[str, Any]] = []
     activity_rows: List[Dict[str, Any]] = []
@@ -146,6 +168,8 @@ def analyze_athlete(athlete: str, files: List[Path]) -> Tuple[List[Dict[str, Any
     hrv_skipped = cardiac_skipped = 0
     balance_success = balance_skipped = 0
     thermal_success = thermal_skipped = 0
+    wprime_success = wprime_skipped = 0
+    explain_success = explain_skipped = 0
     per_engine_counts: Counter[str] = Counter()
     per_engine_errors: Counter[str] = Counter()
 
@@ -160,6 +184,8 @@ def analyze_athlete(athlete: str, files: List[Path]) -> Tuple[List[Dict[str, Any
     cp_fit = fit_critical_power(mmp_curve)
     ftp_info = estimate_ftp_from_mmp(mmp_curve, cp_fit.get("cp_w") if cp_fit else None)
     ftp = float(ftp_info.get("ftp_w") or 250.0)
+    cp_w = float(cp_fit.get("cp_w") if cp_fit else ftp)
+    w_prime_j = estimate_w_prime_joules(cp_w)
 
     metabolic_snapshot: Dict[str, Any] = {}
     metabolic_profiler_status = "skipped_no_mmp"
@@ -236,6 +262,7 @@ def analyze_athlete(athlete: str, files: List[Path]) -> Tuple[List[Dict[str, Any
                 error_rows.append({"athlete": athlete, "file": fit_path.name, "engine": "interval_detector", "error": err})
 
             # Several per-activity engines.
+            workout_summary_result: Dict[str, Any] = {}
             engine_calls = {
                 "durability_engine": lambda: calculate_durability_index(power, int(stream.total_elapsed_s or len(power))),
                 "np_drift": lambda: calculate_np_drift(power, int(stream.total_elapsed_s or len(power))),
@@ -247,16 +274,74 @@ def analyze_athlete(athlete: str, files: List[Path]) -> Tuple[List[Dict[str, Any
                 status, result, err = safe_call(fn)
                 if status == "success":
                     per_engine_counts[engine] += 1
+                    if engine == "workout_summary" and isinstance(result, dict):
+                        workout_summary_result = result
                 else:
                     per_engine_errors[engine] += 1
                     error_rows.append({"athlete": athlete, "file": fit_path.name, "engine": engine, "error": err})
 
+            status, w_balance, err = safe_call(
+                lambda: calculate_w_prime_balance(power, cp=cp_w, w_prime=w_prime_j, tau=W_PRIME_TAU_S)
+            )
+            if status == "success" and w_balance:
+                status_u, w_usage, err_u = safe_call(
+                    lambda: analyze_w_prime_usage(power, w_balance, w_prime=w_prime_j)
+                )
+                if status_u == "success":
+                    wprime_success += 1
+                    row["w_prime_min_pct"] = w_usage.get("min_balance_pct")
+                    per_engine_counts["w_prime_balance_engine"] += 1
+                else:
+                    per_engine_errors["w_prime_balance_engine"] += 1
+                    error_rows.append({"athlete": athlete, "file": fit_path.name, "engine": "w_prime_balance_engine", "error": err_u})
+            else:
+                per_engine_errors["w_prime_balance_engine"] += 1
+                error_rows.append({"athlete": athlete, "file": fit_path.name, "engine": "w_prime_balance_engine", "error": err})
+
+            if workout_summary_result.get("status") == "success":
+                status_n, narrative, err_n = safe_call(
+                    lambda: generate_workout_summary_narrative(workout_summary_result)
+                )
+                if status_n == "success" and narrative:
+                    explain_success += 1
+                    row["narrative_chars"] = len(narrative)
+                    per_engine_counts["explainability_engine"] += 1
+                else:
+                    per_engine_errors["explainability_engine"] += 1
+                    error_rows.append({"athlete": athlete, "file": fit_path.name, "engine": "explainability_engine", "error": err_n})
+            else:
+                explain_skipped += 1
+
             if stream.has_heart_rate and stream.has_power:
-                cardiac_success += 1  # covered via workout_summary section
+                samples = [
+                    ActivitySample(t=float(i), power=float(power[i]), hr=float(hr[i]))
+                    for i in range(min(len(power), len(hr)))
+                    if hr[i] > 0
+                ]
+                if len(samples) >= 60:
+                    status_c, cardiac, err_c = safe_call(
+                        lambda: CardiacResponseAnalyzer(
+                            weight=WEIGHT_KG,
+                            metabolic_snapshot=metabolic_snapshot if metabolic_snapshot.get("status") == "success" else None,
+                        ).analyze(samples)
+                    )
+                    if status_c == "success" and cardiac.get("status") == "success":
+                        cardiac_success += 1
+                        row["cardiac_fitness_class"] = (cardiac.get("summary") or {}).get("fitness_class")
+                        per_engine_counts["cardiac_engine"] += 1
+                    else:
+                        cardiac_skipped += 1
+                        if status_c == "error" or cardiac.get("status") != "success":
+                            per_engine_errors["cardiac_engine"] += 1
+                            error_rows.append({"athlete": athlete, "file": fit_path.name, "engine": "cardiac_engine", "error": err_c or str(cardiac)})
+                else:
+                    cardiac_skipped += 1
             else:
                 cardiac_skipped += 1
         else:
             cardiac_skipped += 1
+            wprime_skipped += 1
+            explain_skipped += 1
 
         # Optional-data engines: HRV from record rr_intervals or FIT hrv messages.
         if stream.has_rr:
@@ -441,10 +526,38 @@ def analyze_athlete(athlete: str, files: List[Path]) -> Tuple[List[Dict[str, Any
     today = max([w["date"] for w in workout_history], default=date.today())
     if workout_history:
         tl = calculate_ctl_atl_tsb(workout_history, today)
+        acwr_payload = calculate_acwr(tl["atl"], tl["ctl"])
+        monotony_payload = calculate_monotony_strain(
+            activity_tss[-7:] if len(activity_tss) >= 7 else activity_tss
+        )
         matrix.append(engine_row(athlete, "training_variability_engine", "success", key_output={
-            "acwr": calculate_acwr(tl["atl"], tl["ctl"]).get("acwr"),
-            "monotony": calculate_monotony_strain(activity_tss[-7:] if len(activity_tss) >= 7 else activity_tss).get("monotony"),
+            "acwr": acwr_payload.get("acwr"),
+            "monotony": monotony_payload.get("monotony"),
         }))
+        if acwr_payload.get("status") == "success":
+            status_n, acwr_text, err_n = safe_call(
+                lambda: generate_acwr_narrative(
+                    float(acwr_payload["acwr"]),
+                    str(acwr_payload.get("risk_level", "UNKNOWN")),
+                    float(tl["ctl"]),
+                    float(tl["atl"]),
+                    float(tl["tsb"]),
+                )
+            )
+            if status_n == "success" and acwr_text:
+                per_engine_counts["explainability_engine"] += 1
+            elif status_n == "error":
+                error_rows.append({"athlete": athlete, "file": "", "engine": "explainability_engine_acwr", "error": err_n})
+        if len(mmp_for_profiler) >= 3:
+            status_v, vo2_conf, err_v = safe_call(
+                lambda: calculate_vo2max_confidence(
+                    mmp_for_profiler,
+                    efforts_count=len(parsed),
+                    data_quality_score=float(np.mean([r.get("data_quality", 0.8) for r in activity_rows if r.get("athlete") == athlete]) or 0.8),
+                )
+            )
+            if status_v == "success" and vo2_conf:
+                per_engine_counts["explainability_engine"] += 1
         status, detraining, err = safe_call(lambda: apply_detraining_model(metabolic_snapshot, workout_history, today))
         matrix.append(engine_row(athlete, "detraining_engine", status if status == "error" else detraining.get("status", status),
                                  key_output=detraining.get("training_load", {}) if detraining else "", warning=err))
@@ -481,6 +594,11 @@ def analyze_athlete(athlete: str, files: List[Path]) -> Tuple[List[Dict[str, Any
     matrix.append(engine_row(athlete, "hrv_engine", hrv_status,
                              scope="activity", successes=hrv_success, skipped=hrv_skipped,
                              warning=f"{hrv_warning} activities with RR but no DFA windows" if hrv_warning else ""))
+    matrix.append(engine_row(athlete, "w_prime_balance_engine", "success" if wprime_success else "skipped_no_power",
+                             scope="activity", successes=wprime_success, skipped=len(parsed) - wprime_success,
+                             key_output={"cp_w": round(cp_w, 1), "w_prime_j": round(w_prime_j, 0)}))
+    matrix.append(engine_row(athlete, "explainability_engine", "success" if explain_success else "skipped_no_workout_summary",
+                             scope="activity", successes=explain_success, skipped=explain_skipped))
     matrix.append(engine_row(athlete, "cardiac_engine", "success" if cardiac_success else "skipped_missing_power_or_hr",
                              scope="activity", successes=cardiac_success, skipped=cardiac_skipped))
     matrix.append(engine_row(athlete, "thermal_engine", "success" if thermal_success else "skipped_no_body_temperature",
@@ -490,6 +608,14 @@ def analyze_athlete(athlete: str, files: List[Path]) -> Tuple[List[Dict[str, Any
     status, trend, err = safe_call(lambda: analyze_heat_acclimation(thermal_reports))
     matrix.append(engine_row(athlete, "heat_acclimation", status if thermal_success else "skipped_no_body_temperature",
                              key_output=trend.to_dict() if hasattr(trend, "to_dict") else "", warning=err))
+
+    if athlete_has_lab_files(athlete):
+        matrix.append(engine_row(athlete, "lab_data", "skipped_not_wired",
+                                 warning="Lab files present under data/lab_uploads but batch parse not implemented in audit"))
+    else:
+        matrix.append(engine_row(athlete, "lab_data", "skipped_no_lab_file"))
+    matrix.append(engine_row(athlete, "race_prediction_engine", "skipped_no_gpx",
+                             warning="Requires GPX course file, not FIT upload"))
 
     return matrix, activity_rows, error_rows
 
@@ -501,7 +627,9 @@ def write_markdown(path: Path, matrix: List[Dict[str, Any]], errors: List[Dict[s
     lines = [
         "# Uploaded FIT full engine audit",
         "",
-        "Race prediction is intentionally excluded because it requires GPX course input.",
+        "Race prediction requires GPX course input (marked skipped_no_gpx).",
+        "Lab ingestion requires files under data/lab_uploads/ (optional).",
+        "W' balance uses CP from MMP fit and a heuristic W' capacity (CP × 90 s, clamped).",
         "",
         "## Engine status summary",
         "",

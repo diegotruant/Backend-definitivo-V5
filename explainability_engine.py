@@ -369,12 +369,22 @@ def generate_workout_summary_narrative(
      Power well-maintained — only 16W decay.
      Training advice: continue current base volume."
     """
-    headline = workout_summary['headline']
-    sections = workout_summary['sections']
-    
+    headline = workout_summary.get("headline", {})
+    sections = workout_summary.get("sections", {})
+    meta_stream = workout_summary.get("stream_metadata", {})
+
+    workout_type = headline.get("workout_type") or headline.get("rider_phenotype") or "Training"
+    duration_s = int(meta_stream.get("duration_s") or 0)
+    duration_fmt = headline.get("duration_formatted") or (
+        f"{duration_s // 3600}h {(duration_s % 3600) // 60}m" if duration_s >= 3600
+        else f"{duration_s // 60} min"
+    )
+    tss = float(headline.get("tss") or 0.0)
+    if_value = float(headline.get("if_value") or headline.get("intensity_factor") or 0.0)
+
     # Header
-    narrative = f"**{headline['workout_type']} Workout**\n"
-    narrative += f"Duration: {headline['duration_formatted']} | TSS: {headline['tss']:.0f} | IF: {headline['if_value']:.2f}\n\n"
+    narrative = f"**{workout_type} Workout**\n"
+    narrative += f"Duration: {duration_fmt} | TSS: {tss:.0f} | IF: {if_value:.2f}\n\n"
     
     # Durability (if available)
     if sections.get('durability') and sections['durability'].get('status') == 'success':
