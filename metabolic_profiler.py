@@ -458,30 +458,34 @@ class MetabolicProfiler:
             ]) + (fixed_pcr * np.exp(-np.maximum(0.0, durs_u - 20.0) / 35.0))
 
             resid = (preds - pows_u) * weights
-            reg = [
-                (vo2 - vo2_guess) * self.reg.vo2_vs_guess,
-                (vo2 - (3.5 + (10.8 * (0.23 / fixed_eta)) * (pows_u[int(np.argmax(weights))] / self.weight)))
-                * self.reg.vo2_vs_expected_heuristic
-            ]
+            # Fixed-length regularization block: scipy.least_squares requires
+            # the same residual dimension on every cost_fn evaluation.
+            vo2_floor_pen = (
+                (vo2_floor - vo2) * 5.0 if (vo2_floor > 0.0 and vo2 < vo2_floor) else 0.0
+            )
 
-            # One-sided aerobic-floor penalty: strongly penalize VO2max
-            # estimates that fall below the aerobic demand of the observed
-            # sustained power. Zero cost when VO2max is above the floor, so
-            # this never biases physiologically valid fits upward — it only
-            # walls off the non-physical region.
-            if vo2_floor > 0.0 and vo2 < vo2_floor:
-                reg.append((vo2_floor - vo2) * 5.0)
-
-            # One-sided MLSS ceiling: penalize fits where Mader MLSS sits well
-            # above the independently observed sustained threshold power.
+            mlss_ceiling_pen = 0.0
             if obs_thr is not None and obs_thr > 0:
                 w_mlss_pred, _, _, _, _ = self._calculate_curves(vo2, vla, fixed_eta)
                 ratio = float(w_mlss_pred) / obs_thr
                 if ratio > mlss_ratio_ceiling:
-                    reg.append((ratio - mlss_ratio_ceiling) * 55.0)
+                    mlss_ceiling_pen = (ratio - mlss_ratio_ceiling) * 55.0
 
+            short_mae_pen = 0.0
             if np.any(durs_u <= 30.0):
-                reg.append(float(np.mean(np.abs(preds[durs_u <= 30.0] - pows_u[durs_u <= 30.0]))) * self.reg.short_mae_scale)
+                short_mae_pen = (
+                    float(np.mean(np.abs(preds[durs_u <= 30.0] - pows_u[durs_u <= 30.0])))
+                    * self.reg.short_mae_scale
+                )
+
+            reg = [
+                (vo2 - vo2_guess) * self.reg.vo2_vs_guess,
+                (vo2 - (3.5 + (10.8 * (0.23 / fixed_eta)) * (pows_u[int(np.argmax(weights))] / self.weight)))
+                * self.reg.vo2_vs_expected_heuristic,
+                vo2_floor_pen,
+                mlss_ceiling_pen,
+                short_mae_pen,
+            ]
             return np.concatenate([resid, np.array(reg)])
 
         def _fit_from(x0):
