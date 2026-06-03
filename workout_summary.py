@@ -29,6 +29,7 @@ from engines.zones_engine import ZonesEngine
 from engines.coggan_classifier import classify_from_mmp
 from engines.cardiac_engine import CardiacResponseAnalyzer, ActivitySample
 from engines.hrv_engine import analyze_rr_stream
+from metric_contracts import annotate_payload, summarize_section_contracts
 
 
 def build_workout_summary(
@@ -97,6 +98,12 @@ def build_workout_summary(
         "sections": {},
         "warnings": [],
     }
+    annotate_payload(
+        out,
+        module_name="workout_summary",
+        method="per_activity_orchestration",
+        confidence=None,
+    )
 
     # =========================================================================
     # 1. POWER METRICS (requires power)
@@ -288,5 +295,6 @@ def build_workout_summary(
         headline["rider_phenotype"] = classification["overall"]["phenotype_code"]
 
     out["headline"] = headline
+    out["section_contracts"] = summarize_section_contracts(out["sections"])
 
     return out

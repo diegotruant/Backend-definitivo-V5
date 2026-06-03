@@ -11,7 +11,7 @@ Validates:
   3. MetabolicProfiler.generate_metabolic_snapshot(clean_mmp_first=True)
      includes the audit in the output
   4. filter_mmp_by_window correctly applies a 90-day cutoff
-  5. should_display + mask_low_confidence implement the WKO5-style gate
+  5. should_display + mask_low_confidence implement the analysis-platform-style gate
   6. Real Diego data: confirms quality_score is low and explains why
 """
 import sys

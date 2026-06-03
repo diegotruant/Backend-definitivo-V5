@@ -29,6 +29,8 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 
+from metric_contracts import annotate_payload
+
 
 # =============================================================================
 # CONSTANTS
@@ -104,7 +106,7 @@ def _moving_time_seconds(power: np.ndarray, t: np.ndarray) -> int:
 
 
 # =============================================================================
-# CORE METRICS
+# PRIMARY METRICS
 # =============================================================================
 
 def _causal_rolling_mean(x: np.ndarray, window: int) -> np.ndarray:
@@ -381,13 +383,18 @@ class PowerEngine:
         n = arrs["n"]
 
         if n == 0:
-            return {"status": "error", "message": "Empty stream"}
+            return annotate_payload(
+                {"status": "error", "message": "Empty stream"},
+                module_name="power_engine",
+                method="coggan_power_metrics",
+                confidence=0.0,
+            )
 
         if not (p > 0).any():
-            return {
+            return annotate_payload({
                 "status": "error",
                 "message": "No power data in stream — cannot compute power metrics",
-            }
+            }, module_name="power_engine", method="coggan_power_metrics", confidence=0.0)
 
         # Headline metrics
         total_s = float(stream.total_elapsed_s) if getattr(stream, "total_elapsed_s", 0) else float(t[-1] - t[0] + 1)
@@ -422,7 +429,7 @@ class PowerEngine:
         wkg_5min = by_d.get(300, {}).get("wkg")
         wkg_20min = by_d.get(1200, {}).get("wkg")
 
-        return {
+        result = {
             "status": "success",
             "schema_version": "1.0.0",
             "ftp_used": self.ftp,
@@ -453,3 +460,10 @@ class PowerEngine:
             },
             "critical_power": cp_fit,
         }
+        return annotate_payload(
+            result,
+            module_name="power_engine",
+            method="coggan_power_metrics",
+            confidence=1.0 if moving_s > 0 else 0.0,
+            limitations=[] if self.ftp_source == "explicit" else ["FTP was estimated."],
+        )

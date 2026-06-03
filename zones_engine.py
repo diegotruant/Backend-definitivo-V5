@@ -58,7 +58,7 @@ FRIEL_HR_ZONES = [
 
 
 # =============================================================================
-# CORE TIME-IN-ZONE COMPUTATION
+# PRIMARY TIME-IN-ZONE COMPUTATION
 # =============================================================================
 
 def _stream_arrays(stream) -> Dict[str, np.ndarray]:

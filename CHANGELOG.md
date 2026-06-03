@@ -26,7 +26,7 @@ Physics-informed neural models, pure numpy + scipy:
 
 ### Added — `engines/thermal_engine.py`
 
-Core body temperature analysis (CORE sensor):
+Core body temperature analysis (body-temperature sensor):
 - Cardiac drift decomposition (thermal ~9 bpm/°C vs fatigue)
 - Heat tolerance threshold detection
 - Thermal rise rate (°C/min, °C/kJ)
@@ -36,9 +36,9 @@ Core body temperature analysis (CORE sensor):
 ### Added — `engines/lab_data.py`
 
 Universal intake for lab results from any source worldwide:
-- Manual entry: `create_lab_result(source="inscyd", vo2max=62.3, ...)`
-- PDF parsing: `parse_lab_pdf("report.pdf")` — auto-detects INSCYD,
-  COSMED, Cortex, FlowPerformance, Vyaire, PNOE
+- Manual entry: `create_lab_result(source="metabolic_profile", vo2max=62.3, ...)`
+- PDF parsing: `parse_lab_pdf("report.pdf")` — auto-detects metabolic profiling platform,
+  spirometry systems and metabolic profiling platforms
 - JSON API: `LabTestResult.from_dict(d)`
 - Validation: catches impossible values, unit errors, logical conflicts
 - Feeds into `MetabolicKalman.update_from_lab()` as high-confidence anchor
@@ -50,7 +50,7 @@ Universal intake for lab results from any source worldwide:
   interpolated away). 0W = coasting, physiologically valid. Only NaN
   triggers gap filling for power. HR 0 bpm still treated as dropout.
 - Added comprehensive device detection for power meter L/R source
-  (Quarq, Power2Max, SRM, Rotor 2INpower, Assioma, Vector, etc.)
+  (dual-side power meters and related measurement systems)
 - Data-driven fallback: if balance std > 1.0, classified as dual
   regardless of device name.
 
@@ -137,8 +137,8 @@ the longitudinal `analyze_balance_trend()` flags consistent direction and
 suggests unilateral strength work.
 
 **Source gating**:
-- `"dual"` (Garmin Vector 3, Favero Assioma DUO, Rally 200-series) → full analysis
-- `"single_estimated"` (Stages, 4iiii, Assioma UNO, Rally 100-series) → REFUSED
+- `"dual"` (dual-side power meter metadata) → full analysis
+- `"single_estimated"` (single-side power meter metadata) → REFUSED
 - `"unknown"` → analyzed with flag (`accept_unknown_source=False` to refuse)
 
 ### Modified — `engines/fit_parser.py`
@@ -419,11 +419,11 @@ TOTAL:                              ✓ 257/257 PASS
 
 ### Design notes
 
-- The 3-strategy cascade is **inspired by Athletica.ai's Interval IQ**
+- The 3-strategy cascade is **inspired by interval-classification workflows**
   (signal processing + change-point + post-processing) but adapted to
   the Digital Twin's needs: we ALSO need to classify the macro-type of
   the session, not just find intervals.
-- TrainingPeaks/WKO5's pure "zone × duration" approach only achieves
+- external analysis platforms' pure "zone × duration" approach only achieves
   ~18% perfect detection on real sessions according to Vekta's
   published benchmark (March 2026). Lap-aware + signal-aware should
   do significantly better.
@@ -456,7 +456,7 @@ those artifacts, plus product-layer helpers (display gating, time window).
     Sprint outliers and flat regions are flagged but kept (require human
     judgment).
   - `filter_mmp_by_window(samples, today=None, window_days=90) → (mmp, kept)`
-    WKO5-style 90-day window. Re-extracts MMP from samples within window.
+    analysis-platform-style 90-day window. Re-extracts MMP from samples within window.
 
 - **`MetabolicProfiler.generate_metabolic_snapshot()`** gained two optional
   parameters:
@@ -464,7 +464,7 @@ those artifacts, plus product-layer helpers (display gating, time window).
   - `clean_mmp_first=False`: when True, run `clean_mmp()` before fitting
     and embed the audit in the output under `mmp_quality`.
 
-- **Display gating in `engines/tiers.py`** (WKO5-style "hide instead of mislead"):
+- **Display gating in `engines/tiers.py`** (analysis-platform-style "hide instead of mislead"):
   - `should_display(confidence, threshold=0.55) → bool`
   - `mask_low_confidence(payload, threshold=0.55, placeholder="—") → dict`
     Returns a copy with low-confidence numeric fields replaced by `"—"`,
@@ -515,7 +515,7 @@ snap = profiler.generate_metabolic_snapshot(
 # snap["mmp_quality"]["dropped"] lists what was removed
 # snap["mmp_quality"]["analysis"]["quality_score"] gives the input quality
 
-# Limit to last 90 days (WKO5-style)
+# Limit to last 90 days (analysis-platform-style)
 mmp_recent, kept = filter_mmp_by_window(samples, window_days=90)
 snap2 = profiler.generate_metabolic_snapshot(mmp_recent)
 
@@ -680,7 +680,7 @@ TOTAL:                          ✓ 111/111 PASS
 
 - Real `.fit` file testing — needs Gigi's actual data
 - Lab validation (VO2max, lactate, MLSS) — needs subject pool
-- Cross-tool agreement vs WKO5/TrainingPeaks — needs side-by-side runs
+- Cross-tool agreement vs analysis platform/external analysis platform — needs side-by-side runs
 - Edge function load testing — needs deployment target
 - Supabase schema and RLS — needs product spec
 
@@ -858,7 +858,7 @@ test_v322_fixes.py:                ✓ 10/10 (new)
 
 - Validation against lab testing
 - Testing on real `.fit` files (only synthetic 1Hz records tested)
-- Cross-tool agreement study vs TrainingPeaks/WKO5
+- Cross-tool agreement study vs external analysis platforms
 - Clinical reliability study
 - Recovery of the `MetabolicProfiler` class (needed for full metabolic profiling)
 

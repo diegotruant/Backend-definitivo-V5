@@ -44,7 +44,7 @@ stream = parse_fit_records_enhanced(
     session_dict={
         "sport": "cycling",
         "sub_sport": "road",
-        "device_name": "Garmin Edge 1040",
+        "device_name": "Head Unit 1040",
         "start_time": base,
     },
 )
@@ -68,7 +68,7 @@ check("stream.cadence populated", float(stream.cadence[10]) == 88.0)
 
 # New propagated fields
 check("stream.sub_sport propagated", stream.sub_sport == "road")
-check("stream.device_name propagated", stream.device_name == "Garmin Edge 1040")
+check("stream.device_name propagated", stream.device_name == "Head Unit 1040")
 check("stream.lat populated from position_lat", float(stream.lat[10]) == 45.0)
 check("stream.temperature_c populated", abs(float(stream.temperature_c[10]) - 22.5) < 0.01)
 

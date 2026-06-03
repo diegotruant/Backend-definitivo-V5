@@ -31,6 +31,9 @@ APPLICATIONS:
 from typing import Dict, Any, List, Tuple
 import numpy as np
 
+from metric_contracts import annotate_payload
+from power_engine import normalized_power
+
 
 # =============================================================================
 # DURABILITY INDEX (Riis & Paton 2022)
@@ -61,22 +64,48 @@ def calculate_durability_index(
     duration_hours = duration_seconds / 3600
     
     if duration_hours < min_duration_hours:
-        return {
+        return annotate_payload({
             "status": "insufficient_duration",
             "duration_hours": round(duration_hours, 1),
             "required_hours": min_duration_hours,
-        }
+        }, module_name="durability_engine", method="elapsed_time_durability_index", confidence=0.0)
     
-    # Remove zeros
-    power_clean = [p for p in power_stream if p > 0]
-    
-    # First hour average (samples 0:3600)
-    first_hour = power_clean[:3600] if len(power_clean) > 3600 else power_clean[:len(power_clean)//2]
-    first_hour_avg = np.mean(first_hour)
-    
-    # Last hour average (last 3600 samples)
-    last_hour = power_clean[-3600:] if len(power_clean) > 3600 else power_clean[len(power_clean)//2:]
-    last_hour_avg = np.mean(last_hour)
+    power = np.asarray(power_stream[:duration_seconds], dtype=float)
+    if power.size == 0:
+        return annotate_payload(
+            {"status": "invalid_data", "reason": "empty_power_stream"},
+            module_name="durability_engine",
+            method="elapsed_time_durability_index",
+            confidence=0.0,
+        )
+
+    # Preserve elapsed time. Removing zeros compresses stops/coasting and makes
+    # the first/last hour no longer represent real clock-time windows.
+    if power.size >= 7200:
+        first_hour = power[:3600]
+        last_hour = power[-3600:]
+    else:
+        midpoint = power.size // 2
+        first_hour = power[:midpoint]
+        last_hour = power[midpoint:]
+
+    if first_hour.size == 0 or last_hour.size == 0:
+        return annotate_payload(
+            {"status": "invalid_data", "reason": "insufficient_power_samples"},
+            module_name="durability_engine",
+            method="elapsed_time_durability_index",
+            confidence=0.0,
+        )
+
+    first_hour_avg = float(np.nanmean(first_hour))
+    last_hour_avg = float(np.nanmean(last_hour))
+    if not np.isfinite(first_hour_avg) or not np.isfinite(last_hour_avg):
+        return annotate_payload(
+            {"status": "invalid_data", "reason": "non_finite_power_window"},
+            module_name="durability_engine",
+            method="elapsed_time_durability_index",
+            confidence=0.0,
+        )
     
     # Durability Index
     durability_index = (last_hour_avg / first_hour_avg) * 100 if first_hour_avg > 0 else 0
@@ -98,7 +127,7 @@ def calculate_durability_index(
     decay_watts = first_hour_avg - last_hour_avg
     decay_pct_per_hour = decay_watts / duration_hours
     
-    return {
+    result = {
         "status": "success",
         "durability_index": round(durability_index, 1),
         "classification": classification,
@@ -109,6 +138,14 @@ def calculate_durability_index(
         "decay_watts_per_hour": round(decay_pct_per_hour, 1),
         "duration_hours": round(duration_hours, 1),
     }
+    confidence = min(0.9, 0.55 + max(0.0, min(duration_hours, 4.0) - 2.0) * 0.15)
+    return annotate_payload(
+        result,
+        module_name="durability_engine",
+        method="elapsed_time_durability_index",
+        confidence=confidence,
+        limitations=["Durability thresholds are heuristic and context-sensitive."],
+    )
 
 
 # =============================================================================
@@ -121,49 +158,43 @@ def calculate_np_drift(
 ) -> Dict[str, Any]:
     """
     Calculate Normalized Power drift between first and second half.
-    
-    Normalized Power accounts for variability — better than simple average
-    for interval workouts.
-    
-    Formula (Coggan):
-    NP = (mean(power^4))^(1/4) × 30s rolling average
+
+    Uses the canonical Coggan NP implementation from ``power_engine`` so drift
+    matches NP/IF/TSS elsewhere in the backend.
     """
     if duration_seconds < 1800:  # Need at least 30min
-        return {"status": "insufficient_duration"}
-    
-    # Split into halves
-    midpoint = len(power_stream) // 2
-    first_half = power_stream[:midpoint]
-    second_half = power_stream[midpoint:]
-    
-    # Calculate NP for each half
-    def calc_np(power_data):
-        # 30s rolling average
-        window = 30
-        rolling_avg = []
-        for i in range(len(power_data) - window + 1):
-            rolling_avg.append(np.mean(power_data[i:i+window]))
-        
-        if not rolling_avg:
-            return 0
-        
-        # Fourth power
-        fourth_powers = [p**4 for p in rolling_avg if p > 0]
-        if not fourth_powers:
-            return 0
-        
-        return np.mean(fourth_powers) ** 0.25
-    
-    np_first = calc_np(first_half)
-    np_second = calc_np(second_half)
-    
-    if np_first == 0:
-        return {"status": "invalid_data"}
-    
+        return annotate_payload(
+            {"status": "insufficient_duration"},
+            module_name="durability_engine",
+            method="normalized_power_drift",
+            confidence=0.0,
+            limitations=["Requires at least 30 minutes of power data."],
+        )
+
+    power = np.asarray(power_stream[:duration_seconds], dtype=float)
+    if power.size < 60:
+        return annotate_payload(
+            {"status": "invalid_data", "reason": "empty_power_stream"},
+            module_name="durability_engine",
+            method="normalized_power_drift",
+            confidence=0.0,
+        )
+
+    midpoint = power.size // 2
+    np_first = normalized_power(power[:midpoint])
+    np_second = normalized_power(power[midpoint:])
+
+    if np_first <= 0:
+        return annotate_payload(
+            {"status": "invalid_data", "reason": "zero_np_first_half"},
+            module_name="durability_engine",
+            method="normalized_power_drift",
+            confidence=0.0,
+        )
+
     np_drift_pct = ((np_second / np_first) - 1) * 100
-    
-    # Classification
-    if np_drift_pct > -2:  # Less than 2% decay
+
+    if np_drift_pct > -2:
         classification = "EXCELLENT"
     elif np_drift_pct > -5:
         classification = "GOOD"
@@ -171,14 +202,21 @@ def calculate_np_drift(
         classification = "FAIR"
     else:
         classification = "POOR"
-    
-    return {
-        "status": "success",
-        "np_first_half": round(np_first, 0),
-        "np_second_half": round(np_second, 0),
-        "np_drift_pct": round(np_drift_pct, 1),
-        "classification": classification,
-    }
+
+    return annotate_payload(
+        {
+            "status": "success",
+            "np_first_half": round(np_first, 0),
+            "np_second_half": round(np_second, 0),
+            "np_drift_pct": round(np_drift_pct, 1),
+            "classification": classification,
+            "np_method": "power_engine.normalized_power",
+        },
+        module_name="durability_engine",
+        method="normalized_power_drift",
+        confidence=0.75,
+        limitations=["Half-session NP drift is heuristic; compare with full-session NP from power_engine."],
+    )
 
 
 # =============================================================================

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test: v5.0.0 — Thermal engine (CORE body temperature analysis)"""
+"""Test: v5.0.0 — Thermal engine (core body temperature analysis)"""
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -20,9 +20,9 @@ def check(name, ok, detail=""):
 
 
 # =============================================================================
-# 1. No CORE data → graceful no_data
+# 1. No body-temperature data → graceful no_data
 # =============================================================================
-print("\n[1] No CORE data")
+print("\n[1] No body-temperature data")
 
 r = analyze_thermal_session(
     core_temp_stream=[float("nan")] * 3600,

@@ -8,7 +8,7 @@ Tiers
 -----
 A — REFERENCE: deterministic from input. Standard formulas (NP, IF, TSS, MMP,
     rolling averages, zone time-in-zone). No model assumptions beyond the
-    formula itself. Equivalent to TrainingPeaks/WKO5/Golden Cheetah outputs.
+    formula itself. Equivalent to external analysis platforms/open-source analysis platform outputs.
 
 B — MODEL: physiological model with documented assumptions. The result is a
     prediction of a quantity that cannot be directly measured from the stream
@@ -102,7 +102,10 @@ ENGINE_TIERS: Dict[str, Tier] = {
     "workout_summary":               Tier.REFERENCE,  # aggregator inherits worst-of
     "hrv_engine":                    Tier.MODEL,
     "metabolic_profiler":            Tier.MODEL,
+    "cross_validation_engine":       Tier.MODEL,
     "w_prime_balance_engine":        Tier.MODEL,
+    "race_prediction_engine":        Tier.MODEL,
+    "mmp_aggregator":                Tier.REFERENCE,
     "metabolic_profiler_phenotype":  Tier.HEURISTIC,
     "detraining_engine":             Tier.HEURISTIC,
     "durability_engine":             Tier.HEURISTIC,
@@ -111,6 +114,7 @@ ENGINE_TIERS: Dict[str, Tier] = {
     "metabolic_current":             Tier.HEURISTIC,  # combines MODEL + HEURISTIC
     "explainability_engine":         Tier.HEURISTIC,
     "chart_builder":                 Tier.REFERENCE,  # pass-through formatting
+    "metric_contracts":              Tier.REFERENCE,
 }
 
 
@@ -148,10 +152,10 @@ SCOPE: Dict[str, str] = {
 
 
 # =============================================================================
-# Display gating (WKO5-style "hide instead of mislead")
+# Display gating (analysis-platform-style "hide instead of mislead")
 # =============================================================================
 #
-# WKO5's product decision: if the data is too dirty to compute reliable
+# analysis platform's product decision: if the data is too dirty to compute reliable
 # values, show "—" (em-dash) instead of the numbers. Better no information
 # than misleading information.
 #

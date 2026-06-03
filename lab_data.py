@@ -7,23 +7,12 @@ Normalizes heterogeneous inputs (manual entry, PDF reports, JSON API)
 into a standard `LabTestResult` that the Kalman filter can consume
 as a high-confidence observation.
 
-Supported sources (extensible)
-------------------------------
-Metabolimeters (direct spirometry):
-  - COSMED K5, Quark CPET
-  - Cortex MetaMax 3B, MetaLyzer
-  - Parvo Medics TrueOne 2400
-  - PNOE
-  - Vyaire Vyntus CPX
-
-Metabolic profiling software:
-  - INSCYD
-  - FlowPerformance
-
-Blood lactate analyzers:
-  - Lactate Pro 2
-  - EKF Biosen C-Line
-  - Nova Biomedical StatStrip
+Supported source categories (extensible)
+----------------------------------------
+- Direct spirometry systems
+- Metabolic profiling platforms
+- Blood lactate analyzers
+- Muscle oxygen sensors
 
 The module does NOT need to know which device produced the data —
 it normalizes whatever values are provided into the standard format.
@@ -60,24 +49,10 @@ import re
 
 class LabSource(Enum):
     """Known lab data sources. UNKNOWN is always valid."""
-    # Metabolimeters
-    COSMED = "cosmed"
-    CORTEX = "cortex"
-    PARVO = "parvo_medics"
-    PNOE = "pnoe"
-    VYAIRE = "vyaire"
-    
-    # Metabolic profiling software
-    INSCYD = "inscyd"
-    FLOW_PERFORMANCE = "flow_performance"
-    
-    # Blood lactate
-    LACTATE_PRO = "lactate_pro"
-    BIOSEN = "biosen"
-    NOVA = "nova_biomedical"
-    
-    # Muscle oxygen
-    MOXY = "moxy"
+    SPIROMETRY = "spirometry"
+    METABOLIC_PROFILE = "metabolic_profile"
+    LACTATE_ANALYZER = "lactate_analyzer"
+    MUSCLE_OXYGEN = "muscle_oxygen"
     
     # Generic / manual
     UNKNOWN = "unknown"
@@ -91,8 +66,7 @@ class LabTestType(Enum):
     STEP_SPIROMETRY = "step_spirometry"            # step protocol with gas exchange
     LACTATE_STEP = "lactate_step"                  # incremental steps with blood draws
     LACTATE_RAMP = "lactate_ramp"                  # ramp with blood draws
-    INSCYD_PROFILE = "inscyd_profile"              # INSCYD metabolic profiling
-    FLOW_PROFILE = "flow_performance_profile"
+    METABOLIC_PROFILE = "metabolic_profile"
     FIELD_TEST_LAB_SUPERVISED = "field_test_lab"   # field test with lab supervision
     VO2MAX_ONLY = "vo2max_only"                    # only VO2max measured
     UNKNOWN = "unknown"
@@ -146,7 +120,7 @@ class LabTestResult:
     test_date: date
     source: LabSource = LabSource.UNKNOWN
     test_type: LabTestType = LabTestType.UNKNOWN
-    source_label: str = ""                    # free text: "COSMED K5 @ Lab XYZ"
+    source_label: str = ""                    # free text: "Spirometry system @ Lab XYZ"
     athlete_weight_kg: Optional[float] = None # weight at time of test
     altitude_m: Optional[float] = None        # lab altitude (for hypoxia correction)
     ambient_temp_c: Optional[float] = None    # lab temperature
@@ -155,7 +129,7 @@ class LabTestResult:
     # ── Primary metabolic parameters ──
     vo2max_ml_kg_min: Optional[float] = None  # from spirometry (gold standard)
     vo2max_absolute_ml_min: Optional[float] = None  # absolute VO2max
-    vlamax_mmol_L_s: Optional[float] = None   # from INSCYD/FlowPerformance
+    vlamax_mmol_L_s: Optional[float] = None   # from metabolic profiling
     
     # ── Threshold markers ──
     lt1_power_w: Optional[float] = None       # lactate threshold 1 (aerobic threshold)
@@ -200,7 +174,7 @@ class LabTestResult:
     # ── Measurement noise estimates ──
     # These inform the Kalman R matrix — how much to trust this observation
     vo2max_noise_ml_kg: float = 1.0           # spirometry: ±1 ml/kg/min typical
-    vlamax_noise_mmol: float = 0.03           # INSCYD reports: ±0.03 typical
+    vlamax_noise_mmol: float = 0.03           # metabolic profiling: ±0.03 typical
     power_noise_w: float = 3.0                # lab ergometer: ±3W typical
     
     def to_dict(self) -> Dict[str, Any]:
@@ -385,15 +359,15 @@ def create_lab_result(
     # Only VO2max from spirometry
     result = create_lab_result(
         test_date=date(2026, 5, 20),
-        source="cosmed",
+        source="spirometry",
         vo2max=62.3,
         map_w=380,
     )
     
-    # INSCYD report
+    # Metabolic profile report
     result = create_lab_result(
         test_date=date(2026, 5, 20),
-        source="inscyd",
+        source="metabolic_profile",
         vo2max=58.5,
         vlamax=0.42,
         mlss_w=275,
@@ -403,7 +377,7 @@ def create_lab_result(
     # Lactate step test
     result = create_lab_result(
         test_date=date(2026, 5, 20),
-        source="lactate_pro",
+        source="lactate_analyzer",
         lactate_curve=[(150, 0.9), (180, 1.1), (210, 1.5), (240, 2.3),
                        (270, 3.8), (300, 5.5), (330, 8.2)],
         lt2_w=265,
@@ -424,10 +398,8 @@ def create_lab_result(
         test_type = LabTestType.VO2MAX_ONLY
     elif lactate_curve:
         test_type = LabTestType.LACTATE_STEP
-    elif lab_source == LabSource.INSCYD:
-        test_type = LabTestType.INSCYD_PROFILE
-    elif lab_source == LabSource.FLOW_PERFORMANCE:
-        test_type = LabTestType.FLOW_PROFILE
+    elif lab_source == LabSource.METABOLIC_PROFILE:
+        test_type = LabTestType.METABOLIC_PROFILE
     
     # Parse lactate curve
     lc = None
@@ -506,13 +478,10 @@ _PATTERNS = {
 
 # Source detection from PDF text
 _SOURCE_MARKERS = {
-    LabSource.INSCYD: ["inscyd", "sebastian weber", "metabolic profile"],
-    LabSource.COSMED: ["cosmed", "quark", "k5", "cpet"],
-    LabSource.CORTEX: ["cortex", "metamax", "metalyzer"],
-    LabSource.PARVO: ["parvo", "trueone"],
-    LabSource.PNOE: ["pnoe", "pnoē"],
-    LabSource.FLOW_PERFORMANCE: ["flow performance", "flowperformance"],
-    LabSource.VYAIRE: ["vyaire", "vyntus"],
+    LabSource.SPIROMETRY: ["spirometry", "gas exchange", "cpet", "vo2"],
+    LabSource.METABOLIC_PROFILE: ["metabolic profile", "vlamax", "glycolytic"],
+    LabSource.LACTATE_ANALYZER: ["lactate", "blood lactate"],
+    LabSource.MUSCLE_OXYGEN: ["muscle oxygen", "sm02", "smo2"],
 }
 
 
@@ -585,7 +554,7 @@ def parse_lab_text(text: str, test_date: Optional[date] = None) -> LabTestResult
         test_date=test_date,
         source=source,
         source_label=source_label,
-        test_type=LabTestType.INSCYD_PROFILE if source == LabSource.INSCYD
+        test_type=LabTestType.METABOLIC_PROFILE if source == LabSource.METABOLIC_PROFILE
                   else LabTestType.VO2MAX_ONLY if vo2max else LabTestType.UNKNOWN,
         vo2max_ml_kg_min=vo2max,
         vlamax_mmol_L_s=vlamax,

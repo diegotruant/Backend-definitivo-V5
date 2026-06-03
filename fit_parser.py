@@ -15,6 +15,8 @@ GAP HANDLING STRATEGY:
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from io import BytesIO
+import time
 import numpy as np
 
 try:
@@ -22,6 +24,29 @@ try:
     FITPARSE_AVAILABLE = True
 except ImportError:
     FITPARSE_AVAILABLE = False
+
+
+def _read_file_with_retry(path: str, attempts: int = 3, delay_s: float = 0.25) -> bytes:
+    """
+    Read a file's bytes, retrying on transient I/O errors.
+
+    Cloud/network-backed storage (S3, GCS, NFS) occasionally raises
+    OSError errno 5 (EIO) on the first read of a freshly-written file.
+    A short retry resolves it without affecting genuinely missing or
+    corrupt files (which raise FileNotFoundError / persistent OSError).
+    """
+    last_err = None
+    for i in range(attempts):
+        try:
+            with open(path, "rb") as fh:
+                return fh.read()
+        except FileNotFoundError:
+            raise  # don't retry a missing file
+        except OSError as e:
+            last_err = e
+            if i < attempts - 1:
+                time.sleep(delay_s * (i + 1))  # linear backoff
+    raise last_err
 
 
 # Quality flags
@@ -90,10 +115,10 @@ class ActivityStreamEnhanced:
         self.left_right_balance = np.full(n_samples, np.nan, dtype=np.float32)
         self.pedaling_balance_source: str = "unknown"
         
-        # Core body temperature and skin temperature (from CORE sensor)
+        # Core body temperature and skin temperature (from a body-temperature sensor)
         # NaN when not provided. core_body_temp is the primary metric (°C),
         # skin_temp is secondary. ambient_temp is from the head unit's
-        # built-in thermometer (not from CORE).
+        # built-in thermometer (not from the body-temperature sensor).
         self.core_body_temp = np.full(n_samples, np.nan, dtype=np.float32)
         self.skin_temp = np.full(n_samples, np.nan, dtype=np.float32)
         self.ambient_temp = np.full(n_samples, np.nan, dtype=np.float32)
@@ -263,6 +288,8 @@ def parse_fit_file_enhanced(
     fit_path: str,
     gap_short_s: float = 10.0,
     gap_long_s: float = 60.0,
+    check_crc: bool = True,
+    repair_synthetic_header: bool = True,
 ) -> ActivityStreamEnhanced:
     """
     Parse FIT file with gap detection and intelligent filling.
@@ -271,6 +298,11 @@ def parse_fit_file_enhanced(
         fit_path: Path to .fit file
         gap_short_s: Threshold for interpolation (default 10s)
         gap_long_s: Threshold for unreliable marking (default 60s)
+        check_crc: Whether fitparse should enforce FIT CRC validation.
+            Keep True for real files; synthetic datasets may intentionally
+            contain invalid CRCs and can be parsed with False.
+        repair_synthetic_header: Repair a known synthetic-file issue where the
+            FIT header declares 14 bytes but the data section starts at byte 12.
     
     Returns:
         ActivityStreamEnhanced with quality flags and gap summary
@@ -278,11 +310,73 @@ def parse_fit_file_enhanced(
     if not FITPARSE_AVAILABLE:
         raise RuntimeError("fitparse library not available — install with: pip install fitparse")
     
-    fitfile = fitparse.FitFile(fit_path)
-    
+    raw = None
+    has_bad_synthetic_header = False
+    if repair_synthetic_header:
+        raw = bytearray(_read_file_with_retry(fit_path))
+        # NOTE: we no longer pre-classify a file as "bad" from the 0x40 bit,
+        # because that misfires on valid files with developer-data records.
+        # raw is kept only so the fallback repair path can use it if the
+        # normal parse fails.
+
+    # Some synthetic test files declare a 14-byte header but place the data
+    # section at byte 12. That repair, however, must NEVER touch a valid file:
+    # a legitimate 14-byte header is normal, and the 0x40 bit on the first
+    # record header means "developer data", not "corrupt file". So we try to
+    # parse the file as-is first, and only attempt the byte-0 repair if normal
+    # parsing actually fails.
+    fitfile = None
+    if not has_bad_synthetic_header:
+        try:
+            if raw is not None:
+                # Parse from the bytes we already read with retry, so fitparse
+                # does not re-open the path (which is where transient network
+                # I/O errors — OSError errno 5 — were occurring).
+                fitfile = fitparse.FitFile(BytesIO(bytes(raw)), check_crc=check_crc)
+            else:
+                fitfile = fitparse.FitFile(fit_path, check_crc=check_crc)
+        except Exception:
+            fitfile = None
+
+    if fitfile is None and repair_synthetic_header and raw is not None:
+        # Attempt the synthetic-header repair as a fallback only.
+        try:
+            repaired = bytearray(raw)
+            repaired[0] = 12
+            fitfile = fitparse.FitFile(BytesIO(repaired), check_crc=False)
+        except Exception:
+            fitfile = None
+
+    if fitfile is None:
+        # Last resort: read with retry and parse from bytes so a transient
+        # I/O error doesn't propagate as a hard failure.
+        fitfile = fitparse.FitFile(
+            BytesIO(_read_file_with_retry(fit_path)), check_crc=check_crc
+        )
+
+    # fitparse's FitFile is a single-consumption stream: calling
+    # get_messages() more than once on the same object re-iterates the
+    # decoded buffer and can raise FitParseError on some real-world files
+    # (observed: "invalid local message type 0"). To be safe we make a
+    # single pass and bucket the messages we care about by name.
+    _session_msgs = []
+    _device_info_msgs = []
+    _record_msgs = []
+    _hrv_msgs = []
+    for msg in fitfile.get_messages():
+        mname = msg.name
+        if mname == "record":
+            _record_msgs.append(msg)
+        elif mname == "session":
+            _session_msgs.append(msg)
+        elif mname == "device_info":
+            _device_info_msgs.append(msg)
+        elif mname == "hrv":
+            _hrv_msgs.append(msg)
+
     # Extract session info
     session_dict = {}
-    for rec in fitfile.get_messages("session"):
+    for rec in _session_msgs:
         for field in rec.fields:
             if field.name == "sport":
                 session_dict["sport"] = field.value
@@ -300,55 +394,28 @@ def parse_fit_file_enhanced(
     head_unit_set = False
     pm_source = "unknown"   # default
     
-    # Known dual-side power meters (Garmin Vector 3 DUO, Favero Assioma DUO, etc.)
-    # Note: identifying dual-side from FIT metadata alone is imperfect. We use
-    # product strings as a hint; the most reliable signal is whether balance
-    # samples actually vary in the records themselves.
-    # Known dual-side power meters (true L/R measurement):
-    #   Spider-based: Quarq, Power2Max NG/NGeco, SRM, Shimano FC-R9200-P
-    #   Crank-based dual: Rotor 2INpower, Pioneer dual, 4iiii Precision Pro
-    #   Pedal-based dual: Garmin Vector 3, Favero Assioma DUO, Rally 200-series,
-    #                      Wahoo POWRLINK ZERO (dual), Look/SRM X-Power
-    #
-    # The marker list catches MANUFACTURER names and common product strings.
-    # This is a best-effort heuristic — the data-driven fallback (below)
-    # handles any device not in this list.
+    # Identifying dual-side measurement from metadata alone is imperfect.
+    # We use generic product-string hints and then let the data-driven fallback
+    # below decide from the actual balance samples.
     _DUAL_MARKERS = (
-        # Pedal-based dual
-        "vector_3", "assioma_duo", "pedal_uno_duo", "rally_xc200",
-        "rally_rs200", "rally_rk200", "garmin_vector_3", "pedal_pair",
-        "powrlink_zero_dual", "x-power",
-        # Spider-based (manufacturer match)
-        "quarq", "power2max", "p2max", "srm",
-        # Crank-based dual
-        "2inpower", "pioneer", "precision_pro",
-        # Generic "duo"/"dual" substring
-        "duo", "dual",
+        "duo", "dual", "pair", "left_right", "bilateral", "two_sided",
     )
     _SINGLE_MARKERS = (
-        # Crank-based single (left-only)
-        "stages", "4iiii", "precision",  # 4iiii Precision (non-Pro) is single
-        # Pedal-based single
-        "assioma_uno", "rally_rs100", "rally_rk100", "rally_xc100",
-        "powrlink_zero_single",
-        # Crank-based single
-        "inpower",  # Rotor INpower (single side, not 2INpower)
-        # Generic "single"/"uno"/"left" markers
-        "single_left", "single_l", "uno", "left_only",
+        "single", "single_left", "single_l", "left_only", "one_sided",
     )
     
-    for rec in fitfile.get_messages("device_info"):
+    for rec in _device_info_msgs:
         manufacturer = product = None
         ant_dev_type = None
         for field in rec.fields:
             if field.name == "manufacturer":
                 manufacturer = field.value
-            elif field.name == "garmin_product":
+            elif field.name == "product":
                 product = field.value
             elif field.name == "antplus_device_type":
                 ant_dev_type = field.value
         
-        # First non-empty entry → head unit (typically Garmin Edge)
+        # First non-empty entry -> head unit
         if not head_unit_set and (manufacturer or product):
             parts = [str(p) for p in (manufacturer, product) if p]
             session_dict["device_name"] = " ".join(parts)
@@ -360,13 +427,10 @@ def parse_fit_file_enhanced(
         is_power_meter = (
             ant_dev_type in (11, "bike_power")
         ) or (
-            manufacturer and any(m in str(manufacturer).lower() for m in (
-                "quarq", "favero", "stages", "4iiii", "sram",
-            ))
+            manufacturer and "power" in str(manufacturer).lower()
         ) or (
             product and any(m in str(product).lower() for m in (
-                "power", "pedal", "crank", "spider", "assioma", "vector",
-                "stages", "quarq", "rally", "favero", "4iiii", "p2max"
+                "power", "pedal", "crank", "spider", "dual", "single"
             ))
         )
         
@@ -378,9 +442,9 @@ def parse_fit_file_enhanced(
                 pm_source = "single_estimated"
             # else stays "unknown" — we'll let the data itself decide
     
-    # Extract record messages
+    # Extract record messages (already collected in the single pass above)
     records = []
-    for rec in fitfile.get_messages("record"):
+    for rec in _record_msgs:
         data = {field.name: field.value for field in rec.fields}
         records.append(data)
     
@@ -410,7 +474,44 @@ def parse_fit_file_enhanced(
             elif np.all(valid_balance == 50) or valid_balance.std() < 0.5:
                 # All 50 or near-constant → single-side estimated
                 stream.pedaling_balance_source = "single_estimated"
-    
+
+    # Garmin stores RR data in dedicated 'hrv' messages (not in record),
+    # each containing a 'time' field with a list of beat-to-beat intervals
+    # in seconds. We flatten the full sequence, then distribute beats to
+    # the nearest record-second bucket by walking elapsed time.
+    if _hrv_msgs and not stream.has_rr:
+        rr_seq_s: List[float] = []
+        for hmsg in _hrv_msgs:
+            for field in hmsg.fields:
+                if field.name == "time":
+                    val = field.value
+                    if isinstance(val, (list, tuple)):
+                        rr_seq_s.extend(
+                            float(v) for v in val
+                            if v is not None and float(v) > 0.0
+                        )
+                    elif val is not None and float(val) > 0.0:
+                        rr_seq_s.append(float(val))
+
+        if rr_seq_s:
+            n_samples = len(stream.elapsed_s)
+            beat_cursor_s = 0.0
+            rr_idx = 0
+            n_rr = len(rr_seq_s)
+            for idx in range(n_samples):
+                window_end = stream.elapsed_s[idx] + 0.5  # ±0.5s tolerance
+                beats_in_window: List[float] = []
+                while rr_idx < n_rr:
+                    beat_cursor_s += rr_seq_s[rr_idx]
+                    if beat_cursor_s <= window_end:
+                        beats_in_window.append(rr_seq_s[rr_idx] * 1000.0)  # → ms
+                        rr_idx += 1
+                    else:
+                        beat_cursor_s -= rr_seq_s[rr_idx]
+                        break
+                if beats_in_window:
+                    stream.rr_intervals[idx] = beats_in_window
+
     return stream
 
 
@@ -485,8 +586,8 @@ def parse_fit_records_enhanced(
                 # Store it separately for thermal analysis.
                 stream.ambient_temp[idx] = float(rec["temperature"])
             
-            # CORE body temperature sensor data.
-            # Hammerhead/Garmin record these as developer fields with various names.
+            # Body temperature sensor data can arrive as developer fields with
+            # various names depending on the head unit and sensor firmware.
             # We check all known variants.
             for core_field in ("core_body_temperature", "CoreBodyTemp",
                                "core_temperature", "body_temperature",
