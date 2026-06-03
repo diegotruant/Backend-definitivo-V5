@@ -3,7 +3,8 @@
 import importlib
 import sys
 
-_SUBMODULE_ALIASES = [
+# Loaded during package init (safe once core modules use flat imports).
+_EAGER_SUBMODULE_ALIASES = [
     "analysis",
     "athlete_context",
     "audit",
@@ -23,7 +24,6 @@ _SUBMODULE_ALIASES = [
     "lab_data",
     "lactate_validation_engine",
     "test_protocols",
-    "metabolic_current",
     "metabolic_flexibility_engine",
     "metabolic_kalman",
     "metabolic_profiler",
@@ -40,10 +40,14 @@ _SUBMODULE_ALIASES = [
     "training_variability_engine",
     "w_prime_balance_engine",
     "zones_engine",
-    "workout_summary",
 ]
 
-for _module_name in _SUBMODULE_ALIASES:
+# Deferred: importing these during engines/__init__ re-entered the package
+# (workout_summary/metabolic_current used engines.*; metabolic_current pulled
+# metabolic_profiler before the facade finished initialising).
+_DEFERRED_SUBMODULE_ALIASES = frozenset({"metabolic_current", "workout_summary"})
+
+for _module_name in _EAGER_SUBMODULE_ALIASES:
     sys.modules[f"{__name__}.{_module_name}"] = importlib.import_module(_module_name)
 
 from athlete_context import AthleteContext
@@ -119,7 +123,6 @@ from interval_detector import (
     classify_session,
     protocol_completeness,
 )
-from metabolic_current import get_current_metabolic_status
 from metabolic_flexibility_engine import (
     calculate_metabolic_flexibility_index,
     estimate_fat_oxidation_rate,
@@ -190,8 +193,6 @@ from tiers import (
 )
 from training_variability_engine import calculate_acwr, calculate_monotony_strain
 from w_prime_balance_engine import analyze_w_prime_usage, calculate_w_prime_balance
-from workout_summary import build_workout_summary
-
 __all__ = [
     "AdaptationConfig",
     "AthleteContext",
@@ -314,18 +315,26 @@ __all__ = [
     "CurveEntry",
 ]
 
-# Lazy re-exports — avoids circular import with hrv_engine
+# Register deferred submodules after eager imports finish (flat imports in
+# those modules avoid re-entering this __init__ mid-load).
+for _deferred in _DEFERRED_SUBMODULE_ALIASES:
+    sys.modules[f"{__name__}.{_deferred}"] = importlib.import_module(_deferred)
+
+from metabolic_current import get_current_metabolic_status
+from workout_summary import build_workout_summary
+
+# Lazy re-exports for hrv_engine (kept lazy to limit import-time coupling).
 _LAZY_EXPORTS = {
     "analyze_rr_stream": ("hrv_engine", "analyze_rr_stream"),
     "calculate_dfa_alpha1": ("hrv_engine", "calculate_dfa_alpha1"),
 }
 
+
 def __getattr__(name: str):
     if name in _LAZY_EXPORTS:
         module_name, attr = _LAZY_EXPORTS[name]
-        import importlib
         mod = importlib.import_module(module_name)
         obj = getattr(mod, attr)
         globals()[name] = obj
         return obj
-    raise AttributeError(f"module 'engines' has no attribute {name!r}")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

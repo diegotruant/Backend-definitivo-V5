@@ -44,7 +44,7 @@ import numpy as np
 # DFA passa per _dfa_alpha1_full() in questo modulo, così l'α₁ pubblicato
 # e la diagnostica regressiva (R², stderr, CI) provengono dalla stessa pipeline.
 from analysis import clean_rr_intervals
-from engines.athlete_context import AthleteContext
+from athlete_context import AthleteContext
 from metric_contracts import annotate_payload
 
 

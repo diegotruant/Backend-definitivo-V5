@@ -23,14 +23,14 @@ Supabase service layer should call after FIT ingestion.
 
 from typing import Any, Dict, List, Optional
 
-from engines.athlete_context import AthleteContext
-from engines.power_engine import PowerEngine, estimate_ftp_from_mmp
-from engines.zones_engine import ZonesEngine
-from engines.coggan_classifier import classify_from_mmp
-from engines.cardiac_engine import CardiacResponseAnalyzer, ActivitySample
-# hrv_engine imported lazily inside generate_workout_summary() to avoid
-# circular import: engines/__init__.py loads workout_summary while
-# hrv_engine is still being initialised.
+# Flat imports — do not import via `engines.*` here; this module is loaded
+# while `engines/__init__.py` may still be initialising.
+from athlete_context import AthleteContext
+from cardiac_engine import CardiacResponseAnalyzer, ActivitySample
+from coggan_classifier import classify_from_mmp
+from power_engine import PowerEngine, estimate_ftp_from_mmp
+from zones_engine import ZonesEngine
+# hrv_engine imported lazily inside build_workout_summary() (see section 4).
 from metric_contracts import annotate_payload, summarize_section_contracts
 
 

@@ -14,15 +14,11 @@ from datetime import date, datetime
 
 from metric_contracts import annotate_payload
 
-# Import core engines package-first, with flat-module compatibility fallback.
-try:
-    from .metabolic_profiler import MetabolicProfiler
-    from .athlete_context import AthleteContext
-    from .detraining_engine import apply_detraining_model
-except ImportError:  # pragma: no cover - compatibility path
-    from metabolic_profiler import MetabolicProfiler
-    from athlete_context import AthleteContext
-    from detraining_engine import apply_detraining_model
+# Flat imports only — avoid `engines.*` or relative imports here, which
+# re-enter `engines/__init__.py` while it is still initialising.
+from athlete_context import AthleteContext
+from detraining_engine import apply_detraining_model
+from metabolic_profiler import MetabolicProfiler
 
 
 def get_current_metabolic_status(

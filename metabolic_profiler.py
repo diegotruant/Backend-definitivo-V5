@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from engines.athlete_context import AthleteContext
+from athlete_context import AthleteContext
 from cross_validation_engine import (
     cross_validate_metabolic_profile,
     observed_threshold_power,
@@ -380,7 +380,7 @@ class MetabolicProfiler:
         
         if clean_mmp_first:
             # Local import to avoid hard dependency if user never enables this
-            from engines.mmp_quality import clean_mmp, analyze_mmp_quality
+            from mmp_quality import analyze_mmp_quality, clean_mmp
             cleaned_dict, mmp_quality_audit = clean_mmp(mmp_raw, mmp_samples)
             mmp = cleaned_dict
             # Add the full report (quality_score, classification, issues)
@@ -675,9 +675,7 @@ class MetabolicProfiler:
         Tier: HEURISTIC (phenotype PCr capacities are rule-of-thumb).
         """
         # Local import to avoid circular reference at module load
-        from engines.metabolic_profiler_phenotype import (
-            enhance_metabolic_snapshot_with_phenotype,
-        )
+        from metabolic_profiler_phenotype import enhance_metabolic_snapshot_with_phenotype
         return enhance_metabolic_snapshot_with_phenotype(
             snapshot,
             phenotype=phenotype,

@@ -35,7 +35,7 @@ import math
 import numpy as np
 from scipy.optimize import least_squares
 
-from engines.athlete_context import AthleteContext
+from athlete_context import AthleteContext
 
 
 # =============================================================================
