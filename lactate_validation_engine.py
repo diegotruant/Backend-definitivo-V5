@@ -52,7 +52,7 @@ Tier: REFERENCE (la misura da lattato è ground truth; il giudizio di
 validazione è MODEL).
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
