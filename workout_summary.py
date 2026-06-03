@@ -28,7 +28,9 @@ from engines.power_engine import PowerEngine, estimate_ftp_from_mmp
 from engines.zones_engine import ZonesEngine
 from engines.coggan_classifier import classify_from_mmp
 from engines.cardiac_engine import CardiacResponseAnalyzer, ActivitySample
-from engines.hrv_engine import analyze_rr_stream
+# hrv_engine imported lazily inside generate_workout_summary() to avoid
+# circular import: engines/__init__.py loads workout_summary while
+# hrv_engine is still being initialised.
 from metric_contracts import annotate_payload, summarize_section_contracts
 
 
@@ -188,6 +190,7 @@ def build_workout_summary(
         ]
         if rr_samples:
             try:
+                from hrv_engine import analyze_rr_stream  # lazy — avoids circular import
                 hrv_timeline = analyze_rr_stream(
                     rr_samples,
                     window_seconds=hrv_window_seconds,
