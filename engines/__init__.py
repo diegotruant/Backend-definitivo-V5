@@ -105,7 +105,7 @@ from test_protocols import (
 
 # Alias for API / tablet runners
 run_in_person_test = run_test
-from hrv_engine import analyze_rr_stream, calculate_dfa_alpha1
+# analyze_rr_stream / calculate_dfa_alpha1 exported lazily — see __getattr__ at bottom
 from interval_detector import (
     Category,
     ClassifiedSession,
@@ -313,3 +313,19 @@ __all__ = [
     "CurveUpdateResult",
     "CurveEntry",
 ]
+
+# Lazy re-exports — avoids circular import with hrv_engine
+_LAZY_EXPORTS = {
+    "analyze_rr_stream": ("hrv_engine", "analyze_rr_stream"),
+    "calculate_dfa_alpha1": ("hrv_engine", "calculate_dfa_alpha1"),
+}
+
+def __getattr__(name: str):
+    if name in _LAZY_EXPORTS:
+        module_name, attr = _LAZY_EXPORTS[name]
+        import importlib
+        mod = importlib.import_module(module_name)
+        obj = getattr(mod, attr)
+        globals()[name] = obj
+        return obj
+    raise AttributeError(f"module 'engines' has no attribute {name!r}")
