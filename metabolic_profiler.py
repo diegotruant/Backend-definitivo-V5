@@ -695,6 +695,36 @@ class MetabolicProfiler:
                     1.0,
                 ))
 
+            # Curve-maximality plausibility. Expressiveness checks that the
+            # MMP *covers* the duration windows, but not that the efforts in
+            # them were maximal. A curve can be fully covered yet built
+            # entirely from sub-maximal riding (e.g. long granfondo pacing with
+            # no real sprint or short max effort). The sprint-to-endurance
+            # ratio is a physical floor: even a pure diesel sits above ~2.2.
+            # Below that, the short anchors are almost certainly sub-maximal,
+            # which biases VLamax and VO2max low — so we flag it explicitly
+            # rather than presenting the numbers as solid.
+            maximality_flag = None
+            p_short = mmp.get(5) or mmp.get(10) or mmp.get(1)
+            p_long = mmp.get(1200) or mmp.get(1800) or mmp.get(3600) or mmp.get(720)
+            if p_short and p_long and p_long > 0:
+                se_ratio = float(p_short) / float(p_long)
+                if se_ratio < 2.2:
+                    maximality_flag = {
+                        "plausible_maximal": False,
+                        "sprint_endurance_ratio": round(se_ratio, 2),
+                        "reason": (
+                            f"Sprint/endurance ratio {se_ratio:.2f} is below the physical "
+                            f"floor (~2.2): short-duration efforts look sub-maximal. "
+                            f"VLamax and VO2max are likely under-estimated; treat the "
+                            f"profile as indicative only and obtain a maximal sprint + "
+                            f"short CP efforts for a reliable anchor."
+                        ),
+                    }
+                    # A non-maximal curve cannot reliably anchor the sprint-
+                    # driven parameters; cap confidence hard.
+                    confidence_effective = min(confidence_effective, 0.15)
+
             return self._finalize_snapshot({
                 "status": "success",
                 "estimated_vo2max": vo2_out,
@@ -716,6 +746,7 @@ class MetabolicProfiler:
                 "confidence_score": round(confidence_effective, 3),
                 "cross_validation": cv_result.to_dict(),
                 "expressiveness": expressiveness.to_dict(),
+                "curve_maximality": maximality_flag,
                 "unmasked_estimates": unmasked,    # for debugging / audit
                 "context_used": {
                     "gender": self.context.effective_gender(),

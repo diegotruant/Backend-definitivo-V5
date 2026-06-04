@@ -164,6 +164,31 @@ check(
     f"lo_floor={band_lo[0] if band_lo else None}",
 )
 
+# Curve maximality: a flat, sub-maximal curve (granfondo pacing, no real
+# sprint) must be flagged as not-plausibly-maximal, and a genuine maximal
+# curve must NOT be flagged.
+prof_g = MetabolicProfiler(weight=70, context=AthleteContext(gender="MALE", training_years=10, discipline="ENDURANCE"))
+flat_mmp = {1: 444, 5: 413, 15: 358, 60: 284, 180: 245, 300: 239, 1200: 220}
+snap_flat = prof_g.generate_metabolic_snapshot(flat_mmp)
+cm = snap_flat.get("curve_maximality")
+check(
+    "sub-maximal flat curve flagged (plausible_maximal False)",
+    cm is not None and cm.get("plausible_maximal") is False,
+    f"curve_maximality={cm}",
+)
+check(
+    "sub-maximal curve confidence capped low",
+    snap_flat.get("confidence_score", 1.0) <= 0.15,
+    f"conf={snap_flat.get('confidence_score')}",
+)
+prof_d = MetabolicProfiler(weight=90, context=AthleteContext(gender="MALE", training_years=20, discipline="SPRINT"))
+snap_max = prof_d.generate_metabolic_snapshot({1: 1034, 15: 720, 60: 489, 180: 351, 360: 309, 720: 304, 1200: 280})
+check(
+    "genuine maximal curve NOT flagged",
+    snap_max.get("curve_maximality") is None,
+    f"curve_maximality={snap_max.get('curve_maximality')}",
+)
+
 
 # =============================================================================
 # 3. PhysiologicalPriorManager — time/load-aware priors
