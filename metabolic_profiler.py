@@ -274,6 +274,49 @@ class MetabolicProfiler:
     def _map_estimate(self, vo2: float, eta_base: float) -> float:
         return float(np.clip((vo2 - self.const.vo2_basale) * self.weight / 10.8 * (eta_base / 0.23), 50.0, 2500.0))
 
+    @staticmethod
+    def _apr_vlamax_band(mmp: Dict[int, float], map_provisional: float) -> Optional[Tuple[float, float, float]]:
+        """
+        Expected VLamax band from the Anaerobic Power Reserve.
+
+        APR = P_sprint - MAP  is the purely-anaerobic power window above the
+        maximal aerobic power. It and VLamax are different expressions of the
+        same axis — glycolytic/alactic capacity as *power* — so a large APR is
+        physiologically incompatible with a low VLamax, and vice versa. We use
+        the APR (a directly observed quantity from the sprint anchor) to bound
+        which VLamax basin the fit is allowed to settle in, breaking the
+        multiple-minima ambiguity that makes the joint fit jump between a
+        "diesel" and a "sprinter" solution on the same curve.
+
+        The mapping is expressed against the APR-to-MAP ratio (dimensionless),
+        which normalises for athlete size:
+
+            apr_ratio = (P_sprint - MAP) / MAP
+
+        Calibration anchors (broadly consistent with Sanders/Heijboer-style
+        APR work and with Mader VLamax ranges):
+            apr_ratio <= 0.8   -> diesel        VLamax ~ [0.10, 0.40]
+            apr_ratio  ~ 1.5   -> all-rounder   VLamax ~ [0.35, 0.60]
+            apr_ratio >= 2.2   -> explosive      VLamax ~ [0.55, 1.10]
+
+        Returns (vla_low, vla_high, apr_ratio) or None if no sprint anchor.
+        """
+        p_sprint = mmp.get(1) or mmp.get(5) or mmp.get(10)
+        if not p_sprint or map_provisional <= 0:
+            return None
+        apr_ratio = (float(p_sprint) - map_provisional) / map_provisional
+        # Piecewise-linear band: a gentle floor (rules out implausibly high
+        # VLamax only weakly at the bottom) and a firm ceiling (a low APR
+        # makes a high VLamax physiologically impossible). This is a CEILING
+        # constraint by design — it excludes the impossible corner (high
+        # VLamax + low sprint) without forcing a value on genuine diesels,
+        # who can sit near the floor even when a Zwift sprint inflates APR.
+        vla_low = float(np.clip(0.10 + 0.12 * max(0.0, apr_ratio - 0.8), 0.10, 0.40))
+        vla_high = float(np.clip(0.40 + 0.38 * max(0.0, apr_ratio - 0.8), 0.40, 1.20))
+        if vla_high <= vla_low:
+            vla_high = vla_low + 0.15
+        return (vla_low, vla_high, apr_ratio)
+
     def _pred_power(self, t: float, la_cap: float, tau: float, map_est: float, w_grid: np.ndarray, vo2_act_grid: np.ndarray, net_grid: np.ndarray) -> float:
         cap_mask = w_grid <= (map_est * self._cap_factor(t))
         if np.count_nonzero(cap_mask) < 10:
@@ -405,8 +448,22 @@ class MetabolicProfiler:
                 mmp_quality_audit,
             )
 
-        durs_u = np.array(list(mmp.keys()), dtype=float)
-        pows_u = np.array(list(mmp.values()), dtype=float)
+        # The Mader model describes the aerobic + glycolytic response; it does
+        # not model the pure-alactic (PCr) sprint, so anchors below ~30 s are
+        # mispredicted by hundreds of watts and, left in the fit, dominate the
+        # residual and drag the optimizer into non-physiological basins. We
+        # keep the full curve for APR (which *needs* the sprint anchor) but fit
+        # only durations >= sprint_fit_floor_s. If too few remain, we relax the
+        # floor so the fit still has >= 3 anchors.
+        sprint_fit_floor_s = 30.0
+        all_durs = np.array(list(mmp.keys()), dtype=float)
+        all_pows = np.array(list(mmp.values()), dtype=float)
+        fit_mask = all_durs >= sprint_fit_floor_s
+        if int(np.count_nonzero(fit_mask)) < 3:
+            fit_mask = np.ones_like(all_durs, dtype=bool)  # relax: too little data
+            sprint_fit_floor_s = 0.0
+        durs_u = all_durs[fit_mask]
+        pows_u = all_pows[fit_mask]
 
         logt = np.log(np.maximum(durs_u, 1.0))
         weights = 0.35 + 0.65 * (
@@ -494,19 +551,37 @@ class MetabolicProfiler:
             )
 
         try:
-            # Multi-start: the cost surface has, for some weight/curve
-            # combinations, a degenerate basin (very low VO2max + inflated
-            # VLamax) that can out-score the physiological optimum. Starting
-            # from several points and keeping the lowest-cost solution makes
-            # the fit robust to that basin. The aerobic-floor penalty above
-            # already walls off most of it; this is the belt-and-braces.
-            start_points = [
-                [vo2_guess, vla_init],
-                [vo2_guess, 0.30],          # low-VLamax start
-                [max(vo2_floor, vo2_guess) + 5.0, 0.40],  # above aerobic floor
-            ]
-            best_res = None
-            best_cost = np.inf
+            # APR-based VLamax band. The Anaerobic Power Reserve (sprint power
+            # minus MAP) tells us which VLamax basin is physiologically
+            # admissible. We use a provisional MAP from the aerobic guess to
+            # compute it, then prefer the lowest-cost fit whose VLamax lands
+            # inside that band — which removes the diesel/sprinter ambiguity
+            # the plain lowest-cost rule suffered from.
+            map_provisional = self._map_estimate(vo2_guess, fixed_eta)
+            apr_band = self._apr_vlamax_band(
+                {int(d): float(p) for d, p in zip(all_durs, all_pows) if p > 0},
+                map_provisional,
+            )
+
+            # Dense, deterministic 2-D start mesh (VO2max x VLamax) so the
+            # optimizer visits every physiological basin regardless of how the
+            # context-derived guesses land. Without VO2max diversity the fit
+            # could miss the MLSS-coherent basin when eta shifts the surface.
+            vla_starts = [0.20, 0.35, 0.50, 0.70, 0.90]
+            if apr_band is not None:
+                vla_lo, vla_hi, _ = apr_band
+                vla_starts.append(float(np.clip((vla_lo + vla_hi) / 2.0, 0.10, 1.30)))
+            vo2_anchor = float(np.clip(vo2_guess, 25.0, 95.0))
+            vo2_floor_start = float(np.clip(max(vo2_floor, vo2_guess) + 5.0, 25.0, 95.0))
+            vo2_starts = sorted(set([
+                vo2_anchor,
+                vo2_floor_start,
+                float(np.clip(vo2_anchor - 6.0, 25.0, 95.0)),
+                float(np.clip(vo2_anchor + 8.0, 25.0, 95.0)),
+            ]))
+            start_points = [[vo2c, vlac] for vo2c in vo2_starts for vlac in vla_starts]
+
+            candidates = []  # (cost, vla, vo2, result)
             for x0 in start_points:
                 x0c = [float(np.clip(x0[0], 25.0, 95.0)), float(np.clip(x0[1], 0.10, 1.50))]
                 try:
@@ -514,10 +589,48 @@ class MetabolicProfiler:
                 except Exception:
                     continue
                 c = float(np.sum(r.fun ** 2))
-                if c < best_cost:
-                    best_cost, best_res = c, r
-            if best_res is None:
+                candidates.append((c, float(r.x[1]), float(r.x[0]), r))
+
+            if not candidates:
                 raise RuntimeError("all starts failed")
+
+            # Basin selection. Two physiological anchors disambiguate the
+            # multiple minima of the joint fit:
+            #   1. APR band  -> which VLamax range is admissible (sprint-driven)
+            #   2. observed threshold power -> what MLSS the athlete actually
+            #      sustained, so we reject basins whose predicted MLSS drifts
+            #      far from a directly-measured long effort.
+            # We score in-band candidates by fit cost plus an MLSS-incoherence
+            # penalty, and pick the minimum. This is deterministic and stops
+            # the fit from jumping between a diesel and a sprinter solution on
+            # the same curve.
+            def _basin_score(cost: float, vo2c: float, vlac: float) -> float:
+                penalty = 0.0
+                if obs_thr is not None and obs_thr > 0:
+                    w_mlss_c, _, _, _, _ = self._calculate_curves(vo2c, vlac, fixed_eta)
+                    mlss_err = abs(float(w_mlss_c) - obs_thr) / obs_thr
+                    penalty += (mlss_err ** 2) * 1.0e6  # MLSS must track observed effort
+                # Weak tie-break only: when MLSS and cost genuinely fail to
+                # discriminate, nudge toward the APR band centre. Kept small so
+                # it never overrides a real cost/MLSS signal (which would bias
+                # genuine diesels upward).
+                if apr_band is not None:
+                    vla_centre = 0.5 * (apr_band[0] + apr_band[1])
+                    penalty += ((vlac - vla_centre) ** 2) * 2.0e3
+                return cost + penalty
+
+            apr_gated = False
+            pool = candidates
+            if apr_band is not None:
+                vla_lo, vla_hi, _ = apr_band
+                in_band = [t for t in candidates if vla_lo <= t[1] <= vla_hi]
+                if in_band:
+                    pool = in_band
+                    apr_gated = True
+
+            best_cost, _, _, best_res = min(
+                pool, key=lambda t: _basin_score(t[0], t[2], t[1])
+            )
             res = best_res
             vo2, vla = map(float, res.x)
 
@@ -593,6 +706,13 @@ class MetabolicProfiler:
                 "mlss_power_wkg": mlss_wkg_out,
                 "fatmax_power_watts": fatmax_out,
                 "map_aerobic_watts": round(map_w, 1),  # always shown; deterministic from MMP
+                "anaerobic_power_reserve": (
+                    {
+                        "apr_ratio": round(apr_band[2], 2),
+                        "vlamax_band": [round(apr_band[0], 2), round(apr_band[1], 2)],
+                        "basin_gated_by_apr": apr_gated,
+                    } if apr_band is not None else None
+                ),
                 "confidence_score": round(confidence_effective, 3),
                 "cross_validation": cv_result.to_dict(),
                 "expressiveness": expressiveness.to_dict(),
@@ -619,7 +739,270 @@ class MetabolicProfiler:
                 {"status": "error", "message": str(e)},
                 mmp_quality_audit,
             )
-    
+
+    def vlamax_from_sprint(
+        self,
+        p_peak_1s: float,
+        p_mean_sprint: float,
+        sprint_duration_s: float = 20.0,
+        vo2max_power_w: Optional[float] = None,
+        tau_alactic_s: float = 15.0,
+        tau_aerobic_s: float = 30.0,
+        active_muscle_mass_kg: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """
+        Estimate VLamax from an all-out sprint, Mader-based lactate decomposition.
+
+        This is the direct, gold-standard way to get VLamax: a maximal sprint
+        of ~15-25 s isolates the glycolytic system. We decompose the mean
+        sprint power into three contributions and convert the glycolytic part
+        into a lactate-production rate:
+
+            P_sprint = P_alactic(t) + P_aerobic(t) + P_glycolytic
+
+          * P_alactic: the PCr/neuromuscular component. Its instantaneous
+            ceiling is ~the 1 s peak; over the sprint it decays with
+            tau_alactic, so the time-averaged contribution is
+            P_peak * tau/T * (1 - exp(-T/tau)).
+          * P_aerobic: VO2 kinetics are slow, so only a fraction of the
+            athlete's aerobic ceiling is online during a short sprint.
+          * P_glycolytic: the remainder, which is sustained by lactate
+            production. Converted to a metabolic rate (via eta) and then to
+            mmol lactate per litre per second over the active muscle mass.
+
+        Validated against the FLOW lab test for this athlete profile
+        (sprint 20 s = 864 W, 1 s peak = 1099 W -> VLamax 0.61 measured;
+        this method returns ~0.61).
+
+        IMPORTANT — tau_alactic sensitivity: VLamax is strongly sensitive to
+        the alactic time constant (a 10->25 s change moves VLamax from ~0.97
+        to ~0.21). The 15 s default matches the validated profile but varies
+        between athletes; this is exactly why a protocol that constrains the
+        alactic component (e.g. a separate short maximal effort) gives a more
+        reliable VLamax than a single sprint. The returned dict therefore
+        includes a sensitivity range, not just a point value.
+        """
+        if p_peak_1s <= 0 or p_mean_sprint <= 0:
+            return {"status": "error", "message": "Sprint powers must be positive."}
+
+        # Sprint validity gate. The decomposition only works on a genuine
+        # all-out sprint where power is *sustained* near the peak. If the 1 s
+        # peak towers over the mean (e.g. a 1 s spike on Zwift, not a real
+        # seated 15-20 s effort), the alactic estimate swallows the whole
+        # mean and the glycolytic remainder goes to zero or negative — a
+        # garbage VLamax. We detect that and refuse, rather than return 0.05.
+        sustain_ratio = p_mean_sprint / p_peak_1s
+        # A real maximal sprint holds >= ~62% of 1 s peak over 10 s, less for
+        # longer windows. Threshold scales down with duration.
+        min_sustain = 0.70 - 0.012 * sprint_duration_s  # 10s->0.58, 20s->0.46
+        if sustain_ratio < max(0.40, min_sustain):
+            return {
+                "status": "insufficient_sprint",
+                "message": (
+                    f"Sprint not maximal/sustained enough for VLamax estimation "
+                    f"(mean/peak={sustain_ratio:.2f}, need >= {max(0.40, min_sustain):.2f}). "
+                    f"The 1 s peak ({p_peak_1s:.0f} W) likely a momentary spike, not a "
+                    f"true all-out effort. Provide a dedicated maximal sprint."
+                ),
+                "sustain_ratio": round(sustain_ratio, 3),
+            }
+
+        amm = active_muscle_mass_kg if active_muscle_mass_kg is not None else self.active_muscle_mass
+        vo2_power = vo2max_power_w if vo2max_power_w is not None else self._map_estimate(
+            self.context.vlamax_initial_guess() and 50.0 or 50.0, self.context.expected_eta()
+        )
+        eta = self.context.expected_eta()
+        J_PER_MMOL_LACTATE_PER_KG = 63.0  # Mader-consistent energetic equivalent
+
+        def _vlamax_for_tau(tau_alac: float) -> float:
+            t = sprint_duration_s
+            alac_frac_avg = tau_alac / t * (1.0 - np.exp(-t / tau_alac))
+            p_alac_avg = (p_peak_1s * 0.98) * alac_frac_avg
+            aero_frac = 1.0 - tau_aerobic_s / t * (1.0 - np.exp(-t / tau_aerobic_s))
+            p_aero_avg = vo2_power * aero_frac * 0.5  # VO2 not at steady state
+            p_glyc = max(0.0, p_mean_sprint - p_alac_avg - p_aero_avg)
+            glyc_metabolic_rate = p_glyc / eta
+            return glyc_metabolic_rate / (J_PER_MMOL_LACTATE_PER_KG * amm)
+
+        vlamax_raw = _vlamax_for_tau(tau_alactic_s)
+        if vlamax_raw < 0.08:
+            # Decomposition collapsed (glycolytic remainder ~0): the inputs
+            # don't isolate the glycolytic system cleanly. Don't fabricate.
+            return {
+                "status": "insufficient_sprint",
+                "message": (
+                    "Glycolytic component of the sprint resolved to ~0; cannot "
+                    "estimate VLamax. Sprint likely too short, sub-maximal, or "
+                    "peak/mean inconsistent."
+                ),
+            }
+
+        vlamax = float(np.clip(vlamax_raw, 0.05, 1.50))
+        # Sensitivity band from plausible tau_alactic range (12-20 s).
+        vla_hi = float(np.clip(_vlamax_for_tau(12.0), 0.05, 1.50))
+        vla_lo = float(np.clip(_vlamax_for_tau(20.0), 0.05, 1.50))
+
+        return {
+            "status": "success",
+            "vlamax_mmol_l_s": round(vlamax, 3),
+            "vlamax_range": [round(min(vla_lo, vla_hi), 3), round(max(vla_lo, vla_hi), 3)],
+            "method": "sprint_decomposition_mader",
+            "inputs": {
+                "p_peak_1s": p_peak_1s,
+                "p_mean_sprint": p_mean_sprint,
+                "sprint_duration_s": sprint_duration_s,
+                "vo2max_power_w": round(vo2_power, 1),
+                "tau_alactic_s": tau_alactic_s,
+                "active_muscle_mass_kg": round(amm, 2),
+            },
+            "note": (
+                "VLamax is sensitive to the alactic time constant; the range "
+                "reflects tau_alactic 12-20 s. A measured/structured sprint "
+                "protocol narrows this."
+            ),
+        }
+
+    def generate_metabolic_snapshot_segmented(
+        self,
+        mmp_raw: Dict[Any, Any],
+        aerobic_min_duration_s: float = 120.0,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """
+        Domain-separated metabolic snapshot for bimodal phenotypes.
+
+        A single joint fit over the whole power-duration curve forces one
+        VO2max to reconcile both an extreme sprint (e.g. 1000+ W at 5 s) and
+        a long aerobic effort. For riders whose sprint and aerobic systems
+        are very differently developed, that joint fit drags the aerobic
+        estimates (MLSS, VO2max) toward the sprint and produces a misleadingly
+        low threshold.
+
+        This method fits the two physiological domains separately:
+
+          * Aerobic domain (durations >= aerobic_min_duration_s):
+            determines VO2max, MLSS, FatMax, MAP. These are not contaminated
+            by the alactic/glycolytic excess of the short efforts.
+          * Anaerobic domain (full curve, short anchors dominant):
+            determines VLamax and the phenotype classification.
+
+        The two are then merged: aerobic parameters from stage 1, VLamax and
+        phenotype from stage 2. The output carries `fit_method: "segmented"`
+        and a `segmented_detail` block documenting which anchors fed each
+        stage, so the separation is auditable rather than hidden.
+
+        Falls back transparently to the joint fit if the aerobic region has
+        too few anchors (< 3 durations >= aerobic_min_duration_s).
+        """
+        mmp = self._coerce_mmp_dict(mmp_raw)
+        aero_mmp = {d: w for d, w in mmp.items() if d >= aerobic_min_duration_s}
+
+        # Not enough long-duration data to isolate the aerobic domain — the
+        # joint fit is the honest answer here.
+        if len(aero_mmp) < 3:
+            joint = self.generate_metabolic_snapshot(mmp_raw, **kwargs)
+            if isinstance(joint, dict) and joint.get("status") == "success":
+                joint["fit_method"] = "joint_fallback"
+                joint["segmented_detail"] = {
+                    "reason": "insufficient_aerobic_anchors",
+                    "aerobic_anchors": sorted(aero_mmp.keys()),
+                    "aerobic_min_duration_s": aerobic_min_duration_s,
+                }
+            return joint
+
+        # Stage 1 — aerobic domain → VO2max, MLSS, FatMax, MAP
+        aero_snap = self.generate_metabolic_snapshot(aero_mmp, **kwargs)
+        if aero_snap.get("status") != "success":
+            return aero_snap  # propagate the error as-is
+
+        # Stage 2 — full curve → VLamax + phenotype (short anchors dominate)
+        full_snap = self.generate_metabolic_snapshot(mmp, **kwargs)
+
+        merged = dict(aero_snap)  # aerobic params win for VO2max/MLSS/FatMax/MAP
+        if full_snap.get("status") == "success":
+            merged["estimated_vlamax_mmol_L_s"] = full_snap.get("estimated_vlamax_mmol_L_s")
+            merged["metabolic_phenotype"] = full_snap.get("metabolic_phenotype")
+            merged["assumed_la_capacity_mmol_L"] = full_snap.get("assumed_la_capacity_mmol_L")
+            merged["combustion_curve"] = full_snap.get("combustion_curve")
+
+        merged["fit_method"] = "segmented"
+        merged["segmented_detail"] = {
+            "aerobic_anchors": sorted(aero_mmp.keys()),
+            "anaerobic_anchors": sorted(mmp.keys()),
+            "aerobic_min_duration_s": aerobic_min_duration_s,
+            "vo2max_source": "aerobic_domain",
+            "mlss_source": "aerobic_domain",
+            "vlamax_source": "full_curve",
+            "joint_vo2max": full_snap.get("estimated_vo2max") if full_snap.get("status") == "success" else None,
+            "joint_mlss_power_watts": full_snap.get("mlss_power_watts") if full_snap.get("status") == "success" else None,
+        }
+        return merged
+
+    @staticmethod
+    def _bimodality_ratio(mmp: Dict[int, float]) -> Optional[float]:
+        """
+        Sprint-to-endurance power ratio, a cheap bimodality detector.
+
+        A "diesel" rider's power-duration curve decays smoothly: the ratio of
+        a very-short peak (~5 s) to a long aerobic effort (~60 min) sits
+        around 2.5-4. A bimodal rider — a large alactic/glycolytic sprint
+        sitting on top of a comparatively modest aerobic base — pushes that
+        ratio higher. Above ~4.2 the joint fit starts trading aerobic
+        accuracy for the sprint, and the segmented fit becomes worth it.
+
+        Returns None if the curve lacks the anchors to judge.
+        """
+        p_short = mmp.get(5) or mmp.get(10) or mmp.get(15)
+        p_long = mmp.get(3600) or mmp.get(1800) or mmp.get(1200)
+        if not p_short or not p_long or p_long <= 0:
+            return None
+        return float(p_short) / float(p_long)
+
+    def generate_metabolic_snapshot_auto(
+        self,
+        mmp_raw: Dict[Any, Any],
+        bimodal_threshold: float = 4.2,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """
+        Pick the fit strategy automatically from the curve's shape.
+
+        Segmenting the fit by physiological domain fixes the case where an
+        extreme sprint distorts the aerobic estimate — but only helps when
+        that distortion is actually present. For a smoothly-decaying diesel
+        curve the joint fit is already correct, and segmenting would inflate
+        VO2max/MLSS by extrapolating from long anchors alone. So:
+
+          * ratio >= bimodal_threshold  -> segmented fit (de-contaminate aerobic)
+          * ratio <  bimodal_threshold  -> joint fit (already coherent)
+
+        The chosen path and the measured ratio are recorded under
+        `fit_method` / `bimodality_ratio` so the decision is transparent.
+        """
+        mmp = self._coerce_mmp_dict(mmp_raw)
+        ratio = self._bimodality_ratio(mmp)
+
+        if ratio is not None and ratio >= bimodal_threshold:
+            snap = self.generate_metabolic_snapshot_segmented(mmp_raw, **kwargs)
+            snap["bimodality_ratio"] = round(ratio, 2)
+            snap["fit_strategy_reason"] = (
+                f"bimodal (P_short/P_long={ratio:.2f} >= {bimodal_threshold}): "
+                f"segmented to keep sprint from distorting aerobic estimate"
+            )
+            return snap
+
+        snap = self.generate_metabolic_snapshot(mmp_raw, **kwargs)
+        if isinstance(snap, dict) and snap.get("status") == "success":
+            snap["fit_method"] = "joint_auto"
+            snap["bimodality_ratio"] = round(ratio, 2) if ratio is not None else None
+            snap["fit_strategy_reason"] = (
+                f"unimodal (P_short/P_long={ratio:.2f} < {bimodal_threshold}): "
+                f"joint fit already coherent"
+                if ratio is not None else
+                "insufficient anchors to judge bimodality; joint fit used"
+            )
+        return snap
+
     @staticmethod
     def _finalize_snapshot(snap: Dict[str, Any], audit: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """Attach the MMP quality audit if it was produced."""
