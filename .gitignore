@@ -4,3 +4,6 @@ __pycache__/
 *.egg-info/
 data/
 *.zip
+.tools/
+tablet_app/.dart_tool/
+tablet_app/build/

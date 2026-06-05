@@ -239,6 +239,8 @@ Validation on 9 real FIT files: **9/9 classified correctly**.
 
 ## In-person tests (tablet app)
 
+Flutter tablet app: [`tablet_app/`](tablet_app/) (BLE rulli + sensori, invio busta JSON).
+
 Coach-led tests on a smart trainer use a single JSON envelope (`CONTRATTO_JSON_test.md`).
 The backend routes by `test_type` and reuses existing engines (no duplicate CP/Mader math).
 

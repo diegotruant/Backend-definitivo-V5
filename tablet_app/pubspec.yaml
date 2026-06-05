@@ -1,0 +1,27 @@
+name: in_person_test_tablet
+description: App tablet per test in presenza — BLE rulli e sensori fisiologici.
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.8.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_riverpod: ^2.6.1
+  go_router: ^15.1.2
+  flutter_blue_plus: ^1.35.5
+  permission_handler: ^12.0.0+1
+  equatable: ^2.0.7
+  intl: ^0.20.2
+  collection: ^1.19.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
