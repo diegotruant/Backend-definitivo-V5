@@ -48,7 +48,12 @@ Per build release Android tablet:
 
 ```bash
 flutter build apk --release
+# Output: build/app/outputs/flutter-apk/app-release.apk
 ```
+
+L’APK release include **BLE simulato** (`useFakeBle: true`): funziona subito su tablet
+senza hardware, per provare UI e connessioni fittizie. Per BLE reale, ricompilare
+dopo `useFakeBle: false` in `app_config.dart`.
 
 ## Test
 
