@@ -2,7 +2,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 *.egg-info/
-data/
+/data/
 *.zip
 .tools/
 tablet_app/.dart_tool/
