@@ -156,7 +156,7 @@ check("method chaining works",
 print("\n[4] hrv_engine import cleanliness")
 
 # Read the source and check the dead fallback is gone
-hrv_src = (Path(__file__).parent / "hrv_engine.py").read_text()
+hrv_src = (Path(__file__).parent / "engines" / "recovery" / "hrv_engine.py").read_text()
 check("No 'try ... except ImportError ... metabolic_profiler import' fallback",
       "from engines.metabolic.metabolic_profiler import AthleteContext" not in hrv_src,
       "fallback still present")
