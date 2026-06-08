@@ -21,7 +21,7 @@ installable CLI entry points (`pip install -e .`):
 
 The `test_*.py` scripts in the root are **not** collected by pytest (by design — see
 `[tool.pytest.ini_options]` in `pyproject.toml`).  Run them via `pytest_script_suite.py`
-or individually with `python test_<name>.py`.
+or individually with `python test_<name>.py` (requires `pip install -e ".[dev]"` first).
 
 ## Generated data / reports
 
