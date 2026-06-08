@@ -44,6 +44,7 @@ htmlcov/
 *.tar.gz
 data/
 reports/
+frontend/public/data/
 
 # IDE/editor
 .vscode/
