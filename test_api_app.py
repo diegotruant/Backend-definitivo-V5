@@ -9,8 +9,8 @@ tests); this guards the HTTP wiring and serialisation.
 """
 
 import io
+import json
 import sys
-import struct
 import warnings
 from pathlib import Path
 
@@ -106,8 +106,55 @@ if HAVE_API:
     check("confirm returns an anchor status", anc.get("status") in ("anchored", "partial", "failed"))
     check("confirm anchored VLamax from sprint", anc.get("vlamax_source") == "sprint")
 
+    # ---- /ride/summary (power_json, no FIT) ----
+    print("\n[5] /ride/summary")
+    power = [200 + int(20 * (i % 60) / 60) for i in range(3600)]
+    r = client.post("/ride/summary", data={
+        "weight_kg": "72",
+        "ftp": "280",
+        "power_json": json.dumps(power),
+        "metabolic_snapshot_json": json.dumps(snap),
+    })
+    check("summary 200", r.status_code == 200, f"code={r.status_code}")
+    summ = r.json()
+    check("summary status success", summ.get("status") == "success")
+    check("summary has power section", "power" in summ.get("sections", {}))
+    check("summary has mader_durability", summ.get("sections", {}).get("mader_durability", {}).get("status") == "success")
+
+    # ---- /ride/durability ----
+    print("\n[6] /ride/durability")
+    r = client.post("/ride/durability", data={
+        "weight_kg": "72",
+        "power_json": json.dumps(power),
+        "metabolic_snapshot_json": json.dumps(snap),
+    })
+    check("durability 200", r.status_code == 200, f"code={r.status_code}")
+    dur = r.json()
+    check("durability success", dur.get("status") == "success")
+    check("durability has sustainability", dur.get("sustainability", {}).get("status") == "success")
+
+    # ---- /test/in-person (Mader envelope) ----
+    print("\n[7] /test/in-person")
+    r = client.post("/test/in-person", json={
+        "test_type": "mader",
+        "athlete": {"weight_kg": 72, "sex": "M"},
+        "test_data": {
+            "steps": [
+                {"step": 1, "power_w": 150, "lactate_mmol": 1.2},
+                {"step": 2, "power_w": 200, "lactate_mmol": 1.8},
+                {"step": 3, "power_w": 230, "lactate_mmol": 2.6},
+                {"step": 4, "power_w": 260, "lactate_mmol": 4.1},
+                {"step": 5, "power_w": 290, "lactate_mmol": 6.8},
+                {"step": 6, "power_w": 320, "lactate_mmol": 10.2},
+            ],
+            "mmp": {"1200": 285, "3600": 255, "300": 340, "720": 300, "60": 540, "15": 980},
+        },
+    })
+    check("in-person 200", r.status_code == 200, f"code={r.status_code}")
+    check("in-person has verdict", bool(r.json().get("verdict")))
+
     # ---- File-upload endpoints (only if a real FIT is available) ----
-    print("\n[5] /test/propose + /ride/ingest (file uploads)")
+    print("\n[8] /test/propose + /ride/ingest (file uploads)")
     fit_bytes, fit_name = _make_fit_bytes()
     if fit_bytes:
         r = client.post("/test/propose", files=[
@@ -127,7 +174,7 @@ if HAVE_API:
         check("file-upload endpoints (skipped: no FIT asset available)", True, "skipped")
 
     # ---- error handling ----
-    print("\n[6] error handling")
+    print("\n[9] error handling")
     r = client.post("/test/confirm", json={
         "proposal": {"status": "empty", "sprint": None, "cp_candidates": [], "mmp_for_fit": {}, "confidence": 0.0, "warnings": [], "notes": []},
         "athlete": {"weight_kg": 90}, "measured_on": "not-a-date",

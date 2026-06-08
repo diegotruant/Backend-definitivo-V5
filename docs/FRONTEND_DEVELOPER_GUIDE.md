@@ -118,6 +118,9 @@ Base URL esempio: `http://localhost:8000` (`make run`).
 | POST | `/ride/ingest` | 1 FIT → aggiorna curva potenza |
 | POST | `/ride/update-profile` | MMP uscita + anchor → profilo aggiornato |
 | POST | `/profile/snapshot` | MMP → snapshot metabolico completo |
+| POST | `/ride/summary` | FIT o `power_json` → `workout_summary` completo |
+| POST | `/ride/durability` | FIT + snapshot → CP residua + potenze sostenibili |
+| POST | `/test/in-person` | Envelope tablet → test_protocols / lattato |
 
 ### 5.1 Flow A — Creazione profilo (test)
 
@@ -438,19 +441,30 @@ Ogni config contiene: `type`, `data`, `config` (assi, colori), `metadata` (titol
 
 ---
 
-## 13. Endpoint da aggiungere (wrapper consigliati)
+## 13. Endpoint attività e test (già in `api_app.py`)
 
-Oggi `api_app.py` non espone tutto. Per il frontend conviene aggiungere (lato backend o BFF):
+| Endpoint | Body | Motore |
+|----------|------|--------|
+| `POST /ride/summary` | `multipart`: `file` **oppure** `power_json`, `weight_kg`, opz. `ftp`, `metabolic_snapshot_json` | `build_workout_summary` |
+| `POST /ride/durability` | `multipart`: `file` **oppure** `power_json`, `weight_kg`, `metabolic_snapshot_json` (obbligatorio) | `compute_session_durability` |
+| `POST /test/in-person` | JSON envelope (`CONTRATTO_JSON_test.md`) | `test_protocols` |
+
+**Esempio summary senza FIT (test / demo):**
+
+```bash
+curl -X POST http://localhost:8000/ride/summary \
+  -F 'weight_kg=72' \
+  -F 'ftp=280' \
+  -F 'power_json=[200,210,220,...]' \
+  -F 'metabolic_snapshot_json={"status":"success",...}'
+```
+
+### Endpoint ancora da aggiungere (fase 2)
 
 | Endpoint proposto | Motore |
 |-------------------|--------|
-| `POST /ride/summary` | `build_workout_summary` |
-| `POST /ride/durability` | `compute_session_durability` |
 | `POST /profile/kalman` | `process_workout_history` |
 | `POST /race/simulate` | `simulate_gpx_race` |
-| `POST /test/in-person` | `run_in_person_test` |
-
-Fino ad allora: chiamate Python server-side (Supabase Edge Function) che importano `engines`.
 
 ---
 

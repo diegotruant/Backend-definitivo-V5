@@ -19,7 +19,11 @@ Endpoints map 1:1 onto the two product flows documented in the frontend guide:
 
   Read models
     POST /profile/snapshot      MMP -> full metabolic snapshot
-    GET  /health
+    POST /ride/summary          1 FIT (or power JSON) -> workout_summary
+    POST /ride/durability       FIT + metabolic snapshot -> mader_durability
+    POST /test/in-person        tablet JSON envelope -> test_protocols
+
+  GET  /health
 
 This file is intentionally storage-agnostic: it returns serialisable state
 (curves, profiles) for the caller to persist in whatever DB they choose, and
@@ -30,9 +34,10 @@ Run:  uvicorn api_app:app --reload
 
 from __future__ import annotations
 
+import json
 import os
 import tempfile
-from datetime import date
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -46,8 +51,11 @@ except ImportError as e:  # pragma: no cover
         "FastAPI is required for the API layer: pip install fastapi uvicorn"
     ) from e
 
-from engines.io.fit_parser import parse_fit_file_enhanced
+from engines.io.fit_parser import parse_fit_file_enhanced, parse_fit_records_enhanced
+from engines.io.workout_summary import build_workout_summary
+from engines.performance.mader_durability import compute_session_durability
 from engines.performance.mmp_aggregator import update_power_curve
+from engines.performance.test_protocols import run_test as run_in_person_test
 from engines.metabolic.metabolic_profiler import MetabolicProfiler
 from engines.core.athlete_context import AthleteContext
 from engines.core.athlete_physiological_prior import MeasuredProfile
@@ -102,6 +110,54 @@ def _ctx(gender: str, training_years: float, discipline: str) -> AthleteContext:
     )
 
 
+def _ctx_from_athlete(athlete: "AthleteParams") -> AthleteContext:
+    return _ctx(athlete.gender, athlete.training_years, athlete.discipline)
+
+
+def _parse_metabolic_snapshot(raw: Optional[str]) -> Optional[Dict[str, Any]]:
+    if not raw:
+        return None
+    try:
+        snap = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid metabolic_snapshot_json: {e}")
+    if not isinstance(snap, dict):
+        raise HTTPException(status_code=400, detail="metabolic_snapshot_json must be a JSON object.")
+    return snap
+
+
+def _stream_from_power(power: List[float], *, start: Optional[datetime] = None):
+    """Build an ActivityStream-like object from a 1 Hz power list (tests / JSON API)."""
+    base = start or datetime(2026, 1, 1, 8, 0, 0)
+    records = [
+        {
+            "timestamp": base + timedelta(seconds=i),
+            "power": int(max(0, float(p))),
+            "heart_rate": int(140 + (i % 120) * 0.05),
+        }
+        for i, p in enumerate(power)
+    ]
+    return parse_fit_records_enhanced(records, session_dict={"sport": "cycling", "start_time": base})
+
+
+async def _load_activity_stream(
+    file: Optional[UploadFile],
+    power_json: Optional[str],
+) -> Any:
+    if file is not None:
+        parsed = await _parse_upload(file)
+        return parsed["_stream"]
+    if power_json:
+        try:
+            power = json.loads(power_json)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid power_json: {e}")
+        if not isinstance(power, list) or not power:
+            raise HTTPException(status_code=400, detail="power_json must be a non-empty JSON array.")
+        return _stream_from_power([float(p) for p in power])
+    raise HTTPException(status_code=400, detail="Provide either a FIT file or power_json.")
+
+
 # ---------------------------------------------------------------------------
 # Request models
 # ---------------------------------------------------------------------------
@@ -137,6 +193,15 @@ class RideUpdateCurveRequest(BaseModel):
     stored_curve: Optional[Dict[str, Any]] = None
     ride_date: str
     weight_kg: float = 70.0
+
+
+class InPersonTestRequest(BaseModel):
+    """Tablet envelope — see CONTRATTO_JSON_test.md."""
+    test_type: str
+    timestamp: Optional[str] = None
+    athlete: Dict[str, Any] = Field(default_factory=dict)
+    device: Optional[Dict[str, Any]] = None
+    test_data: Dict[str, Any] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -266,11 +331,97 @@ def update_profile(req: UpdateProfileRequest) -> JSONResponse:
 @app.post("/profile/snapshot")
 def snapshot(req: SnapshotRequest) -> JSONResponse:
     """Full metabolic snapshot from an MMP (the dashboard read model)."""
-    ctx = _ctx(req.athlete.gender, req.athlete.training_years, req.athlete.discipline)
+    ctx = _ctx_from_athlete(req.athlete)
     profiler = MetabolicProfiler(weight=req.athlete.weight_kg, context=ctx)
     mmp = {int(k): float(v) for k, v in req.mmp.items()}
     snap = profiler.generate_metabolic_snapshot(mmp)
     return _json(snap)
+
+
+# ---------------------------------------------------------------------------
+# Activity analysis — summary & mechanistic durability
+# ---------------------------------------------------------------------------
+@app.post("/ride/summary")
+async def ride_summary(
+    weight_kg: float = Form(...),
+    ftp: Optional[float] = Form(None),
+    lthr: Optional[float] = Form(None),
+    gender: str = Form("MALE"),
+    training_years: float = Form(10),
+    discipline: str = Form("ENDURANCE"),
+    metabolic_snapshot_json: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    power_json: Optional[str] = Form(None),
+) -> JSONResponse:
+    """
+    Full per-activity report (workout_summary orchestrator).
+
+    Accepts either a FIT upload or a JSON power array (`power_json`, 1 Hz).
+    Pass `metabolic_snapshot_json` to enable mader_durability and cardiac
+    cross-validation sections.
+    """
+    stream = await _load_activity_stream(file, power_json)
+    snap = _parse_metabolic_snapshot(metabolic_snapshot_json)
+    ctx = _ctx(gender, training_years, discipline)
+    summary = build_workout_summary(
+        stream,
+        weight_kg=weight_kg,
+        ftp=ftp,
+        lthr=lthr,
+        context=ctx,
+        metabolic_snapshot=snap,
+    )
+    return _json(summary)
+
+
+@app.post("/ride/durability")
+async def ride_durability(
+    weight_kg: float = Form(...),
+    metabolic_snapshot_json: str = Form(...),
+    file: Optional[UploadFile] = File(None),
+    power_json: Optional[str] = Form(None),
+) -> JSONResponse:
+    """
+    Mader mechanistic durability: CP residua + sustainable power targets.
+
+    Requires a valid metabolic snapshot (from /profile/snapshot or persisted DB).
+    """
+    stream = await _load_activity_stream(file, power_json)
+    snap = _parse_metabolic_snapshot(metabolic_snapshot_json)
+    if not snap or snap.get("status") != "success":
+        raise HTTPException(
+            status_code=400,
+            detail="metabolic_snapshot_json must be a successful generate_metabolic_snapshot() payload.",
+        )
+    if not getattr(stream, "has_power", False):
+        raise HTTPException(status_code=422, detail="Activity has no power data.")
+    power = [
+        float(p or 0.0)
+        for p in stream.power[: getattr(stream, "n_samples", len(stream.power))]
+    ]
+    result = compute_session_durability(power, snap, weight_kg=weight_kg)
+    return _json(result)
+
+
+@app.post("/test/in-person")
+def in_person_test(req: InPersonTestRequest) -> JSONResponse:
+    """
+    Run a tablet in-person test envelope (Mader, CP, Wingate, …).
+
+    Schema: CONTRATTO_JSON_test.md. The frontend sends the full envelope;
+    the backend dispatches to test_protocols / lactate_validation_engine.
+    """
+    envelope = req.model_dump()
+    athlete = envelope.get("athlete") or {}
+    weight = float(athlete.get("weight_kg") or 70.0)
+    ctx = AthleteContext(
+        gender=str(athlete.get("sex") or athlete.get("gender") or "MALE"),
+        training_years=float(athlete.get("training_years") or 10),
+        discipline=str(athlete.get("discipline") or "ENDURANCE"),
+    )
+    profiler = MetabolicProfiler(weight=weight, context=ctx)
+    result = run_in_person_test(envelope, profiler=profiler)
+    return _json(result)
 
 
 # ---------------------------------------------------------------------------
