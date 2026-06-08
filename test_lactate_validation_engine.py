@@ -79,7 +79,8 @@ check("run_mader_test validated flag", "validated" in mader)
 
 print("\n[5] Module self-demo")
 import subprocess
-r = subprocess.run([sys.executable, "lactate_validation_engine.py"], capture_output=True, text=True, cwd=str(Path(__file__).parent))
+demo_script = Path(__file__).parent / "engines" / "metabolic" / "lactate_validation_engine.py"
+r = subprocess.run([sys.executable, str(demo_script)], capture_output=True, text=True, cwd=str(Path(__file__).parent))
 check("demo script exits 0", r.returncode == 0, r.stderr[:200] if r.returncode else "")
 
 print("\n" + "=" * 50)
