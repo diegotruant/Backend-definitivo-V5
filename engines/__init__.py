@@ -31,6 +31,7 @@ _SUBPACKAGE_MAP: dict[str, str] = {
     "durability_engine": "engines.performance.durability_engine",
     "efforts_analyzer": "engines.performance.efforts_analyzer",
     "interval_detector": "engines.performance.interval_detector",
+    "mader_durability": "engines.performance.mader_durability",
     "mmp_aggregator": "engines.performance.mmp_aggregator",
     "mmp_quality": "engines.performance.mmp_quality",
     "neural_ode": "engines.performance.neural_ode",
@@ -75,6 +76,13 @@ from durability_engine import (
     calculate_durability_index,
     calculate_np_drift,
     generate_hourly_decay_curve,
+)
+from mader_durability import (
+    DurabilityAthleteParams,
+    MaderDurabilityEngine,
+    compute_session_durability,
+    from_metabolic_snapshot,
+    sustainability_targets,
 )
 from explainability_engine import (
     calculate_durability_confidence,
@@ -268,7 +276,12 @@ __all__ = [
     "calculate_ctl_atl_tsb",
     "calculate_dfa_alpha1",
     "calculate_durability_confidence",
+    "compute_session_durability",
     "calculate_durability_index",
+    "DurabilityAthleteParams",
+    "from_metabolic_snapshot",
+    "MaderDurabilityEngine",
+    "sustainability_targets",
     "calculate_metabolic_flexibility_index",
     "calculate_monotony_strain",
     "calculate_np_drift",

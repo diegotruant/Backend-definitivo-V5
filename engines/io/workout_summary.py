@@ -253,6 +253,45 @@ def build_workout_summary(
         }
 
     # =========================================================================
+    # 6. MADER DURABILITY — CP residua meccanicistica (richiede profilo metabolico)
+    # =========================================================================
+    if (
+        metabolic_snapshot
+        and metabolic_snapshot.get("status") == "success"
+        and getattr(stream, "has_power", False)
+    ):
+        try:
+            from engines.performance.mader_durability import compute_session_durability
+            power_list = [
+                float(p or 0.0)
+                for p in stream.power[: getattr(stream, "n_samples", len(stream.power))]
+            ]
+            md = compute_session_durability(power_list, metabolic_snapshot, weight_kg)
+            out["sections"]["mader_durability"] = md
+            if md.get("status") == "success":
+                sus = md.get("sustainability") or {}
+                headline_preview = (sus.get("sustainable_steady_power_w") or {}).get("at_10pct_cp_loss")
+                if headline_preview:
+                    out["warnings"].append(
+                        "Mader durability: potenze sostenibili stimate con profilo metabolico "
+                        f"(perdita CP sessione {md.get('durability_loss_pct', '?')}%)."
+                    )
+        except Exception as exc:
+            out["sections"]["mader_durability"] = {
+                "status": "error",
+                "reason": str(exc),
+            }
+    elif metabolic_snapshot is None:
+        out["sections"]["mader_durability"] = {
+            "status": "skipped",
+            "reason": "NO_METABOLIC_PROFILE",
+            "message": (
+                "Durability meccanicistica Mader richiede generate_metabolic_snapshot() "
+                "(ancore sprint + CP 3/6/12 o test in presenza)."
+            ),
+        }
+
+    # =========================================================================
     # HEADLINE — the six metrics the coach checks daily
     # =========================================================================
     headline: Dict[str, Any] = {}
@@ -296,6 +335,15 @@ def build_workout_summary(
     classification = out["sections"].get("classification", {})
     if classification.get("status") == "success":
         headline["rider_phenotype"] = classification["overall"]["phenotype_code"]
+
+    mader_section = out["sections"].get("mader_durability", {})
+    if mader_section.get("status") == "success":
+        headline["mader_durability_loss_pct"] = mader_section.get("durability_loss_pct")
+        headline["mader_cp_baseline_w"] = mader_section.get("cp_baseline")
+        sus = mader_section.get("sustainability") or {}
+        at_10 = (sus.get("sustainable_steady_power_w") or {}).get("at_10pct_cp_loss") or {}
+        if at_10.get("3h"):
+            headline["mader_sustainable_3h_w"] = at_10["3h"]
 
     out["headline"] = headline
     out["section_contracts"] = summarize_section_contracts(out["sections"])

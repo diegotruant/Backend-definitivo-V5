@@ -406,14 +406,16 @@ def from_metabolic_snapshot(
     if snapshot.get("status") != "success":
         return None
 
-    vo2max = snapshot.get("estimated_vo2max")
-    vlamax = snapshot.get("estimated_vlamax_mmol_L_s")
+    unmasked = snapshot.get("unmasked_estimates") or {}
+    vo2max = unmasked.get("estimated_vo2max") or snapshot.get("estimated_vo2max")
+    vlamax = unmasked.get("estimated_vlamax_mmol_L_s") or snapshot.get("estimated_vlamax_mmol_L_s")
     mlss_w = snapshot.get("mlss_power_watts")
 
     if any(v is None for v in [vo2max, vlamax, mlss_w]):
         return None
 
-    eta = snapshot.get("context_used", {}).get("resolved_eta", 0.23)
+    ctx_used = snapshot.get("context_used") or {}
+    eta = ctx_used.get("resolved_eta", 0.23)
     la_cap = snapshot.get("assumed_la_capacity_mmol_L", 14.0)
 
     return MaderDurabilityEngine(
@@ -424,6 +426,122 @@ def from_metabolic_snapshot(
         eta=float(eta),
         la_capacity=float(la_cap),
     )
+
+
+# ---------------------------------------------------------------------------
+# Coaching layer: potenze sostenibili da CP_residua
+# ---------------------------------------------------------------------------
+
+def sustainability_targets(
+    durability_result: Dict[str, Any],
+    *,
+    duration_targets_h: tuple[float, ...] = (1.0, 2.0, 3.0, 4.0, 5.0),
+    loss_thresholds_pct: tuple[float, ...] = (5.0, 10.0, 15.0),
+) -> Dict[str, Any]:
+    """
+    Traduce cp_residual_at_kj in budget energetici e potenze steady-state
+    sostenibili per durata, per pianificare gare lunghe o allenamenti mirati.
+
+    Per ogni soglia di perdita CP (es. 10%), stima la potenza massima costante
+    sostenibile per 1-5 h senza superare il budget di kJ sopra CP associato.
+    """
+    if durability_result.get("status") != "success":
+        return {"status": "unavailable", "reason": "durability_compute_failed"}
+
+    cp0 = float(durability_result["cp_baseline"])
+    lookup = durability_result.get("cp_residual_at_kj") or {}
+    if not lookup:
+        return {"status": "unavailable", "reason": "empty_cp_residual_lookup"}
+
+    kj_budgets: Dict[str, float] = {}
+    for loss in loss_thresholds_pct:
+        floor = cp0 * (1.0 - loss / 100.0)
+        eligible = [float(kj) for kj, cp in lookup.items() if float(cp) >= floor]
+        kj_budgets[f"max_kj_before_{int(loss)}pct_cp_loss"] = max(eligible) if eligible else 0.0
+
+    sustainable_power_w: Dict[str, Dict[str, float]] = {}
+    for loss in loss_thresholds_pct:
+        max_kj = kj_budgets[f"max_kj_before_{int(loss)}pct_cp_loss"]
+        band: Dict[str, float] = {}
+        for dh in duration_targets_h:
+            if max_kj <= 0:
+                band[f"{dh:g}h"] = round(cp0, 0)
+            else:
+                # kJ_above_cp = (P - cp0) * duration_h * 3.6  (P in W, h in ore)
+                p_max = cp0 + max_kj / (dh * 3.6)
+                band[f"{dh:g}h"] = round(min(p_max, cp0 * 1.40), 0)
+        sustainable_power_w[f"at_{int(loss)}pct_cp_loss"] = band
+
+    loss_pct = float(durability_result.get("durability_loss_pct") or 0.0)
+    if loss_pct >= 15.0:
+        focus = (
+            "Alta perdita di CP residua: privilegiare volume aerobico sotto soglia "
+            "e ridurre blocchi ripetuti sopra MLSS in fase di recupero."
+        )
+    elif loss_pct >= 8.0:
+        focus = (
+            "Perdita moderata: utili blocchi soglia brevi; evitare lunghi tratti "
+            "continui sopra MLSS quando la CP residua è già compressa."
+        )
+    else:
+        focus = (
+            "Buona resistenza metabolica: profilo adatto a blocchi soglia e lavoro "
+            "prolungato moderato sopra la base aerobica."
+        )
+
+    return {
+        "status": "success",
+        "cp_baseline_w": cp0,
+        "kj_budgets": kj_budgets,
+        "sustainable_steady_power_w": sustainable_power_w,
+        "session_kj_above_cp": durability_result.get("session_kj_above_cp"),
+        "durability_loss_pct": loss_pct,
+        "cp_nadir_w": durability_result.get("cp_min"),
+        "cp_final_w": durability_result.get("cp_final"),
+        "training_recommendations": [focus],
+        "interpretation": (
+            "Potenze sostenibili = stima a regime costante: a parità di kJ sopra CP, "
+            "la CP residua meccanicistica non scende oltre la soglia di perdita indicata."
+        ),
+    }
+
+
+def compute_session_durability(
+    power_stream: Sequence[float],
+    metabolic_snapshot: Dict[str, Any],
+    weight_kg: float,
+    *,
+    dt: float = 1.0,
+    kj_resolution: float = 1.0,
+) -> Dict[str, Any]:
+    """
+    Pipeline unica: profilo metabolico → forward ODE → target di sostenibilità.
+
+    Usata da workout_summary, session_router e audit batch.
+    """
+    engine = from_metabolic_snapshot(metabolic_snapshot, weight_kg)
+    if engine is None:
+        return annotate_payload(
+            {
+                "status": "unavailable",
+                "reason": "missing_metabolic_profile",
+                "message": (
+                    "Servono VO2max, VLamax e MLSS da generate_metabolic_snapshot() "
+                    "per la durability meccanicistica Mader."
+                ),
+            },
+            module_name="mader_durability",
+            method="compute_session_durability",
+            confidence=0.0,
+        )
+
+    result = engine.compute(power_stream, dt=dt, kj_resolution=kj_resolution)
+    if result.get("status") != "success":
+        return result
+
+    sustainability = sustainability_targets(result)
+    result["sustainability"] = sustainability
+    return result
 
 
 # ---------------------------------------------------------------------------

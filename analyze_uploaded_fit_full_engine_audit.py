@@ -38,6 +38,7 @@ from engines import (
     estimate_fat_oxidation_rate,
     generate_acwr_narrative,
     generate_hourly_decay_curve,
+    compute_session_durability,
     get_current_metabolic_status,
     parse_fit_file_enhanced,
     process_workout_history,
@@ -280,6 +281,27 @@ def analyze_athlete(athlete: str, files: List[Path]) -> Tuple[List[Dict[str, Any
                     per_engine_errors[engine] += 1
                     error_rows.append({"athlete": athlete, "file": fit_path.name, "engine": engine, "error": err})
 
+            if metabolic_snapshot.get("status") == "success" and power:
+                status_md, mader_result, err_md = safe_call(
+                    lambda: compute_session_durability(
+                        power, metabolic_snapshot, weight_kg=WEIGHT_KG,
+                    )
+                )
+                if status_md == "success" and mader_result.get("status") == "success":
+                    per_engine_counts["mader_durability"] += 1
+                    row["mader_durability_loss_pct"] = mader_result.get("durability_loss_pct")
+                elif status_md == "success" and mader_result.get("status") in (
+                    "unavailable", "insufficient_data",
+                ):
+                    per_engine_counts["mader_durability"] += 1
+                else:
+                    per_engine_errors["mader_durability"] += 1
+                    error_rows.append({
+                        "athlete": athlete,
+                        "file": fit_path.name,
+                        "engine": "mader_durability",
+                        "error": err_md or str(mader_result),
+                    })
             status, w_balance, err = safe_call(
                 lambda: calculate_w_prime_balance(power, cp=cp_w, w_prime=w_prime_j, tau=W_PRIME_TAU_S)
             )
@@ -419,6 +441,7 @@ def analyze_athlete(athlete: str, files: List[Path]) -> Tuple[List[Dict[str, Any
         "hourly_decay_curve",
         "zones_engine",
         "workout_summary",
+        "mader_durability",
     ):
         successes = per_engine_counts[engine]
         errors = per_engine_errors[engine]

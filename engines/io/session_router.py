@@ -31,6 +31,7 @@ Routing table (category/subtype -> engines):
   STEADY (sweet_spot, z2...)  -> power curve + durability HRV
   FREE / UNCLASSIFIED         -> power curve + durability HRV
   HIIT                        -> power curve + interval stimulus (+ durability)
+  ride/hiit + profilo Mader   -> mader_durability (CP residua ODE + potenze sostenibili)
 
 Known limitation: a CP test made of two maximal blocks with recovery between
 them (e.g. CP3 + CP6, no sprint) is structurally indistinguishable from a HIIT
@@ -86,6 +87,7 @@ def decide_route(
     laps: Optional[List[Dict[str, Any]]] = None,
     ftp: Optional[float] = None,
     has_rr: bool = False,
+    has_metabolic_profile: bool = False,
 ) -> RoutingDecision:
     """
     Classify the session and decide which engines to run. Pure decision; no
@@ -121,16 +123,21 @@ def decide_route(
         engines = ["power_curve_update", "interval_stimulus"]
         if has_rr:
             engines.append("hrv_durability")
+        if has_metabolic_profile:
+            engines.append("mader_durability")
         rationale = "Interval session: power curve + interval stimulus (HRV as durability)."
     else:  # STEADY, FREE, UNCLASSIFIED
         route = "ride_monitoring"
         engines = ["power_curve_update"]
         if has_rr:
             engines.append("hrv_durability")
+        if has_metabolic_profile:
+            engines.append("mader_durability")
         rationale = (f"{cat}{('/'+sub) if sub else ''}: free/steady ride. "
                      f"Power curve update"
                      f"{' + HRV durability/time-in-zone' if has_rr else ' (no RR for HRV)'}. "
-                     f"HRV thresholds NOT extracted (needs a graded test).")
+                     f"HRV thresholds NOT extracted (needs a graded test)."
+                     f"{' Mader CP-residual durability when metabolic profile is available.' if has_metabolic_profile else ''}")
 
     return RoutingDecision(
         category=cat, subtype=sub, confidence=conf, source=src,
@@ -148,6 +155,7 @@ def route_and_run(
     laps: Optional[List[Dict[str, Any]]] = None,
     ftp: Optional[float] = None,
     context: Optional[AthleteContext] = None,
+    metabolic_snapshot: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Full auto-pipeline: classify, then run the engines the route calls for.
@@ -156,7 +164,15 @@ def route_and_run(
     """
     ctx = context or AthleteContext(gender="MALE", training_years=10, discipline="ENDURANCE")
     has_rr = bool(rr_samples)
-    decision = decide_route(power, filename=filename, laps=laps, ftp=ftp, has_rr=has_rr)
+    has_profile = bool(metabolic_snapshot and metabolic_snapshot.get("status") == "success")
+    decision = decide_route(
+        power,
+        filename=filename,
+        laps=laps,
+        ftp=ftp,
+        has_rr=has_rr,
+        has_metabolic_profile=has_profile,
+    )
     out: Dict[str, Any] = {"routing": decision.to_dict(), "results": {}, "skipped": {}}
 
     parr = np.nan_to_num(np.array(power, dtype=float), nan=0.0)
@@ -195,6 +211,16 @@ def route_and_run(
             out["results"]["metabolic_snapshot"] = prof.generate_metabolic_snapshot(r.mmp_for_profiler)
         except Exception as e:
             out["skipped"]["metabolic_profile"] = f"error: {e}"
+
+    # --- Mader mechanistic durability (rides / hiit with metabolic profile) ---
+    if "mader_durability" in decision.engines_to_run:
+        try:
+            from engines.performance.mader_durability import compute_session_durability
+            out["results"]["mader_durability"] = compute_session_durability(
+                power, metabolic_snapshot, weight_kg,
+            )
+        except Exception as e:
+            out["skipped"]["mader_durability"] = f"error: {e}"
 
     # --- Power curve update (rides / hiit) ---
     if "power_curve_update" in decision.engines_to_run:

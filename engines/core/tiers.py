@@ -111,6 +111,7 @@ ENGINE_TIERS: Dict[str, Tier] = {
     "metabolic_profiler_phenotype":  Tier.HEURISTIC,
     "detraining_engine":             Tier.HEURISTIC,
     "durability_engine":             Tier.HEURISTIC,
+    "mader_durability":              Tier.MODEL,
     "training_variability_engine":   Tier.HEURISTIC,
     "metabolic_flexibility_engine":  Tier.HEURISTIC,
     "metabolic_current":             Tier.HEURISTIC,  # combines MODEL + HEURISTIC
@@ -142,7 +143,7 @@ SCOPE: Dict[str, str] = {
     "per_activity": [
         "fit_parser", "power_engine", "zones_engine", "coggan_classifier",
         "cardiac_engine", "hrv_engine", "efforts_analyzer", "data_quality_engine",
-        "workout_summary", "chart_builder",
+        "workout_summary", "chart_builder", "mader_durability",
     ],
     "longitudinal": [
         "metabolic_profiler", "metabolic_profiler_phenotype", "metabolic_current",
