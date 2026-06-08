@@ -65,7 +65,7 @@ class Category(str, Enum):
 SUBTYPES_TEST = frozenset({
     "ramp_test",
     "ftp_2x8", "ftp_20min", "ftp_8min",
-    "cp3", "cp6", "cp12",
+    "cp3", "cp6", "cp12", "cp_test",
     "single_sprint", "sprint_set",
     "mixed_test",
 })
@@ -258,6 +258,7 @@ def _classify_by_laps(
         → HIIT. Sub-classify based on work duration distribution.
       - 3-9 laps with monotonic power increase → TEST (ramp or step test).
       - Few long laps at threshold → TEST (ftp_2x8, ftp_20min, ftp_8min)
+      - Single isolated maximal lap → TEST (cp3, cp6, cp12)
     
     Notes are human-readable explanations of the decision.
     """
@@ -302,6 +303,19 @@ def _classify_by_laps(
         if len(long_laps) >= 2 and abs(long_laps[0][1] - long_laps[1][1]) < 0.1 * long_laps[0][1]:
             notes.append(f"{len(long_laps)} threshold-power laps of 7-10min — FTP 2x8 signature")
             return ("TEST", "ftp_2x8", 0.85, notes)
+            
+    # --- Singolo test CP/MMP da LAP (es. CP3, CP6, CP12 isolato) ---
+    if 2 <= n <= 8:
+        for d, p in zip(durs, powers):
+            # Cerchiamo un lap isolato e marcatamente sopra-soglia
+            if p is not None and 150 <= d <= 1500 and (ftp is None or p >= 1.05 * ftp):
+                if d < 240: sub = "cp3"
+                elif d < 500: sub = "cp6"
+                elif d < 900: sub = "cp12"
+                else: sub = "ftp_20min"
+                
+                notes.append(f"Lap isolato massimale di {int(d)}s ad alta intensità ({int(p)}W) — test {sub}")
+                return ("TEST", sub, 0.85, notes)
     
     # --- HIIT signature: many short laps with work/rest alternation ---
     if n >= 10:
@@ -374,6 +388,155 @@ def _normalized_power(powers: List[float]) -> float:
     return mean_fourth ** 0.25
 
 
+def _detect_sustained_blocks(
+    powers: List[float],
+    ftp: float,
+    min_duration_s: int = 120,
+    power_floor_frac: float = 0.90,
+) -> List[Dict[str, Any]]:
+    """
+    Find sustained high-power blocks: contiguous stretches at >= power_floor
+    of FTP lasting at least min_duration_s, separated by recovery. Used to
+    tell a CP/MMP test (few, unequal, maximal blocks) from HIIT (many, equal).
+
+    Returns a list of {start_s, duration_s, mean_w, cv_pct}.
+    """
+    import numpy as np
+    p = np.array(powers, dtype=float)
+    n = len(p)
+    if n < min_duration_s:
+        return []
+    floor = power_floor_frac * ftp
+    # Smooth lightly to avoid breaking a block on single-second dips.
+    k = 15
+    if n >= k:
+        kernel = np.ones(k) / k
+        sm = np.convolve(p, kernel, mode="same")
+    else:
+        sm = p
+    above = sm >= floor
+    blocks: List[Dict[str, Any]] = []
+    i = 0
+    while i < n:
+        if above[i]:
+            j = i
+            while j < n and above[j]:
+                j += 1
+            dur = j - i
+            if dur >= min_duration_s:
+                seg = p[i:j]
+                seg = seg[seg > 0]
+                if len(seg) > 0:
+                    m = float(np.mean(seg))
+                    cv = 100.0 * float(np.std(seg)) / m if m > 0 else 999.0
+                    blocks.append({
+                        "start_s": int(i), "duration_s": int(dur),
+                        "mean_w": m, "cv_pct": cv,
+                    })
+            i = j
+        else:
+            i += 1
+    return blocks
+
+
+def _detect_ramp_protocol(powers: List[float], min_steps: int = 4) -> Dict[str, Any]:
+    """
+    Rileva matematicamente la presenza di una "funzione a scala" (staircase) nel segnale di potenza.
+    Verifica durate fisse, incrementi costanti e stabilità intra-gradino.
+    """
+    import numpy as np
+    p = np.array(powers, dtype=float)
+    n = len(p)
+    if n < min_steps * 15:
+        return {"is_ramp": False, "confidence": 0.0}
+
+    best_ramp = {"is_ramp": False, "confidence": 0.0}
+    
+    # Durate tipiche dei gradini nei protocolli ciclistici (in secondi)
+    # Copre micro-ramps (15s), amatori (30s), standard (60s), e step-test (120s, 180s)
+    candidate_durations = [15, 20, 30, 45, 60, 120, 150, 180]
+
+    for d in candidate_durations:
+        # 1. Trova il "phase offset" ottimale. 
+        # Cerca il punto di inizio che allinea perfettamente la griglia dei gradini,
+        # minimizzando la deviazione standard media (varianza intra-blocco).
+        best_offset = 0
+        min_mean_std = float('inf')
+
+        for offset in range(0, d, 5):  # Scansione a salti di 5s per efficienza
+            stds = []
+            for i in range(offset, n - d + 1, d):
+                stds.append(np.std(p[i:i+d]))
+            if stds:
+                avg_std = np.mean(stds)
+                if avg_std < min_mean_std:
+                    min_mean_std = avg_std
+                    best_offset = offset
+
+        # 2. Estrai i blocchi allineati usando l'offset ottimale
+        steps = []
+        for i in range(best_offset, n - d + 1, d):
+            block = p[i:i+d]
+            steps.append({
+                "start": i,
+                "mean": float(np.mean(block)),
+                "std": float(np.std(block))
+            })
+
+        if len(steps) < min_steps:
+            continue
+
+        # 3. Cerca la sequenza monotona crescente più lunga (la rampa vera e propria)
+        current_streak = []
+        longest_streak = []
+
+        for i in range(1, len(steps)):
+            prev = steps[i-1]
+            curr = steps[i]
+            delta = curr["mean"] - prev["mean"]
+
+            # Un gradino è valido se:
+            # - L'incremento è tipico di un test (+4W a +60W)
+            # - La potenza è sufficientemente stabile. Usiamo una tolleranza del 20% o 15W 
+            #   per non penalizzare i test eseguiti su strada o senza ERG mode.
+            if 4 <= delta <= 60 and curr["std"] < max(15.0, curr["mean"] * 0.20):
+                if not current_streak:
+                    current_streak.append(prev)
+                current_streak.append(curr)
+            else:
+                if len(current_streak) > len(longest_streak):
+                    longest_streak = current_streak
+                current_streak = []
+
+        if len(current_streak) > len(longest_streak):
+            longest_streak = current_streak
+
+        # 4. Valuta la regolarità architettonica dei gradini trovati
+        if len(longest_streak) >= min_steps:
+            deltas = [longest_streak[j]["mean"] - longest_streak[j-1]["mean"] 
+                      for j in range(1, len(longest_streak))]
+            avg_delta = float(np.mean(deltas))
+            cv_delta = float(np.std(deltas)) / avg_delta if avg_delta > 0 else 999.0
+
+            # Se il delta CV è < 40%, significa che gli incrementi sono molto regolari 
+            # (es. salti da 23W, 26W, 25W, 24W per un target di 25W)
+            if cv_delta < 0.45:
+                # La confidenza sale all'aumentare dei gradini e della loro regolarità (basso CV)
+                conf = min(0.99, 0.60 + (len(longest_streak) * 0.04) - (cv_delta * 0.6))
+                
+                if conf > best_ramp["confidence"]:
+                    best_ramp = {
+                        "is_ramp": True,
+                        "step_duration": d,
+                        "step_increment": round(avg_delta, 1),
+                        "n_steps": len(longest_streak),
+                        "confidence": round(conf, 3),
+                        "delta_cv": round(cv_delta, 3)
+                    }
+
+    return best_ramp
+
+
 def _classify_by_signal(
     powers: List[float],
     ftp: Optional[float] = None,
@@ -416,22 +579,47 @@ def _classify_by_signal(
             in_spike = True
         elif p < spike_thr * 0.6:
             in_spike = False
-    
-    # --- Ramp signature: monotonic increase over most of the session ---
-    if n >= 600:
-        # Sample 10 mean-power buckets, check monotonicity
-        bucket = n // 10
-        bucket_means = [sum(powers[i*bucket:(i+1)*bucket]) / bucket for i in range(10)]
-        monotonic = sum(1 for i in range(1, 10) if bucket_means[i] > bucket_means[i-1] + 10)
-        if monotonic >= 8:
-            notes.append(
-                f"power increases through {monotonic}/9 bucket transitions — "
-                f"ramp test signature from signal"
-            )
-            return ("TEST", "ramp_test", 0.60, notes)
-    
-    # (single-sprint and sprint-set detection moved earlier in the function;
-    # better placement so they fire before race classification)
+            
+    # --- CP / MMP test signature ---
+    if ftp and n >= 360:
+        blocks = _detect_sustained_blocks(powers, ftp)
+        
+        # 1. Test MMP Multiplo
+        if 2 <= len(blocks) <= 4:
+            durs_b = sorted(b["duration_s"] for b in blocks)
+            dur_spread = (durs_b[-1] / durs_b[0]) if durs_b[0] > 0 else 1.0
+            all_long = all(b["duration_s"] >= 120 for b in blocks)
+            all_steady = all(b["cv_pct"] <= 10.0 for b in blocks)
+            if all_long and all_steady and dur_spread >= 1.4:
+                notes.append(
+                    f"{len(blocks)} sustained blocks of different durations "
+                    f"({'/'.join(f'{int(d)}s' for d in durs_b)}) — CP/MMP test"
+                )
+                return ("TEST", "cp_test", 0.80, notes)
+                
+        # 2. Test CP Singolo Isolato
+        elif len(blocks) == 1:
+            b = blocks[0]
+            d = b["duration_s"]
+            # Richiede potenza molto alta (>105% FTP) e basso coefficiente di variazione
+            if 150 <= d <= 1500 and b["mean_w"] >= 1.05 * ftp and b["cv_pct"] <= 12.0:
+                if d < 240: sub = "cp3"
+                elif d < 500: sub = "cp6"
+                elif d < 900: sub = "cp12"
+                else: sub = "ftp_20min"
+                notes.append(f"Singolo sforzo massimale sostenuto di {int(d)}s (CV={b['cv_pct']:.1f}%) — test {sub} isolato.")
+                return ("TEST", sub, 0.75, notes)
+
+    # --- Structured Ramp Test signature ---
+    # Rilevamento basato sull'architettura a gradini (durata, delta P, stabilità)
+    ramp_info = _detect_ramp_protocol(powers)
+    if ramp_info["is_ramp"] and ramp_info["confidence"] > 0.65:
+        notes.append(
+            f"Rilevata struttura Ramp/Step Test: {ramp_info['n_steps']} gradini continui da "
+            f"{ramp_info['step_duration']}s, incremento medio +{ramp_info['step_increment']}W "
+            f"(regolarità incrementi CV={ramp_info['delta_cv']*100:.0f}%)."
+        )
+        return ("TEST", "ramp_test", ramp_info["confidence"], notes)
     
     # --- Mixed test signature: sprint(s) + continuous high-power block
     # Recognize the flow_protocol pattern: 1+ very-high spikes + ≥5 min
