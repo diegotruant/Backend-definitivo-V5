@@ -66,6 +66,7 @@ class RoutingDecision:
     subtype: Optional[str]
     confidence: float
     route: str                       # "metabolic_anchor" | "hrv_threshold" | "ride_monitoring" | "hiit"
+    source: str = "signal"           # classify_session source: filename | laps | signal | hint
     engines_to_run: List[str] = field(default_factory=list)
     rationale: str = ""
 
@@ -73,6 +74,7 @@ class RoutingDecision:
         return {
             "category": self.category, "subtype": self.subtype,
             "confidence": round(self.confidence, 3), "route": self.route,
+            "source": self.source,
             "engines_to_run": self.engines_to_run, "rationale": self.rationale,
         }
 
@@ -93,6 +95,7 @@ def decide_route(
     cat = cls.category
     sub = getattr(cls, "subtype", None)
     conf = float(getattr(cls, "confidence", 0.0) or 0.0)
+    src = str(getattr(cls, "source", "signal") or "signal")
 
     engines: List[str] = []
     if cat == "TEST":
@@ -130,7 +133,7 @@ def decide_route(
                      f"HRV thresholds NOT extracted (needs a graded test).")
 
     return RoutingDecision(
-        category=cat, subtype=sub, confidence=conf,
+        category=cat, subtype=sub, confidence=conf, source=src,
         route=route, engines_to_run=engines, rationale=rationale,
     )
 
@@ -184,8 +187,8 @@ def route_and_run(
 
     if "metabolic_profile" in decision.engines_to_run:
         try:
-            from metabolic_profiler import MetabolicProfiler
-            from mmp_aggregator import update_power_curve
+            from engines.metabolic.metabolic_profiler import MetabolicProfiler
+            from engines.performance.mmp_aggregator import update_power_curve
             import datetime
             r = update_power_curve(power, datetime.date.today(), weight_kg=weight_kg)
             prof = MetabolicProfiler(weight=weight_kg, context=ctx)
@@ -196,7 +199,7 @@ def route_and_run(
     # --- Power curve update (rides / hiit) ---
     if "power_curve_update" in decision.engines_to_run:
         try:
-            from mmp_aggregator import update_power_curve
+            from engines.performance.mmp_aggregator import update_power_curve
             import datetime
             r = update_power_curve(power, datetime.date.today(), weight_kg=weight_kg)
             out["results"]["power_curve"] = {
@@ -214,7 +217,7 @@ def route_and_run(
 # ---------------------------------------------------------------------------
 def _hrv_thresholds(rr_samples, parr, elapsed_s, ctx) -> Dict[str, Any]:
     """VT1/VT2 in watts from DFA-alpha1 vs power (ramp test only)."""
-    from hrv_engine import analyze_rr_stream
+    from engines.recovery.hrv_engine import analyze_rr_stream
     if elapsed_s is None:
         raise ValueError("elapsed_s required for threshold/power alignment")
     elapsed = np.array(elapsed_s, dtype=float)
@@ -260,7 +263,7 @@ def _hrv_thresholds(rr_samples, parr, elapsed_s, ctx) -> Dict[str, Any]:
 
 def _hrv_durability(rr_samples, elapsed_s, ctx) -> Dict[str, Any]:
     """Time-in-zone and DFA-alpha1 drift over the session (rides)."""
-    from hrv_engine import analyze_rr_stream
+    from engines.recovery.hrv_engine import analyze_rr_stream
     from collections import Counter
     windows = analyze_rr_stream(rr_samples, window_seconds=120, step_seconds=10.0, context=ctx)
     a1 = [(w.get("alpha1_smoothed") or w.get("alpha1")) for w in windows]

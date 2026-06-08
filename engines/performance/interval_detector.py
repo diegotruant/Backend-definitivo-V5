@@ -580,6 +580,24 @@ def _classify_by_signal(
         elif p < spike_thr * 0.6:
             in_spike = False
             
+    # --- Structured Ramp Test signature (before CP blocks) ---
+    # A graded ramp ends with a long high-power tail that can look like a single
+    # CP block; detect the staircase architecture first.
+    ramp_info = _detect_ramp_protocol(powers)
+    # Require several consistent steps: noisy free rides can produce short false
+    # staircases (4 steps) that must not beat CP/ride classification.
+    if (
+        ramp_info["is_ramp"]
+        and ramp_info["confidence"] > 0.65
+        and int(ramp_info.get("n_steps", 0)) >= 6
+    ):
+        notes.append(
+            f"Rilevata struttura Ramp/Step Test: {ramp_info['n_steps']} gradini continui da "
+            f"{ramp_info['step_duration']}s, incremento medio +{ramp_info['step_increment']}W "
+            f"(regolarità incrementi CV={ramp_info['delta_cv']*100:.0f}%)."
+        )
+        return ("TEST", "ramp_test", ramp_info["confidence"], notes)
+
     # --- CP / MMP test signature ---
     if ftp and n >= 360:
         blocks = _detect_sustained_blocks(powers, ftp)
@@ -610,17 +628,6 @@ def _classify_by_signal(
                 notes.append(f"Singolo sforzo massimale sostenuto di {int(d)}s (CV={b['cv_pct']:.1f}%) — test {sub} isolato.")
                 return ("TEST", sub, 0.75, notes)
 
-    # --- Structured Ramp Test signature ---
-    # Rilevamento basato sull'architettura a gradini (durata, delta P, stabilità)
-    ramp_info = _detect_ramp_protocol(powers)
-    if ramp_info["is_ramp"] and ramp_info["confidence"] > 0.65:
-        notes.append(
-            f"Rilevata struttura Ramp/Step Test: {ramp_info['n_steps']} gradini continui da "
-            f"{ramp_info['step_duration']}s, incremento medio +{ramp_info['step_increment']}W "
-            f"(regolarità incrementi CV={ramp_info['delta_cv']*100:.0f}%)."
-        )
-        return ("TEST", "ramp_test", ramp_info["confidence"], notes)
-    
     # --- Mixed test signature: sprint(s) + continuous high-power block
     # Recognize the flow_protocol pattern: 1+ very-high spikes + ≥5 min
     # block at near-threshold power. Common in test sessions that combine
