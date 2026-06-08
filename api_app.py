@@ -46,13 +46,13 @@ except ImportError as e:  # pragma: no cover
         "FastAPI is required for the API layer: pip install fastapi uvicorn"
     ) from e
 
-from fit_parser import parse_fit_file_enhanced
-from mmp_aggregator import update_power_curve
-from metabolic_profiler import MetabolicProfiler
-from athlete_context import AthleteContext
-from athlete_physiological_prior import MeasuredProfile
+from engines.io.fit_parser import parse_fit_file_enhanced
+from engines.performance.mmp_aggregator import update_power_curve
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.core.athlete_context import AthleteContext
+from engines.core.athlete_physiological_prior import MeasuredProfile
 from test_effort_extractor import extract_test_proposal
-from profile_anchor_flow import build_anchor_from_proposal, update_profile_from_ride
+from engines.io.profile_anchor_flow import build_anchor_from_proposal, update_profile_from_ride
 
 app = FastAPI(
     title=os.getenv("DIGITAL_TWIN_API_TITLE", "Digital Twin Fisiologico API"),

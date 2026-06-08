@@ -3,54 +3,67 @@
 import importlib
 import sys
 
-# Loaded during package init (safe once core modules use flat imports).
-_EAGER_SUBMODULE_ALIASES = [
-    "analysis",
-    "athlete_context",
-    "audit",
-    "bayesian_profiler",
-    "cardiac_engine",
-    "chart_builder",
-    "coggan_classifier",
-    "cross_validation_engine",
-    "data_quality_engine",
-    "detraining_engine",
-    "durability_engine",
-    "efforts_analyzer",
-    "explainability_engine",
-    "fit_parser",
-    "hrv_engine",
-    "interval_detector",
-    "lab_data",
-    "lactate_validation_engine",
-    "test_protocols",
-    "metabolic_flexibility_engine",
-    "metabolic_kalman",
-    "metabolic_profiler",
-    "metabolic_profiler_phenotype",
-    "metric_contracts",
-    "mmp_aggregator",
-    "mmp_quality",
-    "neural_ode",
-    "pedaling_balance",
-    "power_engine",
-    "race_prediction_engine",
-    "thermal_engine",
-    "tiers",
-    "training_variability_engine",
-    "w_prime_balance_engine",
-    "zones_engine",
-]
+# Canonical locations for each module after the subpackage reorganisation.
+# Maps short name → new fully-qualified module path.
+_SUBPACKAGE_MAP: dict[str, str] = {
+    # core
+    "analysis": "engines.core.analysis",
+    "athlete_context": "engines.core.athlete_context",
+    "athlete_physiological_prior": "engines.core.athlete_physiological_prior",
+    "audit": "engines.core.audit",
+    "data_quality_engine": "engines.core.data_quality_engine",
+    "metric_contracts": "engines.core.metric_contracts",
+    "tiers": "engines.core.tiers",
+    # metabolic
+    "bayesian_profiler": "engines.metabolic.bayesian_profiler",
+    "coggan_classifier": "engines.metabolic.coggan_classifier",
+    "cross_validation_engine": "engines.metabolic.cross_validation_engine",
+    "detraining_engine": "engines.metabolic.detraining_engine",
+    "lab_data": "engines.metabolic.lab_data",
+    "lactate_validation_engine": "engines.metabolic.lactate_validation_engine",
+    "metabolic_current": "engines.metabolic.metabolic_current",
+    "metabolic_flexibility_engine": "engines.metabolic.metabolic_flexibility_engine",
+    "metabolic_kalman": "engines.metabolic.metabolic_kalman",
+    "metabolic_profiler": "engines.metabolic.metabolic_profiler",
+    "metabolic_profiler_phenotype": "engines.metabolic.metabolic_profiler_phenotype",
+    "zones_engine": "engines.metabolic.zones_engine",
+    # performance
+    "durability_engine": "engines.performance.durability_engine",
+    "efforts_analyzer": "engines.performance.efforts_analyzer",
+    "interval_detector": "engines.performance.interval_detector",
+    "mmp_aggregator": "engines.performance.mmp_aggregator",
+    "mmp_quality": "engines.performance.mmp_quality",
+    "neural_ode": "engines.performance.neural_ode",
+    "power_engine": "engines.performance.power_engine",
+    "race_prediction_engine": "engines.performance.race_prediction_engine",
+    "test_protocols": "engines.performance.test_protocols",
+    "training_variability_engine": "engines.performance.training_variability_engine",
+    "w_prime_balance_engine": "engines.performance.w_prime_balance_engine",
+    # recovery
+    "cardiac_engine": "engines.recovery.cardiac_engine",
+    "explainability_engine": "engines.recovery.explainability_engine",
+    "hrv_engine": "engines.recovery.hrv_engine",
+    "pedaling_balance": "engines.recovery.pedaling_balance",
+    "thermal_engine": "engines.recovery.thermal_engine",
+    # io
+    "activity_charts": "engines.io.activity_charts",
+    "chart_builder": "engines.io.chart_builder",
+    "fit_parser": "engines.io.fit_parser",
+    "profile_anchor_flow": "engines.io.profile_anchor_flow",
+    "session_router": "engines.io.session_router",
+    "workout_summary": "engines.io.workout_summary",
+}
 
-# Deferred: importing these during engines/__init__ re-entered the package
-# (workout_summary/metabolic_current used engines.*; metabolic_current pulled
-# metabolic_profiler before the facade finished initialising).
-_DEFERRED_SUBMODULE_ALIASES = frozenset({"metabolic_current", "workout_summary"})
+# Register backward-compat aliases so that both
+#   `from engines.fit_parser import X`  (old style)
+#   `import fit_parser` / `from fit_parser import X`  (flat legacy style)
+# continue to resolve after the subpackage reorganisation.
+for _short, _canonical in _SUBPACKAGE_MAP.items():
+    _mod = importlib.import_module(_canonical)
+    sys.modules[f"engines.{_short}"] = _mod  # engines.MODULE  ← backward compat
+    sys.modules[_short] = _mod               # MODULE  ← flat-import legacy compat
 
-for _module_name in _EAGER_SUBMODULE_ALIASES:
-    sys.modules[f"{__name__}.{_module_name}"] = importlib.import_module(_module_name)
-
-from athlete_context import AthleteContext
+from engines.core.athlete_context import AthleteContext
 from bayesian_profiler import (
     BayesianMetabolicSnapshot,
     PosteriorSummary,
@@ -315,13 +328,8 @@ __all__ = [
     "CurveEntry",
 ]
 
-# Register deferred submodules after eager imports finish (flat imports in
-# those modules avoid re-entering this __init__ mid-load).
-for _deferred in _DEFERRED_SUBMODULE_ALIASES:
-    sys.modules[f"{__name__}.{_deferred}"] = importlib.import_module(_deferred)
-
-from metabolic_current import get_current_metabolic_status
-from workout_summary import build_workout_summary
+from engines.metabolic.metabolic_current import get_current_metabolic_status
+from engines.io.workout_summary import build_workout_summary
 
 # Lazy re-exports for hrv_engine (kept lazy to limit import-time coupling).
 _LAZY_EXPORTS = {

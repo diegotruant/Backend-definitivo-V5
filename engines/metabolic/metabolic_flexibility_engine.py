@@ -15,7 +15,7 @@ METRICS:
 
 from typing import Dict, Any
 
-from metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload
 
 
 def calculate_metabolic_flexibility_index(

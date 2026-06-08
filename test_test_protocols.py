@@ -15,7 +15,7 @@ def check(name, ok, detail=""):
 
 
 print("\n[1] Lactate D-max thresholds")
-from lactate_validation_engine import compute_lactate_thresholds, steps_from_payload
+from engines.metabolic.lactate_validation_engine import compute_lactate_thresholds, steps_from_payload
 
 steps = steps_from_payload([
     {"step": 1, "power_w": 150, "lactate_mmol": 1.2},
@@ -31,7 +31,7 @@ check("to_dict works", "mlss_dmax_watts" in thr.to_dict())
 
 
 print("\n[2] Critical power via test_protocols")
-from test_protocols import run_critical_power_test
+from engines.performance.test_protocols import run_critical_power_test
 
 cp_env = {
     "test_type": "critical_power",
@@ -50,7 +50,7 @@ check("CP watts positive", float(cp.get("cp_w", 0)) > 0)
 
 
 print("\n[3] Wingate via test_protocols")
-from test_protocols import run_wingate_test
+from engines.performance.test_protocols import run_wingate_test
 
 wingate = run_wingate_test({
     "test_type": "wingate",

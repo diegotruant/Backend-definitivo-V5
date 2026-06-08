@@ -19,7 +19,7 @@ from typing import Dict, Any, Optional, List
 from datetime import date, timedelta
 import numpy as np
 
-from metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload
 
 
 # =============================================================================

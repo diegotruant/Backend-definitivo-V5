@@ -43,15 +43,15 @@ from engines import (
     process_workout_history,
     update_power_curve,
 )
-from engines.cardiac_engine import ActivitySample, CardiacResponseAnalyzer
-from explainability_engine import calculate_vo2max_confidence, generate_workout_summary_narrative
-from chart_builder import chart_power_duration_curve, chart_training_load
-from coggan_classifier import classify_from_mmp
-from efforts_analyzer import analyze_efforts
-from mmp_quality import analyze_mmp_quality, clean_mmp
-from neural_ode import NeuralDynamics, NeuralPowerDuration
-from power_engine import PowerEngine, estimate_ftp_from_mmp, fit_critical_power, mean_maximal_power
-from zones_engine import ZonesEngine
+from engines.recovery.cardiac_engine import ActivitySample, CardiacResponseAnalyzer
+from engines.recovery.explainability_engine import calculate_vo2max_confidence, generate_workout_summary_narrative
+from engines.io.chart_builder import chart_power_duration_curve, chart_training_load
+from engines.metabolic.coggan_classifier import classify_from_mmp
+from engines.performance.efforts_analyzer import analyze_efforts
+from engines.performance.mmp_quality import analyze_mmp_quality, clean_mmp
+from engines.performance.neural_ode import NeuralDynamics, NeuralPowerDuration
+from engines.performance.power_engine import PowerEngine, estimate_ftp_from_mmp, fit_critical_power, mean_maximal_power
+from engines.metabolic.zones_engine import ZonesEngine
 
 
 UPLOAD_ROOT = Path("data/fit_uploads")

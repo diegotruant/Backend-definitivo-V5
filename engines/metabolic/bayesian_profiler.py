@@ -40,7 +40,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from datetime import datetime
 
-from metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload
 
 
 @dataclass
@@ -335,7 +335,7 @@ def bayesian_metabolic_snapshot(
     BayesianMetabolicSnapshot
     """
     # Import ExpressivenessReport locally to avoid circular imports
-    from engines.metabolic_profiler import ExpressivenessReport
+    from engines.metabolic.metabolic_profiler import ExpressivenessReport
     
     if len(mmp) < 3:
         return BayesianMetabolicSnapshot(

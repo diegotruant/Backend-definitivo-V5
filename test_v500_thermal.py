@@ -159,7 +159,7 @@ check("trend: stable detected", trend_stable.trend == "stable")
 # =============================================================================
 print("\n[7] Parser integration")
 
-from engines.fit_parser import ActivityStreamEnhanced
+from engines.io.fit_parser import ActivityStreamEnhanced
 
 s = ActivityStreamEnhanced(n_samples=100)
 check("stream has core_body_temp", hasattr(s, "core_body_temp"))

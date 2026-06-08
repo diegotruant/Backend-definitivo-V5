@@ -15,7 +15,7 @@ MODEL:
 from typing import List, Dict, Any
 import numpy as np
 
-from metric_contracts import metric_envelope
+from engines.core.metric_contracts import metric_envelope
 
 
 def calculate_w_prime_balance(

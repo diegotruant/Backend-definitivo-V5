@@ -28,7 +28,7 @@ import xml.etree.ElementTree as ET
 
 import numpy as np
 
-from metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload
 
 
 EARTH_RADIUS_M = 6_371_000.0

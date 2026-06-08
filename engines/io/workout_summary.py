@@ -25,13 +25,13 @@ from typing import Any, Dict, List, Optional
 
 # Flat imports — do not import via `engines.*` here; this module is loaded
 # while `engines/__init__.py` may still be initialising.
-from athlete_context import AthleteContext
-from cardiac_engine import CardiacResponseAnalyzer, ActivitySample
-from coggan_classifier import classify_from_mmp
-from power_engine import PowerEngine, estimate_ftp_from_mmp
-from zones_engine import ZonesEngine
+from engines.core.athlete_context import AthleteContext
+from engines.recovery.cardiac_engine import CardiacResponseAnalyzer, ActivitySample
+from engines.metabolic.coggan_classifier import classify_from_mmp
+from engines.performance.power_engine import PowerEngine, estimate_ftp_from_mmp
+from engines.metabolic.zones_engine import ZonesEngine
 # hrv_engine imported lazily inside build_workout_summary() (see section 4).
-from metric_contracts import annotate_payload, summarize_section_contracts
+from engines.core.metric_contracts import annotate_payload, summarize_section_contracts
 
 
 def build_workout_summary(

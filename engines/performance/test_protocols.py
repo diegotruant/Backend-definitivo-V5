@@ -28,13 +28,13 @@ sul dato, MODEL sulla validazione); CP eredita da power_engine (REFERENCE).
 from typing import Any, Dict, List, Optional
 import numpy as np
 
-from metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload
 
 # Fit CP/W' già esistente nel backend — NON riscriverlo, si chiama.
-from power_engine import fit_critical_power
+from engines.performance.power_engine import fit_critical_power
 
 # Validazione col lattato (modulo dedicato) — usato dal test Mader.
-from lactate_validation_engine import (
+from engines.metabolic.lactate_validation_engine import (
     validate_model_against_lactate,
     steps_from_payload,
 )

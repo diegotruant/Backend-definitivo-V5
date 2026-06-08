@@ -31,8 +31,8 @@ APPLICATIONS:
 from typing import Dict, Any, List, Tuple
 import numpy as np
 
-from metric_contracts import annotate_payload
-from power_engine import normalized_power
+from engines.core.metric_contracts import annotate_payload
+from engines.performance.power_engine import normalized_power
 
 
 # =============================================================================

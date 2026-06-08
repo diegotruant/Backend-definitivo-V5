@@ -15,7 +15,7 @@ def check(name, ok, detail=""):
 
 
 print("\n[1] D-max thresholds (LactateStep API)")
-from lactate_validation_engine import LactateStep, compute_lactate_thresholds, steps_from_payload
+from engines.metabolic.lactate_validation_engine import LactateStep, compute_lactate_thresholds, steps_from_payload
 
 steps = steps_from_payload([
     {"step": 1, "power_w": 150, "lactate_mmol": 1.2},
@@ -32,7 +32,7 @@ check("obla 4mmol present", thr.obla_4mmol_w is not None)
 
 
 print("\n[2] Insufficient steps guard")
-from lactate_validation_engine import validate_model_against_lactate
+from engines.metabolic.lactate_validation_engine import validate_model_against_lactate
 from engines import MetabolicProfiler, AthleteContext
 
 profiler = MetabolicProfiler(weight=72.0, context=AthleteContext())
@@ -55,7 +55,7 @@ print(f"    validated={result.get('validated')} severity={result.get('severity')
 
 
 print("\n[4] test_protocols.run_mader_test")
-from test_protocols import run_mader_test
+from engines.performance.test_protocols import run_mader_test
 
 envelope = {
     "test_type": "mader",

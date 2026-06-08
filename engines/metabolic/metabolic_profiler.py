@@ -11,12 +11,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from athlete_context import AthleteContext
-from cross_validation_engine import (
+from engines.core.athlete_context import AthleteContext
+from engines.metabolic.cross_validation_engine import (
     cross_validate_metabolic_profile,
     observed_threshold_power,
 )
-from metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload
 
 
 @dataclass(frozen=True)

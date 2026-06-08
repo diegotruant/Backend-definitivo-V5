@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from tiers import Tier, tier_for
+from engines.core.tiers import Tier, tier_for
 
 
 CONTRACT_SCHEMA_VERSION = "metric_contract.v1"

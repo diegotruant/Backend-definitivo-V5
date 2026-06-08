@@ -19,7 +19,7 @@ from typing import Dict, Any, List
 
 import numpy as np
 
-from metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload
 
 # Daily TSS standard deviation below this (TSS units) makes monotony unstable.
 _MONOTONY_MIN_STD_TSS = 1.0

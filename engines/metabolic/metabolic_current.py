@@ -12,13 +12,13 @@ Output: Current metabolic status (baseline + decayed)
 from typing import Dict, Any, List, Optional, Union
 from datetime import date, datetime
 
-from metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload
 
 # Flat imports only — avoid `engines.*` or relative imports here, which
 # re-enter `engines/__init__.py` while it is still initialising.
-from athlete_context import AthleteContext
-from detraining_engine import apply_detraining_model
-from metabolic_profiler import MetabolicProfiler
+from engines.core.athlete_context import AthleteContext
+from engines.metabolic.detraining_engine import apply_detraining_model
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
 
 
 def get_current_metabolic_status(

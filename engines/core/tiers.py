@@ -25,7 +25,7 @@ D — EXPERIMENTAL: simplified models, single-paper claims, or our own
 
 Usage
 -----
-    from engines.tiers import Tier, ENGINE_TIERS
+    from engines.core.tiers import Tier, ENGINE_TIERS
 
     result["tier"] = Tier.A.value          # "REFERENCE"
     result["tier_explanation"] = Tier.A.explanation

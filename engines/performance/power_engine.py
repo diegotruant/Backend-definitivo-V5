@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 
-from metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload
 
 
 # =============================================================================

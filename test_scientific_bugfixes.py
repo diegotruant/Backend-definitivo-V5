@@ -83,7 +83,7 @@ check("trajectory recorded a test update", traj.n_update_steps == 1)
 
 print("\n[3] Masked metabolic fields do not crash or silently default")
 from engines import apply_detraining_model, enhance_metabolic_snapshot_with_phenotype
-from engines.cardiac_engine import ActivitySample, CardiacResponseAnalyzer
+from engines.recovery.cardiac_engine import ActivitySample, CardiacResponseAnalyzer
 
 masked_snapshot = {
     "status": "success",
@@ -118,7 +118,7 @@ check("cardiac analysis tolerates masked MLSS", cardiac.get("status") == "succes
 
 
 print("\n[4] HRV threshold power uses elapsed-time interpolation")
-from hrv_engine import _detect_threshold_crossing
+from engines.recovery.hrv_engine import _detect_threshold_crossing
 
 threshold_results = [
     {"timestamp": 100.0, "alpha1_smoothed": 0.80},
@@ -153,7 +153,7 @@ check("last hour uses real final hour",
 
 
 print("\n[6] Phase 1 weak-code fixes")
-from power_engine import normalized_power
+from engines.performance.power_engine import normalized_power
 from engines import calculate_np_drift, calculate_monotony_strain, estimate_fat_oxidation_rate
 
 rng = np.random.default_rng(42)

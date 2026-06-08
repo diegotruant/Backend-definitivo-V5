@@ -17,8 +17,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from session_router import decide_route, route_and_run
-from athlete_context import AthleteContext
+from engines.io.session_router import decide_route, route_and_run
+from engines.core.athlete_context import AthleteContext
 
 results = []
 
@@ -165,7 +165,7 @@ print("\n[3] HRV threshold honesty")
 # Build a clean graded RR (alpha1 falling with power) won't be trivial to fake;
 # instead we just assert the helper returns a reliability flag structure when
 # run on a free ride's noisy data (should be insufficient or low_reliability).
-from session_router import _hrv_thresholds
+from engines.io.session_router import _hrv_thresholds
 try:
     parr = np.array(ride, dtype=float)
     vt = _hrv_thresholds(rr_samples, parr, list(np.arange(n, dtype=float)), ctx)

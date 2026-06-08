@@ -39,9 +39,9 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Union
 
-from athlete_context import AthleteContext
-from athlete_physiological_prior import MeasuredProfile, PhysiologicalPriorManager
-from metabolic_profiler import MetabolicProfiler
+from engines.core.athlete_context import AthleteContext
+from engines.core.athlete_physiological_prior import MeasuredProfile, PhysiologicalPriorManager
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
 
 
 @dataclass

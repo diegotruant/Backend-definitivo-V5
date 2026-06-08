@@ -18,9 +18,9 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from metabolic_profiler import MetabolicProfiler
-from athlete_context import AthleteContext
-from athlete_physiological_prior import (
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.core.athlete_context import AthleteContext
+from engines.core.athlete_physiological_prior import (
     MeasuredProfile,
     PhysiologicalPriorManager,
 )
@@ -136,7 +136,7 @@ check(
 )
 
 # Rider classification (the stable one) comes from the Coggan power profile.
-from coggan_classifier import classify_from_mmp
+from engines.metabolic.coggan_classifier import classify_from_mmp
 cog_phenos = set()
 for ty in (2, 8, 15):
     mmp_list = [{"duration_s": d, "power_w": w} for d, w in sorted(diego_mmp.items())]

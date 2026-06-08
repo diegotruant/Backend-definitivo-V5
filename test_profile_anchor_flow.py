@@ -20,10 +20,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from athlete_context import AthleteContext
-from athlete_physiological_prior import MeasuredProfile
+from engines.core.athlete_context import AthleteContext
+from engines.core.athlete_physiological_prior import MeasuredProfile
 from test_effort_extractor import extract_test_proposal
-from profile_anchor_flow import build_anchor_from_proposal, update_profile_from_ride
+from engines.io.profile_anchor_flow import build_anchor_from_proposal, update_profile_from_ride
 
 results = []
 

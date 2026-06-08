@@ -24,8 +24,8 @@ from engines import (
     calculate_np_drift,
     classify_session,
 )
-from engines.fit_parser import ActivityStreamEnhanced
-from engines.power_engine import PowerEngine, estimate_ftp_from_mmp, mean_maximal_power
+from engines.io.fit_parser import ActivityStreamEnhanced
+from engines.performance.power_engine import PowerEngine, estimate_ftp_from_mmp, mean_maximal_power
 
 
 DEFAULT_DATASET = Path("data/synthetic_fit_dataset")

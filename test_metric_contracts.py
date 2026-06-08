@@ -59,8 +59,8 @@ check("dataclasses importable", MetricEnvelope is not None and MetricUncertainty
 
 print("\n[2] Engine payloads expose common contract")
 from engines import AthleteContext, MetabolicProfiler
-from engines.fit_parser import parse_fit_records_enhanced
-from engines.power_engine import PowerEngine
+from engines.io.fit_parser import parse_fit_records_enhanced
+from engines.performance.power_engine import PowerEngine
 from engines import build_workout_summary
 
 base = datetime(2026, 1, 1, 8, 0, 0)

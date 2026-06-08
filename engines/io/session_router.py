@@ -52,8 +52,8 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from athlete_context import AthleteContext
-from interval_detector import classify_session
+from engines.core.athlete_context import AthleteContext
+from engines.performance.interval_detector import classify_session
 
 
 # Subtypes that are graded enough for clean DFA-alpha1 threshold detection.

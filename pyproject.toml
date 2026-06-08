@@ -30,47 +30,6 @@ dev = [
 run-in-person-test = "run_in_person_test:main"
 verify-package-integrity = "verify_package_integrity:main"
 
-[tool.setuptools]
-py-modules = [
-    "analysis",
-    "athlete_context",
-    "audit",
-    "bayesian_profiler",
-    "cardiac_engine",
-    "chart_builder",
-    "coggan_classifier",
-    "cross_validation_engine",
-    "data_quality_engine",
-    "detraining_engine",
-    "durability_engine",
-    "efforts_analyzer",
-    "explainability_engine",
-    "fit_parser",
-    "hrv_engine",
-    "interval_detector",
-    "lab_data",
-    "lactate_validation_engine",
-    "test_protocols",
-    "metabolic_current",
-    "metabolic_flexibility_engine",
-    "metabolic_kalman",
-    "metabolic_profiler",
-    "metabolic_profiler_phenotype",
-    "metric_contracts",
-    "mmp_aggregator",
-    "mmp_quality",
-    "neural_ode",
-    "pedaling_balance",
-    "power_engine",
-    "race_prediction_engine",
-    "thermal_engine",
-    "tiers",
-    "training_variability_engine",
-    "w_prime_balance_engine",
-    "workout_summary",
-    "zones_engine",
-]
-
 [tool.setuptools.packages.find]
 include = ["engines*"]
 

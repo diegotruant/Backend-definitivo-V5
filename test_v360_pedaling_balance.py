@@ -325,7 +325,7 @@ check("trend: filters out refused sessions",
 # =============================================================================
 print("\n[10] FIT parser integration")
 
-from engines.fit_parser import ActivityStreamEnhanced
+from engines.io.fit_parser import ActivityStreamEnhanced
 import numpy as np
 
 # Default stream should have the balance arrays
