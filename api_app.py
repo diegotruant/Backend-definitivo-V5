@@ -30,7 +30,7 @@ Run:  uvicorn api_app:app --reload
 
 from __future__ import annotations
 
-import io
+import os
 import tempfile
 from datetime import date
 from typing import Any, Dict, List, Optional
@@ -47,14 +47,17 @@ except ImportError as e:  # pragma: no cover
     ) from e
 
 from fit_parser import parse_fit_file_enhanced
-from mmp_aggregator import update_power_curve, curve_to_mmp
+from mmp_aggregator import update_power_curve
 from metabolic_profiler import MetabolicProfiler
 from athlete_context import AthleteContext
 from athlete_physiological_prior import MeasuredProfile
 from test_effort_extractor import extract_test_proposal
 from profile_anchor_flow import build_anchor_from_proposal, update_profile_from_ride
 
-app = FastAPI(title="Digital Twin Fisiologico API", version="1.0.0")
+app = FastAPI(
+    title=os.getenv("DIGITAL_TWIN_API_TITLE", "Digital Twin Fisiologico API"),
+    version=os.getenv("DIGITAL_TWIN_API_VERSION", "1.0.0"),
+)
 
 
 # ---------------------------------------------------------------------------

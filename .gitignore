@@ -1,6 +1,59 @@
+# Python bytecode and caches
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
+*.so
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Packaging/build artifacts
+build/
+dist/
 *.egg-info/
-data/
+.eggs/
+*.whl
+pip-wheel-metadata/
+
+# Coverage and test artifacts
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Environment and local settings
+.env
+.env.*
+!.env.example
+.python-version
+
+# Logs
+*.log
+
+# Data artifacts
 *.zip
+*.tar
+*.tar.gz
+data/
+reports/
+
+# IDE/editor
+.vscode/
+.idea/
+*.iml
+
+# Frontend artifacts
+frontend/node_modules/
+frontend/dist/
+
+# OS files
+.DS_Store
+Thumbs.db
