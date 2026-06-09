@@ -57,7 +57,11 @@ def build_adaptive_load_report(
         rr_metrics=rr_metrics,
         thermal_load=thermal_load,
     )
-    trend = calculate_load_trend(history, session_load.get("score"))
+    trend = calculate_load_trend(
+        history,
+        session_load.get("score"),
+        current_external_load=external_load.get("score"),
+    )
     readiness = calculate_readiness(daily_status)
     recommendation = generate_recommendation(
         session_load=session_load,
@@ -79,6 +83,8 @@ def build_adaptive_load_report(
         "tsb": trend.get("tsb"),
         "thermal_load_score": thermal_load.get("score"),
         "autonomic_strain_score": rr_metrics.get("autonomic_strain_score"),
+        "external_internal_divergence": (trend.get("external_internal_divergence") or {}).get("divergence"),
+        "divergence_status": (trend.get("external_internal_divergence") or {}).get("divergence_status"),
     }
 
     payload: Dict[str, Any] = {
@@ -132,4 +138,11 @@ def _build_warnings(
         warnings.append("Historical load is insufficient for robust ATL/CTL/TSB trend.")
     if not readiness.get("available"):
         warnings.append("Daily readiness not provided or insufficient: recommendation uses session/trend only.")
+    div = trend.get("external_internal_divergence") or {}
+    if div.get("divergence_status") == "hidden_fatigue":
+        warnings.append(
+            f"Hidden fatigue: external TSB ({div.get('tsb_external'):+.0f}) looks fresher than "
+            f"internal TSB ({div.get('tsb_internal'):+.0f}). Power numbers underestimate true "
+            f"fatigue — do not plan intensity from TSS alone."
+        )
     return warnings
