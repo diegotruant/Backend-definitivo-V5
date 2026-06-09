@@ -57,6 +57,7 @@ from engines.performance.mader_durability import compute_session_durability
 from engines.performance.mmp_aggregator import update_power_curve
 from engines.performance.test_protocols import run_test as run_in_person_test
 from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.metabolic.team_learning_engine import TeamCalibrationModel, ValidationEvent
 from engines.core.athlete_context import AthleteContext
 from engines.core.athlete_physiological_prior import MeasuredProfile
 from test_effort_extractor import extract_test_proposal
@@ -194,6 +195,25 @@ class RideUpdateCurveRequest(BaseModel):
     ride_date: str
     weight_kg: float = 70.0
 
+
+
+
+class TeamCalibrationUpdateRequest(BaseModel):
+    """Stateless team-learning update: previous model + new validation events."""
+    team_id: str
+    calibration_model: Optional[Dict[str, Any]] = None
+    events: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class TeamCalibrationApplyRequest(BaseModel):
+    """Apply a persisted team calibration model to one estimate or snapshot."""
+    calibration_model: Dict[str, Any]
+    parameter: Optional[str] = None
+    predicted_value: Optional[float] = None
+    snapshot: Optional[Dict[str, Any]] = None
+    athlete_id: Optional[str] = None
+    phenotype: Optional[str] = None
+    data_depth_score: float = 1.0
 
 class InPersonTestRequest(BaseModel):
     """Tablet envelope — see CONTRATTO_JSON_test.md."""
@@ -423,6 +443,64 @@ def in_person_test(req: InPersonTestRequest) -> JSONResponse:
     result = run_in_person_test(envelope, profiler=profiler)
     return _json(result)
 
+
+
+
+# ---------------------------------------------------------------------------
+# Team learning — audited residual calibration
+# ---------------------------------------------------------------------------
+@app.post("/team/calibration/update")
+def update_team_calibration(req: TeamCalibrationUpdateRequest) -> JSONResponse:
+    """
+    Add validated Mader/lactate/lab events to the team calibration model.
+
+    The caller should pass predictions that were generated BEFORE the test was
+    known. The returned model is serialisable and should be persisted by the
+    client/database, then sent back on the next update/apply call.
+    """
+    try:
+        if req.calibration_model:
+            model = TeamCalibrationModel.from_dict(req.calibration_model)
+            if model.team_id != req.team_id:
+                raise HTTPException(status_code=400, detail="team_id does not match calibration_model.team_id")
+        else:
+            model = TeamCalibrationModel(team_id=req.team_id)
+        for raw in req.events:
+            model.add_event(ValidationEvent.from_dict({**raw, "team_id": raw.get("team_id", req.team_id)}))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return _json(model.to_dict())
+
+
+@app.post("/team/calibration/apply")
+def apply_team_calibration(req: TeamCalibrationApplyRequest) -> JSONResponse:
+    """
+    Apply the learned team/phenotype/athlete correction to a single estimate
+    or to a full metabolic snapshot. Returns the corrected value plus audit.
+    """
+    try:
+        model = TeamCalibrationModel.from_dict(req.calibration_model)
+        if req.snapshot is not None:
+            return _json(model.calibrate_snapshot(
+                req.snapshot,
+                athlete_id=req.athlete_id,
+                phenotype=req.phenotype,
+                data_depth_score=req.data_depth_score,
+            ))
+        if req.parameter is None or req.predicted_value is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Provide either snapshot or both parameter and predicted_value.",
+            )
+        return _json(model.correction_for(
+            req.parameter,
+            req.predicted_value,
+            athlete_id=req.athlete_id,
+            phenotype=req.phenotype,
+            data_depth_score=req.data_depth_score,
+        ))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 # ---------------------------------------------------------------------------
 # Entry point note (for the developer)
