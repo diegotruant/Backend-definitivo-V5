@@ -42,11 +42,11 @@ def build_adaptive_load_report(
     rr_metrics = calculate_rr_metrics(stream)
 
     thermal_report = analyze_thermal_session(
-        core_temp_stream=list(getattr(stream, "core_body_temp", []) or []),
-        power_stream=list(getattr(stream, "power", []) or []),
-        hr_stream=list(getattr(stream, "heart_rate", []) or []),
-        skin_temp_stream=list(getattr(stream, "skin_temp", []) or []),
-        ambient_temp_stream=list(getattr(stream, "ambient_temp", []) or []),
+        core_temp_stream=_as_list(getattr(stream, "core_body_temp", [])),
+        power_stream=_as_list(getattr(stream, "power", [])),
+        hr_stream=_as_list(getattr(stream, "heart_rate", [])),
+        skin_temp_stream=_as_list(getattr(stream, "skin_temp", [])),
+        ambient_temp_stream=_as_list(getattr(stream, "ambient_temp", [])),
         ftp=athlete_profile.ftp,
     ).to_dict()
     thermal_load = calculate_thermal_load(thermal_report)
@@ -108,6 +108,14 @@ def build_adaptive_load_report(
             "Thermal strain requires true body-temperature data; ambient temperature is not core temperature.",
         ],
     )
+
+
+def _as_list(values: Any) -> list[Any]:
+    if values is None:
+        return []
+    if hasattr(values, "tolist"):
+        return values.tolist()
+    return list(values)
 
 
 def _build_warnings(
