@@ -51,7 +51,7 @@ except ImportError as e:  # pragma: no cover
         "FastAPI is required for the API layer: pip install fastapi uvicorn"
     ) from e
 
-from engines.io.fit_parser import parse_fit_file_enhanced, parse_fit_records_enhanced
+from engines.io.fit_parser import parse_fit_file_enhanced, parse_fit_records_enhanced, FitFileError
 from engines.io.workout_summary import build_workout_summary
 from engines.performance.mader_durability import compute_session_durability
 from engines.performance.mmp_aggregator import update_power_curve
@@ -60,7 +60,7 @@ from engines.metabolic.metabolic_profiler import MetabolicProfiler
 from engines.metabolic.team_learning_engine import TeamCalibrationModel, ValidationEvent
 from engines.core.athlete_context import AthleteContext
 from engines.core.athlete_physiological_prior import MeasuredProfile
-from test_effort_extractor import extract_test_proposal
+from engines.performance.effort_extractor import extract_test_proposal
 from engines.io.profile_anchor_flow import build_anchor_from_proposal, update_profile_from_ride
 
 app = FastAPI(
@@ -94,7 +94,18 @@ async def _parse_upload(file: UploadFile) -> Dict[str, Any]:
     with tempfile.NamedTemporaryFile(suffix=".fit", delete=True) as tmp:
         tmp.write(data)
         tmp.flush()
-        stream = parse_fit_file_enhanced(tmp.name)
+        try:
+            stream = parse_fit_file_enhanced(tmp.name)
+        except FitFileError as e:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "INVALID_FIT_FILE",
+                    "reason": e.reason,
+                    "message": str(e),
+                    "filename": file.filename,
+                },
+            ) from e
     return {
         "file_id": file.filename or "upload.fit",
         "power": stream.power.tolist(),

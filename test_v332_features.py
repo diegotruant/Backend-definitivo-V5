@@ -18,13 +18,12 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 from engines import (
     analyze_mmp_quality, clean_mmp, filter_mmp_by_window,
     MetabolicProfiler, AthleteContext,
     should_display, mask_low_confidence,
-    DEFAULT_DISPLAY_THRESHOLD,
 )
 
 

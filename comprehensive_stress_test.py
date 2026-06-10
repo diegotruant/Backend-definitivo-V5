@@ -30,8 +30,7 @@ from datetime import datetime, timedelta, date
 import numpy as np
 
 from engines import (
-    MetabolicProfiler, AthleteContext, ENGINE_TIERS,
-    parse_fit_records_enhanced, build_workout_summary,
+    MetabolicProfiler, AthleteContext, parse_fit_records_enhanced, build_workout_summary,
     get_current_metabolic_status, calculate_ctl_atl_tsb,
     calculate_w_prime_balance, analyze_w_prime_usage,
     calculate_acwr, calculate_monotony_strain,

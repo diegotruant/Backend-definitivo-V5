@@ -13,13 +13,10 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
-import math
 import random
 
 from engines import (
-    classify_session, Category, ClassifiedSession, QualifiedAnchor,
-    StimulusVector,
-    SUBTYPES_TEST, SUBTYPES_HIIT, SUBTYPES_STEADY, SUBTYPES_FREE,
+    classify_session, ClassifiedSession, SUBTYPES_TEST, SUBTYPES_HIIT, SUBTYPES_STEADY, SUBTYPES_FREE,
 )
 
 

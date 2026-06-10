@@ -150,7 +150,7 @@ def main():
     by_source = {}
     for *_, result, _, _ in results:
         by_source.setdefault(result.source, []).append(result.category)
-    print(f"  Used per strategy:")
+    print("  Used per strategy:")
     for src, cats in by_source.items():
         print(f"    {src}: {len(cats)} files ({', '.join(set(cats))})")
 

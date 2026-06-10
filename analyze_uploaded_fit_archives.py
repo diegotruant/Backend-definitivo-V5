@@ -22,7 +22,7 @@ from engines import (
     parse_fit_file_enhanced,
     update_power_curve,
 )
-from engines.performance.power_engine import PowerEngine, estimate_ftp_from_mmp, mean_maximal_power
+from engines.performance.power_engine import estimate_ftp_from_mmp, mean_maximal_power
 
 
 UPLOAD_ROOT = Path("data/fit_uploads")

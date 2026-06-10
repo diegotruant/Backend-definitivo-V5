@@ -14,11 +14,9 @@ from engines import (
     # Existing
     MetabolicProfiler, AthleteContext, bayesian_metabolic_snapshot,
     # Kalman
-    MetabolicKalman, MetabolicState, KalmanTrajectory,
-    DailyInput, DecayConfig, AdaptationConfig, process_workout_history,
+    MetabolicKalman, DailyInput, process_workout_history,
     # Neural ODE
     NeuralPowerDuration, NeuralDynamics, TinyMLP,
-    NeuralPDTrainingResult, DynamicsTrainingResult,
 )
 
 results = []
@@ -329,7 +327,7 @@ check("full trajectory available",
       len(traj.states) >= 15)
 check("trajectory tier is MODEL", traj.to_dict()["tier"] == "MODEL")
 
-print(f"\n    Pipeline summary:")
+print("\n    Pipeline summary:")
 print(f"      Bayesian init:   VO2max={bay.vo2max.mean:.1f} ± {bay.vo2max.std:.1f}")
 print(f"      After 14 days:   VO2max={traj.states[-2].vo2max:.1f} ± {traj.states[-2].vo2max_std:.1f}")
 print(f"      After test:      VO2max={traj.states[-1].vo2max:.1f} ± {traj.states[-1].vo2max_std:.1f}")

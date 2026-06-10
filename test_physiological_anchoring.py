@@ -11,7 +11,6 @@ files do not exercise. Each block is deterministic and self-contained.
 """
 
 import sys
-from datetime import date
 from pathlib import Path
 
 import numpy as np

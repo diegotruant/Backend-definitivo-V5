@@ -15,7 +15,6 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
-import numpy as np
 
 results = []
 def check(name, ok, detail=""):
@@ -152,8 +151,8 @@ if snapshot.get("status") == "success":
     # Note: phenotype enhancement reads `vo2max_mlkgmin` and `athlete_weight_kg`
     # but MetabolicProfiler produces `estimated_vo2max`. The enhancement falls
     # back to defaults silently — documented schema drift.
-    print(f"    [note] phenotype enhancement uses default VO2max/weight because of name mismatch")
-    print(f"           (snapshot has 'estimated_vo2max', enhancement reads 'vo2max_mlkgmin')")
+    print("    [note] phenotype enhancement uses default VO2max/weight because of name mismatch")
+    print("           (snapshot has 'estimated_vo2max', enhancement reads 'vo2max_mlkgmin')")
 
 
 # =============================================================================

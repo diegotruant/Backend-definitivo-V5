@@ -227,7 +227,7 @@ check("3-glycolytic-only MMP doesn't crash", isinstance(snap, dict))
 # =============================================================================
 print("\n[8] protocol_completeness — onboarding planner")
 
-from engines import protocol_completeness, QualifiedAnchor, ProtocolCompletenessReport
+from engines import protocol_completeness, QualifiedAnchor
 
 # No anchors → "very_low" current, "high" post
 r = protocol_completeness(available_durations_s=[])

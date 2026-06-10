@@ -21,7 +21,7 @@ import numpy as np
 
 from engines import (
     MetabolicProfiler, AthleteContext, MaderConstants,
-    bayesian_metabolic_snapshot, BayesianMetabolicSnapshot, PosteriorSummary,
+    bayesian_metabolic_snapshot,
 )
 
 

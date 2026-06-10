@@ -20,10 +20,9 @@ Output:
 
 import ast
 import importlib
-import inspect
 import sys
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Tuple
 
 
 # =============================================================================

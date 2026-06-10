@@ -6,9 +6,9 @@ from __future__ import annotations
 import csv
 import json
 from collections import Counter, defaultdict
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Tuple
 
 import numpy as np
 

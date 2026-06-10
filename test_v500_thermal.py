@@ -10,7 +10,7 @@ random.seed(42)
 
 from engines import (
     analyze_thermal_session, analyze_heat_acclimation,
-    ThermalSessionReport, HeatAcclimationTrend,
+    ThermalSessionReport,
 )
 
 results = []

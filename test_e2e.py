@@ -110,7 +110,7 @@ except Exception as e:
 
 section("2. Data quality assessment")
 
-from engines import assess_data_quality, clean_workout_data
+from engines import assess_data_quality
 
 quality = assess_data_quality(
     power_stream=[r["power"] for r in records],
@@ -372,11 +372,11 @@ print(f"\n  Total: {total}    Passed: {passed}    Failed: {failed}")
 print(f"  Pass rate: {100 * passed / total:.1f}%")
 
 if failed:
-    print(f"\n  Failures:")
+    print("\n  Failures:")
     for name, status, detail in results:
         if status == "FAIL":
             print(f"    ✗ {name}: {detail}")
     sys.exit(1)
 else:
-    print(f"\n  ✓ All tests passed.")
+    print("\n  ✓ All tests passed.")
     sys.exit(0)

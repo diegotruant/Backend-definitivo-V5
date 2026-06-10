@@ -25,7 +25,7 @@ from engines import (
     classify_session,
 )
 from engines.io.fit_parser import ActivityStreamEnhanced
-from engines.performance.power_engine import PowerEngine, estimate_ftp_from_mmp, mean_maximal_power
+from engines.performance.power_engine import estimate_ftp_from_mmp, mean_maximal_power
 
 
 DEFAULT_DATASET = Path("data/synthetic_fit_dataset")

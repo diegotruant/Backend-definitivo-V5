@@ -14,16 +14,14 @@ Validates:
   8. Trend analysis across multiple sessions
 """
 import sys
-import math
 import random
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from datetime import date, timedelta
 
 from engines import (
     analyze_pedaling_balance, analyze_balance_trend,
-    PedalingBalanceReport, BalanceTrend,
+    PedalingBalanceReport,
 )
 
 
@@ -202,7 +200,6 @@ r = analyze_pedaling_balance(
 check("all low power → insufficient_data", r.data_quality == "insufficient_data")
 
 # NaN balance values
-import math
 nan_balance = [float("nan")] * 1800
 r = analyze_pedaling_balance(
     nan_balance, [200.0]*1800,
