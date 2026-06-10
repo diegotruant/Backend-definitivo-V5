@@ -135,7 +135,7 @@ def calculate_ctl_atl_tsb(
 # =============================================================================
 
 def calculate_decay_factor(
-    days_inactive: int,
+    days_inactive: float,
     ctl: float,
     param_name: str,
 ) -> float:
@@ -223,6 +223,11 @@ def apply_detraining_model(
     vlamax_baseline = required_fields["estimated_vlamax_mmol_L_s"]
     mlss_baseline = required_fields["mlss_power_watts"]
     map_baseline = required_fields["map_aerobic_watts"]
+    # mypy can't narrow dict values through the `unavailable` check above.
+    assert vo2max_baseline is not None
+    assert vlamax_baseline is not None
+    assert mlss_baseline is not None
+    assert map_baseline is not None
     
     vo2max_decay = calculate_decay_factor(tl["days_since_last"], tl["ctl"], "vo2max")
     vlamax_decay = calculate_decay_factor(tl["days_since_last"], tl["ctl"], "vlamax")
@@ -238,6 +243,7 @@ def apply_detraining_model(
     # FatMax paradox: can improve during detraining if baseline was too high-intensity
     # Simple model: FatMax increases slightly if CTL drops from high levels
     fatmax_baseline = _reliable_number(baseline_snapshot, "fatmax_power_watts")
+    fatmax_current: Optional[float]
     if fatmax_baseline is not None and tl["ctl"] < 30 and tl["days_since_last"] > 7:
         fatmax_current = fatmax_baseline * 1.05  # +5% (aerobic metabolism shift)
     else:

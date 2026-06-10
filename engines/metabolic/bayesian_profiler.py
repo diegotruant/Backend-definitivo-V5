@@ -35,7 +35,7 @@ posterior is mathematically well-defined; the prior choices are documented
 and overridable.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from datetime import datetime

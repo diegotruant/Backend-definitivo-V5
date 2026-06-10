@@ -58,9 +58,9 @@ not individually validated. The Kalman formalism itself is REFERENCE
 Dependencies: numpy only.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
-from datetime import date, timedelta
+from datetime import date
 import numpy as np
 
 

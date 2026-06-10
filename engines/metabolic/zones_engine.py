@@ -22,9 +22,10 @@ References:
   - St\u00f6ggl & Sperlich 2014, Front Physiol 5:33 (polarization classification)
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+from engines.core.analysis import safe_dt
 
 
 # =============================================================================
@@ -135,7 +136,7 @@ def coggan_power_zones(stream, ftp: float) -> Dict[str, Any]:
     if p.size == 0 or not (p > 0).any():
         return {"available": False, "reason": "NO_POWER_DATA"}
 
-    dt = float(np.median(np.diff(t))) if t.size > 1 else 1.0
+    dt = safe_dt(t)
 
     # Only count moving samples (power > 0). Stops/coasting at zero power
     # otherwise inflate Z1 artificially.
@@ -169,7 +170,7 @@ def friel_hr_zones(stream, lthr: float) -> Dict[str, Any]:
     if not np.any(~np.isnan(h)):
         return {"available": False, "reason": "NO_HR_DATA"}
 
-    dt = float(np.median(np.diff(t))) if t.size > 1 else 1.0
+    dt = safe_dt(t)
     zones = _time_in_bins(h, FRIEL_HR_ZONES, anchor=lthr, sample_dt_s=dt)
 
     return {
@@ -228,7 +229,7 @@ def seiler_polarization(
     """
     arrs = _stream_arrays(stream)
     t = arrs["t"]
-    dt = float(np.median(np.diff(t))) if t.size > 1 else 1.0
+    dt = safe_dt(t)
 
     use_power = False
     use_hr = False
@@ -255,12 +256,14 @@ def seiler_polarization(
     if use_power:
         values = arrs["power"]
         valid = values > 0
+        assert vt1_w is not None and vt2_w is not None  # guaranteed by use_power branch
         thr_lo, thr_hi = float(vt1_w), float(vt2_w)
         anchor_label = "power"
         anchor_units = "W"
     else:
         values = arrs["hr"]
         valid = ~np.isnan(values)
+        assert vt1_bpm is not None and vt2_bpm is not None  # guaranteed by use_hr branch
         thr_lo, thr_hi = float(vt1_bpm), float(vt2_bpm)
         anchor_label = "hr"
         anchor_units = "bpm"

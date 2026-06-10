@@ -171,6 +171,8 @@ def _classify_phenotype(scores: Dict[str, int]) -> Tuple[str, str]:
     if any(v is None for v in (s5, s60, s300, sftp)):
         return "INCOMPLETE", "Insufficient data points to classify rider phenotype."
 
+    # mypy can't narrow through any(); assert explicitly after the guard.
+    assert s5 is not None and s60 is not None and s300 is not None and sftp is not None
     short = (s5 + s60) / 2.0
     long = (s300 + sftp) / 2.0
     delta = short - long
