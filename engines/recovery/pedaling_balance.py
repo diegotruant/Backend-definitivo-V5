@@ -435,8 +435,8 @@ def analyze_balance_trend(
     baseline_sessions = usable[:third]
     current_sessions = usable[-third:]
     
-    baseline_asym = sum(r.asymmetry_pct for r in baseline_sessions) / len(baseline_sessions)
-    current_asym = sum(r.asymmetry_pct for r in current_sessions) / len(current_sessions)
+    baseline_asym = sum(r.asymmetry_pct for r in baseline_sessions if r.asymmetry_pct is not None) / len(baseline_sessions)
+    current_asym = sum(r.asymmetry_pct for r in current_sessions if r.asymmetry_pct is not None) / len(current_sessions)
     delta = current_asym - baseline_asym
     
     if abs(delta) < 1.0:

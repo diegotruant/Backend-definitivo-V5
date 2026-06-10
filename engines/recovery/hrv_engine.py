@@ -407,11 +407,15 @@ def _dfa_alpha1_full(rr: np.ndarray, ci_level: float = 0.95) -> Dict[str, Any]:
     dof = len(lx) - 2
     if dof > 0:
         resid_var = ss_res / dof
-        resid_std: Optional[float] = math.sqrt(max(resid_var, 0.0))
-        slope_stderr: Optional[float] = math.sqrt(max(resid_var / sxx, 0.0))
+        resid_std_v = math.sqrt(max(resid_var, 0.0))
+        slope_stderr_v = math.sqrt(max(resid_var / sxx, 0.0))
         z = _normal_z_for_ci(ci_level)
-        ci_low: Optional[float] = slope - z * slope_stderr
-        ci_high: Optional[float] = slope + z * slope_stderr
+        ci_low_v = slope - z * slope_stderr_v
+        ci_high_v = slope + z * slope_stderr_v
+        resid_std: Optional[float] = resid_std_v
+        slope_stderr: Optional[float] = slope_stderr_v
+        ci_low: Optional[float] = ci_low_v
+        ci_high: Optional[float] = ci_high_v
     else:
         resid_std = None
         slope_stderr = None
@@ -702,6 +706,9 @@ def analyze_rr_stream(
         all_rr.extend(rr_values)
 
         elapsed_raw = sample.get("elapsed", sample.get("elapsed_s"))
+        if elapsed_raw is None:
+            all_samples_have_elapsed = False
+            continue
         try:
             elapsed_s = float(elapsed_raw)
         except (TypeError, ValueError):

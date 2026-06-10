@@ -334,7 +334,7 @@ def generate_acwr_narrative(
     if risk_level == "HIGH":
         pct_above = ((acwr_value / 1.3) - 1) * 100
         narrative += f"⚠️ You're {pct_above:.0f}% above safe zone (1.3 limit)\n"
-        narrative += f"Research shows 2-4× increased injury risk at this level\n\n"
+        narrative += "Research shows 2-4× increased injury risk at this level\n\n"
         narrative += "**Action Required**:\n"
         narrative += "1. Reduce training load by 30-40% this week\n"
         narrative += "2. Add extra rest day\n"
@@ -396,7 +396,7 @@ def generate_workout_summary_narrative(
     # Metabolic
     if sections.get('power', {}).get('metabolic_snapshot'):
         meta = sections['power']['metabolic_snapshot']
-        narrative += f"**Metabolic Profile**:\n"
+        narrative += "**Metabolic Profile**:\n"
         narrative += f"   VO2max: {meta['vo2max_ml_kg_min']:.1f} ml/kg/min\n"
         narrative += f"   VLamax: {meta['vlamax_mmol_l_s']:.2f} mmol/L/s\n"
         narrative += f"   MLSS: {meta['mlss_power_watts']:.0f}W\n\n"
@@ -404,7 +404,7 @@ def generate_workout_summary_narrative(
     # HRV insights
     if sections.get('hrv', {}).get('vt1_detected'):
         hrv = sections['hrv']
-        narrative += f"**HRV Insights**:\n"
+        narrative += "**HRV Insights**:\n"
         narrative += f"   VT1 detected at {hrv['vt1_power']:.0f}W (aerobic threshold)\n\n"
     
     # Recommendation

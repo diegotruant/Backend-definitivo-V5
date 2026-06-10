@@ -30,12 +30,12 @@ API:
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
-import math
 
 import numpy as np
 from scipy.optimize import least_squares
 
 from engines.core.athlete_context import AthleteContext
+from engines.core.analysis import safe_dt
 
 
 # =============================================================================
@@ -151,7 +151,7 @@ def _moving_average(x: np.ndarray, window_s: float, t: np.ndarray) -> np.ndarray
     """
     if x.size == 0:
         return x
-    dt = float(np.median(np.diff(t))) if t.size > 1 else 1.0
+    dt = safe_dt(t)
     n = max(1, int(round(window_s / max(dt, 0.1))))
     if n >= x.size:
         return np.full_like(x, float(np.mean(x)))
@@ -175,7 +175,7 @@ def _detect_steady_segments(t: np.ndarray, p_smooth: np.ndarray) -> List[Segment
     if n < 60:
         return segments
 
-    dt = float(np.median(np.diff(t))) if n > 1 else 1.0
+    dt = safe_dt(t)
     min_samples = max(60, int(_MIN_STEADY_DURATION_S / dt))
 
     i = 0
@@ -227,11 +227,16 @@ def _detect_ramp_segments(t: np.ndarray, p_smooth: np.ndarray) -> List[Segment]:
     n = len(t)
     if n < 60:
         return segments
-    dt = float(np.median(np.diff(t))) if n > 1 else 1.0
+    dt = safe_dt(t)
     min_samples = max(60, int(_RAMP_MIN_DURATION_S / dt))
 
-    # Compute discrete derivative
-    dp = np.gradient(p_smooth, t)
+    # Compute discrete derivative. Use the validated dt as spacing rather than
+    # the raw time vector, so degenerate timestamps (NaN / non-monotonic) don't
+    # produce NaN gradients or divide warnings.
+    if np.all(np.isfinite(t)) and np.all(np.diff(t) > 0):
+        dp = np.gradient(p_smooth, t)
+    else:
+        dp = np.gradient(p_smooth, dt)
 
     i = 0
     while i < n - min_samples:
@@ -275,7 +280,7 @@ def _detect_recovery_segments(
     n = len(t)
     if n < 30:
         return segments
-    dt = float(np.median(np.diff(t))) if n > 1 else 1.0
+    dt = safe_dt(t)
 
     # Find transitions: power_prev > 150W, power_curr < _RECOVERY_POWER_MAX
     in_rec = False
