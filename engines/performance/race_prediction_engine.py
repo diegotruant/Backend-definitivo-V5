@@ -23,7 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import atan, cos, radians, sin, sqrt
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 import xml.etree.ElementTree as ET
 
 import numpy as np

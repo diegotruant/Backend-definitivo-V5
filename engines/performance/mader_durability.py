@@ -55,7 +55,7 @@ result["durability_loss_pct"] # % di caduta CP alla fine della sessione
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 
@@ -549,7 +549,6 @@ def compute_session_durability(
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    import json
 
     print("=" * 70)
     print("MADER DURABILITY ENGINE — Self-test")

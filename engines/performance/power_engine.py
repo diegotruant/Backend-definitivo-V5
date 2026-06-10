@@ -24,12 +24,12 @@ A separate utility `estimate_ftp_from_mmp` lets the caller derive FTP from
 the MMP if desired.
 """
 
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 
 from engines.core.metric_contracts import annotate_payload
+from engines.core.analysis import safe_dt
 
 
 # =============================================================================
@@ -101,7 +101,7 @@ def _moving_time_seconds(power: np.ndarray, t: np.ndarray) -> int:
     if not moving.any():
         return 0
     # Each sample at 1Hz contributes 1s
-    dt = float(np.median(np.diff(t))) if t.size > 1 else 1.0
+    dt = safe_dt(t)
     return int(round(moving.sum() * dt))
 
 
@@ -398,6 +398,10 @@ class PowerEngine:
 
         # Headline metrics
         total_s = float(stream.total_elapsed_s) if getattr(stream, "total_elapsed_s", 0) else float(t[-1] - t[0] + 1)
+        # Degenerate timestamps (all-NaN / non-monotonic) can make total_s NaN
+        # or non-positive; fall back to sample count (assumes ~1 Hz).
+        if not np.isfinite(total_s) or total_s <= 0:
+            total_s = float(len(p))
         moving_s = _moving_time_seconds(p, t)
         avg_p = float(np.mean(p))
         # Avg power excluding zeros (more meaningful for steady efforts)

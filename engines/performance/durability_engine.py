@@ -28,7 +28,7 @@ APPLICATIONS:
 - Predict long-race performance
 """
 
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List
 import numpy as np
 
 from engines.core.metric_contracts import annotate_payload
@@ -441,19 +441,19 @@ if __name__ == "__main__":
     print(f"\nFirst hour: {di['first_hour_avg']:.0f}W")
     print(f"Last hour:  {di['last_hour_avg']:.0f}W")
     print(f"Decay: -{di['decay_watts']:.0f}W ({di['decay_watts_per_hour']:.1f}W/hour)")
-    print(f"\nNormalized Power Drift:")
+    print("\nNormalized Power Drift:")
     print(f"  First half NP: {np_drift['np_first_half']:.0f}W")
     print(f"  Second half NP: {np_drift['np_second_half']:.0f}W")
     print(f"  Drift: {np_drift['np_drift_pct']:.1f}% ({np_drift['classification']})")
-    print(f"\nTTE @ 290W (FTP):")
+    print("\nTTE @ 290W (FTP):")
     print(f"  Sustainable: {tte['tte_minutes']:.1f} min ({tte['classification']})")
-    print(f"\nHourly Power Decay:")
+    print("\nHourly Power Decay:")
     for hour_data in decay_curve['hourly_data']:
         print(f"  Hour {hour_data['hour']}: {hour_data['average_power']:.0f}W")
     print(f"  Decay rate: {decay_curve['decay_rate_watts_per_hour']:.1f}W/hour")
-    print(f"\nTRAINING PRESCRIPTION:")
+    print("\nTRAINING PRESCRIPTION:")
     print(f"Focus: {prescription['focus']}")
     print(f"Volume: {prescription['volume']}")
-    print(f"Key sessions:")
+    print("Key sessions:")
     for session in prescription['key_sessions']:
         print(f"  • {session}")

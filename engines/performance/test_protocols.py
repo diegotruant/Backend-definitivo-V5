@@ -25,7 +25,7 @@ incrementale max-power); il test Mader eredita il tier del lattato (REFERENCE
 sul dato, MODEL sulla validazione); CP eredita da power_engine (REFERENCE).
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 import numpy as np
 
 from engines.core.metric_contracts import annotate_payload

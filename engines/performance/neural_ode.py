@@ -67,7 +67,7 @@ When to use
   (e.g. monthly tests over ≥3 months).
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from scipy.optimize import minimize

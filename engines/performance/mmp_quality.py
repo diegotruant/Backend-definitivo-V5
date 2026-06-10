@@ -333,7 +333,7 @@ def _detect_non_monotonic(mmp: Dict[int, float]) -> List[MMPQualityIssue]:
                     f"{d_prev}s ({mmp[d_prev]:.1f}W). MMP must be monotonically "
                     f"non-increasing. Likely an outlier spike or sub-max anchor."
                 ),
-                suggested_action=f"Inspect both anchors; one of them is wrong.",
+                suggested_action="Inspect both anchors; one of them is wrong.",
             ))
     return out
 
