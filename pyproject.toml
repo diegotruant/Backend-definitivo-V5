@@ -21,6 +21,11 @@ dependencies = [
 
 [project.optional-dependencies]
 pdf = ["pypdf>=3.0"]
+frontend = [
+    "streamlit>=1.36",
+    "requests>=2.31",
+    "pandas>=2.0",
+]
 dev = [
     "black>=24.0",
     "httpx>=0.27",
