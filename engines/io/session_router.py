@@ -195,7 +195,7 @@ def route_and_run(
     # --- Metabolic profile / anchor extraction ---
     if "test_effort_extraction" in decision.engines_to_run:
         try:
-            from test_effort_extractor import extract_test_proposal
+            from engines.performance.effort_extractor import extract_test_proposal
             prop = extract_test_proposal([{"file_id": filename or "test", "power": power, "laps": laps}])
             out["results"]["test_proposal"] = prop.to_dict()
         except Exception as e:
@@ -292,16 +292,16 @@ def _hrv_durability(rr_samples, elapsed_s, ctx) -> Dict[str, Any]:
     from engines.recovery.hrv_engine import analyze_rr_stream
     from collections import Counter
     windows = analyze_rr_stream(rr_samples, window_seconds=120, step_seconds=10.0, context=ctx)
-    a1 = [(w.get("alpha1_smoothed") or w.get("alpha1")) for w in windows]
-    a1 = [x for x in a1 if x is not None and not np.isnan(x)]
+    a1_raw = [(w.get("alpha1_smoothed") or w.get("alpha1")) for w in windows]
+    a1: List[float] = [float(x) for x in a1_raw if x is not None and not np.isnan(x)]
     status = Counter(w.get("status") for w in windows if w.get("status"))
     tot = sum(status.values()) or 1
     if not a1:
         return {"status": "insufficient"}
     # alpha1 drift: first third vs last third (durability signal)
     n = len(a1)
-    first = float(np.mean(a1[: n // 3])) if n >= 3 else a1[0]
-    last = float(np.mean(a1[-n // 3:])) if n >= 3 else a1[-1]
+    first: float = float(np.mean(a1[: n // 3])) if n >= 3 else float(a1[0])
+    last: float = float(np.mean(a1[-n // 3:])) if n >= 3 else float(a1[-1])
     return {
         "status": "ok",
         "alpha1_mean": round(float(np.mean(a1)), 3),

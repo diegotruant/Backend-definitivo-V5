@@ -21,7 +21,7 @@ calculations, only delegation. It is the single function that the
 Supabase service layer should call after FIT ingestion.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 # Flat imports — do not import via `engines.*` here; this module is loaded
 # while `engines/__init__.py` may still be initialising.
@@ -80,14 +80,14 @@ def build_workout_summary(
     if context is None:
         context = AthleteContext()
 
+    _start_time = getattr(stream, "start_time", None)
     out: Dict[str, Any] = {
         "status": "success",
         "schema_version": "1.0.0",
         "stream_metadata": {
             "sport":         getattr(stream, "sport", "unknown"),
             "sub_sport":     getattr(stream, "sub_sport", None),
-            "start_time":    getattr(stream, "start_time", None).isoformat()
-                              if getattr(stream, "start_time", None) else None,
+            "start_time":    _start_time.isoformat() if _start_time else None,
             "duration_s":    int(getattr(stream, "total_elapsed_s", 0) or 0),
             "distance_m":    getattr(stream, "total_distance_m", None),
             "ascent_m":      getattr(stream, "total_ascent_m", None),
@@ -346,6 +346,24 @@ def build_workout_summary(
             headline["mader_sustainable_3h_w"] = at_10["3h"]
 
     out["headline"] = headline
+
+    # Schema normalization: guarantee every section carries a coherent `status`
+    # field so consumers don't have to handle three conventions (`status`,
+    # `available`, bare presence). A section that signalled unavailability via
+    # `available: False` is mapped to status "unavailable"; everything else that
+    # already has a status keeps it. This is additive — existing keys are
+    # preserved, nothing is removed.
+    for _name, _sec in out["sections"].items():
+        if not isinstance(_sec, dict):
+            continue
+        if "status" not in _sec:
+            if _sec.get("available") is False:
+                _sec["status"] = "unavailable"
+            elif _sec.get("available") is True:
+                _sec["status"] = "success"
+            else:
+                _sec["status"] = "unknown"
+
     out["section_contracts"] = summarize_section_contracts(out["sections"])
 
     return out

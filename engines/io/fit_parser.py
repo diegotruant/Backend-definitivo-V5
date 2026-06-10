@@ -13,7 +13,7 @@ GAP HANDLING STRATEGY:
   - Gap >60s:   Mark as UNRELIABLE (exclude from calculations)
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 from io import BytesIO
 import time
@@ -21,9 +21,40 @@ import numpy as np
 
 try:
     import fitparse
+    from fitparse.utils import FitParseError, FitEOFError, FitCRCError, FitHeaderError
     FITPARSE_AVAILABLE = True
 except ImportError:
     FITPARSE_AVAILABLE = False
+    # Define placeholders so except-clauses below are always valid even when
+    # fitparse is not installed.
+    class FitParseError(Exception): ...  # type: ignore[no-redef]
+    class FitEOFError(FitParseError): ...  # type: ignore[no-redef]
+    class FitCRCError(FitParseError): ...  # type: ignore[no-redef]
+    class FitHeaderError(FitParseError): ...  # type: ignore[no-redef]
+
+
+class FitFileError(Exception):
+    """Raised when a .FIT file cannot be parsed.
+
+    A single, typed exception that callers can catch instead of reaching into
+    fitparse's internal error hierarchy. Carries a machine-readable `reason`
+    so the API layer can return a clean 4xx with a stable error code instead
+    of leaking a library stack trace as a 500.
+
+    reason codes:
+      EMPTY_FILE          — file is empty or far too small to be a FIT
+      INVALID_HEADER      — not a FIT file / header unreadable
+      TRUNCATED           — file ends mid-record (incomplete download/transfer)
+      CRC_MISMATCH         — CRC failed and the file could not be recovered
+      MALFORMED_RECORDS   — header ok but record stream is corrupt
+      NO_RECORDS          — parsed cleanly but contains zero usable data records
+      UNKNOWN             — any other parse failure
+    """
+
+    def __init__(self, reason: str, detail: str = "") -> None:
+        self.reason = reason
+        self.detail = detail
+        super().__init__(f"{reason}: {detail}" if detail else reason)
 
 
 def _read_file_with_retry(path: str, attempts: int = 3, delay_s: float = 0.25) -> bytes:
@@ -348,11 +379,37 @@ def parse_fit_file_enhanced(
             fitfile = None
 
     if fitfile is None:
-        # Last resort: read with retry and parse from bytes so a transient
-        # I/O error doesn't propagate as a hard failure.
-        fitfile = fitparse.FitFile(
-            BytesIO(_read_file_with_retry(fit_path)), check_crc=check_crc
-        )
+        # Recovery attempt: if the only problem was a CRC mismatch, the payload
+        # itself may still be fully readable. Retry once with CRC disabled
+        # before giving up. This rescues files with a corrupt trailing CRC
+        # (common after an interrupted sync) whose records are otherwise intact.
+        try:
+            payload = _read_file_with_retry(fit_path)
+        except Exception as e:
+            raise FitFileError("EMPTY_FILE", f"could not read file: {e}") from e
+
+        if len(payload) < 14:
+            raise FitFileError(
+                "EMPTY_FILE",
+                f"file is {len(payload)} bytes — too small to be a FIT file",
+            )
+
+        try:
+            fitfile = fitparse.FitFile(BytesIO(payload), check_crc=False)
+            # Force a parse pass now so corruption surfaces here (where we can
+            # classify it) rather than later mid-extraction.
+            _ = list(fitfile.get_messages())
+            fitfile = fitparse.FitFile(BytesIO(payload), check_crc=False)
+        except FitHeaderError as e:
+            raise FitFileError("INVALID_HEADER", str(e)) from e
+        except FitCRCError as e:
+            raise FitFileError("CRC_MISMATCH", str(e)) from e
+        except FitEOFError as e:
+            raise FitFileError("TRUNCATED", str(e)) from e
+        except FitParseError as e:
+            raise FitFileError("MALFORMED_RECORDS", str(e)) from e
+        except Exception as e:
+            raise FitFileError("UNKNOWN", str(e)) from e
 
     # fitparse's FitFile is a single-consumption stream: calling
     # get_messages() more than once on the same object re-iterates the
@@ -363,16 +420,58 @@ def parse_fit_file_enhanced(
     _device_info_msgs = []
     _record_msgs = []
     _hrv_msgs = []
-    for msg in fitfile.get_messages():
-        mname = msg.name
-        if mname == "record":
-            _record_msgs.append(msg)
-        elif mname == "session":
-            _session_msgs.append(msg)
-        elif mname == "device_info":
-            _device_info_msgs.append(msg)
-        elif mname == "hrv":
-            _hrv_msgs.append(msg)
+    try:
+        for msg in fitfile.get_messages():
+            mname = msg.name
+            if mname == "record":
+                _record_msgs.append(msg)
+            elif mname == "session":
+                _session_msgs.append(msg)
+            elif mname == "device_info":
+                _device_info_msgs.append(msg)
+            elif mname == "hrv":
+                _hrv_msgs.append(msg)
+    except FitCRCError as e:
+        # CRC failed during the read pass. The records themselves are usually
+        # intact — only the trailing checksum is wrong (interrupted sync). Retry
+        # once with CRC disabled before giving up.
+        _recovered = False
+        try:
+            _payload = _read_file_with_retry(fit_path)
+            _ff = fitparse.FitFile(BytesIO(_payload), check_crc=False)
+            _session_msgs, _device_info_msgs, _record_msgs, _hrv_msgs = [], [], [], []
+            for msg in _ff.get_messages():
+                mname = msg.name
+                if mname == "record":
+                    _record_msgs.append(msg)
+                elif mname == "session":
+                    _session_msgs.append(msg)
+                elif mname == "device_info":
+                    _device_info_msgs.append(msg)
+                elif mname == "hrv":
+                    _hrv_msgs.append(msg)
+            _recovered = bool(_record_msgs)
+        except Exception:
+            _recovered = False
+        if not _recovered:
+            raise FitFileError("CRC_MISMATCH", str(e)) from e
+    except FitEOFError as e:
+        # Truncated mid-stream. If we already collected some records, keep
+        # them (partial recovery); otherwise it's unrecoverable.
+        if not _record_msgs:
+            raise FitFileError("TRUNCATED", str(e)) from e
+    except FitParseError as e:
+        if not _record_msgs:
+            raise FitFileError("MALFORMED_RECORDS", str(e)) from e
+    except Exception as e:
+        if not _record_msgs:
+            raise FitFileError("UNKNOWN", str(e)) from e
+
+    if not _record_msgs:
+        raise FitFileError(
+            "NO_RECORDS",
+            "file parsed but contains no usable data records",
+        )
 
     # Extract session info
     session_dict = {}
@@ -623,7 +722,7 @@ def parse_fit_records_enhanced(
                 try:
                     # Some firmwares emit dicts {"value": int, "right": bool}
                     if isinstance(lrb, dict):
-                        v = lrb.get("value")
+                        v: Any = lrb.get("value")
                         if v is not None:
                             stream.left_right_balance[idx] = float(v)
                     else:

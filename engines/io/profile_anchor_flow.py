@@ -214,7 +214,6 @@ def update_profile_from_ride(
     build_anchor_from_proposal). A normal ride does not move VLamax much,
     which is physiologically correct.
     """
-    from bayesian_profiler import bayesian_metabolic_snapshot
 
     ctx = context or AthleteContext(gender="MALE", training_years=10, discipline="ENDURANCE")
     profiler = MetabolicProfiler(weight=weight_kg, context=ctx)

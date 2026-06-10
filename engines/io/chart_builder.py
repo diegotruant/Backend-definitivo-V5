@@ -12,9 +12,9 @@ Each function returns a dict with:
 - metadata: title, description, units
 """
 
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 import numpy as np
-from datetime import date, timedelta
+from datetime import date
 
 
 # =============================================================================
