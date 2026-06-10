@@ -42,7 +42,7 @@ is used to move the mean; otherwise the mean is held and only the std grows.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Dict, Optional, Union
 

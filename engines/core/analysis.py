@@ -39,3 +39,35 @@ def clean_rr_intervals(
         valid &= rel_jump <= max_rel_jump
     
     return rr[valid]
+
+
+def safe_dt(t: Union[np.ndarray, Sequence[float]], default: float = 1.0) -> float:
+    """Median sampling interval (dt) from a time vector, robust to degenerate input.
+
+    Returns `default` (1.0 s, the FIT default sampling rate) whenever a real dt
+    cannot be computed — i.e. when the time vector is too short, or when the
+    elapsed timestamps are all-equal / non-monotonic (which happens with real
+    devices that fail GPS sync or emit a corrupt time field). This guarantees
+    callers can safely divide by the result without a ZeroDivisionError.
+
+    Parameters
+    ----------
+    t       : time vector (seconds)
+    default : fallback dt when none can be derived (default 1.0)
+
+    Returns
+    -------
+    A strictly positive, finite float.
+    """
+    arr = np.asarray(t, dtype=float)
+    if arr.size < 2:
+        return default
+    diffs = np.diff(arr)
+    # keep only positive, finite steps — discards zeros and time going backwards
+    diffs = diffs[np.isfinite(diffs) & (diffs > 0)]
+    if diffs.size == 0:
+        return default
+    dt = float(np.median(diffs))
+    if not np.isfinite(dt) or dt <= 0:
+        return default
+    return dt

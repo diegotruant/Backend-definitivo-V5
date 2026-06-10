@@ -506,10 +506,10 @@ if __name__ == "__main__":
     print(f"Power Quality: {quality.power_quality:.2f}")
     print(f"HR Quality: {quality.hr_quality:.2f}")
     print(f"Usable: {quality.usable_for_analysis}")
-    print(f"\nIssues Detected:")
+    print("\nIssues Detected:")
     for issue in quality.issues_detected:
         print(f"  • {issue}")
-    print(f"\nCleaning Applied:")
+    print("\nCleaning Applied:")
     for clean in quality.cleaning_applied:
         print(f"  ✓ {clean}")
     
