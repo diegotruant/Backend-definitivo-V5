@@ -37,19 +37,16 @@ run-in-person-test = "run_in_person_test:main"
 verify-package-integrity = "verify_package_integrity:main"
 
 [tool.setuptools.packages.find]
-include = ["engines*"]
+include = ["engines*", "api*"]
 
 [tool.pytest.ini_options]
 # Make local package imports stable when running pytest from the repository root
 # without requiring PYTHONPATH=. or an editable install.
 pythonpath = ["."]
-# pytest collects only pytest_*.py files (currently tests/pytest_smoke.py).
-# The 20+ test_*.py scripts in the root are a separate legacy integration suite
-# designed to be run directly with Python (e.g. `python test_e2e.py`) or via
-# pytest_script_suite.py.  They are intentionally NOT collected by pytest to
-# keep CI fast and deterministic.  Run the full suite with:
-#   python pytest_script_suite.py
-testpaths = ["tests", "."]
+# pytest collects pytest_*.py under tests/.  Executable integration scripts live
+# in tests/integration/test_*.py and are run via pytest_script_suite.py (or
+# directly with PYTHONPATH=. python tests/integration/test_e2e.py).
+testpaths = ["tests"]
 python_files = ["pytest_*.py"]
 python_functions = ["test_*"]
 markers = [

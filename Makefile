@@ -30,7 +30,7 @@ lint:
 	$(PYTHON) -m ruff check tests scripts
 
 format:
-	$(PYTHON) -m black api_app.py tests scripts
+	$(PYTHON) -m black api_app.py api tests scripts
 
 typecheck:
 	$(PYTHON) -m mypy --explicit-package-bases tests/pytest_smoke.py

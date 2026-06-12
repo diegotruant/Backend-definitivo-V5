@@ -7,189 +7,27 @@ Nessuna dipendenza esterna oltre a numpy e scipy.
 
 import numpy as np
 from scipy.optimize import least_squares
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from engines.core.athlete_context import AthleteContext
+from engines.core.metric_contracts import annotate_payload
 from engines.metabolic.cross_validation_engine import (
     cross_validate_metabolic_profile,
     observed_threshold_power,
 )
-from engines.core.metric_contracts import annotate_payload
+from engines.metabolic.mader_constants import (
+    ExpressivenessReport,
+    MaderConstants,
+    RegularizationWeights,
+)
 
-
-@dataclass(frozen=True)
-class RegularizationWeights:
-    vo2_vs_guess: float = 0.5
-    vo2_vs_expected_heuristic: float = 0.5
-    short_mae_scale: float = 1.8
-
-
-@dataclass(frozen=True)
-class MaderConstants:
-    """
-    Mader model parameters.
-    
-    Default values are from Mader & Heck 1986 / Mader 2003. These are
-    empirically fitted against a population of trained athletes and
-    are NOT universal physiological constants — they're a calibration.
-    
-    A 2025 Springer review (Nolte et al., EJAP) cites ks1=0.0635, while
-    Mader's own work uses ks1=0.0631. The variation reflects how the
-    same Hill-equation framework is re-fitted across studies.
-    
-    For elite endurance athletes with years of structured training, these
-    constants may differ measurably due to mitochondrial adaptations and
-    glycolytic enzyme expression. Until population-specific calibrations
-    exist, the defaults are the best public estimate.
-    
-    To use different values, pass a custom MaderConstants to MetabolicProfiler:
-        custom = MaderConstants(ks1=0.0635, ks2=1.30)
-        profiler = MetabolicProfiler(weight=72, mader_constants=custom)
-    """
-    vo2_basale: float = 3.5
-    equiv_o2_la: float = 0.01576
-    vol_rel: float = 0.45
-    ks1: float = 0.0631   # ox-phos 50% activation (Mader/Heck 1986)
-    ks2: float = 1.331    # glycolysis 50% activation (Mader/Heck 1986)
-    # Net-production fraction (of peak production rate) that defines the
-    # maximal lactate STEADY STATE. MLSS is the highest power at which
-    # lactate stays elevated but constant; in this model that corresponds
-    # to a small positive net accumulation, NOT the net=0 crossing (which
-    # is LT1). Calibrated to 0.05 against real sustained threshold power
-    # across multiple athletes. Overridable like the other constants.
-    mlss_net_frac: float = 0.05
-    eps: float = 1e-9
-    softplus_k: float = 120.0
-
-    w_step: float = 10.0
-    w_min: float = 50.0
-
-    pcr_multiplier: float = 15.0
-    pcr_prior_min: float = 80.0
-    pcr_prior_max: float = 280.0
-    
-    # Provenance label — overwritten when a non-default config is used,
-    # so the snapshot can report which calibration was applied.
-    _source: str = "mader_heck_1986_default"
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "ks1": self.ks1,
-            "ks2": self.ks2,
-            "vo2_basale": self.vo2_basale,
-            "equiv_o2_la": self.equiv_o2_la,
-            "vol_rel": self.vol_rel,
-            "pcr_multiplier": self.pcr_multiplier,
-            "source": self._source,
-        }
-
-
-# =============================================================================
-# MMP Expressiveness — physiological coverage of the duration spectrum
-# =============================================================================
-
-@dataclass(frozen=True)
-class ExpressivenessReport:
-    """
-    Assesses whether an MMP curve covers the durations needed for a
-    reliable fit of each physiological parameter.
-    
-    Energy-system coverage windows (Buchheit & Laursen, Mader, Coggan):
-      - Neuromuscular / alactic: 5s ≤ d ≤ 15s
-      - Glycolytic (vLamax-sensitive): 20s ≤ d ≤ 60s
-      - VO2max: 180s ≤ d ≤ 480s
-      - MLSS/threshold: 1200s ≤ d ≤ 3600s
-    
-    A parameter cannot be reliably estimated from a curve that is missing
-    the corresponding coverage window. The fit will produce a number but
-    it's not what the user thinks it is.
-    """
-    has_neuromuscular: bool       # 5-15s anchor present
-    has_glycolytic: bool          # 20-60s anchor present
-    has_vo2max: bool              # 180-480s anchor present
-    has_threshold: bool           # 1200-3600s anchor present
-    
-    n_anchors: int
-    
-    # Which parameters are reliable given the available coverage
-    vlamax_reliable: bool         # needs glycolytic
-    vo2max_reliable: bool         # needs vo2max + threshold
-    mlss_reliable: bool           # needs threshold
-    fatmax_reliable: bool         # needs vo2max + threshold (derived from MLSS)
-    
-    @classmethod
-    def from_mmp(cls, mmp: Dict[int, float]) -> "ExpressivenessReport":
-        durations = sorted(mmp.keys())
-        # Window definitions:
-        #   neuromuscular  5-15s    — alactic, sprint anchor
-        #   glycolytic    20-60s    — vLamax-informative
-        #   vo2max        180-720s  — VO2max-informative
-        #                            (extended to 720s so CP12 counts as vo2max
-        #                            anchor; classical 3-12min effort range)
-        #   threshold    1200-3600s — MLSS-informative
-        #                            (classical 20-60min sustained efforts)
-        has_neuro = any(5 <= d <= 15 for d in durations)
-        has_glyco = any(20 <= d <= 60 for d in durations)
-        has_vo2   = any(180 <= d <= 720 for d in durations)
-        has_thr   = any(1200 <= d <= 3600 for d in durations)
-        
-        return cls(
-            has_neuromuscular=has_neuro,
-            has_glycolytic=has_glyco,
-            has_vo2max=has_vo2,
-            has_threshold=has_thr,
-            n_anchors=len(durations),
-            vlamax_reliable=has_glyco,
-            vo2max_reliable=has_vo2 and has_thr,
-            mlss_reliable=has_thr,
-            # FatMax is the power at which fat oxidation peaks, which in
-            # the Mader model is computed from MLSS *and* vLamax. So it
-            # requires both glycolytic AND threshold coverage to be reliable.
-            fatmax_reliable=has_glyco and has_thr,
-        )
-    
-    @property
-    def fully_expressive(self) -> bool:
-        return (
-            self.vlamax_reliable and self.vo2max_reliable
-            and self.mlss_reliable and self.fatmax_reliable
-        )
-    
-    def to_dict(self) -> Dict[str, Any]:
-        missing = []
-        if not self.has_neuromuscular: missing.append("neuromuscular (5-15s)")
-        if not self.has_glycolytic: missing.append("glycolytic (20-60s)")
-        if not self.has_vo2max: missing.append("vo2max (180-720s)")
-        if not self.has_threshold: missing.append("threshold (1200-3600s)")
-        
-        unreliable = []
-        if not self.vlamax_reliable: unreliable.append("vlamax")
-        if not self.vo2max_reliable: unreliable.append("vo2max")
-        if not self.mlss_reliable: unreliable.append("mlss")
-        if not self.fatmax_reliable: unreliable.append("fatmax")
-        
-        return {
-            "coverage": {
-                "neuromuscular_5_15s": self.has_neuromuscular,
-                "glycolytic_20_60s": self.has_glycolytic,
-                "vo2max_180_720s": self.has_vo2max,
-                "threshold_1200_3600s": self.has_threshold,
-            },
-            "reliability": {
-                "vlamax": self.vlamax_reliable,
-                "vo2max": self.vo2max_reliable,
-                "mlss": self.mlss_reliable,
-                "fatmax": self.fatmax_reliable,
-            },
-            "n_anchors": self.n_anchors,
-            "missing_windows": missing,
-            "unreliable_parameters": unreliable,
-            "fully_expressive": len(unreliable) == 0,
-            "tier": "REFERENCE",
-        }
-
+__all__ = [
+    "ExpressivenessReport",
+    "MaderConstants",
+    "MetabolicProfiler",
+    "RegularizationWeights",
+]
 
 
 class MetabolicProfiler:

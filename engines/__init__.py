@@ -2,6 +2,8 @@
 
 import importlib
 import sys
+import types
+import warnings
 
 # Canonical locations for each module after the subpackage reorganisation.
 # Maps short name → new fully-qualified module path.
@@ -55,14 +57,54 @@ _SUBPACKAGE_MAP: dict[str, str] = {
     "workout_summary": "engines.io.workout_summary",
 }
 
+_LEGACY_BOOTSTRAP = True
+
+
+class _LegacyModule(types.ModuleType):
+    """Warn when flat legacy imports are used outside the engines bootstrap."""
+
+    def __init__(self, name: str, canonical: str, module: types.ModuleType):
+        super().__init__(name)
+        self.__dict__.update(module.__dict__)
+        self.__name__ = name
+        self._canonical = canonical
+        self._warned = False
+
+    def __getattribute__(self, name: str):
+        if name not in {
+            "_canonical",
+            "_warned",
+            "__dict__",
+            "__name__",
+            "__file__",
+            "__loader__",
+            "__spec__",
+            "__path__",
+            "__package__",
+        }:
+            if not _LEGACY_BOOTSTRAP and not object.__getattribute__(self, "_warned"):
+                warnings.warn(
+                    (
+                        f"Flat import '{object.__getattribute__(self, '__name__')}' is deprecated; "
+                        f"use '{object.__getattribute__(self, '_canonical')}' instead."
+                    ),
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                object.__setattr__(self, "_warned", True)
+        return super().__getattribute__(name)
+
+
 # Register backward-compat aliases so that both
 #   `from engines.fit_parser import X`  (old style)
 #   `import fit_parser` / `from fit_parser import X`  (flat legacy style)
 # continue to resolve after the subpackage reorganisation.
 for _short, _canonical in _SUBPACKAGE_MAP.items():
     _mod = importlib.import_module(_canonical)
-    sys.modules[f"engines.{_short}"] = _mod  # engines.MODULE  ← backward compat
-    sys.modules[_short] = _mod               # MODULE  ← flat-import legacy compat
+    sys.modules[f"engines.{_short}"] = _mod
+    sys.modules[_short] = _LegacyModule(_short, _canonical, _mod)
+
+_LEGACY_BOOTSTRAP = False
 
 from engines.core.athlete_context import AthleteContext
 from bayesian_profiler import (
