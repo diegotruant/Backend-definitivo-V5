@@ -883,3 +883,22 @@ missing MetabolicProfiler class).
 
 Initial core: athlete_context, power_engine, zones_engine,
 coggan_classifier, cardiac_engine, hrv_engine, workout_summary, fit_parser.
+
+## Backend implementations V2 — Canonical TwinState and projection
+
+Added backend-only product features before frontend work:
+
+- Canonical, versioned `TwinState` blob under `engines/twin_state/`.
+- Stateless TwinState build/update endpoints.
+- Seasonal forward what-if projection engine under `engines/projection/`.
+- Neuromuscular sprint profile with Pmax, cadence-at-peak, torque proxy and repeatability.
+- Power-source normalization layer to detect indoor/outdoor watt offsets.
+- Manual non-cycling load injection endpoint for RPE × duration load approximation.
+- Tests covering all new engines and API endpoints.
+
+Validation:
+
+- `tests/pytest_backend_implementations.py`: 6 passed.
+- smoke/workout/chart/new targeted suite: 14 passed.
+- hardening suite: 12 passed, 1 skipped.
+- `make test-all`: 39 passed, 12 skipped.

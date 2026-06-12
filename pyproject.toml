@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ddtraining-digital-twin"
-version = "5.0.0"
+version = "5.1.0"
 description = "Stateless analytics backend for endurance sports — metabolic profiling, HRV, training load, session classification, longitudinal tracking."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -17,15 +17,11 @@ dependencies = [
     "uvicorn>=0.27",
     "python-multipart>=0.0.9",
     "pydantic>=2.0",
+    "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]
 pdf = ["pypdf>=3.0"]
-frontend = [
-    "streamlit>=1.36",
-    "requests>=2.31",
-    "pandas>=2.0",
-]
 dev = [
     "black>=24.0",
     "httpx>=0.27",
@@ -56,6 +52,11 @@ pythonpath = ["."]
 testpaths = ["tests", "."]
 python_files = ["pytest_*.py"]
 python_functions = ["test_*"]
+markers = [
+    "hardening: robustness tests for malformed inputs, timeouts and JSON safety",
+    "stress: bounded stress tests for larger payloads and workloads",
+    "slow: tests that are intentionally heavier than smoke checks",
+]
 
 [tool.black]
 line-length = 100

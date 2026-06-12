@@ -43,13 +43,31 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 try:
-    from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+    from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
     from fastapi.responses import JSONResponse
+    from fastapi.middleware.cors import CORSMiddleware
     from pydantic import BaseModel, Field
 except ImportError as e:  # pragma: no cover
     raise ImportError(
         "FastAPI is required for the API layer: pip install fastapi uvicorn"
     ) from e
+
+import logging
+
+from engines.core.security import (
+    MAX_UPLOAD_BYTES,
+    MAX_UPLOAD_FILES,
+    MAX_POWER_SAMPLES,
+    MAX_PROJECTION_DAYS,
+    MAX_CALENDAR_EVENTS,
+    PayloadTooLarge,
+    PayloadTooDeep,
+    assert_json_depth,
+    enforce_upload_size,
+    safe_error_detail,
+)
+
+logger = logging.getLogger("digital_twin.api")
 
 from engines.io.fit_parser import parse_fit_file_enhanced, parse_fit_records_enhanced, FitFileError
 from engines.io.workout_summary import build_workout_summary
@@ -62,11 +80,58 @@ from engines.core.athlete_context import AthleteContext
 from engines.core.athlete_physiological_prior import MeasuredProfile
 from engines.performance.effort_extractor import extract_test_proposal
 from engines.io.profile_anchor_flow import build_anchor_from_proposal, update_profile_from_ride
+from engines.workouts.models import WorkoutValidationError, validate_workout_payload, materialize_workout
+from engines.workouts.feasibility_engine import analyze_workout_feasibility
+from engines.workouts.compliance_engine import compare_workout_to_activity
+from engines.workouts.calendar_engine import validate_status_transition
+from engines.twin_state.models import build_twin_state, validate_twin_state
+from engines.twin_state.state_update_engine import update_twin_state_from_ride, update_twin_state_from_workout_result
+from engines.projection.season_projection_engine import project_season_from_plan
+from engines.performance.neuromuscular_profile import analyze_neuromuscular_profile
+from engines.io.power_source_normalizer import analyze_power_source_offsets
+from engines.load.manual_load import calculate_manual_load
 
 app = FastAPI(
     title=os.getenv("DIGITAL_TWIN_API_TITLE", "Digital Twin Fisiologico API"),
-    version=os.getenv("DIGITAL_TWIN_API_VERSION", "1.0.0"),
+    version=os.getenv("DIGITAL_TWIN_API_VERSION", "5.1.0"),
 )
+
+
+# CORS: explicit allowlist only. Default is closed; the product layer sets
+# DIGITAL_TWIN_CORS_ORIGINS (comma-separated) for the deployed frontend.
+_cors_origins = [
+    o.strip()
+    for o in os.getenv("DIGITAL_TWIN_CORS_ORIGINS", "").split(",")
+    if o.strip()
+]
+if _cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST"],
+        allow_headers=["*"],
+    )
+
+
+@app.middleware("http")
+async def _limit_request_body(request: "Request", call_next):
+    """Reject oversized requests early using the declared Content-Length.
+
+    This is a cheap first gate; per-file size is still enforced after read in
+    _parse_upload (Content-Length can be spoofed or absent on chunked uploads).
+    """
+    cl = request.headers.get("content-length")
+    if cl is not None:
+        try:
+            if int(cl) > MAX_UPLOAD_BYTES * (MAX_UPLOAD_FILES + 1):
+                return JSONResponse(
+                    status_code=413,
+                    content=safe_error_detail("FILE_TOO_LARGE"),
+                )
+        except ValueError:
+            pass
+    return await call_next(request)
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +155,11 @@ def _json(payload: Any) -> JSONResponse:
 async def _parse_upload(file: UploadFile) -> Dict[str, Any]:
     """Read an uploaded FIT into the {file_id, power, laps} dict the engines use."""
     data = await file.read()
+    try:
+        enforce_upload_size(len(data))
+    except PayloadTooLarge as e:
+        logger.warning("Rejected oversized upload %r: %s", file.filename, e)
+        raise HTTPException(status_code=413, detail=safe_error_detail("FILE_TOO_LARGE")) from e
     # parse_fit_file_enhanced expects a path; write to a temp file.
     with tempfile.NamedTemporaryFile(suffix=".fit", delete=True) as tmp:
         tmp.write(data)
@@ -97,14 +167,16 @@ async def _parse_upload(file: UploadFile) -> Dict[str, Any]:
         try:
             stream = parse_fit_file_enhanced(tmp.name)
         except FitFileError as e:
+            logger.info("Invalid FIT upload %r: %s", file.filename, e)
             raise HTTPException(
                 status_code=400,
-                detail={
-                    "error": "INVALID_FIT_FILE",
-                    "reason": e.reason,
-                    "message": str(e),
-                    "filename": file.filename,
-                },
+                detail=safe_error_detail("INVALID_FIT_FILE"),
+            ) from e
+        except RuntimeError as e:
+            logger.error("FIT parser unavailable for %r: %s", file.filename, e)
+            raise HTTPException(
+                status_code=503,
+                detail={"error": "FIT_PARSER_UNAVAILABLE", "message": "Parser temporarily unavailable."},
             ) from e
     return {
         "file_id": file.filename or "upload.fit",
@@ -163,9 +235,14 @@ async def _load_activity_stream(
         try:
             power = json.loads(power_json)
         except json.JSONDecodeError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid power_json: {e}")
+            raise HTTPException(status_code=400, detail=safe_error_detail("INVALID_JSON")) from e
         if not isinstance(power, list) or not power:
             raise HTTPException(status_code=400, detail="power_json must be a non-empty JSON array.")
+        if len(power) > MAX_POWER_SAMPLES:
+            raise HTTPException(
+                status_code=413,
+                detail={"error": "POWER_JSON_TOO_LONG", "message": f"power_json exceeds {MAX_POWER_SAMPLES} samples."},
+            )
         return _stream_from_power([float(p) for p in power])
     raise HTTPException(status_code=400, detail="Provide either a FIT file or power_json.")
 
@@ -209,6 +286,29 @@ class RideUpdateCurveRequest(BaseModel):
 
 
 
+class WorkoutValidateRequest(BaseModel):
+    """Validate a machine-readable workout template or coach draft."""
+    workout: Dict[str, Any]
+
+
+class WorkoutPrescribeRequest(BaseModel):
+    """Resolve a workout template/draft into athlete-specific targets."""
+    workout: Dict[str, Any]
+    athlete_profile: Dict[str, Any] = Field(default_factory=dict)
+
+
+class WorkoutFeasibilityRequest(BaseModel):
+    """Pre-assignment workout feasibility based on CP/W′ and context."""
+    workout: Dict[str, Any]
+    athlete_profile: Dict[str, Any] = Field(default_factory=dict)
+    context: Dict[str, Any] = Field(default_factory=dict)
+
+
+class CalendarTransitionRequest(BaseModel):
+    current_status: str
+    desired_status: str
+
+
 class TeamCalibrationUpdateRequest(BaseModel):
     """Stateless team-learning update: previous model + new validation events."""
     team_id: str
@@ -235,12 +335,53 @@ class InPersonTestRequest(BaseModel):
     test_data: Dict[str, Any] = Field(default_factory=dict)
 
 
+class TwinStateBuildRequest(BaseModel):
+    payload: Dict[str, Any] = Field(default_factory=dict)
+
+
+class TwinStateUpdateRideRequest(BaseModel):
+    twin_state: Dict[str, Any]
+    ride_summary: Optional[Dict[str, Any]] = None
+    ingest_result: Optional[Dict[str, Any]] = None
+    power_source_report: Optional[Dict[str, Any]] = None
+    ride_id: Optional[str] = None
+
+
+class TwinStateUpdateWorkoutRequest(BaseModel):
+    twin_state: Dict[str, Any]
+    compliance_result: Dict[str, Any]
+    assignment_id: Optional[str] = None
+
+
+class SeasonProjectionRequest(BaseModel):
+    twin_state: Dict[str, Any]
+    calendar_plan: List[Dict[str, Any]] = Field(default_factory=list, max_length=MAX_CALENDAR_EVENTS)
+    start_date: Optional[str] = None
+    target_date: Optional[str] = None
+    max_days: int = Field(default=365, ge=1, le=MAX_PROJECTION_DAYS)
+
+
+class PowerSourceNormalizationRequest(BaseModel):
+    activities: List[Dict[str, Any]] = Field(default_factory=list)
+    baseline_source_id: Optional[str] = None
+    warning_threshold_pct: float = 3.0
+    severe_threshold_pct: float = 6.0
+
+
+class ManualLoadRequest(BaseModel):
+    duration_min: float = Field(..., ge=0, le=600)
+    rpe: float = Field(..., ge=0, le=10)
+    modality: str = "other"
+    muscle_damage_factor: Optional[float] = None
+    notes: Optional[str] = None
+
+
 # ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
 @app.get("/health")
 def health() -> Dict[str, Any]:
-    return {"status": "ok", "service": "digital-twin-api", "version": "1.0.0"}
+    return {"status": "ok", "service": "digital-twin-api", "version": app.version}
 
 
 # ---------------------------------------------------------------------------
@@ -255,14 +396,19 @@ async def propose_test(files: List[UploadFile] = File(...)) -> JSONResponse:
     """
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded.")
+    if len(files) > MAX_UPLOAD_FILES:
+        raise HTTPException(status_code=413, detail=safe_error_detail("TOO_MANY_FILES"))
     parsed = []
     for f in files:
         try:
             d = await _parse_upload(f)
             d.pop("_stream", None)
             parsed.append(d)
+        except HTTPException:
+            raise
         except Exception as e:
-            raise HTTPException(status_code=422, detail=f"Cannot parse {f.filename}: {e}")
+            logger.info("Cannot parse uploaded file %r: %s", f.filename, e)
+            raise HTTPException(status_code=422, detail=safe_error_detail("FIT_PARSE_FAILED"))
     proposal = extract_test_proposal(parsed)
     return _json(proposal.to_dict())
 
@@ -305,8 +451,11 @@ async def ingest_ride(
     import json
     try:
         d = await _parse_upload(file)
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Cannot parse {file.filename}: {e}")
+        logger.info("Cannot parse ride upload %r: %s", file.filename, e)
+        raise HTTPException(status_code=422, detail=safe_error_detail("FIT_PARSE_FAILED"))
     try:
         rd = date.fromisoformat(ride_date)
     except ValueError:
@@ -381,6 +530,8 @@ async def ride_summary(
     training_years: float = Form(10),
     discipline: str = Form("ENDURANCE"),
     metabolic_snapshot_json: Optional[str] = Form(None),
+    hrv_step_seconds: Optional[float] = Form(None),
+    hrv_max_windows: int = Form(500),
     file: Optional[UploadFile] = File(None),
     power_json: Optional[str] = Form(None),
 ) -> JSONResponse:
@@ -401,6 +552,8 @@ async def ride_summary(
         lthr=lthr,
         context=ctx,
         metabolic_snapshot=snap,
+        hrv_step_seconds=hrv_step_seconds,
+        hrv_max_windows=hrv_max_windows,
     )
     return _json(summary)
 
@@ -455,6 +608,186 @@ def in_person_test(req: InPersonTestRequest) -> JSONResponse:
     return _json(result)
 
 
+
+
+# ---------------------------------------------------------------------------
+# Workout library / prescription / feasibility / compliance
+# ---------------------------------------------------------------------------
+@app.post("/workouts/validate")
+def validate_workout(req: WorkoutValidateRequest) -> JSONResponse:
+    """Validate a workout draft/template before it is saved in the library."""
+    try:
+        return _json(validate_workout_payload(req.workout))
+    except WorkoutValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/workouts/prescribe")
+def prescribe_workout(req: WorkoutPrescribeRequest) -> JSONResponse:
+    """Materialise percentage-based targets into athlete-specific watts/bpm."""
+    try:
+        prescription = materialize_workout(req.workout, req.athlete_profile)
+    except WorkoutValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return _json({
+        "status": "success",
+        "prescription": prescription,
+        "athlete_profile_used": {
+            "cp_w": req.athlete_profile.get("cp_w") or req.athlete_profile.get("critical_power_w"),
+            "ftp_w": req.athlete_profile.get("ftp_w") or req.athlete_profile.get("ftp"),
+            "weight_kg": req.athlete_profile.get("weight_kg"),
+        },
+    })
+
+
+@app.post("/workouts/feasibility")
+def workout_feasibility(req: WorkoutFeasibilityRequest) -> JSONResponse:
+    """Preview whether an athlete can complete a planned workout before assignment."""
+    try:
+        out = analyze_workout_feasibility(req.workout, req.athlete_profile, req.context)
+    except WorkoutValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return _json(out)
+
+
+@app.post("/workouts/compare")
+async def workout_compare(
+    workout_json: str = Form(...),
+    athlete_profile_json: Optional[str] = Form(None),
+    tolerance_policy_json: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    power_json: Optional[str] = Form(None),
+) -> JSONResponse:
+    """Compare an assigned workout against the performed FIT/power stream."""
+    try:
+        workout = json.loads(workout_json)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid workout_json: {e}")
+    try:
+        athlete_profile = json.loads(athlete_profile_json) if athlete_profile_json else {}
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid athlete_profile_json: {e}")
+    try:
+        tolerance_policy = json.loads(tolerance_policy_json) if tolerance_policy_json else {}
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid tolerance_policy_json: {e}")
+
+    stream = await _load_activity_stream(file, power_json)
+    try:
+        out = compare_workout_to_activity(workout, stream, athlete_profile, tolerance_policy)
+    except WorkoutValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return _json(out)
+
+
+@app.post("/workouts/calendar/transition")
+def workout_calendar_transition(req: CalendarTransitionRequest) -> JSONResponse:
+    """Validate assignment status transitions for DB-backed calendar flows."""
+    return _json(validate_status_transition(req.current_status, req.desired_status))
+
+
+# ---------------------------------------------------------------------------
+# Canonical TwinState / projection / additional backend engines
+# ---------------------------------------------------------------------------
+@app.post("/twin/state/build")
+def twin_state_build(req: TwinStateBuildRequest) -> JSONResponse:
+    """Build a canonical, versioned TwinState blob for frontend/DB persistence."""
+    try:
+        return _json(build_twin_state(req.payload))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/twin/state/update-from-ride")
+def twin_state_update_from_ride(req: TwinStateUpdateRideRequest) -> JSONResponse:
+    """Update TwinState after ride ingest/summary without requiring server state."""
+    try:
+        return _json(update_twin_state_from_ride(
+            req.twin_state,
+            ride_summary=req.ride_summary,
+            ingest_result=req.ingest_result,
+            power_source_report=req.power_source_report,
+            ride_id=req.ride_id,
+        ))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/twin/state/update-from-workout-result")
+def twin_state_update_from_workout(req: TwinStateUpdateWorkoutRequest) -> JSONResponse:
+    """Append workout compliance result to TwinState."""
+    try:
+        return _json(update_twin_state_from_workout_result(
+            req.twin_state,
+            compliance_result=req.compliance_result,
+            assignment_id=req.assignment_id,
+        ))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/twin/state/project")
+def twin_state_project(req: SeasonProjectionRequest) -> JSONResponse:
+    """Seasonal what-if projection from current TwinState and planned calendar."""
+    try:
+        assert_json_depth(req.twin_state)
+        assert_json_depth(req.calendar_plan)
+        return _json(project_season_from_plan(
+            req.twin_state,
+            req.calendar_plan,
+            start_date=req.start_date,
+            target_date=req.target_date,
+            max_days=req.max_days,
+        ))
+    except PayloadTooDeep as e:
+        raise HTTPException(status_code=400, detail=safe_error_detail("PAYLOAD_TOO_DEEP")) from e
+    except (ValueError, WorkoutValidationError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/projection/season")
+def projection_season(req: SeasonProjectionRequest) -> JSONResponse:
+    """Alias for /twin/state/project."""
+    return twin_state_project(req)
+
+
+@app.post("/performance/neuromuscular-profile")
+async def neuromuscular_profile(
+    weight_kg: float = Form(70.0),
+    sprint_threshold_w: Optional[float] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    power_json: Optional[str] = Form(None),
+) -> JSONResponse:
+    """Pmax, cadence-at-peak and repeat sprint profile from FIT or power array."""
+    stream = await _load_activity_stream(file, power_json)
+    return _json(analyze_neuromuscular_profile(
+        stream,
+        weight_kg=weight_kg,
+        sprint_threshold_w=sprint_threshold_w,
+    ))
+
+
+@app.post("/power-source/normalize")
+def power_source_normalize(req: PowerSourceNormalizationRequest) -> JSONResponse:
+    """Detect systematic offsets between indoor/outdoor power sources."""
+    return _json(analyze_power_source_offsets(
+        req.activities,
+        baseline_source_id=req.baseline_source_id,
+        warning_threshold_pct=req.warning_threshold_pct,
+        severe_threshold_pct=req.severe_threshold_pct,
+    ))
+
+
+@app.post("/load/manual")
+def manual_load(req: ManualLoadRequest) -> JSONResponse:
+    """Inject non-cycling fatigue/load using RPE × duration approximation."""
+    return _json(calculate_manual_load(
+        duration_min=req.duration_min,
+        rpe=req.rpe,
+        modality=req.modality,
+        muscle_damage_factor=req.muscle_damage_factor,
+        notes=req.notes,
+    ))
 
 
 # ---------------------------------------------------------------------------
