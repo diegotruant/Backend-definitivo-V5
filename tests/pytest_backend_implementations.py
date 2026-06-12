@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-import numpy as np
 from fastapi.testclient import TestClient
 
 from api_app import app
