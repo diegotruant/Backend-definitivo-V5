@@ -26,6 +26,16 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 import xml.etree.ElementTree as ET
 
+try:
+    # defusedxml hardens against entity-expansion ("billion laughs"),
+    # external-entity (XXE) and DTD-retrieval attacks on untrusted GPX.
+    from defusedxml.ElementTree import fromstring as _safe_xml_fromstring
+
+    _XML_HARDENED = True
+except ImportError:  # pragma: no cover - falls back if dependency missing
+    _safe_xml_fromstring = ET.fromstring  # type: ignore[assignment]
+    _XML_HARDENED = False
+
 import numpy as np
 
 from engines.core.metric_contracts import annotate_payload
@@ -182,7 +192,16 @@ def parse_gpx_course(gpx_path_or_text: str | Path) -> List[CoursePoint]:
     else:
         text = str(gpx_path_or_text)
 
-    root = ET.fromstring(text)
+    # Guard against oversized GPX before handing bytes to the XML parser.
+    try:
+        from engines.core.security import MAX_GPX_BYTES
+
+        if len(text.encode("utf-8", errors="ignore")) > MAX_GPX_BYTES:
+            raise ValueError("GPX course exceeds the maximum allowed size.")
+    except ImportError:  # pragma: no cover
+        pass
+
+    root = _safe_xml_fromstring(text)
     ns = _xml_namespace(root)
     prefix = f"{{{ns}}}" if ns else ""
 
