@@ -19,7 +19,9 @@ import tempfile
 
 import pytest
 
-from engines.io.fit_parser import parse_fit_file_enhanced, FitFileError
+from engines.io.fit_parser import parse_fit_file_enhanced, FitFileError, FITPARSE_AVAILABLE
+
+pytestmark = pytest.mark.skipif(not FITPARSE_AVAILABLE, reason="fitparse is not installed")
 
 
 def _sample_fit_bytes() -> bytes:
