@@ -145,6 +145,25 @@ class ActivityStreamEnhanced:
         # to "dual" | "single_estimated" | "unknown" based on device_info.
         self.left_right_balance = np.full(n_samples, np.nan, dtype=np.float32)
         self.pedaling_balance_source: str = "unknown"
+
+        # Cycling dynamics / pedaling efficiency metrics. Values are NaN when
+        # absent. These are parsed as raw scalar time-series so chart builders
+        # can decide how to render them without re-reading the FIT.
+        self.left_power_phase = np.full(n_samples, np.nan, dtype=np.float32)
+        self.right_power_phase = np.full(n_samples, np.nan, dtype=np.float32)
+        self.left_power_phase_peak = np.full(n_samples, np.nan, dtype=np.float32)
+        self.right_power_phase_peak = np.full(n_samples, np.nan, dtype=np.float32)
+        self.left_pco = np.full(n_samples, np.nan, dtype=np.float32)
+        self.right_pco = np.full(n_samples, np.nan, dtype=np.float32)
+        self.left_pedal_smoothness = np.full(n_samples, np.nan, dtype=np.float32)
+        self.right_pedal_smoothness = np.full(n_samples, np.nan, dtype=np.float32)
+        self.left_torque_effectiveness = np.full(n_samples, np.nan, dtype=np.float32)
+        self.right_torque_effectiveness = np.full(n_samples, np.nan, dtype=np.float32)
+        self.respiration_rate = np.full(n_samples, np.nan, dtype=np.float32)
+        # Standing/seated position (0=seated, 1=standing) and dynamics flags.
+        self.cadence_position = np.full(n_samples, np.nan, dtype=np.float32)
+        self.has_cycling_dynamics: bool = False
+        self.has_respiration: bool = False
         
         # Core body temperature and skin temperature (from a body-temperature sensor)
         # NaN when not provided. core_body_temp is the primary metric (°C),
@@ -194,6 +213,38 @@ class ActivityStreamEnhanced:
         diffs = np.diff(self.altitude_m)
         positives = diffs[diffs > 0]
         return float(np.nansum(positives)) if positives.size else 0.0
+
+    # ---------------------------------------------------------------------
+    # Compatibility aliases used by the product chart envelope.
+    # The canonical stream names remain elapsed_s / altitude_m / speed_mps /
+    # temperature_c / core_body_temp / skin_temp, but the chart package expects
+    # stream.time, stream.altitude, stream.speed, etc. Keep both conventions.
+    # ---------------------------------------------------------------------
+    @property
+    def time(self) -> np.ndarray:
+        return self.elapsed_s
+
+    @property
+    def altitude(self) -> np.ndarray:
+        # Prefer enhanced_altitude when it has data; fall back to standard
+        # altitude. enhanced_altitude is mapped into altitude_m at parse time.
+        return self.altitude_m
+
+    @property
+    def speed(self) -> np.ndarray:
+        return self.speed_mps
+
+    @property
+    def temperature(self) -> np.ndarray:
+        return self.temperature_c
+
+    @property
+    def core_temperature(self) -> np.ndarray:
+        return self.core_body_temp
+
+    @property
+    def skin_temperature(self) -> np.ndarray:
+        return self.skin_temp
 
 
 def detect_and_fill_gaps(
@@ -614,6 +665,59 @@ def parse_fit_file_enhanced(
     return stream
 
 
+def _field_to_float(value: Any) -> Optional[float]:
+    """Best-effort conversion for scalar FIT/developer fields.
+
+    fitparse may expose cycling-dynamics values as floats, ints, dict-like
+    wrappers, or short lists/tuples. For chart time-series we store one scalar:
+    the first numeric value for ranges/arrays, or the `value` key for dicts.
+    """
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        for key in ("value", "raw_value", "converted_value"):
+            if key in value:
+                return _field_to_float(value[key])
+        return None
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            converted = _field_to_float(item)
+            if converted is not None:
+                return converted
+        return None
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return None
+    if np.isnan(out) or np.isinf(out):
+        return None
+    return out
+
+
+def _copy_first_numeric_field(
+    rec: Dict[str, Any],
+    fields: tuple[str, ...],
+    target: np.ndarray,
+    idx: int,
+    *,
+    min_value: Optional[float] = None,
+    max_value: Optional[float] = None,
+) -> None:
+    """Copy the first present numeric field into a per-sample stream array."""
+    for field in fields:
+        if field not in rec:
+            continue
+        value = _field_to_float(rec.get(field))
+        if value is None:
+            continue
+        if min_value is not None and value < min_value:
+            continue
+        if max_value is not None and value > max_value:
+            continue
+        target[idx] = value
+        return
+
+
 def parse_fit_records_enhanced(
     records: List[Dict[str, Any]],
     session_dict: Optional[Dict[str, Any]] = None,
@@ -671,7 +775,15 @@ def parse_fit_records_enhanced(
                 stream.cadence[idx] = float(rec["cadence"])
             if "speed" in rec and rec["speed"] is not None:
                 stream.speed_mps[idx] = float(rec["speed"])
-            if "altitude" in rec and rec["altitude"] is not None:
+            elif "enhanced_speed" in rec and rec["enhanced_speed"] is not None:
+                stream.speed_mps[idx] = float(rec["enhanced_speed"])
+            # Prefer enhanced_altitude when available because it is the
+            # higher-resolution FIT field used by modern head units. Fall back
+            # to standard altitude for older files. Both are stored in the
+            # canonical altitude_m array so existing code keeps working.
+            if "enhanced_altitude" in rec and rec["enhanced_altitude"] is not None:
+                stream.altitude_m[idx] = float(rec["enhanced_altitude"])
+            elif "altitude" in rec and rec["altitude"] is not None:
                 stream.altitude_m[idx] = float(rec["altitude"])
             if "distance" in rec and rec["distance"] is not None:
                 stream.distance_m[idx] = float(rec["distance"])
@@ -684,6 +796,15 @@ def parse_fit_records_enhanced(
                 # Standard 'temperature' field is ambient (from head unit sensor).
                 # Store it separately for thermal analysis.
                 stream.ambient_temp[idx] = float(rec["temperature"])
+
+            _copy_first_numeric_field(
+                rec,
+                ("respiration_rate", "respiratory_rate", "breathing_rate", "respiration"),
+                stream.respiration_rate,
+                idx,
+                min_value=3.0,
+                max_value=80.0,
+            )
             
             # Body temperature sensor data can arrive as developer fields with
             # various names depending on the head unit and sensor firmware.
@@ -741,6 +862,111 @@ def parse_fit_records_enhanced(
                             stream.left_right_balance[idx] = v
                 except (TypeError, ValueError):
                     pass
+            # Cycling dynamics and pedal efficiency. Field names differ between
+            # head units and developer-data profiles; keep a broad alias list and
+            # store scalar series for charting/reporting.
+            _copy_first_numeric_field(
+                rec,
+                ("left_power_phase", "power_phase_left", "left_power_phase_start"),
+                stream.left_power_phase,
+                idx,
+                min_value=0.0,
+                max_value=360.0,
+            )
+            _copy_first_numeric_field(
+                rec,
+                ("right_power_phase", "power_phase_right", "right_power_phase_start"),
+                stream.right_power_phase,
+                idx,
+                min_value=0.0,
+                max_value=360.0,
+            )
+            _copy_first_numeric_field(
+                rec,
+                ("left_power_phase_peak", "power_phase_peak_left", "left_power_phase_peak_start"),
+                stream.left_power_phase_peak,
+                idx,
+                min_value=0.0,
+                max_value=360.0,
+            )
+            _copy_first_numeric_field(
+                rec,
+                ("right_power_phase_peak", "power_phase_peak_right", "right_power_phase_peak_start"),
+                stream.right_power_phase_peak,
+                idx,
+                min_value=0.0,
+                max_value=360.0,
+            )
+            _copy_first_numeric_field(
+                rec,
+                ("left_pco", "left_platform_center_offset", "platform_center_offset_left"),
+                stream.left_pco,
+                idx,
+                min_value=-100.0,
+                max_value=100.0,
+            )
+            _copy_first_numeric_field(
+                rec,
+                ("right_pco", "right_platform_center_offset", "platform_center_offset_right"),
+                stream.right_pco,
+                idx,
+                min_value=-100.0,
+                max_value=100.0,
+            )
+            _copy_first_numeric_field(
+                rec,
+                ("left_pedal_smoothness", "pedal_smoothness_left"),
+                stream.left_pedal_smoothness,
+                idx,
+                min_value=0.0,
+                max_value=100.0,
+            )
+            _copy_first_numeric_field(
+                rec,
+                ("right_pedal_smoothness", "pedal_smoothness_right"),
+                stream.right_pedal_smoothness,
+                idx,
+                min_value=0.0,
+                max_value=100.0,
+            )
+            _copy_first_numeric_field(
+                rec,
+                ("left_torque_effectiveness", "torque_effectiveness_left"),
+                stream.left_torque_effectiveness,
+                idx,
+                min_value=0.0,
+                max_value=100.0,
+            )
+            _copy_first_numeric_field(
+                rec,
+                ("right_torque_effectiveness", "torque_effectiveness_right"),
+                stream.right_torque_effectiveness,
+                idx,
+                min_value=0.0,
+                max_value=100.0,
+            )
+
+            # Standing/seated position: FIT may expose 'stand' event or a
+            # cadence-position field. Normalise to 0=seated, 1=standing.
+            for pf in ("cadence_position", "standing", "stance"):
+                if pf in rec and rec[pf] is not None:
+                    try:
+                        raw = rec[pf]
+                        v = 1.0 if (raw is True or str(raw).lower() in ("standing", "stand", "1")) else 0.0
+                        stream.cadence_position[idx] = v
+                        stream.has_cycling_dynamics = True
+                    except (TypeError, ValueError):
+                        pass
+                    break
+
+            # Set dynamics/respiration flags when the corresponding series got
+            # any value at this record (cheap per-record OR; charts check these).
+            if not np.isnan(stream.left_power_phase[idx]) or not np.isnan(stream.left_pco[idx]) \
+                    or not np.isnan(stream.right_power_phase[idx]) or not np.isnan(stream.right_pco[idx]):
+                stream.has_cycling_dynamics = True
+            if not np.isnan(stream.respiration_rate[idx]):
+                stream.has_respiration = True
+
             # RR intervals (HRV-capable devices): list of beat-to-beat ms values
             if rec.get("rr_intervals"):
                 rrs = rec["rr_intervals"]

@@ -192,19 +192,48 @@ def chart_power(stream: Any) -> Dict[str, Any]:
     t = getattr(stream, "time", None)
     if not _valid(power) or not _valid(t):
         return _na("Nessun dato di potenza erogata trovato")
-        
+
+    # Keep the package chart contract (`x_axis.data`, Italian labels, stream.time),
+    # but compute the physiology-facing summary correctly. 0 W is valid coasting;
+    # only NaN is filled. Normalized Power follows the standard 30 s rolling mean
+    # -> fourth power -> average -> fourth root pipeline. VI is NP / average power.
     y = _forward_fill_nan(np.asarray(power, float), default_val=0.0)
+    y = np.clip(y, 0.0, None)
     t = np.asarray(t, float)
     t_ds, y_ds = _downsample(t, y)
-    
+
+    avg_power = float(np.mean(y)) if y.size else 0.0
+    max_power = float(np.max(y)) if y.size else 0.0
+
+    if y.size >= 30:
+        kernel = np.ones(30, dtype=float) / 30.0
+        rolling_30s = np.convolve(y, kernel, mode="valid")
+        normalized_power = float(np.mean(rolling_30s ** 4) ** 0.25)
+    elif y.size > 0:
+        # Very short streams cannot produce a true 30 s NP. Use the arithmetic
+        # mean and flag that reduced method in the summary.
+        normalized_power = avg_power
+    else:
+        normalized_power = 0.0
+
+    variability_index = (normalized_power / avg_power) if avg_power > 0 else None
+
     return {
         "type": "line",
         "title": "Potenza",
-        "description": "Serie temporale della potenza erogata (1Hz).",
+        "description": "Serie temporale della potenza erogata (1Hz), con NP e VI calcolati sulla potenza pulita.",
         "x_axis": {"label": "Tempo", "unit": "s", "data": t_ds},
         "y_axis": {"label": "Potenza", "unit": "W", "color": COLORS["power"]},
         "series": [{"name": "Potenza", "data": y_ds, "color": COLORS["power"]}],
-        "summary": {"avg_power_w": round(float(np.mean(y)), 1), "max_power_w": int(np.max(y))}
+        "summary": {
+            "avg_power_w": round(avg_power, 1),
+            "max_power_w": int(round(max_power)),
+            "normalized_power_w": round(normalized_power, 1),
+            "np_w": round(normalized_power, 1),
+            "variability_index": round(float(variability_index), 3) if variability_index is not None else None,
+            "vi": round(float(variability_index), 3) if variability_index is not None else None,
+            "np_method": "30s_rolling_fourth_power" if y.size >= 30 else "short_stream_mean",
+        },
     }
 
 
