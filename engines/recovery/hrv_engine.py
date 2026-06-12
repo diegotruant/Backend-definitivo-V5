@@ -473,16 +473,23 @@ def _sliding_dfa_local(
 
     out: List[Dict[str, Any]] = []
     t_start = first_s
+
+    # Use index bounds instead of rebuilding a full boolean mask for every
+    # window.  On long FIT files with thousands of RR samples and >1000 DFA
+    # windows this avoids O(n_windows * n_beats) scanning and keeps
+    # /ride/summary bounded.  t_beats is monotonic here (or has already been
+    # replaced by cumulative RR time above), so searchsorted is safe.
     while t_start + window_s <= total_s + 1e-6:
         t_end = t_start + window_s
-        mask = (t_beats >= t_start) & (t_beats < t_end)
+        start_idx = int(np.searchsorted(t_beats, t_start, side="left"))
+        end_idx = int(np.searchsorted(t_beats, t_end, side="left"))
 
-        if not mask.any():
+        if end_idx <= start_idx:
             t_start += step_s
             continue
 
-        rr_win_corr = rr_corrected[mask]
-        rr_win_raw = rr_winsorized_raw[mask]
+        rr_win_corr = rr_corrected[start_idx:end_idx]
+        rr_win_raw = rr_winsorized_raw[start_idx:end_idx]
 
         if rr_win_corr.size < _MIN_BEATS_DFA:
             t_start += step_s
