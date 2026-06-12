@@ -1,0 +1,53 @@
+name: Multi-tenant stress smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"
+
+jobs:
+  stress-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package
+        run: python -m pip install -e .[dev]
+      - name: Start API
+        run: |
+          python -m uvicorn api_app:app --host 127.0.0.1 --port 8000 > stress_api.log 2>&1 &
+          echo $! > stress_api.pid
+          for i in {1..30}; do
+            curl -sf http://127.0.0.1:8000/health && exit 0
+            sleep 1
+          done
+          cat stress_api.log
+          exit 1
+      - name: Run bounded stress smoke
+        run: |
+          python tools/stress/multitenant_stress.py \
+            --base-url http://127.0.0.1:8000 \
+            --profile balanced \
+            --duration-s 20 \
+            --requests 100 \
+            --concurrency 8 \
+            --tenant-count 5 \
+            --coach-count 25 \
+            --athlete-count 1000 \
+            --power-samples-min 120 \
+            --power-samples-max 600 \
+            --calendar-events-min 7 \
+            --calendar-events-max 28 \
+            --max-error-rate 0.01 \
+            --max-p95-ms 10000 \
+            --output-dir stress_outputs/ci-smoke
+      - name: Upload stress outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: multitenant-stress-smoke
+          path: |
+            stress_outputs/ci-smoke
+            stress_api.log
