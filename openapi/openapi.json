@@ -3,7 +3,7 @@
   "info": {
     "title": "Digital Twin Fisiologico API",
     "description": "Stateless physiology analytics API. HTTP routers are thin; application services orchestrate engines under `engines/`.",
-    "version": "5.1.0",
+    "version": "5.1.1",
     "x-codegen": {
       "typescript_output": "frontend/src/api/generated/schema.ts",
       "regenerate": "make openapi-frontend",
@@ -2428,7 +2428,7 @@
             "anyOf": [
               {
                 "type": "number",
-                "maximum": 1.0,
+                "maximum": 100.0,
                 "minimum": 0.0
               },
               {
@@ -2808,6 +2808,12 @@
           },
           "duration_s": {
             "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
               {
                 "items": {
                   "type": "number"

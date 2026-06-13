@@ -2,7 +2,7 @@
 
 Backend Python per analisi fisiologica e performance cycling (Digital Twin).
 
-Versione attuale: **5.1.0** — API stateless, TwinState canonico, OpenAPI completo, service layer tipizzato.
+Versione attuale: **5.1.1** — stabilizzazione integrazione frontend (test + docs). Baseline architetturale: **v5.1.0**.
 
 ## Panoramica
 
@@ -122,8 +122,16 @@ make lint | format | typecheck
 |-----------|-----------|
 | `docs/ARCHITECTURE.md` | Layering router/service/engines |
 | `docs/FRONTEND_DEVELOPER_GUIDE.md` | Integrazione frontend, TwinState, endpoint map |
-| `docs/OPENAPI_FRONTEND.md` | OpenAPI, codegen, variabili env frontend |
-| `openapi/README.md` | Contratto HTTP committato |
+| `docs/FRONTEND_CONNECT_NEXT_VERCEL.md` | **Next/Vercel/v0** — env, CORS, FormData, offline |
+| `docs/DEPLOY_BACKEND.md` | Deploy produzione uvicorn |
+| `docs/API_EXAMPLES.md` | Payload JSON minimi copy-paste |
+| `docs/TROUBLESHOOTING.md` | CORS, upload, CI, TwinState |
+| `docs/RELEASE_NOTES_v5.1.0.md` | Baseline architetturale (tag v5.1.0) |
+| `docs/RELEASE_NOTES_v5.1.1.md` | Stabilizzazione test + docs frontend |
+
+## Politica V5.1.x
+
+Nessuna nuova feature grossa. Solo bugfix (con test), test su contratti critici, docs prodotto/deploy. Gate release: `make check`.
 
 ## CI
 

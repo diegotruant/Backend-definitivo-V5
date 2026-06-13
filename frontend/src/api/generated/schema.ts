@@ -841,7 +841,7 @@ export interface components {
             /** Heart Rate Bpm */
             heart_rate_bpm?: number[] | null;
             /** Duration S */
-            duration_s?: number[] | null;
+            duration_s?: number | number[] | null;
         } & {
             [key: string]: unknown;
         };

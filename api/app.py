@@ -50,7 +50,7 @@ def _register_exception_handlers(application: FastAPI) -> None:
 def create_app() -> FastAPI:
     application = FastAPI(
         title=os.getenv("DIGITAL_TWIN_API_TITLE", "Digital Twin Fisiologico API"),
-        version=os.getenv("DIGITAL_TWIN_API_VERSION", "5.1.0"),
+        version=os.getenv("DIGITAL_TWIN_API_VERSION", "5.1.1"),
         description=(
             "Stateless physiology analytics API. HTTP routers are thin; "
             "application services orchestrate engines under `engines/`."

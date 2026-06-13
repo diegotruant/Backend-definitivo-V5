@@ -139,7 +139,7 @@ class InPersonTestData(BaseModel):
     power_w: Optional[List[float]] = None
     lactate_mmol_l: Optional[List[float]] = None
     heart_rate_bpm: Optional[List[float]] = None
-    duration_s: Optional[List[float]] = None
+    duration_s: Optional[Union[int, float, List[float]]] = None
 
 
 InPersonTestType = Literal["mader", "incrementale", "curva_pc", "critical_power", "wingate"]
@@ -276,7 +276,7 @@ class ComplianceResult(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     status: Optional[str] = None
-    compliance_score: Optional[float] = Field(default=None, ge=0, le=1)
+    compliance_score: Optional[float] = Field(default=None, ge=0, le=100)
     confidence_score: Optional[float] = Field(default=None, ge=0, le=1)
     discrepancies: List[Dict[str, Any]] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
