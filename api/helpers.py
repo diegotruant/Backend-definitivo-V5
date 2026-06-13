@@ -150,7 +150,7 @@ def parse_iso_date(value: str, field_name: str) -> date:
         raise HTTPException(status_code=400, detail=f"{field_name} must be ISO date (YYYY-MM-DD).")
 
 
-def coerce_stored_curve(stored: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def coerce_stored_curve(stored: Optional[Dict[str, Any]]) -> Optional[Dict[Any, Any]]:
     if not stored:
         return None
     if all(str(k).lstrip("-").isdigit() for k in stored.keys()):

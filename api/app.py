@@ -8,6 +8,7 @@ uvicorn, CI workflows and existing documentation.
 from __future__ import annotations
 
 import os
+from typing import Any
 
 try:
     from fastapi import FastAPI, Request
@@ -18,18 +19,44 @@ except ImportError as e:  # pragma: no cover
         "FastAPI is required for the API layer: pip install fastapi uvicorn"
     ) from e
 
+from api.errors import ServiceError
+from api.routers import health, load, performance, profile, ride, team, test_routes, twin, workouts
 from engines.core.security import MAX_UPLOAD_BYTES, MAX_UPLOAD_FILES, safe_error_detail
 
-from api.routers import health, load, performance, profile, ride, team, test_routes, twin, workouts
+OPENAPI_TAGS = [
+    {"name": "health", "description": "Liveness and version."},
+    {"name": "test", "description": "Field test onboarding (propose → confirm)."},
+    {"name": "ride", "description": "FIT ingestion, activity analysis, durability."},
+    {"name": "profile", "description": "Metabolic snapshot read model."},
+    {"name": "workouts", "description": "Prescription, feasibility, compliance."},
+    {"name": "twin", "description": "Canonical TwinState and season projection."},
+    {"name": "performance", "description": "Neuromuscular profile and power-source QA."},
+    {"name": "load", "description": "Non-cycling manual load injection."},
+    {"name": "team", "description": "Team learning calibration."},
+]
 
 app: FastAPI
+
+
+def _register_exception_handlers(application: FastAPI) -> None:
+    @application.exception_handler(ServiceError)
+    async def handle_service_error(_request: Request, exc: ServiceError) -> JSONResponse:
+        detail: Any = exc.details if exc.details is not None else exc.message
+        return JSONResponse(status_code=exc.status_code, content={"detail": detail})
 
 
 def create_app() -> FastAPI:
     application = FastAPI(
         title=os.getenv("DIGITAL_TWIN_API_TITLE", "Digital Twin Fisiologico API"),
         version=os.getenv("DIGITAL_TWIN_API_VERSION", "5.1.0"),
+        description=(
+            "Stateless physiology analytics API. HTTP routers are thin; "
+            "application services orchestrate engines under `engines/`."
+        ),
+        openapi_tags=OPENAPI_TAGS,
     )
+
+    _register_exception_handlers(application)
 
     cors_origins = [
         o.strip()
