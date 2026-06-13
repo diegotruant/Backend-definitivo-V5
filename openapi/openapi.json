@@ -6,7 +6,11 @@
     "version": "5.1.0",
     "x-codegen": {
       "typescript_output": "frontend/src/api/generated/schema.ts",
-      "regenerate": "make openapi-frontend"
+      "regenerate": "make openapi-frontend",
+      "frontend_env_vars": [
+        "VITE_API_BASE_URL",
+        "NEXT_PUBLIC_API_BASE_URL"
+      ]
     }
   },
   "paths": {
@@ -1889,6 +1893,132 @@
           "weight_kg": 72
         }
       },
+      "AthleteProfileSnippet": {
+        "properties": {
+          "athlete_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Id"
+          },
+          "weight_kg": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMaximum": 200.0,
+                "exclusiveMinimum": 30.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Kg"
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender"
+          },
+          "sex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sex"
+          },
+          "training_years": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 60.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training Years"
+          },
+          "discipline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discipline"
+          },
+          "cp_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cp W"
+          },
+          "critical_power_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Critical Power W"
+          },
+          "ftp_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp W"
+          },
+          "ftp": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "AthleteProfileSnippet",
+        "description": "Subset of athlete fields commonly embedded in TwinState or workout context."
+      },
       "Body_performanceNeuromuscularProfile": {
         "properties": {
           "weight_kg": {
@@ -2198,6 +2328,69 @@
         ],
         "title": "Body_workoutsCompare"
       },
+      "CalendarPlanEvent": {
+        "properties": {
+          "day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "workout": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkoutDefinitionInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tss": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tss"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "CalendarPlanEvent",
+        "description": "One planned workout/assignment in a season projection."
+      },
       "CalendarTransitionRequest": {
         "properties": {
           "current_status": {
@@ -2217,6 +2410,66 @@
           "desired_status"
         ],
         "title": "CalendarTransitionRequest"
+      },
+      "ComplianceResult": {
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "compliance_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compliance Score"
+          },
+          "confidence_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence Score"
+          },
+          "discrepancies": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Discrepancies"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ComplianceResult",
+        "description": "Output shape from POST /workouts/compare."
       },
       "ConfirmRequest": {
         "properties": {
@@ -2298,12 +2551,293 @@
         ],
         "title": "HealthResponse"
       },
+      "InPersonAthlete": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "registered",
+                  "guest"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "surname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Surname"
+          },
+          "dob": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dob"
+          },
+          "weight_kg": {
+            "type": "number",
+            "exclusiveMaximum": 200.0,
+            "exclusiveMinimum": 30.0,
+            "title": "Weight Kg",
+            "default": 70.0
+          },
+          "height_cm": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMaximum": 250.0,
+                "exclusiveMinimum": 100.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height Cm"
+          },
+          "sex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sex"
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender"
+          },
+          "hr_max": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 230.0,
+                "minimum": 100.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Max"
+          },
+          "training_years": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 60.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training Years",
+            "default": 10
+          },
+          "discipline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discipline",
+            "default": "ENDURANCE"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "InPersonAthlete",
+        "description": "Tablet test athlete envelope — see CONTRATTO_JSON_test.md."
+      },
+      "InPersonDevice": {
+        "properties": {
+          "trainer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainer"
+          },
+          "power_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "trainer",
+                  "power_meter"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Source"
+          },
+          "control_mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "erg",
+                  "manual"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Control Mode"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "InPersonDevice"
+      },
+      "InPersonTestData": {
+        "properties": {
+          "steps": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Steps"
+          },
+          "power_w": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power W"
+          },
+          "lactate_mmol_l": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lactate Mmol L"
+          },
+          "heart_rate_bpm": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heart Rate Bpm"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "InPersonTestData",
+        "description": "Protocol-specific block — extra keys allowed per CONTRATTO_JSON_test.md."
+      },
       "InPersonTestRequest": {
         "properties": {
           "test_type": {
             "type": "string",
-            "title": "Test Type",
-            "description": "Protocol id — see CONTRATTO_JSON_test.md."
+            "enum": [
+              "mader",
+              "incrementale",
+              "curva_pc",
+              "critical_power",
+              "wingate"
+            ],
+            "title": "Test Type"
           },
           "timestamp": {
             "anyOf": [
@@ -2317,33 +2851,28 @@
             "title": "Timestamp"
           },
           "athlete": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Athlete"
+            "$ref": "#/components/schemas/InPersonAthlete"
           },
           "device": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/InPersonDevice"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Device"
+            ]
           },
           "test_data": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Test Data"
+            "$ref": "#/components/schemas/InPersonTestData"
           }
         },
         "type": "object",
         "required": [
           "test_type"
         ],
-        "title": "InPersonTestRequest"
+        "title": "InPersonTestRequest",
+        "description": "Tablet envelope — see CONTRATTO_JSON_test.md."
       },
       "ManualLoadRequest": {
         "properties": {
@@ -2370,7 +2899,9 @@
           "muscle_damage_factor": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "number",
+                "maximum": 3.0,
+                "minimum": 0.0
               },
               {
                 "type": "null"
@@ -2397,12 +2928,217 @@
         ],
         "title": "ManualLoadRequest"
       },
+      "PowerDurationPoint": {
+        "properties": {
+          "power_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power W"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "title": "PowerDurationPoint",
+        "description": "MMP value for a single duration."
+      },
+      "PowerSourceActivity": {
+        "properties": {
+          "activity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Id"
+          },
+          "power_source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Source Id"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "trainer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainer Id"
+          },
+          "modality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modality"
+          },
+          "discipline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discipline"
+          },
+          "device_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Name"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "mmp": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "$ref": "#/components/schemas/PowerDurationPoint"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Mmp"
+          },
+          "mmp_curve": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "$ref": "#/components/schemas/PowerDurationPoint"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Mmp Curve"
+          },
+          "curve": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "$ref": "#/components/schemas/PowerDurationPoint"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Curve"
+          },
+          "power_curve": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "$ref": "#/components/schemas/PowerDurationPoint"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Power Curve"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "PowerSourceActivity",
+        "description": "One activity signature for offset detection."
+      },
       "PowerSourceNormalizationRequest": {
         "properties": {
           "activities": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/PowerSourceActivity"
             },
             "type": "array",
             "title": "Activities",
@@ -2421,11 +3157,15 @@
           },
           "warning_threshold_pct": {
             "type": "number",
+            "maximum": 50.0,
+            "minimum": 0.0,
             "title": "Warning Threshold Pct",
             "default": 3.0
           },
           "severe_threshold_pct": {
             "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
             "title": "Severe Threshold Pct",
             "default": 6.0
           }
@@ -2485,14 +3225,11 @@
       "SeasonProjectionRequest": {
         "properties": {
           "twin_state": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Twin State"
+            "$ref": "#/components/schemas/TwinStateDocument"
           },
           "calendar_plan": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/CalendarPlanEvent"
             },
             "type": "array",
             "maxItems": 1000,
@@ -2672,24 +3409,298 @@
         ],
         "title": "TeamCalibrationUpdateRequest"
       },
+      "TwinStateBuildPayload": {
+        "properties": {
+          "athlete_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Id"
+          },
+          "athlete_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AthleteProfileSnippet"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "athlete": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AthleteProfileSnippet"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "measured_anchor": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Anchor"
+          },
+          "anchor": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor"
+          },
+          "metabolic_snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot"
+          },
+          "rolling_power_curve": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rolling Power Curve"
+          },
+          "curve": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Curve"
+          },
+          "load_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load State"
+          },
+          "readiness_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readiness State"
+          },
+          "sensor_quality": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sensor Quality"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "event_log": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Event Log"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "TwinStateBuildPayload",
+        "description": "Input fragments accepted by POST /twin/state/build."
+      },
       "TwinStateBuildRequest": {
         "properties": {
           "payload": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Payload",
+            "$ref": "#/components/schemas/TwinStateBuildPayload",
             "description": "Initial athlete anchor, snapshot, curve and profile fragments."
           }
         },
         "type": "object",
         "title": "TwinStateBuildRequest"
       },
+      "TwinStateDocument": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "twin_state.v1",
+            "title": "Schema Version",
+            "default": "twin_state.v1"
+          },
+          "athlete_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Athlete Id"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          },
+          "athlete_profile": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Athlete Profile"
+          },
+          "measured_anchor": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Measured Anchor"
+          },
+          "metabolic_snapshot": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metabolic Snapshot"
+          },
+          "rolling_power_curve": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Rolling Power Curve"
+          },
+          "load_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Load State"
+          },
+          "readiness_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Readiness State"
+          },
+          "sensor_quality": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Sensor Quality"
+          },
+          "workout_calendar_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Workout Calendar State"
+          },
+          "last_compliance_results": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Last Compliance Results"
+          },
+          "team_calibration_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Team Calibration State"
+          },
+          "state_confidence": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "State Confidence"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "event_log": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Event Log"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "athlete_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TwinStateDocument",
+        "description": "Canonical twin_state.v1 blob for update/projection endpoints."
+      },
       "TwinStateUpdateRideRequest": {
         "properties": {
           "twin_state": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Twin State",
+            "$ref": "#/components/schemas/TwinStateDocument",
             "description": "Current persisted TwinState (twin_state.v1)."
           },
           "ride_summary": {
@@ -2751,14 +3762,10 @@
       "TwinStateUpdateWorkoutRequest": {
         "properties": {
           "twin_state": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Twin State"
+            "$ref": "#/components/schemas/TwinStateDocument"
           },
           "compliance_result": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Compliance Result",
+            "$ref": "#/components/schemas/ComplianceResult",
             "description": "Output of POST /workouts/compare."
           },
           "assignment_id": {
@@ -2860,23 +3867,179 @@
         ],
         "title": "ValidationError"
       },
+      "WorkoutDefinitionInput": {
+        "properties": {
+          "workout_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workout Id"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Title",
+            "default": "Untitled workout"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "discipline": {
+            "type": "string",
+            "title": "Discipline",
+            "default": "cycling"
+          },
+          "goal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/WorkoutStepInput"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Steps"
+          },
+          "structure": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/WorkoutStepInput"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Structure"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "steps"
+        ],
+        "title": "WorkoutDefinitionInput",
+        "description": "Coach workout template or draft."
+      },
+      "WorkoutFeasibilityContext": {
+        "properties": {
+          "w_prime_j": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "W Prime J"
+          },
+          "readiness_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readiness Score"
+          },
+          "fatigue_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fatigue Score"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "WorkoutFeasibilityContext",
+        "description": "Optional readiness/fatigue context for W′ simulation."
+      },
       "WorkoutFeasibilityRequest": {
         "properties": {
           "workout": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Workout"
+            "$ref": "#/components/schemas/WorkoutDefinitionInput"
           },
           "athlete_profile": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Athlete Profile"
+            "$ref": "#/components/schemas/AthleteProfileSnippet"
           },
           "context": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Context",
-            "description": "Optional readiness/fatigue context for W′ simulation."
+            "$ref": "#/components/schemas/WorkoutFeasibilityContext"
           }
         },
         "type": "object",
@@ -2888,14 +4051,10 @@
       "WorkoutPrescribeRequest": {
         "properties": {
           "workout": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Workout"
+            "$ref": "#/components/schemas/WorkoutDefinitionInput"
           },
           "athlete_profile": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Athlete Profile",
+            "$ref": "#/components/schemas/AthleteProfileSnippet",
             "description": "Athlete CP/FTP/weight used to resolve percentage targets."
           }
         },
@@ -2933,12 +4092,278 @@
         ],
         "title": "WorkoutPrescribeResponse"
       },
+      "WorkoutStepInput": {
+        "properties": {
+          "step_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Id"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "description": "work | warmup | cooldown | rest | …",
+            "default": "work"
+          },
+          "step_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Type"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration"
+          },
+          "seconds": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seconds"
+          },
+          "target_type": {
+            "type": "string",
+            "title": "Target Type",
+            "default": "free"
+          },
+          "target_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target W"
+          },
+          "target_min_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Min W"
+          },
+          "target_max_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Max W"
+          },
+          "target_pct_cp": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 300.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Pct Cp"
+          },
+          "target_min_pct_cp": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 300.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Min Pct Cp"
+          },
+          "target_max_pct_cp": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 300.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Max Pct Cp"
+          },
+          "target_pct_ftp": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 300.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Pct Ftp"
+          },
+          "target_min_pct_ftp": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 300.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Min Pct Ftp"
+          },
+          "target_max_pct_ftp": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 300.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Max Pct Ftp"
+          },
+          "target_hr": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 230.0,
+                "minimum": 40.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Hr"
+          },
+          "target_min_hr": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 230.0,
+                "minimum": 40.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Min Hr"
+          },
+          "target_max_hr": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 230.0,
+                "minimum": 40.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Max Hr"
+          },
+          "is_key_step": {
+            "type": "boolean",
+            "title": "Is Key Step",
+            "default": false
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "WorkoutStepInput",
+        "description": "Single workout step — mirrors engines.workouts.models.WorkoutStep JSON."
+      },
       "WorkoutValidateRequest": {
         "properties": {
           "workout": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Workout",
+            "$ref": "#/components/schemas/WorkoutDefinitionInput",
             "description": "Workout template or coach draft with steps."
           }
         },
@@ -2999,13 +4424,13 @@
       "variables": {
         "baseUrl": {
           "default": "http://localhost:8000",
-          "description": "Set via VITE_API_BASE_URL in the frontend"
+          "description": "Frontend env: VITE_API_BASE_URL (Vite) or NEXT_PUBLIC_API_BASE_URL (Next.js/Vercel/v0)"
         }
       }
     }
   ],
   "externalDocs": {
     "description": "Frontend integration guide",
-    "url": "https://github.com/diegotruant/Backend-definitivo-V5/blob/main/docs/FRONTEND_DEVELOPER_GUIDE.md"
+    "url": "https://github.com/diegotruant/Backend-definitivo-V5/blob/main/docs/OPENAPI_FRONTEND.md"
   }
 }

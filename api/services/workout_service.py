@@ -18,28 +18,33 @@ from engines.workouts.models import WorkoutValidationError, materialize_workout,
 class WorkoutService:
     def validate(self, req: WorkoutValidateRequest) -> Dict[str, Any]:
         try:
-            return validate_workout_payload(req.workout)
+            return validate_workout_payload(req.workout.to_engine_dict())
         except WorkoutValidationError as exc:
             raise workout_validation_error(exc) from exc
 
     def prescribe(self, req: WorkoutPrescribeRequest) -> Dict[str, Any]:
+        profile = req.athlete_profile.model_dump(exclude_none=True)
         try:
-            prescription = materialize_workout(req.workout, req.athlete_profile)
+            prescription = materialize_workout(req.workout.to_engine_dict(), profile)
         except WorkoutValidationError as exc:
             raise workout_validation_error(exc) from exc
         return {
             "status": "success",
             "prescription": prescription,
             "athlete_profile_used": {
-                "cp_w": req.athlete_profile.get("cp_w") or req.athlete_profile.get("critical_power_w"),
-                "ftp_w": req.athlete_profile.get("ftp_w") or req.athlete_profile.get("ftp"),
-                "weight_kg": req.athlete_profile.get("weight_kg"),
+                "cp_w": profile.get("cp_w") or profile.get("critical_power_w"),
+                "ftp_w": profile.get("ftp_w") or profile.get("ftp"),
+                "weight_kg": profile.get("weight_kg"),
             },
         }
 
     def analyze_feasibility(self, req: WorkoutFeasibilityRequest) -> Dict[str, Any]:
         try:
-            return analyze_workout_feasibility(req.workout, req.athlete_profile, req.context)
+            return analyze_workout_feasibility(
+                req.workout.to_engine_dict(),
+                req.athlete_profile.model_dump(exclude_none=True),
+                req.context.model_dump(exclude_none=True),
+            )
         except WorkoutValidationError as exc:
             raise workout_validation_error(exc) from exc
 

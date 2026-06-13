@@ -55,7 +55,18 @@ def test_projection_rejects_deeply_nested_twin_state():
     deep: object = {"v": 1}
     for _ in range(security.MAX_JSON_DEPTH + 10):
         deep = {"x": deep}
-    payload = {"twin_state": deep, "calendar_plan": [], "max_days": 30}
+    # Valid TwinState shell so Pydantic accepts the envelope; depth guard runs in the service.
+    payload = {
+        "twin_state": {
+            "schema_version": "twin_state.v1",
+            "athlete_id": "a1",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+            "athlete_profile": deep,
+        },
+        "calendar_plan": [],
+        "max_days": 30,
+    }
     resp = client.post("/twin/state/project", json=payload)
     assert resp.status_code == 400
     assert resp.json()["detail"]["error"] == "PAYLOAD_TOO_DEEP"

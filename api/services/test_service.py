@@ -39,7 +39,7 @@ class TestService:
         return result.to_dict()
 
     def run_in_person(self, req: InPersonTestRequest) -> Dict[str, Any]:
-        envelope = req.model_dump()
+        envelope = req.to_engine_dict()
         athlete = envelope.get("athlete") or {}
         weight = float(athlete.get("weight_kg") or 70.0)
         ctx = AthleteContext(

@@ -515,6 +515,34 @@ export interface components {
              */
             active_muscle_mass_kg?: number | null;
         };
+        /**
+         * AthleteProfileSnippet
+         * @description Subset of athlete fields commonly embedded in TwinState or workout context.
+         */
+        AthleteProfileSnippet: {
+            /** Athlete Id */
+            athlete_id?: string | null;
+            /** Weight Kg */
+            weight_kg?: number | null;
+            /** Gender */
+            gender?: string | null;
+            /** Sex */
+            sex?: string | null;
+            /** Training Years */
+            training_years?: number | null;
+            /** Discipline */
+            discipline?: string | null;
+            /** Cp W */
+            cp_w?: number | null;
+            /** Critical Power W */
+            critical_power_w?: number | null;
+            /** Ftp W */
+            ftp_w?: number | null;
+            /** Ftp */
+            ftp?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** Body_performanceNeuromuscularProfile */
         Body_performanceNeuromuscularProfile: {
             /**
@@ -646,6 +674,23 @@ export interface components {
             /** Power Json */
             power_json?: string | null;
         };
+        /**
+         * CalendarPlanEvent
+         * @description One planned workout/assignment in a season projection.
+         */
+        CalendarPlanEvent: {
+            /** Day */
+            day?: number | null;
+            /** Date */
+            date?: string | null;
+            workout?: components["schemas"]["WorkoutDefinitionInput"] | null;
+            /** Tss */
+            tss?: number | null;
+            /** Notes */
+            notes?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** CalendarTransitionRequest */
         CalendarTransitionRequest: {
             /**
@@ -658,6 +703,26 @@ export interface components {
              * @description Requested next status.
              */
             desired_status: string;
+        };
+        /**
+         * ComplianceResult
+         * @description Output shape from POST /workouts/compare.
+         */
+        ComplianceResult: {
+            /** Status */
+            status?: string | null;
+            /** Compliance Score */
+            compliance_score?: number | null;
+            /** Confidence Score */
+            confidence_score?: number | null;
+            /** Discrepancies */
+            discrepancies?: {
+                [key: string]: unknown;
+            }[];
+            /** Warnings */
+            warnings?: string[];
+        } & {
+            [key: string]: unknown;
         };
         /** ConfirmRequest */
         ConfirmRequest: {
@@ -708,27 +773,93 @@ export interface components {
              */
             version: string;
         };
-        /** InPersonTestRequest */
+        /**
+         * InPersonAthlete
+         * @description Tablet test athlete envelope — see CONTRATTO_JSON_test.md.
+         */
+        InPersonAthlete: {
+            /** Id */
+            id?: string | null;
+            /** Type */
+            type?: ("registered" | "guest") | null;
+            /** Name */
+            name?: string | null;
+            /** Surname */
+            surname?: string | null;
+            /** Dob */
+            dob?: string | null;
+            /**
+             * Weight Kg
+             * @default 70
+             */
+            weight_kg: number;
+            /** Height Cm */
+            height_cm?: number | null;
+            /** Sex */
+            sex?: string | null;
+            /** Gender */
+            gender?: string | null;
+            /** Hr Max */
+            hr_max?: number | null;
+            /**
+             * Training Years
+             * @default 10
+             */
+            training_years: number | null;
+            /**
+             * Discipline
+             * @default ENDURANCE
+             */
+            discipline: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** InPersonDevice */
+        InPersonDevice: {
+            /** Trainer */
+            trainer?: string | null;
+            /** Power Source */
+            power_source?: ("trainer" | "power_meter") | null;
+            /** Control Mode */
+            control_mode?: ("erg" | "manual") | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * InPersonTestData
+         * @description Protocol-specific block — extra keys allowed per CONTRATTO_JSON_test.md.
+         */
+        InPersonTestData: {
+            /** Steps */
+            steps?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Power W */
+            power_w?: number[] | null;
+            /** Lactate Mmol L */
+            lactate_mmol_l?: number[] | null;
+            /** Heart Rate Bpm */
+            heart_rate_bpm?: number[] | null;
+            /** Duration S */
+            duration_s?: number[] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * InPersonTestRequest
+         * @description Tablet envelope — see CONTRATTO_JSON_test.md.
+         */
         InPersonTestRequest: {
             /**
              * Test Type
-             * @description Protocol id — see CONTRATTO_JSON_test.md.
+             * @enum {string}
              */
-            test_type: string;
+            test_type: "mader" | "incrementale" | "curva_pc" | "critical_power" | "wingate";
             /** Timestamp */
             timestamp?: string | null;
-            /** Athlete */
-            athlete?: {
-                [key: string]: unknown;
-            };
-            /** Device */
-            device?: {
-                [key: string]: unknown;
-            } | null;
-            /** Test Data */
-            test_data?: {
-                [key: string]: unknown;
-            };
+            athlete?: components["schemas"]["InPersonAthlete"];
+            device?: components["schemas"]["InPersonDevice"] | null;
+            test_data?: components["schemas"]["InPersonTestData"];
         };
         /** ManualLoadRequest */
         ManualLoadRequest: {
@@ -753,15 +884,65 @@ export interface components {
             /** Notes */
             notes?: string | null;
         };
+        /**
+         * PowerDurationPoint
+         * @description MMP value for a single duration.
+         */
+        PowerDurationPoint: {
+            /** Power W */
+            power_w?: number | null;
+            /** Value */
+            value?: number | null;
+        };
+        /**
+         * PowerSourceActivity
+         * @description One activity signature for offset detection.
+         */
+        PowerSourceActivity: {
+            /** Activity Id */
+            activity_id?: string | null;
+            /** Power Source Id */
+            power_source_id?: string | null;
+            /** Source Id */
+            source_id?: string | null;
+            /** Device Id */
+            device_id?: string | null;
+            /** Trainer Id */
+            trainer_id?: string | null;
+            /** Modality */
+            modality?: string | null;
+            /** Discipline */
+            discipline?: string | null;
+            /** Device Name */
+            device_name?: string | null;
+            /** Source */
+            source?: string | null;
+            /** Mmp */
+            mmp?: {
+                [key: string]: number | components["schemas"]["PowerDurationPoint"];
+            };
+            /** Mmp Curve */
+            mmp_curve?: {
+                [key: string]: number | components["schemas"]["PowerDurationPoint"];
+            };
+            /** Curve */
+            curve?: {
+                [key: string]: number | components["schemas"]["PowerDurationPoint"];
+            };
+            /** Power Curve */
+            power_curve?: {
+                [key: string]: number | components["schemas"]["PowerDurationPoint"];
+            };
+        } & {
+            [key: string]: unknown;
+        };
         /** PowerSourceNormalizationRequest */
         PowerSourceNormalizationRequest: {
             /**
              * Activities
              * @description Activities with source_id and MMP signatures.
              */
-            activities?: {
-                [key: string]: unknown;
-            }[];
+            activities?: components["schemas"]["PowerSourceActivity"][];
             /** Baseline Source Id */
             baseline_source_id?: string | null;
             /**
@@ -811,17 +992,12 @@ export interface components {
         };
         /** SeasonProjectionRequest */
         SeasonProjectionRequest: {
-            /** Twin State */
-            twin_state: {
-                [key: string]: unknown;
-            };
+            twin_state: components["schemas"]["TwinStateDocument"];
             /**
              * Calendar Plan
              * @description Future planned workouts/assignments.
              */
-            calendar_plan?: {
-                [key: string]: unknown;
-            }[];
+            calendar_plan?: components["schemas"]["CalendarPlanEvent"][];
             /**
              * Start Date
              * @description ISO date projection start.
@@ -898,25 +1074,141 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /**
+         * TwinStateBuildPayload
+         * @description Input fragments accepted by POST /twin/state/build.
+         */
+        TwinStateBuildPayload: {
+            /** Athlete Id */
+            athlete_id?: string | null;
+            athlete_profile?: components["schemas"]["AthleteProfileSnippet"] | null;
+            athlete?: components["schemas"]["AthleteProfileSnippet"] | null;
+            /** Measured Anchor */
+            measured_anchor?: {
+                [key: string]: unknown;
+            } | null;
+            /** Anchor */
+            anchor?: {
+                [key: string]: unknown;
+            } | null;
+            /** Metabolic Snapshot */
+            metabolic_snapshot?: {
+                [key: string]: unknown;
+            } | null;
+            /** Snapshot */
+            snapshot?: {
+                [key: string]: unknown;
+            } | null;
+            /** Rolling Power Curve */
+            rolling_power_curve?: {
+                [key: string]: unknown;
+            } | null;
+            /** Curve */
+            curve?: {
+                [key: string]: unknown;
+            } | null;
+            /** Load State */
+            load_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Readiness State */
+            readiness_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Sensor Quality */
+            sensor_quality?: {
+                [key: string]: unknown;
+            } | null;
+            /** Warnings */
+            warnings?: string[];
+            /** Event Log */
+            event_log?: {
+                [key: string]: unknown;
+            }[];
+            /** Source */
+            source?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** TwinStateBuildRequest */
         TwinStateBuildRequest: {
+            /** @description Initial athlete anchor, snapshot, curve and profile fragments. */
+            payload?: components["schemas"]["TwinStateBuildPayload"];
+        };
+        /**
+         * TwinStateDocument
+         * @description Canonical twin_state.v1 blob for update/projection endpoints.
+         */
+        TwinStateDocument: {
             /**
-             * Payload
-             * @description Initial athlete anchor, snapshot, curve and profile fragments.
+             * Schema Version
+             * @default twin_state.v1
+             * @constant
              */
-            payload?: {
+            schema_version: "twin_state.v1";
+            /** Athlete Id */
+            athlete_id: string;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /** Athlete Profile */
+            athlete_profile?: {
                 [key: string]: unknown;
             };
+            /** Measured Anchor */
+            measured_anchor?: {
+                [key: string]: unknown;
+            };
+            /** Metabolic Snapshot */
+            metabolic_snapshot?: {
+                [key: string]: unknown;
+            };
+            /** Rolling Power Curve */
+            rolling_power_curve?: {
+                [key: string]: unknown;
+            };
+            /** Load State */
+            load_state?: {
+                [key: string]: unknown;
+            };
+            /** Readiness State */
+            readiness_state?: {
+                [key: string]: unknown;
+            };
+            /** Sensor Quality */
+            sensor_quality?: {
+                [key: string]: unknown;
+            };
+            /** Workout Calendar State */
+            workout_calendar_state?: {
+                [key: string]: unknown;
+            };
+            /** Last Compliance Results */
+            last_compliance_results?: {
+                [key: string]: unknown;
+            }[];
+            /** Team Calibration State */
+            team_calibration_state?: {
+                [key: string]: unknown;
+            };
+            /** State Confidence */
+            state_confidence?: {
+                [key: string]: unknown;
+            };
+            /** Warnings */
+            warnings?: string[];
+            /** Event Log */
+            event_log?: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
         };
         /** TwinStateUpdateRideRequest */
         TwinStateUpdateRideRequest: {
-            /**
-             * Twin State
-             * @description Current persisted TwinState (twin_state.v1).
-             */
-            twin_state: {
-                [key: string]: unknown;
-            };
+            /** @description Current persisted TwinState (twin_state.v1). */
+            twin_state: components["schemas"]["TwinStateDocument"];
             /**
              * Ride Summary
              * @description Output of POST /ride/summary.
@@ -940,17 +1232,9 @@ export interface components {
         };
         /** TwinStateUpdateWorkoutRequest */
         TwinStateUpdateWorkoutRequest: {
-            /** Twin State */
-            twin_state: {
-                [key: string]: unknown;
-            };
-            /**
-             * Compliance Result
-             * @description Output of POST /workouts/compare.
-             */
-            compliance_result: {
-                [key: string]: unknown;
-            };
+            twin_state: components["schemas"]["TwinStateDocument"];
+            /** @description Output of POST /workouts/compare. */
+            compliance_result: components["schemas"]["ComplianceResult"];
             /** Assignment Id */
             assignment_id?: string | null;
         };
@@ -996,37 +1280,67 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /**
+         * WorkoutDefinitionInput
+         * @description Coach workout template or draft.
+         */
+        WorkoutDefinitionInput: {
+            /** Workout Id */
+            workout_id?: string | null;
+            /** Id */
+            id?: string | null;
+            /**
+             * Title
+             * @default Untitled workout
+             */
+            title: string;
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Discipline
+             * @default cycling
+             */
+            discipline: string;
+            /** Goal */
+            goal?: string | null;
+            /** Tags */
+            tags?: string[];
+            /** Steps */
+            steps: components["schemas"]["WorkoutStepInput"][];
+            /** Structure */
+            structure?: components["schemas"]["WorkoutStepInput"][] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * WorkoutFeasibilityContext
+         * @description Optional readiness/fatigue context for W′ simulation.
+         */
+        WorkoutFeasibilityContext: {
+            /** W Prime J */
+            w_prime_j?: number | null;
+            /** Readiness Score */
+            readiness_score?: number | null;
+            /** Fatigue Score */
+            fatigue_score?: number | null;
+            /** Notes */
+            notes?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** WorkoutFeasibilityRequest */
         WorkoutFeasibilityRequest: {
-            /** Workout */
-            workout: {
-                [key: string]: unknown;
-            };
-            /** Athlete Profile */
-            athlete_profile?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Context
-             * @description Optional readiness/fatigue context for W′ simulation.
-             */
-            context?: {
-                [key: string]: unknown;
-            };
+            workout: components["schemas"]["WorkoutDefinitionInput"];
+            athlete_profile?: components["schemas"]["AthleteProfileSnippet"];
+            context?: components["schemas"]["WorkoutFeasibilityContext"];
         };
         /** WorkoutPrescribeRequest */
         WorkoutPrescribeRequest: {
-            /** Workout */
-            workout: {
-                [key: string]: unknown;
-            };
-            /**
-             * Athlete Profile
-             * @description Athlete CP/FTP/weight used to resolve percentage targets.
-             */
-            athlete_profile?: {
-                [key: string]: unknown;
-            };
+            workout: components["schemas"]["WorkoutDefinitionInput"];
+            /** @description Athlete CP/FTP/weight used to resolve percentage targets. */
+            athlete_profile?: components["schemas"]["AthleteProfileSnippet"];
         };
         /** WorkoutPrescribeResponse */
         WorkoutPrescribeResponse: {
@@ -1041,15 +1355,74 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /**
+         * WorkoutStepInput
+         * @description Single workout step — mirrors engines.workouts.models.WorkoutStep JSON.
+         */
+        WorkoutStepInput: {
+            /** Step Id */
+            step_id?: string | null;
+            /** Id */
+            id?: string | null;
+            /**
+             * Type
+             * @description work | warmup | cooldown | rest | …
+             * @default work
+             */
+            type: string;
+            /** Step Type */
+            step_type?: string | null;
+            /** Duration S */
+            duration_s?: number | null;
+            /** Duration */
+            duration?: number | null;
+            /** Seconds */
+            seconds?: number | null;
+            /**
+             * Target Type
+             * @default free
+             */
+            target_type: string;
+            /** Target W */
+            target_w?: number | null;
+            /** Target Min W */
+            target_min_w?: number | null;
+            /** Target Max W */
+            target_max_w?: number | null;
+            /** Target Pct Cp */
+            target_pct_cp?: number | null;
+            /** Target Min Pct Cp */
+            target_min_pct_cp?: number | null;
+            /** Target Max Pct Cp */
+            target_max_pct_cp?: number | null;
+            /** Target Pct Ftp */
+            target_pct_ftp?: number | null;
+            /** Target Min Pct Ftp */
+            target_min_pct_ftp?: number | null;
+            /** Target Max Pct Ftp */
+            target_max_pct_ftp?: number | null;
+            /** Target Hr */
+            target_hr?: number | null;
+            /** Target Min Hr */
+            target_min_hr?: number | null;
+            /** Target Max Hr */
+            target_max_hr?: number | null;
+            /**
+             * Is Key Step
+             * @default false
+             */
+            is_key_step: boolean;
+            /** Key */
+            key?: boolean | null;
+            /** Notes */
+            notes?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** WorkoutValidateRequest */
         WorkoutValidateRequest: {
-            /**
-             * Workout
-             * @description Workout template or coach draft with steps.
-             */
-            workout: {
-                [key: string]: unknown;
-            };
+            /** @description Workout template or coach draft with steps. */
+            workout: components["schemas"]["WorkoutDefinitionInput"];
         };
     };
     responses: never;

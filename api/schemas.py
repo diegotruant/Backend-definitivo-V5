@@ -6,6 +6,17 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from api.domain_schemas import (
+    AthleteProfileSnippet,
+    CalendarPlanEvent,
+    ComplianceResult,
+    InPersonTestEnvelope,
+    PowerSourceActivity,
+    TwinStateBuildPayload,
+    TwinStateDocument,
+    WorkoutDefinitionInput,
+    WorkoutFeasibilityContext,
+)
 from engines.core.security import MAX_CALENDAR_EVENTS, MAX_PROJECTION_DAYS
 
 
@@ -49,22 +60,22 @@ class SnapshotRequest(BaseModel):
 
 
 class WorkoutValidateRequest(BaseModel):
-    workout: Dict[str, Any] = Field(description="Workout template or coach draft with steps.")
+    workout: WorkoutDefinitionInput = Field(description="Workout template or coach draft with steps.")
 
 
 class WorkoutPrescribeRequest(BaseModel):
-    workout: Dict[str, Any]
-    athlete_profile: Dict[str, Any] = Field(
-        default_factory=dict,
+    workout: WorkoutDefinitionInput
+    athlete_profile: AthleteProfileSnippet = Field(
+        default_factory=AthleteProfileSnippet,
         description="Athlete CP/FTP/weight used to resolve percentage targets.",
     )
 
 
 class WorkoutFeasibilityRequest(BaseModel):
-    workout: Dict[str, Any]
-    athlete_profile: Dict[str, Any] = Field(default_factory=dict)
-    context: Dict[str, Any] = Field(
-        default_factory=dict,
+    workout: WorkoutDefinitionInput
+    athlete_profile: AthleteProfileSnippet = Field(default_factory=AthleteProfileSnippet)
+    context: WorkoutFeasibilityContext = Field(
+        default_factory=WorkoutFeasibilityContext,
         description="Optional readiness/fatigue context for W′ simulation.",
     )
 
@@ -99,23 +110,19 @@ class TeamCalibrationApplyRequest(BaseModel):
     data_depth_score: float = Field(default=1.0, ge=0, le=1)
 
 
-class InPersonTestRequest(BaseModel):
-    test_type: str = Field(description="Protocol id — see CONTRATTO_JSON_test.md.")
-    timestamp: Optional[str] = None
-    athlete: Dict[str, Any] = Field(default_factory=dict)
-    device: Optional[Dict[str, Any]] = None
-    test_data: Dict[str, Any] = Field(default_factory=dict)
+class InPersonTestRequest(InPersonTestEnvelope):
+    """Tablet envelope — see CONTRATTO_JSON_test.md."""
 
 
 class TwinStateBuildRequest(BaseModel):
-    payload: Dict[str, Any] = Field(
-        default_factory=dict,
+    payload: TwinStateBuildPayload = Field(
+        default_factory=TwinStateBuildPayload,
         description="Initial athlete anchor, snapshot, curve and profile fragments.",
     )
 
 
 class TwinStateUpdateRideRequest(BaseModel):
-    twin_state: Dict[str, Any] = Field(description="Current persisted TwinState (twin_state.v1).")
+    twin_state: TwinStateDocument = Field(description="Current persisted TwinState (twin_state.v1).")
     ride_summary: Optional[Dict[str, Any]] = Field(default=None, description="Output of POST /ride/summary.")
     ingest_result: Optional[Dict[str, Any]] = Field(default=None, description="Output of POST /ride/ingest.")
     power_source_report: Optional[Dict[str, Any]] = None
@@ -123,14 +130,14 @@ class TwinStateUpdateRideRequest(BaseModel):
 
 
 class TwinStateUpdateWorkoutRequest(BaseModel):
-    twin_state: Dict[str, Any]
-    compliance_result: Dict[str, Any] = Field(description="Output of POST /workouts/compare.")
+    twin_state: TwinStateDocument
+    compliance_result: ComplianceResult = Field(description="Output of POST /workouts/compare.")
     assignment_id: Optional[str] = None
 
 
 class SeasonProjectionRequest(BaseModel):
-    twin_state: Dict[str, Any]
-    calendar_plan: List[Dict[str, Any]] = Field(
+    twin_state: TwinStateDocument
+    calendar_plan: List[CalendarPlanEvent] = Field(
         default_factory=list,
         max_length=MAX_CALENDAR_EVENTS,
         description="Future planned workouts/assignments.",
@@ -141,18 +148,18 @@ class SeasonProjectionRequest(BaseModel):
 
 
 class PowerSourceNormalizationRequest(BaseModel):
-    activities: List[Dict[str, Any]] = Field(
+    activities: List[PowerSourceActivity] = Field(
         default_factory=list,
         description="Activities with source_id and MMP signatures.",
     )
     baseline_source_id: Optional[str] = None
-    warning_threshold_pct: float = Field(default=3.0)
-    severe_threshold_pct: float = Field(default=6.0)
+    warning_threshold_pct: float = Field(default=3.0, ge=0, le=50)
+    severe_threshold_pct: float = Field(default=6.0, ge=0, le=100)
 
 
 class ManualLoadRequest(BaseModel):
     duration_min: float = Field(..., ge=0, le=600, description="Session duration in minutes.")
     rpe: float = Field(..., ge=0, le=10, description="Session RPE 0–10.")
     modality: str = Field(default="other", description="gym, run, swim, other, …")
-    muscle_damage_factor: Optional[float] = None
+    muscle_damage_factor: Optional[float] = Field(default=None, ge=0, le=3)
     notes: Optional[str] = None

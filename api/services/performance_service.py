@@ -22,8 +22,9 @@ class PerformanceService:
         )
 
     def normalize_power_sources(self, req: PowerSourceNormalizationRequest) -> Dict[str, Any]:
+        activities: List[Dict[str, Any]] = [item.to_engine_dict() for item in req.activities]
         return analyze_power_source_offsets(
-            req.activities,
+            activities,
             baseline_source_id=req.baseline_source_id,
             warning_threshold_pct=req.warning_threshold_pct,
             severe_threshold_pct=req.severe_threshold_pct,

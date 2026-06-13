@@ -28,8 +28,13 @@ api/
   app.py              # FastAPI factory, middleware, exception handlers
   deps.py             # Service singletons (Depends)
   errors.py           # ServiceError → HTTP mapping
-  schemas.py          # Pydantic request DTOs
-  helpers.py          # Upload parsing, JSON safety (HTTP-adjacent)
+  schemas.py          # Pydantic request DTOs (HTTP envelope)
+  domain_schemas.py   # Typed domain payloads (TwinState, Workout, tests, …)
+  serialization.py    # JSON safety (NaN, response helpers)
+  upload.py           # Multipart FIT upload parsing
+  parsing.py          # Dates, snapshots, athlete context coercion
+  activity_streams.py # Power stream loading / conversion
+  helpers.py          # Re-export barrel (backward compatible)
   routers/            # One module per domain
   services/           # One class per domain use-case group
 

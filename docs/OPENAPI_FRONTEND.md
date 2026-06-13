@@ -12,10 +12,27 @@
 
 ## Setup frontend
 
+### Variabile base URL
+
+Il client (`frontend/src/api/client.ts`) risolve l'URL in questo ordine:
+
+1. `VITE_API_BASE_URL` — **Vite** (MVP attuale in `frontend/`)
+2. `NEXT_PUBLIC_API_BASE_URL` — **Next.js / Vercel / v0**
+3. fallback `http://localhost:8000`
+
+**Vite** (`.env.local`):
+
 ```bash
-# .env.local
 VITE_API_BASE_URL=http://localhost:8000
 ```
+
+**Next.js / Vercel** (`.env.local`):
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
+In produzione punta alla URL del backend deployato (es. `https://api.tuodominio.com`).
 
 ```typescript
 import { api, ApiError } from '@/api/client';

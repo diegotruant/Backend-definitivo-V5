@@ -1,96 +1,157 @@
 # Backend-definitivo-V5
 
 Backend Python per analisi fisiologica e performance cycling (Digital Twin).
-Il repository mantiene la logica applicativa esistente e aggiunge una struttura di lavoro più professionale per sviluppo, qualità e CI.
+
+Versione attuale: **5.1.0** — API stateless, TwinState canonico, OpenAPI completo, service layer tipizzato.
 
 ## Panoramica
 
-- Core analytics in moduli Python + facade `engines/`
-- API HTTP con FastAPI in `api_app.py`
-- Suite storica di test script-based (`test_*.py`)
-- Nuovi smoke test in `tests/`
+| Layer | Path | Ruolo |
+|-------|------|--------|
+| **Entrypoint HTTP** | `api_app.py` | Shim compatibile per `uvicorn api_app:app` |
+| **API package** | `api/` | Router, service, schemi, upload, serializzazione |
+| **Motori fisiologici** | `engines/` | Algoritmi, tier, contratti metrica |
+| **Contratto OpenAPI** | `openapi/openapi.json` | 24 endpoint documentati |
+| **Frontend client** | `frontend/src/api/` | Tipi TS generati + client `api.*` |
+| **Test** | `tests/` | pytest smoke/hardening + `tests/integration/` |
+
+## Architettura API (`api/`)
+
+```text
+api/
+├── app.py                 # FastAPI factory, middleware, exception handlers
+├── deps.py                # Dependency injection (Depends → services)
+├── errors.py              # ServiceError → HTTP 4xx
+├── schemas.py             # Request DTO Pydantic (API boundary)
+├── domain_schemas.py      # Payload tipizzati: TwinState, Workout, InPersonTest, …
+├── serialization.py       # JSON safety (NaN/Inf → null)
+├── upload.py              # FIT multipart parsing
+├── parsing.py             # Date, snapshot, curve coercion, AthleteContext
+├── activity_streams.py    # FIT o power_json → ActivityStream
+├── helpers.py             # Re-export legacy (prefer moduli sopra)
+├── openapi.py             # Metadata OpenAPI (servers, codegen hints)
+├── responses.py           # Response models per Swagger
+├── route_docs.py          # OpenAPI response templates
+├── routers/               # HTTP thin — un file per dominio
+│   ├── health.py
+│   ├── test_routes.py
+│   ├── ride.py
+│   ├── profile.py
+│   ├── workouts.py
+│   ├── twin.py
+│   ├── performance.py
+│   ├── load.py
+│   └── team.py
+└── services/              # Orchestrazione use-case (no FastAPI)
+    ├── test_service.py
+    ├── ride_service.py
+    ├── profile_service.py
+    ├── workout_service.py
+    ├── twin_service.py
+    ├── team_service.py
+    ├── performance_service.py
+    └── load_service.py
+```
+
+Flusso: **router → service → engines**. Dettagli in `docs/ARCHITECTURE.md`.
 
 ## Setup locale
 
-Prerequisiti:
-
-- Python 3.10+
-- `pip`
-
-Installazione:
+Prerequisiti: Python 3.10+, pip.
 
 ```bash
 make install
+cp .env.example .env   # opzionale
+make run               # http://127.0.0.1:8000
 ```
 
-oppure:
-
-```bash
-python -m pip install -r requirements-dev.txt
-```
-
-## Variabili ambiente
-
-Copiare il template:
-
-```bash
-cp .env.example .env
-```
-
-Variabili principali:
-
-- `DIGITAL_TWIN_API_TITLE`
-- `DIGITAL_TWIN_API_VERSION`
-- `UVICORN_HOST`
-- `UVICORN_PORT`
-- `UVICORN_RELOAD`
+Swagger UI: `http://localhost:8000/docs`
 
 ## Comandi sviluppo
 
 ```bash
-make run        # avvia API FastAPI (uvicorn)
-make test       # smoke test pytest
-make lint       # ruff
-make format     # black
-make typecheck  # mypy
-make precommit  # esegue hooks su tutti i file
+make run              # uvicorn api_app:app
+make test             # smoke pytest (veloce, CI default)
+make test-all         # pytest completo + integration scripts
+make hardening-test   # robustezza input malformati
+make stress-test      # subset stress bounded
+make check            # lint + mypy + test-all + hardening (release gate)
+make openapi-frontend # export openapi.json + rigenera tipi TS
+make lint | format | typecheck
 ```
 
-## Test legacy (compatibilità)
+## Test
 
-La suite storica resta disponibile:
+| Suite | Comando |
+|-------|---------|
+| Smoke (CI rapida) | `make test` |
+| Completa | `make test-all` |
+| Integration scripts | `tests/integration/test_*.py` via `pytest_script_suite.py` |
+| Release gate | `make check` |
 
-```bash
-python -m pytest -q pytest_script_suite.py
-```
-
-## Struttura cartelle
+## Struttura repository
 
 ```text
 .
-├── .github/workflows/        # CI
-├── docs/                     # documentazione tecnica/scientifica
-├── engines/                  # package facade pubblico
-├── frontend/                 # client TypeScript (non ristrutturato)
-├── reports/                  # report generati
-├── scripts/                  # script di supporto (scaffold per crescita)
-├── tests/                    # test pytest moderni (smoke)
-├── api_app.py                # entrypoint API FastAPI
-├── pyproject.toml            # package metadata + tool config
-├── requirements-dev.txt      # dipendenze sviluppo
-├── .pre-commit-config.yaml   # hooks qualità automatica
-└── Makefile                  # task comuni sviluppo
+├── api/                      # HTTP layer (router + service + schemas)
+├── api_app.py                # entrypoint uvicorn
+├── engines/                  # motori fisiologici
+│   ├── core/                 # tier, security, athlete_context
+│   ├── metabolic/            # profiler, team learning, zones
+│   ├── performance/          # power, MMP, durability, protocols
+│   ├── recovery/             # HRV, cardiac, thermal
+│   ├── io/                   # FIT parser, workout_summary, charts
+│   ├── twin_state/           # TwinState v1 canonico
+│   ├── workouts/             # prescription, compliance, calendar
+│   ├── projection/           # season what-if
+│   └── load/                 # manual non-cycling load
+├── openapi/                  # openapi.json committato
+├── frontend/                   # client Vite/React + api/client.ts
+├── tests/
+│   ├── pytest_*.py           # smoke, hardening, security
+│   └── integration/          # regression script eseguibili
+├── docs/                     # ARCHITECTURE, FRONTEND_DEVELOPER_GUIDE, OPENAPI_FRONTEND
+├── scripts/export_openapi.py
+├── tools/stress/             # multitenant + deep bottleneck harness
+└── Makefile
 ```
+
+## Documentazione
+
+| Documento | Contenuto |
+|-----------|-----------|
+| `docs/ARCHITECTURE.md` | Layering router/service/engines |
+| `docs/FRONTEND_DEVELOPER_GUIDE.md` | Integrazione frontend, TwinState, endpoint map |
+| `docs/OPENAPI_FRONTEND.md` | OpenAPI, codegen, variabili env frontend |
+| `openapi/README.md` | Contratto HTTP committato |
 
 ## CI
 
-La GitHub Action (`.github/workflows/ci.yml`) esegue su push/PR:
+| Workflow | Trigger | Gate |
+|----------|---------|------|
+| `.github/workflows/ci.yml` | push/PR | `make lint` + `make test` (smoke veloce) |
+| `.github/workflows/full-check.yml` | push main, PR, weekly | `make check` (release gate) |
+| `.github/workflows/hardening.yml` | manual | hardening + stress subset |
 
-1. install dipendenze con cache pip
-2. `make lint`
-3. `make test`
+## Frontend API base URL
 
-## Note
+Il backend è agnostico. Il client supporta entrambe le convenzioni:
 
-- Nessun cambiamento funzionale intenzionale agli engine.
-- La configurazione è pensata per evolvere gradualmente verso una struttura ancora più modulare senza rompere compatibilità esistente.
+| Stack | Variabile |
+|-------|-----------|
+| **Vite** (MVP in `frontend/`) | `VITE_API_BASE_URL` |
+| **Next.js / Vercel / v0** | `NEXT_PUBLIC_API_BASE_URL` |
+
+## Cosa include V5.1
+
+- TwinState canonico (`twin_state.v1`) + projection stagionale
+- Workout system (validate → prescribe → feasibility → compare)
+- Team learning calibration
+- mader_durability, neuromuscular profile, manual load
+- Security hardening (upload limits, JSON depth, CORS)
+- OpenAPI 3.1 con 24 endpoint + client TypeScript generato
+
+## Branch
+
+- `main` — backend attuale
+- `old/main` — snapshot pre-refactor architetturale
