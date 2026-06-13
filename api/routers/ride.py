@@ -15,6 +15,8 @@ from api.helpers import (
     parse_metabolic_snapshot,
     parse_upload,
 )
+from api.responses import EnginePayload, RideIngestResponse
+from api.route_docs import ERRORS, JSON_OBJECT, RIDE_INGEST_OK
 from api.schemas import AthleteParams, UpdateProfileRequest
 from api.services.ride_service import RideService
 from engines.core.security import safe_error_detail
@@ -22,12 +24,22 @@ from engines.core.security import safe_error_detail
 router = APIRouter(prefix="/ride", tags=["ride"])
 
 
-@router.post("/ingest")
+@router.post(
+    "/ingest",
+    summary="Ingest ride FIT and update power curve",
+    description="Parse one ride FIT, merge into the rolling MMP curve and return persistable state.",
+    operation_id="rideIngest",
+    response_model=RideIngestResponse,
+    responses={200: RIDE_INGEST_OK, 400: ERRORS[400], 422: ERRORS[422]},
+)
 async def ingest_ride(
-    file: UploadFile = File(...),
-    ride_date: str = Form(...),
-    weight_kg: float = Form(70.0),
-    stored_curve_json: Optional[str] = Form(None),
+    file: UploadFile = File(..., description="Ride FIT file."),
+    ride_date: str = Form(..., description="ISO date YYYY-MM-DD."),
+    weight_kg: float = Form(70.0, description="Athlete weight in kg."),
+    stored_curve_json: Optional[str] = Form(
+        None,
+        description="Previously persisted curve JSON (optional).",
+    ),
     service: RideService = Depends(get_ride_service),
 ):
     try:
@@ -50,7 +62,14 @@ async def ingest_ride(
     )
 
 
-@router.post("/update-profile")
+@router.post(
+    "/update-profile",
+    summary="Update profile from ride MMP",
+    description="Bayesian-style profile update using stored anchor and ride MMP.",
+    operation_id="rideUpdateProfile",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400]},
+)
 def update_profile(
     req: UpdateProfileRequest,
     service: RideService = Depends(get_ride_service),
@@ -58,19 +77,29 @@ def update_profile(
     return json_response(service.update_profile(req))
 
 
-@router.post("/summary")
+@router.post(
+    "/summary",
+    summary="Full activity workout summary",
+    description="Orchestrated per-activity report (power, zones, cardiac, HRV, mader_durability).",
+    operation_id="rideSummary",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400], 413: ERRORS[413]},
+)
 async def ride_summary(
-    weight_kg: float = Form(...),
-    ftp: Optional[float] = Form(None),
-    lthr: Optional[float] = Form(None),
+    weight_kg: float = Form(..., description="Athlete weight kg."),
+    ftp: Optional[float] = Form(None, description="Optional FTP override for zones."),
+    lthr: Optional[float] = Form(None, description="Optional LTHR override."),
     gender: str = Form("MALE"),
     training_years: float = Form(10),
     discipline: str = Form("ENDURANCE"),
-    metabolic_snapshot_json: Optional[str] = Form(None),
+    metabolic_snapshot_json: Optional[str] = Form(
+        None,
+        description="Successful /profile/snapshot JSON to unlock durability sections.",
+    ),
     hrv_step_seconds: Optional[float] = Form(None),
     hrv_max_windows: int = Form(500),
-    file: Optional[UploadFile] = File(None),
-    power_json: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None, description="Ride FIT file."),
+    power_json: Optional[str] = Form(None, description="Alternative: 1 Hz power JSON array."),
     service: RideService = Depends(get_ride_service),
 ):
     stream = await load_activity_stream(file, power_json)
@@ -94,10 +123,17 @@ async def ride_summary(
     )
 
 
-@router.post("/durability")
+@router.post(
+    "/durability",
+    summary="Mader session durability",
+    description="Mechanistic CP residual curve and sustainable power targets for the ride.",
+    operation_id="rideDurability",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400], 422: ERRORS[422]},
+)
 async def ride_durability(
     weight_kg: float = Form(...),
-    metabolic_snapshot_json: str = Form(...),
+    metabolic_snapshot_json: str = Form(..., description="Required successful metabolic snapshot."),
     file: Optional[UploadFile] = File(None),
     power_json: Optional[str] = Form(None),
     service: RideService = Depends(get_ride_service),

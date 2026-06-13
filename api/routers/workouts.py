@@ -8,6 +8,8 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 from api.deps import get_workout_service
 from api.errors import invalid_json_field
 from api.helpers import json_response, load_activity_stream
+from api.responses import EnginePayload, WorkoutPrescribeResponse
+from api.route_docs import ERRORS, JSON_OBJECT, WORKOUT_PRESCRIBE_OK
 from api.schemas import (
     CalendarTransitionRequest,
     WorkoutFeasibilityRequest,
@@ -19,7 +21,13 @@ from api.services.workout_service import WorkoutService
 router = APIRouter(prefix="/workouts", tags=["workouts"])
 
 
-@router.post("/validate")
+@router.post(
+    "/validate",
+    summary="Validate workout template",
+    operation_id="workoutsValidate",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400]},
+)
 def validate_workout(
     req: WorkoutValidateRequest,
     service: WorkoutService = Depends(get_workout_service),
@@ -27,7 +35,14 @@ def validate_workout(
     return json_response(service.validate(req))
 
 
-@router.post("/prescribe")
+@router.post(
+    "/prescribe",
+    summary="Prescribe workout to athlete watts",
+    description="Resolve percentage targets to concrete watts/HR for the athlete profile.",
+    operation_id="workoutsPrescribe",
+    response_model=WorkoutPrescribeResponse,
+    responses={200: WORKOUT_PRESCRIBE_OK, 400: ERRORS[400]},
+)
 def prescribe_workout(
     req: WorkoutPrescribeRequest,
     service: WorkoutService = Depends(get_workout_service),
@@ -35,7 +50,14 @@ def prescribe_workout(
     return json_response(service.prescribe(req))
 
 
-@router.post("/feasibility")
+@router.post(
+    "/feasibility",
+    summary="Preview workout feasibility",
+    description="W′ balance simulation before calendar assignment.",
+    operation_id="workoutsFeasibility",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400]},
+)
 def workout_feasibility(
     req: WorkoutFeasibilityRequest,
     service: WorkoutService = Depends(get_workout_service),
@@ -43,9 +65,16 @@ def workout_feasibility(
     return json_response(service.analyze_feasibility(req))
 
 
-@router.post("/compare")
+@router.post(
+    "/compare",
+    summary="Compare assigned vs performed workout",
+    description="Compliance score between prescribed workout and performed FIT/power stream.",
+    operation_id="workoutsCompare",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400], 413: ERRORS[413]},
+)
 async def workout_compare(
-    workout_json: str = Form(...),
+    workout_json: str = Form(..., description="Assigned workout JSON."),
     athlete_profile_json: Optional[str] = Form(None),
     tolerance_policy_json: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
@@ -71,7 +100,13 @@ async def workout_compare(
     )
 
 
-@router.post("/calendar/transition")
+@router.post(
+    "/calendar/transition",
+    summary="Validate calendar assignment transition",
+    operation_id="workoutsCalendarTransition",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400]},
+)
 def workout_calendar_transition(
     req: CalendarTransitionRequest,
     service: WorkoutService = Depends(get_workout_service),

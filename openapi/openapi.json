@@ -1,0 +1,3011 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Digital Twin Fisiologico API",
+    "description": "Stateless physiology analytics API. HTTP routers are thin; application services orchestrate engines under `engines/`.",
+    "version": "5.1.0",
+    "x-codegen": {
+      "typescript_output": "frontend/src/api/generated/schema.ts",
+      "regenerate": "make openapi-frontend"
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health check",
+        "description": "Liveness probe and API version.",
+        "operationId": "healthCheck",
+        "responses": {
+          "200": {
+            "description": "Service healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "title": "Status",
+                      "description": "Always 'ok' when the service is up.",
+                      "examples": [
+                        "ok"
+                      ]
+                    },
+                    "service": {
+                      "type": "string",
+                      "title": "Service",
+                      "description": "Service identifier.",
+                      "examples": [
+                        "digital-twin-api"
+                      ]
+                    },
+                    "version": {
+                      "type": "string",
+                      "title": "Version",
+                      "description": "API semver.",
+                      "examples": [
+                        "5.1.0"
+                      ]
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "service",
+                    "version"
+                  ],
+                  "title": "HealthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable FIT or activity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/test/propose": {
+      "post": {
+        "tags": [
+          "test"
+        ],
+        "summary": "Propose profile from FIT tests",
+        "description": "Upload one or more FIT files (sprint + CP blocks). Returns a ProfileProposal for coach review. Does not commit an anchor.",
+        "operationId": "testPropose",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_testPropose"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable FIT or activity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/test/confirm": {
+      "post": {
+        "tags": [
+          "test"
+        ],
+        "summary": "Confirm measured profile anchor",
+        "description": "Build the measured-profile anchor from a coach-confirmed proposal.",
+        "operationId": "testConfirm",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/test/in-person": {
+      "post": {
+        "tags": [
+          "test"
+        ],
+        "summary": "Run in-person tablet test",
+        "description": "Dispatch tablet JSON envelope to test_protocols (Mader, CP, Wingate, …).",
+        "operationId": "testInPerson",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InPersonTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ride/ingest": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Ingest ride FIT and update power curve",
+        "description": "Parse one ride FIT, merge into the rolling MMP curve and return persistable state.",
+        "operationId": "rideIngest",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideIngest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated rolling power curve",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RideIngestResponse",
+                  "properties": {
+                    "curve": {
+                      "additionalProperties": true,
+                      "type": "object",
+                      "title": "Curve",
+                      "description": "Rolling power-duration curve to persist."
+                    },
+                    "mmp_for_profiler": {
+                      "additionalProperties": {
+                        "type": "number"
+                      },
+                      "type": "object",
+                      "title": "Mmp For Profiler",
+                      "description": "MMP slice for metabolic profiler."
+                    },
+                    "improvements": {
+                      "type": "integer",
+                      "title": "Improvements",
+                      "description": "Number of duration records improved on this ride."
+                    },
+                    "ride_usable": {
+                      "type": "boolean",
+                      "title": "Ride Usable",
+                      "description": "Whether the ride should contribute to the curve."
+                    },
+                    "profile_should_refresh": {
+                      "type": "boolean",
+                      "title": "Profile Should Refresh",
+                      "description": "Whether anchor/snapshot should be recomputed."
+                    },
+                    "notes": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array",
+                      "title": "Notes"
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "curve",
+                    "mmp_for_profiler",
+                    "improvements",
+                    "ride_usable",
+                    "profile_should_refresh"
+                  ],
+                  "title": "RideIngestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable FIT or activity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ride/update-profile": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Update profile from ride MMP",
+        "description": "Bayesian-style profile update using stored anchor and ride MMP.",
+        "operationId": "rideUpdateProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ride/summary": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Full activity workout summary",
+        "description": "Orchestrated per-activity report (power, zones, cardiac, HRV, mader_durability).",
+        "operationId": "rideSummary",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideSummary"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ride/durability": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Mader session durability",
+        "description": "Mechanistic CP residual curve and sustainable power targets for the ride.",
+        "operationId": "rideDurability",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideDurability"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable FIT or activity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/profile/snapshot": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Metabolic snapshot from MMP",
+        "description": "Full metabolic read model (VO2max, VLamax, MLSS, zones, combustion, cross-validation).",
+        "operationId": "profileSnapshot",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SnapshotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workouts/validate": {
+      "post": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Validate workout template",
+        "operationId": "workoutsValidate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkoutValidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workouts/prescribe": {
+      "post": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Prescribe workout to athlete watts",
+        "description": "Resolve percentage targets to concrete watts/HR for the athlete profile.",
+        "operationId": "workoutsPrescribe",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkoutPrescribeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Materialised workout prescription",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkoutPrescribeResponse",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "title": "Status",
+                      "examples": [
+                        "success"
+                      ]
+                    },
+                    "prescription": {
+                      "additionalProperties": true,
+                      "type": "object",
+                      "title": "Prescription"
+                    },
+                    "athlete_profile_used": {
+                      "additionalProperties": true,
+                      "type": "object",
+                      "title": "Athlete Profile Used"
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "prescription",
+                    "athlete_profile_used"
+                  ],
+                  "title": "WorkoutPrescribeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workouts/feasibility": {
+      "post": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Preview workout feasibility",
+        "description": "W′ balance simulation before calendar assignment.",
+        "operationId": "workoutsFeasibility",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkoutFeasibilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workouts/compare": {
+      "post": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Compare assigned vs performed workout",
+        "description": "Compliance score between prescribed workout and performed FIT/power stream.",
+        "operationId": "workoutsCompare",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_workoutsCompare"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workouts/calendar/transition": {
+      "post": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Validate calendar assignment transition",
+        "operationId": "workoutsCalendarTransition",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarTransitionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/twin/state/build": {
+      "post": {
+        "tags": [
+          "twin"
+        ],
+        "summary": "Build TwinState v1",
+        "description": "Create canonical twin_state.v1 blob for DB persistence.",
+        "operationId": "twinStateBuild",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwinStateBuildRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/twin/state/update-from-ride": {
+      "post": {
+        "tags": [
+          "twin"
+        ],
+        "summary": "Update TwinState after ride",
+        "operationId": "twinStateUpdateFromRide",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwinStateUpdateRideRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/twin/state/update-from-workout-result": {
+      "post": {
+        "tags": [
+          "twin"
+        ],
+        "summary": "Append workout compliance to TwinState",
+        "operationId": "twinStateUpdateFromWorkout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwinStateUpdateWorkoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/twin/state/project": {
+      "post": {
+        "tags": [
+          "twin"
+        ],
+        "summary": "Season what-if projection",
+        "description": "Project CP, load and readiness from TwinState + future calendar.",
+        "operationId": "twinStateProject",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeasonProjectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projection/season": {
+      "post": {
+        "tags": [
+          "twin"
+        ],
+        "summary": "Season projection (alias)",
+        "description": "Alias of POST /twin/state/project.",
+        "operationId": "projectionSeason",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeasonProjectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/performance/neuromuscular-profile": {
+      "post": {
+        "tags": [
+          "performance"
+        ],
+        "summary": "Neuromuscular sprint profile",
+        "description": "Pmax, cadence-at-peak, repeat-sprint profile from FIT or power stream.",
+        "operationId": "performanceNeuromuscularProfile",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_performanceNeuromuscularProfile"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/power-source/normalize": {
+      "post": {
+        "tags": [
+          "performance"
+        ],
+        "summary": "Detect power source offsets",
+        "description": "Compare indoor trainer vs outdoor PM systematic offsets.",
+        "operationId": "powerSourceNormalize",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PowerSourceNormalizationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/load/manual": {
+      "post": {
+        "tags": [
+          "load"
+        ],
+        "summary": "Inject manual non-cycling load",
+        "description": "Approximate training load from RPE × duration (gym, run, life stress).",
+        "operationId": "loadManual",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualLoadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/team/calibration/update": {
+      "post": {
+        "tags": [
+          "team"
+        ],
+        "summary": "Update team calibration model",
+        "description": "Add validated test events. Requires pre-test predicted_value per event.",
+        "operationId": "teamCalibrationUpdate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamCalibrationUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/team/calibration/apply": {
+      "post": {
+        "tags": [
+          "team"
+        ],
+        "summary": "Apply team calibration",
+        "description": "Apply learned correction to a snapshot or single parameter estimate.",
+        "operationId": "teamCalibrationApply",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamCalibrationApplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AthleteParams": {
+        "properties": {
+          "weight_kg": {
+            "type": "number",
+            "exclusiveMaximum": 200.0,
+            "exclusiveMinimum": 30.0,
+            "title": "Weight Kg",
+            "description": "Athlete body mass in kilograms."
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender",
+            "description": "MALE or FEMALE for physiological priors.",
+            "default": "MALE"
+          },
+          "training_years": {
+            "type": "number",
+            "title": "Training Years",
+            "description": "Years of structured endurance training.",
+            "default": 10
+          },
+          "discipline": {
+            "type": "string",
+            "title": "Discipline",
+            "description": "ENDURANCE, ROAD, TT, etc.",
+            "default": "ENDURANCE"
+          },
+          "active_muscle_mass_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Muscle Mass Kg",
+            "description": "Optional active muscle mass override for Mader modelling."
+          }
+        },
+        "type": "object",
+        "required": [
+          "weight_kg"
+        ],
+        "title": "AthleteParams",
+        "example": {
+          "discipline": "ENDURANCE",
+          "gender": "MALE",
+          "training_years": 10,
+          "weight_kg": 72
+        }
+      },
+      "Body_performanceNeuromuscularProfile": {
+        "properties": {
+          "weight_kg": {
+            "type": "number",
+            "title": "Weight Kg",
+            "default": 70.0
+          },
+          "sprint_threshold_w": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sprint Threshold W"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_performanceNeuromuscularProfile"
+      },
+      "Body_rideDurability": {
+        "properties": {
+          "weight_kg": {
+            "type": "number",
+            "title": "Weight Kg"
+          },
+          "metabolic_snapshot_json": {
+            "type": "string",
+            "title": "Metabolic Snapshot Json",
+            "description": "Required successful metabolic snapshot."
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          }
+        },
+        "type": "object",
+        "required": [
+          "weight_kg",
+          "metabolic_snapshot_json"
+        ],
+        "title": "Body_rideDurability"
+      },
+      "Body_rideIngest": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "description": "Ride FIT file."
+          },
+          "ride_date": {
+            "type": "string",
+            "title": "Ride Date",
+            "description": "ISO date YYYY-MM-DD."
+          },
+          "weight_kg": {
+            "type": "number",
+            "title": "Weight Kg",
+            "description": "Athlete weight in kg.",
+            "default": 70.0
+          },
+          "stored_curve_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stored Curve Json",
+            "description": "Previously persisted curve JSON (optional)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "file",
+          "ride_date"
+        ],
+        "title": "Body_rideIngest"
+      },
+      "Body_rideSummary": {
+        "properties": {
+          "weight_kg": {
+            "type": "number",
+            "title": "Weight Kg",
+            "description": "Athlete weight kg."
+          },
+          "ftp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp",
+            "description": "Optional FTP override for zones."
+          },
+          "lthr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lthr",
+            "description": "Optional LTHR override."
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender",
+            "default": "MALE"
+          },
+          "training_years": {
+            "type": "number",
+            "title": "Training Years",
+            "default": 10
+          },
+          "discipline": {
+            "type": "string",
+            "title": "Discipline",
+            "default": "ENDURANCE"
+          },
+          "metabolic_snapshot_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot Json",
+            "description": "Successful /profile/snapshot JSON to unlock durability sections."
+          },
+          "hrv_step_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hrv Step Seconds"
+          },
+          "hrv_max_windows": {
+            "type": "integer",
+            "title": "Hrv Max Windows",
+            "default": 500
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File",
+            "description": "Ride FIT file."
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json",
+            "description": "Alternative: 1 Hz power JSON array."
+          }
+        },
+        "type": "object",
+        "required": [
+          "weight_kg"
+        ],
+        "title": "Body_rideSummary"
+      },
+      "Body_testPropose": {
+        "properties": {
+          "files": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Files",
+            "description": "FIT files from the test session."
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "Body_testPropose"
+      },
+      "Body_workoutsCompare": {
+        "properties": {
+          "workout_json": {
+            "type": "string",
+            "title": "Workout Json",
+            "description": "Assigned workout JSON."
+          },
+          "athlete_profile_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Profile Json"
+          },
+          "tolerance_policy_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tolerance Policy Json"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workout_json"
+        ],
+        "title": "Body_workoutsCompare"
+      },
+      "CalendarTransitionRequest": {
+        "properties": {
+          "current_status": {
+            "type": "string",
+            "title": "Current Status",
+            "description": "Current assignment status in calendar FSM."
+          },
+          "desired_status": {
+            "type": "string",
+            "title": "Desired Status",
+            "description": "Requested next status."
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_status",
+          "desired_status"
+        ],
+        "title": "CalendarTransitionRequest"
+      },
+      "ConfirmRequest": {
+        "properties": {
+          "proposal": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Proposal",
+            "description": "Coach-reviewed output of POST /test/propose."
+          },
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          },
+          "measured_on": {
+            "type": "string",
+            "title": "Measured On",
+            "description": "ISO date YYYY-MM-DD of the test session."
+          }
+        },
+        "type": "object",
+        "required": [
+          "proposal",
+          "athlete",
+          "measured_on"
+        ],
+        "title": "ConfirmRequest"
+      },
+      "EnginePayload": {
+        "properties": {},
+        "additionalProperties": true,
+        "type": "object",
+        "title": "EnginePayload",
+        "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Always 'ok' when the service is up.",
+            "examples": [
+              "ok"
+            ]
+          },
+          "service": {
+            "type": "string",
+            "title": "Service",
+            "description": "Service identifier.",
+            "examples": [
+              "digital-twin-api"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "API semver.",
+            "examples": [
+              "5.1.0"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "service",
+          "version"
+        ],
+        "title": "HealthResponse"
+      },
+      "InPersonTestRequest": {
+        "properties": {
+          "test_type": {
+            "type": "string",
+            "title": "Test Type",
+            "description": "Protocol id — see CONTRATTO_JSON_test.md."
+          },
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp"
+          },
+          "athlete": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Athlete"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          },
+          "test_data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Test Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "test_type"
+        ],
+        "title": "InPersonTestRequest"
+      },
+      "ManualLoadRequest": {
+        "properties": {
+          "duration_min": {
+            "type": "number",
+            "maximum": 600.0,
+            "minimum": 0.0,
+            "title": "Duration Min",
+            "description": "Session duration in minutes."
+          },
+          "rpe": {
+            "type": "number",
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Rpe",
+            "description": "Session RPE 0–10."
+          },
+          "modality": {
+            "type": "string",
+            "title": "Modality",
+            "description": "gym, run, swim, other, …",
+            "default": "other"
+          },
+          "muscle_damage_factor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Muscle Damage Factor"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "duration_min",
+          "rpe"
+        ],
+        "title": "ManualLoadRequest"
+      },
+      "PowerSourceNormalizationRequest": {
+        "properties": {
+          "activities": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Activities",
+            "description": "Activities with source_id and MMP signatures."
+          },
+          "baseline_source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Source Id"
+          },
+          "warning_threshold_pct": {
+            "type": "number",
+            "title": "Warning Threshold Pct",
+            "default": 3.0
+          },
+          "severe_threshold_pct": {
+            "type": "number",
+            "title": "Severe Threshold Pct",
+            "default": 6.0
+          }
+        },
+        "type": "object",
+        "title": "PowerSourceNormalizationRequest"
+      },
+      "RideIngestResponse": {
+        "properties": {
+          "curve": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Curve",
+            "description": "Rolling power-duration curve to persist."
+          },
+          "mmp_for_profiler": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Mmp For Profiler",
+            "description": "MMP slice for metabolic profiler."
+          },
+          "improvements": {
+            "type": "integer",
+            "title": "Improvements",
+            "description": "Number of duration records improved on this ride."
+          },
+          "ride_usable": {
+            "type": "boolean",
+            "title": "Ride Usable",
+            "description": "Whether the ride should contribute to the curve."
+          },
+          "profile_should_refresh": {
+            "type": "boolean",
+            "title": "Profile Should Refresh",
+            "description": "Whether anchor/snapshot should be recomputed."
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "curve",
+          "mmp_for_profiler",
+          "improvements",
+          "ride_usable",
+          "profile_should_refresh"
+        ],
+        "title": "RideIngestResponse"
+      },
+      "SeasonProjectionRequest": {
+        "properties": {
+          "twin_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Twin State"
+          },
+          "calendar_plan": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "maxItems": 1000,
+            "title": "Calendar Plan",
+            "description": "Future planned workouts/assignments."
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date",
+            "description": "ISO date projection start."
+          },
+          "target_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Date",
+            "description": "ISO date projection end."
+          },
+          "max_days": {
+            "type": "integer",
+            "maximum": 400.0,
+            "minimum": 1.0,
+            "title": "Max Days",
+            "default": 365
+          }
+        },
+        "type": "object",
+        "required": [
+          "twin_state"
+        ],
+        "title": "SeasonProjectionRequest"
+      },
+      "SnapshotRequest": {
+        "properties": {
+          "mmp": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Mmp",
+            "description": "Power-duration anchors {seconds: watts}."
+          },
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mmp",
+          "athlete"
+        ],
+        "title": "SnapshotRequest"
+      },
+      "TeamCalibrationApplyRequest": {
+        "properties": {
+          "calibration_model": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Calibration Model"
+          },
+          "parameter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parameter",
+            "description": "mlss, vo2max, vlamax, fatmax, map."
+          },
+          "predicted_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predicted Value"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot",
+            "description": "Full metabolic snapshot to calibrate in one call."
+          },
+          "athlete_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Id"
+          },
+          "phenotype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phenotype"
+          },
+          "data_depth_score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Data Depth Score",
+            "default": 1.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "calibration_model"
+        ],
+        "title": "TeamCalibrationApplyRequest"
+      },
+      "TeamCalibrationUpdateRequest": {
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "calibration_model": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calibration Model",
+            "description": "Previously persisted model; omit to start fresh."
+          },
+          "events": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Events",
+            "description": "Validation events with pre-test predicted_value."
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id"
+        ],
+        "title": "TeamCalibrationUpdateRequest"
+      },
+      "TwinStateBuildRequest": {
+        "properties": {
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload",
+            "description": "Initial athlete anchor, snapshot, curve and profile fragments."
+          }
+        },
+        "type": "object",
+        "title": "TwinStateBuildRequest"
+      },
+      "TwinStateUpdateRideRequest": {
+        "properties": {
+          "twin_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Twin State",
+            "description": "Current persisted TwinState (twin_state.v1)."
+          },
+          "ride_summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ride Summary",
+            "description": "Output of POST /ride/summary."
+          },
+          "ingest_result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ingest Result",
+            "description": "Output of POST /ride/ingest."
+          },
+          "power_source_report": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Source Report"
+          },
+          "ride_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ride Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "twin_state"
+        ],
+        "title": "TwinStateUpdateRideRequest"
+      },
+      "TwinStateUpdateWorkoutRequest": {
+        "properties": {
+          "twin_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Twin State"
+          },
+          "compliance_result": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Compliance Result",
+            "description": "Output of POST /workouts/compare."
+          },
+          "assignment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "twin_state",
+          "compliance_result"
+        ],
+        "title": "TwinStateUpdateWorkoutRequest"
+      },
+      "UpdateProfileRequest": {
+        "properties": {
+          "anchor": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Anchor",
+            "description": "Persisted measured anchor from POST /test/confirm."
+          },
+          "ride_mmp": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Ride Mmp",
+            "description": "Ride MMP map {duration_seconds: watts}."
+          },
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          },
+          "as_of": {
+            "type": "string",
+            "title": "As Of",
+            "description": "ISO date of the ride used for the update."
+          },
+          "load_factor": {
+            "type": "number",
+            "title": "Load Factor",
+            "description": "Optional load scaling for Bayesian update.",
+            "default": 1.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "anchor",
+          "ride_mmp",
+          "athlete",
+          "as_of"
+        ],
+        "title": "UpdateProfileRequest"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WorkoutFeasibilityRequest": {
+        "properties": {
+          "workout": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Workout"
+          },
+          "athlete_profile": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Athlete Profile"
+          },
+          "context": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Context",
+            "description": "Optional readiness/fatigue context for W′ simulation."
+          }
+        },
+        "type": "object",
+        "required": [
+          "workout"
+        ],
+        "title": "WorkoutFeasibilityRequest"
+      },
+      "WorkoutPrescribeRequest": {
+        "properties": {
+          "workout": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Workout"
+          },
+          "athlete_profile": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Athlete Profile",
+            "description": "Athlete CP/FTP/weight used to resolve percentage targets."
+          }
+        },
+        "type": "object",
+        "required": [
+          "workout"
+        ],
+        "title": "WorkoutPrescribeRequest"
+      },
+      "WorkoutPrescribeResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "examples": [
+              "success"
+            ]
+          },
+          "prescription": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Prescription"
+          },
+          "athlete_profile_used": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Athlete Profile Used"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "prescription",
+          "athlete_profile_used"
+        ],
+        "title": "WorkoutPrescribeResponse"
+      },
+      "WorkoutValidateRequest": {
+        "properties": {
+          "workout": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Workout",
+            "description": "Workout template or coach draft with steps."
+          }
+        },
+        "type": "object",
+        "required": [
+          "workout"
+        ],
+        "title": "WorkoutValidateRequest"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "health",
+      "description": "Liveness and version."
+    },
+    {
+      "name": "test",
+      "description": "Field test onboarding (propose → confirm)."
+    },
+    {
+      "name": "ride",
+      "description": "FIT ingestion, activity analysis, durability."
+    },
+    {
+      "name": "profile",
+      "description": "Metabolic snapshot read model."
+    },
+    {
+      "name": "workouts",
+      "description": "Prescription, feasibility, compliance."
+    },
+    {
+      "name": "twin",
+      "description": "Canonical TwinState and season projection."
+    },
+    {
+      "name": "performance",
+      "description": "Neuromuscular profile and power-source QA."
+    },
+    {
+      "name": "load",
+      "description": "Non-cycling manual load injection."
+    },
+    {
+      "name": "team",
+      "description": "Team learning calibration."
+    }
+  ],
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Local development"
+    },
+    {
+      "url": "{baseUrl}",
+      "description": "Configurable deployment",
+      "variables": {
+        "baseUrl": {
+          "default": "http://localhost:8000",
+          "description": "Set via VITE_API_BASE_URL in the frontend"
+        }
+      }
+    }
+  ],
+  "externalDocs": {
+    "description": "Frontend integration guide",
+    "url": "https://github.com/diegotruant/Backend-definitivo-V5/blob/main/docs/FRONTEND_DEVELOPER_GUIDE.md"
+  }
+}

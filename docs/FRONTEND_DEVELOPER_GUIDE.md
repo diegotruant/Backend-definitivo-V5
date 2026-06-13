@@ -9,6 +9,8 @@ Documento unificato per uno **sviluppatore software** che deve costruire il fron
 | 1 | Questo file | Panoramica, API, TwinState, mappa pagine |
 | 2 | `docs/FRONTEND_IMPLEMENTATION_BLUEPRINT.md` | Layout dettagliato per pagina, design system, DoD |
 | 3 | `docs/API_PAYLOAD_EXAMPLES.md` | Esempi curl / TypeScript per ogni endpoint |
+| 3b | `docs/OPENAPI_FRONTEND.md` | OpenAPI, codegen TS, client `api.*` |
+| 3c | `openapi/openapi.json` | Contratto HTTP committato (24 endpoint) |
 | 4 | `docs/WORKOUT_SYSTEM_BACKEND_V1.md` | Flusso prescrizione → compliance |
 | 5 | `docs/BACKEND_IMPLEMENTATIONS_V2.md` | TwinState, projection, neuromuscular |
 | 6 | `docs/COACH_UX_COPYBOOK.md` | Copy coach-facing |

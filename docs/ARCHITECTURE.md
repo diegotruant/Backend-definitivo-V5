@@ -65,7 +65,13 @@ FastAPI exposes the contract at:
 - `GET /openapi.json`
 - `GET /docs` (Swagger UI)
 
-Frontend teams should treat **OpenAPI + `docs/API_PAYLOAD_EXAMPLES.md`** as the integration source of truth.
+Committed artifacts:
+
+- `openapi/openapi.json` — canonical spec (24 paths)
+- `frontend/src/api/generated/schema.ts` — TypeScript types (`make openapi-frontend`)
+- `frontend/src/api/client.ts` — typed client for all endpoints
+
+See `docs/OPENAPI_FRONTEND.md` for integration details.
 
 ## Error model
 

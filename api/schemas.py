@@ -4,82 +4,103 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from engines.core.security import MAX_CALENDAR_EVENTS, MAX_PROJECTION_DAYS
 
 
 class AthleteParams(BaseModel):
-    weight_kg: float = Field(..., gt=30, lt=200)
-    gender: str = "MALE"
-    training_years: float = 10
-    discipline: str = "ENDURANCE"
-    active_muscle_mass_kg: Optional[float] = None
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "weight_kg": 72,
+            "gender": "MALE",
+            "training_years": 10,
+            "discipline": "ENDURANCE",
+        }
+    })
+
+    weight_kg: float = Field(..., gt=30, lt=200, description="Athlete body mass in kilograms.")
+    gender: str = Field(default="MALE", description="MALE or FEMALE for physiological priors.")
+    training_years: float = Field(default=10, description="Years of structured endurance training.")
+    discipline: str = Field(default="ENDURANCE", description="ENDURANCE, ROAD, TT, etc.")
+    active_muscle_mass_kg: Optional[float] = Field(
+        default=None,
+        description="Optional active muscle mass override for Mader modelling.",
+    )
 
 
 class ConfirmRequest(BaseModel):
-    proposal: Dict[str, Any]
+    proposal: Dict[str, Any] = Field(description="Coach-reviewed output of POST /test/propose.")
     athlete: AthleteParams
-    measured_on: str
+    measured_on: str = Field(description="ISO date YYYY-MM-DD of the test session.")
 
 
 class UpdateProfileRequest(BaseModel):
-    anchor: Dict[str, Any]
-    ride_mmp: Dict[str, float]
+    anchor: Dict[str, Any] = Field(description="Persisted measured anchor from POST /test/confirm.")
+    ride_mmp: Dict[str, float] = Field(description="Ride MMP map {duration_seconds: watts}.")
     athlete: AthleteParams
-    as_of: str
-    load_factor: float = 1.0
+    as_of: str = Field(description="ISO date of the ride used for the update.")
+    load_factor: float = Field(default=1.0, description="Optional load scaling for Bayesian update.")
 
 
 class SnapshotRequest(BaseModel):
-    mmp: Dict[str, float]
+    mmp: Dict[str, float] = Field(description="Power-duration anchors {seconds: watts}.")
     athlete: AthleteParams
 
 
-class RideUpdateCurveRequest(BaseModel):
-    stored_curve: Optional[Dict[str, Any]] = None
-    ride_date: str
-    weight_kg: float = 70.0
-
-
 class WorkoutValidateRequest(BaseModel):
-    workout: Dict[str, Any]
+    workout: Dict[str, Any] = Field(description="Workout template or coach draft with steps.")
 
 
 class WorkoutPrescribeRequest(BaseModel):
     workout: Dict[str, Any]
-    athlete_profile: Dict[str, Any] = Field(default_factory=dict)
+    athlete_profile: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Athlete CP/FTP/weight used to resolve percentage targets.",
+    )
 
 
 class WorkoutFeasibilityRequest(BaseModel):
     workout: Dict[str, Any]
     athlete_profile: Dict[str, Any] = Field(default_factory=dict)
-    context: Dict[str, Any] = Field(default_factory=dict)
+    context: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional readiness/fatigue context for W′ simulation.",
+    )
 
 
 class CalendarTransitionRequest(BaseModel):
-    current_status: str
-    desired_status: str
+    current_status: str = Field(description="Current assignment status in calendar FSM.")
+    desired_status: str = Field(description="Requested next status.")
 
 
 class TeamCalibrationUpdateRequest(BaseModel):
     team_id: str
-    calibration_model: Optional[Dict[str, Any]] = None
-    events: List[Dict[str, Any]] = Field(default_factory=list)
+    calibration_model: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Previously persisted model; omit to start fresh.",
+    )
+    events: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Validation events with pre-test predicted_value.",
+    )
 
 
 class TeamCalibrationApplyRequest(BaseModel):
     calibration_model: Dict[str, Any]
-    parameter: Optional[str] = None
+    parameter: Optional[str] = Field(default=None, description="mlss, vo2max, vlamax, fatmax, map.")
     predicted_value: Optional[float] = None
-    snapshot: Optional[Dict[str, Any]] = None
+    snapshot: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Full metabolic snapshot to calibrate in one call.",
+    )
     athlete_id: Optional[str] = None
     phenotype: Optional[str] = None
-    data_depth_score: float = 1.0
+    data_depth_score: float = Field(default=1.0, ge=0, le=1)
 
 
 class InPersonTestRequest(BaseModel):
-    test_type: str
+    test_type: str = Field(description="Protocol id — see CONTRATTO_JSON_test.md.")
     timestamp: Optional[str] = None
     athlete: Dict[str, Any] = Field(default_factory=dict)
     device: Optional[Dict[str, Any]] = None
@@ -87,41 +108,51 @@ class InPersonTestRequest(BaseModel):
 
 
 class TwinStateBuildRequest(BaseModel):
-    payload: Dict[str, Any] = Field(default_factory=dict)
+    payload: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Initial athlete anchor, snapshot, curve and profile fragments.",
+    )
 
 
 class TwinStateUpdateRideRequest(BaseModel):
-    twin_state: Dict[str, Any]
-    ride_summary: Optional[Dict[str, Any]] = None
-    ingest_result: Optional[Dict[str, Any]] = None
+    twin_state: Dict[str, Any] = Field(description="Current persisted TwinState (twin_state.v1).")
+    ride_summary: Optional[Dict[str, Any]] = Field(default=None, description="Output of POST /ride/summary.")
+    ingest_result: Optional[Dict[str, Any]] = Field(default=None, description="Output of POST /ride/ingest.")
     power_source_report: Optional[Dict[str, Any]] = None
     ride_id: Optional[str] = None
 
 
 class TwinStateUpdateWorkoutRequest(BaseModel):
     twin_state: Dict[str, Any]
-    compliance_result: Dict[str, Any]
+    compliance_result: Dict[str, Any] = Field(description="Output of POST /workouts/compare.")
     assignment_id: Optional[str] = None
 
 
 class SeasonProjectionRequest(BaseModel):
     twin_state: Dict[str, Any]
-    calendar_plan: List[Dict[str, Any]] = Field(default_factory=list, max_length=MAX_CALENDAR_EVENTS)
-    start_date: Optional[str] = None
-    target_date: Optional[str] = None
+    calendar_plan: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        max_length=MAX_CALENDAR_EVENTS,
+        description="Future planned workouts/assignments.",
+    )
+    start_date: Optional[str] = Field(default=None, description="ISO date projection start.")
+    target_date: Optional[str] = Field(default=None, description="ISO date projection end.")
     max_days: int = Field(default=365, ge=1, le=MAX_PROJECTION_DAYS)
 
 
 class PowerSourceNormalizationRequest(BaseModel):
-    activities: List[Dict[str, Any]] = Field(default_factory=list)
+    activities: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Activities with source_id and MMP signatures.",
+    )
     baseline_source_id: Optional[str] = None
-    warning_threshold_pct: float = 3.0
-    severe_threshold_pct: float = 6.0
+    warning_threshold_pct: float = Field(default=3.0)
+    severe_threshold_pct: float = Field(default=6.0)
 
 
 class ManualLoadRequest(BaseModel):
-    duration_min: float = Field(..., ge=0, le=600)
-    rpe: float = Field(..., ge=0, le=10)
-    modality: str = "other"
+    duration_min: float = Field(..., ge=0, le=600, description="Session duration in minutes.")
+    rpe: float = Field(..., ge=0, le=10, description="Session RPE 0–10.")
+    modality: str = Field(default="other", description="gym, run, swim, other, …")
     muscle_damage_factor: Optional[float] = None
     notes: Optional[str] = None

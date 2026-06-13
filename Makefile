@@ -3,7 +3,7 @@ UVICORN_HOST ?= 127.0.0.1
 UVICORN_PORT ?= 8000
 UVICORN_RELOAD ?= true
 
-.PHONY: install run test test-all hardening-test stress-test multitenant-stress lint format typecheck check precommit openapi
+.PHONY: install run test test-all hardening-test stress-test multitenant-stress lint format typecheck check precommit openapi openapi-frontend
 
 install:
 	$(PYTHON) -m pip install -r requirements-dev.txt
@@ -38,7 +38,10 @@ typecheck:
 check: lint typecheck test-all hardening-test
 
 openapi:
-	$(PYTHON) -c "import json; from api_app import app; print(json.dumps(app.openapi(), indent=2))" > openapi.json
+	$(PYTHON) scripts/export_openapi.py
+
+openapi-frontend: openapi
+	cd frontend && npm run codegen:api
 
 precommit:
 	pre-commit run --all-files

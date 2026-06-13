@@ -13,6 +13,7 @@ from typing import Any
 try:
     from fastapi import FastAPI, Request
     from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.openapi.utils import get_openapi
     from fastapi.responses import JSONResponse
 except ImportError as e:  # pragma: no cover
     raise ImportError(
@@ -20,6 +21,7 @@ except ImportError as e:  # pragma: no cover
     ) from e
 
 from api.errors import ServiceError
+from api.openapi import enrich_openapi_schema
 from api.routers import health, load, performance, profile, ride, team, test_routes, twin, workouts
 from engines.core.security import MAX_UPLOAD_BYTES, MAX_UPLOAD_FILES, safe_error_detail
 
@@ -57,6 +59,21 @@ def create_app() -> FastAPI:
     )
 
     _register_exception_handlers(application)
+
+    def custom_openapi() -> dict[str, Any]:
+        if application.openapi_schema:
+            return application.openapi_schema
+        schema = get_openapi(
+            title=application.title,
+            version=application.version,
+            description=application.description,
+            routes=application.routes,
+            tags=application.openapi_tags,
+        )
+        application.openapi_schema = enrich_openapi_schema(schema)
+        return application.openapi_schema
+
+    application.openapi = custom_openapi  # type: ignore[method-assign]
 
     cors_origins = [
         o.strip()
