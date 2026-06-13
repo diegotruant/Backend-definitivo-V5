@@ -244,6 +244,39 @@ Response is a full `twin_state.v1` document — persist it client-side or in you
 
 ---
 
+## Ride summary (`statistics_page`)
+
+`POST /ride/summary` (multipart: `power_json` or FIT `file`) now includes a flat
+`statistics_page` object for the frontend stats grid:
+
+```json
+{
+  "status": "success",
+  "statistics_page": {
+    "avg_power_w": 198.4,
+    "avg_power_w_kg": 2.76,
+    "np_w": 205.1,
+    "np_w_kg": 2.85,
+    "max_power_w": 420.0,
+    "work_kj": 712.5,
+    "avg_hr_bpm": 142,
+    "max_hr_bpm": 168,
+    "avg_cadence_rpm": 88,
+    "max_cadence_rpm": 102,
+    "ascent_m": 340,
+    "descent_m": 320,
+    "temperature_avg_c": 18.2,
+    "speed_avg_kmh": 30.6,
+    "moving_speed_avg_kmh": 31.2
+  },
+  "sections": {
+    "statistics": { "status": "success", "metrics": { "...": "same fields" } }
+  }
+}
+```
+
+---
+
 ## TypeScript (client)
 
 ```typescript

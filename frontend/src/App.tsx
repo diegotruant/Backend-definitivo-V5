@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { api } from './api/client'
+import type { ActivityStatisticsMetrics } from './contracts'
+import StatisticsPage from './StatisticsPage'
 import './App.css'
 
 type CsvRow = Record<string, string>
@@ -49,7 +52,7 @@ type Activity = {
   parsed: string
 }
 
-type View = 'dashboard' | 'athletes' | 'activities' | 'metabolic'
+type View = 'dashboard' | 'athletes' | 'activities' | 'metabolic' | 'statistics'
 
 const number = (value: string | undefined): number => {
   const parsed = Number(value)
@@ -188,6 +191,9 @@ function App() {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [statisticsPage, setStatisticsPage] = useState<ActivityStatisticsMetrics | null>(null)
+  const [statisticsLoading, setStatisticsLoading] = useState(false)
+  const [statisticsError, setStatisticsError] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -225,6 +231,34 @@ function App() {
   const topVo2 = [...athletes].sort((a, b) => b.estimated_vo2max - a.estimated_vo2max).slice(0, 8)
   const activityRows = selectedActivities.slice(0, 50)
 
+  const loadStatisticsFromApi = async () => {
+    setStatisticsLoading(true)
+    setStatisticsError('')
+    try {
+      const power = Array.from({ length: 1800 }, (_, i) => 190 + (i % 90))
+      const summary = await api.rideSummary({
+        power_json: power,
+        weight_kg: selected?.avg_power ? 72 : 72,
+        ftp: selected?.ftp_estimate || 280,
+      })
+      if (summary.statistics_page) {
+        setStatisticsPage(summary.statistics_page)
+      } else {
+        setStatisticsError('La risposta /ride/summary non contiene statistics_page.')
+      }
+    } catch (err) {
+      setStatisticsError(err instanceof Error ? err.message : 'Errore caricamento statistiche')
+    } finally {
+      setStatisticsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (view === 'statistics' && !statisticsPage && !statisticsLoading) {
+      void loadStatisticsFromApi()
+    }
+  }, [view])
+
   if (loading) {
     return <main className="loading">Caricamento dati backend...</main>
   }
@@ -249,6 +283,7 @@ function App() {
             ['dashboard', 'Dashboard'],
             ['athletes', 'Atleti'],
             ['activities', 'Attivita'],
+            ['statistics', 'Statistiche ride'],
             ['metabolic', 'Profilo metabolico'],
           ].map(([key, label]) => (
             <button
@@ -430,6 +465,25 @@ function App() {
               </table>
             </div>
           </section>
+        )}
+
+        {view === 'statistics' && (
+          <>
+            {statisticsLoading && <main className="loading">Caricamento statistics_page da /ride/summary...</main>}
+            {statisticsError && !statisticsLoading && (
+              <section className="panel full">
+                <p className="error-state">{statisticsError}</p>
+                <button type="button" onClick={() => void loadStatisticsFromApi()}>Riprova</button>
+              </section>
+            )}
+            {statisticsPage && !statisticsLoading && (
+              <StatisticsPage
+                metrics={statisticsPage}
+                title={`Statistiche — ${selected?.athlete ?? 'atleta'}`}
+                subtitle="Campi da statistics_page (POST /ride/summary)"
+              />
+            )}
+          </>
         )}
 
         {view === 'metabolic' && selected && (

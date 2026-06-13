@@ -402,6 +402,38 @@ td strong {
   color: #ff9f9f;
 }
 
+.statistics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.statistics-card {
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.statistics-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.statistics-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 22px;
+  color: var(--text);
+}
+
+.statistics-subtitle {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
 @media (max-width: 1120px) {
   .app-shell {
     grid-template-columns: 1fr;

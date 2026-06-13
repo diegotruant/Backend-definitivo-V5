@@ -38,6 +38,8 @@ def test_complete_stream_succeeds() -> None:
     r = build_workout_summary(_make_stream(), weight_kg=75.0, ftp=250.0)
     assert r["status"] == "success"
     assert _all_sections_have_status(r)
+    assert "statistics_page" in r
+    assert r["sections"]["statistics"]["status"] == "success"
 
 
 def test_no_power_does_not_crash() -> None:

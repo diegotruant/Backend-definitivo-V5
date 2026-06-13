@@ -32,6 +32,7 @@ from engines.performance.power_engine import PowerEngine, estimate_ftp_from_mmp
 from engines.metabolic.zones_engine import ZonesEngine
 # hrv_engine imported lazily inside build_workout_summary() (see section 4).
 from engines.core.metric_contracts import annotate_payload, summarize_section_contracts
+from engines.io.activity_statistics import compute_activity_statistics
 
 
 def build_workout_summary(
@@ -314,6 +315,23 @@ def build_workout_summary(
                 "(ancore sprint + CP 3/6/12 o test in presenza)."
             ),
         }
+
+    # =========================================================================
+    # 7. BASIC STATISTICS PAGE (coach headline metrics)
+    # =========================================================================
+    stats = compute_activity_statistics(
+        stream,
+        weight_kg=weight_kg,
+        ftp=ftp_used,
+        cp=(
+            (power_result.get("critical_power") or {}).get("cp_w")
+            if power_result and power_result.get("status") == "success"
+            else None
+        ),
+        lthr=lthr,
+    )
+    out["sections"]["statistics"] = stats
+    out["statistics_page"] = stats.get("metrics", {})
 
     # =========================================================================
     # HEADLINE — the six metrics the coach checks daily

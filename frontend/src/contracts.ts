@@ -55,12 +55,31 @@ export interface RideIngestResponse {
   notes: string[];
 }
 
+export interface ActivityStatisticsMetrics {
+  avg_power_w?: number | null;
+  avg_power_w_kg?: number | null;
+  np_w?: number | null;
+  np_w_kg?: number | null;
+  max_power_w?: number | null;
+  work_kj?: number | null;
+  avg_hr_bpm?: number | null;
+  max_hr_bpm?: number | null;
+  avg_cadence_rpm?: number | null;
+  max_cadence_rpm?: number | null;
+  ascent_m?: number | null;
+  descent_m?: number | null;
+  temperature_avg_c?: number | null;
+  speed_avg_kmh?: number | null;
+  moving_speed_avg_kmh?: number | null;
+}
+
 export interface WorkoutSummary {
   status: ModelStatus;
   schema_version?: string;
   stream_metadata?: Record<string, unknown>;
   sections?: Record<string, unknown>;
   headline?: Record<string, unknown>;
+  statistics_page?: ActivityStatisticsMetrics;
   warnings?: string[];
   [key: string]: unknown;
 }
