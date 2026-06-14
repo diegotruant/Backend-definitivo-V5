@@ -45,12 +45,17 @@ export class ApiError extends Error {
   }
 }
 
+function readNextPublicApiBase(): string | undefined {
+  const runtime = globalThis as {
+    process?: { env?: Record<string, string | undefined> };
+  };
+  return runtime.process?.env?.NEXT_PUBLIC_API_BASE_URL;
+}
+
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL ??
   import.meta.env.NEXT_PUBLIC_API_BASE_URL ??
-  (typeof process !== 'undefined'
-    ? (process.env.NEXT_PUBLIC_API_BASE_URL as string | undefined)
-    : undefined) ??
+  readNextPublicApiBase() ??
   'http://localhost:8000';
 
 async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
