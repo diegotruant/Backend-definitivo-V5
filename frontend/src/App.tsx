@@ -29,6 +29,8 @@ type Athlete = {
   fatmax_power: number
   metabolic_confidence: number
   metabolic_status: string
+  ui_display_show_values?: boolean
+  ui_display_recommended_mask_fields?: string[]
   category_counts: string
   top_subtypes: string
 }
@@ -104,6 +106,22 @@ const parseCsv = (text: string): CsvRow[] => {
   )
 }
 
+const parseBoolean = (value: string | undefined): boolean | undefined => {
+  if (!value) return undefined
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'true' || normalized === '1') return true
+  if (normalized === 'false' || normalized === '0') return false
+  return undefined
+}
+
+const parseCsvStringList = (value: string | undefined): string[] => {
+  if (!value) return []
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+}
+
 const loadCsv = async (path: string): Promise<CsvRow[]> => {
   const response = await fetch(path)
   if (!response.ok) throw new Error(`Could not load ${path}`)
@@ -133,6 +151,8 @@ const mapAthlete = (row: CsvRow): Athlete => ({
   fatmax_power: number(row.fatmax_power),
   metabolic_confidence: number(row.metabolic_confidence),
   metabolic_status: row.metabolic_status,
+  ui_display_show_values: parseBoolean(row.ui_display_show_values),
+  ui_display_recommended_mask_fields: parseCsvStringList(row.ui_display_recommended_mask_fields),
   category_counts: row.category_counts,
   top_subtypes: row.top_subtypes,
 })
@@ -238,7 +258,11 @@ function App() {
   const topFtp = [...athletes].sort((a, b) => b.ftp_estimate - a.ftp_estimate).slice(0, 8)
   const topVo2 = [...athletes].sort((a, b) => b.estimated_vo2max - a.estimated_vo2max).slice(0, 8)
   const activityRows = selectedActivities.slice(0, 50)
-  const showMetabolicValues = (selected?.metabolic_confidence ?? 0) >= CONFIDENCE_DISPLAY_THRESHOLD
+  const showMetabolicValues = selected?.ui_display_show_values ?? ((selected?.metabolic_confidence ?? 0) >= CONFIDENCE_DISPLAY_THRESHOLD)
+  const recommendedMaskFields = selected?.ui_display_recommended_mask_fields ?? []
+  const shouldMaskField = (fieldKey: string): boolean =>
+    !showMetabolicValues
+    || recommendedMaskFields.some((item) => item.toLowerCase() === fieldKey.toLowerCase())
 
   const loadStatisticsFromApi = async () => {
     setStatisticsLoading(true)
@@ -517,10 +541,10 @@ function App() {
               </div>
             </div>
 
-            <div className="metric-card"><span>VO2max stimato</span><strong>{formatMetabolicValue(selected.estimated_vo2max, 1, showMetabolicValues)}</strong><small>ml/kg/min</small></div>
-            <div className="metric-card"><span>VLamax</span><strong>{formatMetabolicValue(selected.estimated_vlamax, 3, showMetabolicValues)}</strong><small>mmol/L/s</small></div>
-            <div className="metric-card"><span>MLSS</span><strong>{formatMetabolicValue(selected.mlss_power, 1, showMetabolicValues)}</strong><small>watt</small></div>
-            <div className="metric-card"><span>FatMax</span><strong>{formatMetabolicValue(selected.fatmax_power, 1, showMetabolicValues)}</strong><small>watt</small></div>
+            <div className="metric-card"><span>VO2max stimato</span><strong>{formatMetabolicValue(selected.estimated_vo2max, 1, !shouldMaskField('estimated_vo2max'))}</strong><small>ml/kg/min</small></div>
+            <div className="metric-card"><span>VLamax</span><strong>{formatMetabolicValue(selected.estimated_vlamax, 3, !shouldMaskField('estimated_vlamax_mmol_L_s'))}</strong><small>mmol/L/s</small></div>
+            <div className="metric-card"><span>MLSS</span><strong>{formatMetabolicValue(selected.mlss_power, 1, !shouldMaskField('mlss_power_watts'))}</strong><small>watt</small></div>
+            <div className="metric-card"><span>FatMax</span><strong>{formatMetabolicValue(selected.fatmax_power, 1, !shouldMaskField('fatmax_power_watts'))}</strong><small>watt</small></div>
 
             <div className="panel full">
               <div className="panel-header">
