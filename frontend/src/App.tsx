@@ -53,6 +53,8 @@ type Activity = {
 }
 
 type View = 'dashboard' | 'athletes' | 'activities' | 'metabolic' | 'statistics'
+const CONFIDENCE_DISPLAY_THRESHOLD = 0.55
+const PLACEHOLDER = '—'
 
 const number = (value: string | undefined): number => {
   const parsed = Number(value)
@@ -159,6 +161,12 @@ const fmt = (value: number, digits = 0) =>
 
 const pct = (value: number) => `${fmt(value * 100, 0)}%`
 
+const formatMetabolicValue = (
+  value: number,
+  digits: number,
+  showValue: boolean,
+): string => (showValue ? fmt(value, digits) : PLACEHOLDER)
+
 function KpiCard({
   label,
   value,
@@ -230,6 +238,7 @@ function App() {
   const topFtp = [...athletes].sort((a, b) => b.ftp_estimate - a.ftp_estimate).slice(0, 8)
   const topVo2 = [...athletes].sort((a, b) => b.estimated_vo2max - a.estimated_vo2max).slice(0, 8)
   const activityRows = selectedActivities.slice(0, 50)
+  const showMetabolicValues = (selected?.metabolic_confidence ?? 0) >= CONFIDENCE_DISPLAY_THRESHOLD
 
   const loadStatisticsFromApi = async () => {
     setStatisticsLoading(true)
@@ -495,6 +504,12 @@ function App() {
                 Profilo generato da MMP aggregata su {selected.parsed_files} file.
                 Le stime metaboliche sono model-derived e non lab validated.
               </p>
+              {!showMetabolicValues && (
+                <p className="safety-note">
+                  Confidenza metabolica bassa ({fmt(selected.metabolic_confidence, 2)} &lt; {CONFIDENCE_DISPLAY_THRESHOLD}):
+                  valori sensibili mascherati per evitare falsa precisione.
+                </p>
+              )}
               <div className="hero-stats">
                 <div><span>FTP</span><strong>{fmt(selected.ftp_estimate, 1)} W</strong></div>
                 <div><span>Best 20'</span><strong>{fmt(selected.best_20min, 1)} W</strong></div>
@@ -502,10 +517,10 @@ function App() {
               </div>
             </div>
 
-            <div className="metric-card"><span>VO2max stimato</span><strong>{fmt(selected.estimated_vo2max, 1)}</strong><small>ml/kg/min</small></div>
-            <div className="metric-card"><span>VLamax</span><strong>{fmt(selected.estimated_vlamax, 3)}</strong><small>mmol/L/s</small></div>
-            <div className="metric-card"><span>MLSS</span><strong>{fmt(selected.mlss_power, 1)}</strong><small>watt</small></div>
-            <div className="metric-card"><span>FatMax</span><strong>{fmt(selected.fatmax_power, 1)}</strong><small>watt</small></div>
+            <div className="metric-card"><span>VO2max stimato</span><strong>{formatMetabolicValue(selected.estimated_vo2max, 1, showMetabolicValues)}</strong><small>ml/kg/min</small></div>
+            <div className="metric-card"><span>VLamax</span><strong>{formatMetabolicValue(selected.estimated_vlamax, 3, showMetabolicValues)}</strong><small>mmol/L/s</small></div>
+            <div className="metric-card"><span>MLSS</span><strong>{formatMetabolicValue(selected.mlss_power, 1, showMetabolicValues)}</strong><small>watt</small></div>
+            <div className="metric-card"><span>FatMax</span><strong>{formatMetabolicValue(selected.fatmax_power, 1, showMetabolicValues)}</strong><small>watt</small></div>
 
             <div className="panel full">
               <div className="panel-header">
