@@ -148,7 +148,7 @@ class MetabolicProfiler:
         # makes a high VLamax physiologically impossible). This is a CEILING
         # constraint by design — it excludes the impossible corner (high
         # VLamax + low sprint) without forcing a value on genuine diesels,
-        # who can sit near the floor even when a Zwift sprint inflates APR.
+        # who can sit near the floor even when a virtual platform sprint inflates APR.
         vla_low = float(np.clip(0.10 + 0.12 * max(0.0, apr_ratio - 0.8), 0.10, 0.40))
         vla_high = float(np.clip(0.40 + 0.38 * max(0.0, apr_ratio - 0.8), 0.40, 1.20))
         if vla_high <= vla_low:
@@ -656,7 +656,7 @@ class MetabolicProfiler:
 
         # Sprint validity gate. The decomposition only works on a genuine
         # all-out sprint where power is *sustained* near the peak. If the 1 s
-        # peak towers over the mean (e.g. a 1 s spike on Zwift, not a real
+        # peak towers over the mean (e.g. a 1 s spike on virtual platform, not a real
         # seated 15-20 s effort), the alactic estimate swallows the whole
         # mean and the glycolytic remainder goes to zero or negative — a
         # garbage VLamax. We detect that and refuse, rather than return 0.05.
