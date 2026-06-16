@@ -6,6 +6,9 @@ from functools import lru_cache
 
 from api.services import (
     LoadService,
+    HistoryService,
+    PlanningService,
+    ReadinessService,
     PerformanceService,
     ProfileService,
     RideService,
@@ -54,3 +57,18 @@ def get_performance_service() -> PerformanceService:
 @lru_cache
 def get_load_service() -> LoadService:
     return LoadService()
+
+
+@lru_cache
+def get_history_service() -> HistoryService:
+    return HistoryService()
+
+
+@lru_cache
+def get_readiness_service() -> ReadinessService:
+    return ReadinessService()
+
+
+@lru_cache
+def get_planning_service() -> PlanningService:
+    return PlanningService()

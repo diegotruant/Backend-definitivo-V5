@@ -22,7 +22,7 @@ except ImportError as e:  # pragma: no cover
 
 from api.errors import ServiceError
 from api.openapi import enrich_openapi_schema
-from api.routers import health, load, performance, profile, ride, team, test_routes, twin, workouts
+from api.routers import health, history, load, performance, planning, profile, readiness, ride, team, test_routes, twin, workouts
 from engines.core.security import MAX_UPLOAD_BYTES, MAX_UPLOAD_FILES, safe_error_detail
 
 OPENAPI_TAGS = [
@@ -35,6 +35,9 @@ OPENAPI_TAGS = [
     {"name": "performance", "description": "Neuromuscular profile and power-source QA."},
     {"name": "load", "description": "Non-cycling manual load injection."},
     {"name": "team", "description": "Team learning calibration."},
+    {"name": "history", "description": "Athlete history, power-curve records and load trends."},
+    {"name": "readiness", "description": "Daily readiness and load-risk estimates."},
+    {"name": "planning", "description": "Season plans and adaptive weekly planning."},
 ]
 
 app: FastAPI
@@ -113,6 +116,9 @@ def create_app() -> FastAPI:
         performance.router,
         load.router,
         team.router,
+        history.router,
+        readiness.router,
+        planning.router,
     ):
         application.include_router(router)
 

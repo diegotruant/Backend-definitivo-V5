@@ -163,3 +163,88 @@ class ManualLoadRequest(BaseModel):
     modality: str = Field(default="other", description="gym, run, swim, other, …")
     muscle_damage_factor: Optional[float] = Field(default=None, ge=0, le=3)
     notes: Optional[str] = None
+
+
+class ActivityIntelligenceRequest(BaseModel):
+    weight_kg: float = Field(default=70.0, gt=30, lt=200)
+    ftp: Optional[float] = Field(default=None, gt=0)
+    cp: Optional[float] = Field(default=None, gt=0)
+    lthr: Optional[float] = Field(default=None, gt=0)
+
+
+class HistorySummaryRequest(BaseModel):
+    activities: List[Dict[str, Any]] = Field(default_factory=list)
+    as_of: Optional[str] = None
+    weight_kg: Optional[float] = Field(default=None, gt=30, lt=200)
+
+
+class ReadinessTodayRequest(BaseModel):
+    load_state: Optional[Dict[str, Any]] = None
+    hrv_status: Optional[Dict[str, Any]] = None
+    sleep_status: Optional[Dict[str, Any]] = None
+    subjective: Optional[Dict[str, Any]] = None
+    recent_warnings: List[str] = Field(default_factory=list)
+
+
+class LoadStateUpdateRequest(BaseModel):
+    previous_state: Optional[Dict[str, Any]] = None
+    session_load: float = Field(default=0.0, ge=0)
+
+
+class LoadRiskRequest(BaseModel):
+    load_state: Dict[str, Any] = Field(default_factory=dict)
+    planned_load: float = Field(default=0.0, ge=0)
+
+
+class AbilityProfileRequest(BaseModel):
+    athlete_profile: Dict[str, Any] = Field(default_factory=dict)
+    weight_kg: Optional[float] = Field(default=None, gt=30, lt=200)
+    durability: Optional[Dict[str, Any]] = None
+    compliance_history: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class BreakthroughRequest(BaseModel):
+    baseline_curve: Dict[str, Any] = Field(default_factory=dict)
+    activity_curve: Dict[str, Any] = Field(default_factory=dict)
+    min_gain_pct: float = Field(default=1.5, ge=0)
+
+
+class WorkoutRecommendationRequest(BaseModel):
+    athlete_profile: Dict[str, Any] = Field(default_factory=dict)
+    readiness: Optional[Dict[str, Any]] = None
+    goal: Optional[Dict[str, Any]] = None
+    recent_workouts: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class ProgressionLevelsRequest(BaseModel):
+    athlete_profile: Dict[str, Any] = Field(default_factory=dict)
+    workout_history: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class AdaptPlanRequest(BaseModel):
+    plan: List[Dict[str, Any]] = Field(default_factory=list)
+    readiness: Optional[Dict[str, Any]] = None
+    last_compliance: Optional[Dict[str, Any]] = None
+
+
+class WorkoutExportRequest(BaseModel):
+    workout: Dict[str, Any] = Field(default_factory=dict)
+    format: str = Field(default="erg", description="erg, mrc or zwo")
+
+
+class CreateSeasonPlanRequest(BaseModel):
+    start_date: Optional[str] = None
+    target_date: Optional[str] = None
+    weekly_hours: float = Field(default=8.0, ge=1, le=40)
+    goal: Optional[Dict[str, Any]] = None
+
+
+class AdaptWeekRequest(BaseModel):
+    week_plan: List[Dict[str, Any]] = Field(default_factory=list)
+    readiness: Optional[Dict[str, Any]] = None
+    compliance: Optional[Dict[str, Any]] = None
+
+
+class CheckLoadRiskRequest(BaseModel):
+    plan: List[Dict[str, Any]] = Field(default_factory=list)
+    chronic_load: float = Field(default=50.0, ge=0)
