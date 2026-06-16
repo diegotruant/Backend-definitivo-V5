@@ -25,10 +25,10 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from engines import (
-    MetabolicProfiler, MaderConstants, AthleteContext,
-    ExpressivenessReport,
-)
+from engines.core.athlete_context import AthleteContext
+from engines.metabolic.mader_constants import ExpressivenessReport, MaderConstants
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.performance.interval_detector import QualifiedAnchor, protocol_completeness
 
 
 results = []
@@ -226,9 +226,6 @@ check("3-glycolytic-only MMP doesn't crash", isinstance(snap, dict))
 # 8. protocol_completeness (new in v3.5.0)
 # =============================================================================
 print("\n[8] protocol_completeness — onboarding planner")
-
-from engines import protocol_completeness, QualifiedAnchor
-
 # No anchors → "very_low" current, "high" post
 r = protocol_completeness(available_durations_s=[])
 check("no anchors → very_low current confidence",

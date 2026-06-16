@@ -27,7 +27,12 @@ def check(name, ok, detail=""):
 # =============================================================================
 print("\n[1] Import + instantiate")
 
-from engines import MetabolicProfiler, AthleteContext, MaderConstants
+from engines.core.athlete_context import AthleteContext
+from engines.metabolic.detraining_engine import apply_detraining_model, calculate_ctl_atl_tsb
+from engines.metabolic.mader_constants import MaderConstants
+from engines.metabolic.metabolic_current import get_current_metabolic_status
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.metabolic.metabolic_profiler_phenotype import enhance_metabolic_snapshot_with_phenotype
 
 ctx = AthleteContext(
     gender="MALE",
@@ -133,9 +138,6 @@ check("status == error when <3 anchors",
 # 4. Phenotype enhancement layer runs on real snapshot
 # =============================================================================
 print("\n[4] Phenotype enhancement layer")
-
-from engines import enhance_metabolic_snapshot_with_phenotype
-
 if snapshot.get("status") == "success":
     enhanced = enhance_metabolic_snapshot_with_phenotype(
         snapshot.copy(),  # don't mutate
@@ -159,8 +161,6 @@ if snapshot.get("status") == "success":
 # 5. metabolic_current uses MetabolicProfiler end-to-end
 # =============================================================================
 print("\n[5] metabolic_current end-to-end")
-
-from engines import get_current_metabolic_status
 from datetime import date
 
 # 30 days of training (synthetic) — use date objects, not ISO strings
@@ -196,9 +196,6 @@ except Exception as e:
 # 6. detraining_engine accepts the snapshot
 # =============================================================================
 print("\n[6] detraining_engine integration")
-
-from engines import calculate_ctl_atl_tsb, apply_detraining_model
-
 if snapshot.get("status") == "success":
     # CTL/ATL/TSB from workout history
     tl = calculate_ctl_atl_tsb(workout_history, today)

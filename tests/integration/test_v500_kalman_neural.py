@@ -10,14 +10,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from datetime import date, timedelta
 import numpy as np
 
-from engines import (
-    # Existing
-    MetabolicProfiler, AthleteContext, bayesian_metabolic_snapshot,
-    # Kalman
-    MetabolicKalman, DailyInput, process_workout_history,
-    # Neural ODE
-    NeuralPowerDuration, NeuralDynamics, TinyMLP,
-)
+from engines.core.athlete_context import AthleteContext
+from engines.metabolic.bayesian_profiler import bayesian_metabolic_snapshot
+from engines.metabolic.metabolic_kalman import DailyInput, MetabolicKalman, process_workout_history
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.performance.mader_residual_mlp import NeuralDynamics, NeuralPowerDuration, TinyMLP
 
 results = []
 def check(name, ok, detail=""):

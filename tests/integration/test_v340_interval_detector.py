@@ -15,8 +15,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import random
 
-from engines import (
-    classify_session, ClassifiedSession, SUBTYPES_TEST, SUBTYPES_HIIT, SUBTYPES_STEADY, SUBTYPES_FREE,
+from engines.performance.interval_detector import (
+    SUBTYPES_FREE,
+    SUBTYPES_HIIT,
+    SUBTYPES_STEADY,
+    SUBTYPES_TEST,
+    ClassifiedSession,
+    classify_session,
 )
 
 

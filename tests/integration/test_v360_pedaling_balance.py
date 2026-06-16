@@ -19,9 +19,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 
-from engines import (
-    analyze_pedaling_balance, analyze_balance_trend,
+from engines.recovery.pedaling_balance import (
     PedalingBalanceReport,
+    analyze_balance_trend,
+    analyze_pedaling_balance,
 )
 
 

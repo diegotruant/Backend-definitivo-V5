@@ -28,7 +28,12 @@ def check(name, ok, detail=""):
 # =============================================================================
 print("\n[1] Canonical field names in ActivityStreamEnhanced")
 
-from engines import parse_fit_records_enhanced
+from engines.core.athlete_context import AthleteContext
+from engines.core.tiers import ENGINE_TIERS, SCOPE, Tier, annotate, tier_for
+from engines.io.fit_parser import parse_fit_records_enhanced
+from engines.io.workout_summary import build_workout_summary
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.recovery.hrv_engine import analyze_rr_stream, calculate_dfa_alpha1
 
 base = datetime(2026, 5, 19, 9, 0)
 records = [
@@ -83,9 +88,6 @@ check("total_distance_m computed", stream.total_distance_m > 0)
 # 2. Tier API
 # =============================================================================
 print("\n[2] Tier API (confidence classification)")
-
-from engines import Tier, ENGINE_TIERS, tier_for, annotate, SCOPE
-
 check("Tier.REFERENCE accessible", Tier.REFERENCE.value == "REFERENCE")
 check("Tier.MODEL accessible", Tier.MODEL.value == "MODEL")
 check("Tier.HEURISTIC accessible", Tier.HEURISTIC.value == "HEURISTIC")
@@ -122,9 +124,6 @@ check("metabolic_profiler is longitudinal",
 # 3. MetabolicProfiler.enhance_with_phenotype() fluent method
 # =============================================================================
 print("\n[3] Fluent enhance_with_phenotype() method")
-
-from engines import MetabolicProfiler, AthleteContext
-
 profiler = MetabolicProfiler(weight=72.0, context=AthleteContext())
 mmp = {5: 1100, 30: 700, 60: 520, 180: 380, 300: 340,
        600: 310, 1200: 295, 1800: 285, 3600: 270}
@@ -161,9 +160,7 @@ check("No 'try ... except ImportError ... metabolic_profiler import' fallback",
       "from engines.metabolic.metabolic_profiler import AthleteContext" not in hrv_src,
       "fallback still present")
 
-# Actual import still works
-from engines import analyze_rr_stream, calculate_dfa_alpha1
-check("analyze_rr_stream importable", callable(analyze_rr_stream))
+# Actual import still workscheck("analyze_rr_stream importable", callable(analyze_rr_stream))
 check("calculate_dfa_alpha1 importable", callable(calculate_dfa_alpha1))
 
 
@@ -171,9 +168,6 @@ check("calculate_dfa_alpha1 importable", callable(calculate_dfa_alpha1))
 # 5. workout_summary still works end-to-end after rename
 # =============================================================================
 print("\n[5] workout_summary end-to-end after rename")
-
-from engines import build_workout_summary
-
 # Build a 1-hour ride for speed
 import numpy as np
 np.random.seed(42)

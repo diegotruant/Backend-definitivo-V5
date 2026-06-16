@@ -18,7 +18,8 @@ def check(name, ok, detail=""):
 
 
 print("\n[1] Public contract helpers")
-from engines import (
+from engines.core.athlete_context import AthleteContext
+from engines.core.metric_contracts import (
     ConfidenceLevel,
     MetricEnvelope,
     MetricUncertainty,
@@ -29,6 +30,8 @@ from engines import (
     normalize_confidence,
     summarize_section_contracts,
 )
+from engines.io.workout_summary import build_workout_summary
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
 
 check("normalize numeric 0..100", normalize_confidence(85) == 0.85)
 check("normalize string HIGH", normalize_confidence("HIGH") == 0.9)
@@ -58,10 +61,8 @@ check("dataclasses importable", MetricEnvelope is not None and MetricUncertainty
 
 
 print("\n[2] Engine payloads expose common contract")
-from engines import AthleteContext, MetabolicProfiler
 from engines.io.fit_parser import parse_fit_records_enhanced
 from engines.performance.power_engine import PowerEngine
-from engines import build_workout_summary
 
 base = datetime(2026, 1, 1, 8, 0, 0)
 records = [

@@ -17,13 +17,15 @@ def check(name, ok, detail=""):
 
 
 print("\n[1] Engine import and self-demo")
-from engines import (
+from engines.core.athlete_context import AthleteContext
+from engines.core.tiers import Tier, tier_for
+from engines.io.workout_summary import build_workout_summary
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.performance.mader_durability import (
     MaderDurabilityEngine,
     compute_session_durability,
     from_metabolic_snapshot,
     sustainability_targets,
-    MetabolicProfiler,
-    AthleteContext,
 )
 
 engine = MaderDurabilityEngine(
@@ -75,7 +77,6 @@ check("session has sustainability", session.get("sustainability", {}).get("statu
 
 
 print("\n[5] workout_summary wiring")
-from engines import build_workout_summary
 from engines.io.fit_parser import parse_fit_records_enhanced
 from datetime import datetime, timedelta
 
@@ -116,7 +117,6 @@ check(
 
 
 print("\n[7] Tier registration")
-from engines import tier_for, Tier
 check("mader_durability tier MODEL", tier_for("mader_durability") == Tier.MODEL)
 
 

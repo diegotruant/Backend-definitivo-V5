@@ -20,11 +20,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from datetime import date, timedelta
 
-from engines import (
-    analyze_mmp_quality, clean_mmp, filter_mmp_by_window,
-    MetabolicProfiler, AthleteContext,
-    should_display, mask_low_confidence,
-)
+from engines.core.athlete_context import AthleteContext
+from engines.core.tiers import mask_low_confidence, should_display
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.performance.mmp_quality import analyze_mmp_quality, clean_mmp, filter_mmp_by_window
 
 
 results = []

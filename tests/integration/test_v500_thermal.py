@@ -8,9 +8,10 @@ import numpy as np
 import random
 random.seed(42)
 
-from engines import (
-    analyze_thermal_session, analyze_heat_acclimation,
+from engines.recovery.thermal_engine import (
     ThermalSessionReport,
+    analyze_heat_acclimation,
+    analyze_thermal_session,
 )
 
 results = []

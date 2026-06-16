@@ -49,7 +49,26 @@ def assert_test(name, condition, detail=""):
 
 section("1. Build synthetic ActivityStream")
 
-from engines import parse_fit_records_enhanced
+from engines.core.athlete_context import AthleteContext
+from engines.core.data_quality_engine import assess_data_quality
+from engines.io.fit_parser import parse_fit_records_enhanced
+from engines.io.workout_summary import build_workout_summary
+from engines.metabolic.metabolic_flexibility_engine import (
+    calculate_metabolic_flexibility_index,
+    estimate_fat_oxidation_rate,
+)
+from engines.performance.durability_engine import (
+    calculate_durability_index,
+    calculate_np_drift,
+    generate_hourly_decay_curve,
+)
+from engines.performance.training_variability_engine import calculate_acwr, calculate_monotony_strain
+from engines.performance.w_prime_balance_engine import analyze_w_prime_usage, calculate_w_prime_balance
+from engines.recovery.explainability_engine import (
+    calculate_durability_confidence,
+    generate_acwr_narrative,
+    generate_durability_narrative,
+)
 
 from datetime import datetime, timedelta
 
@@ -109,9 +128,6 @@ except Exception as e:
 # =============================================================================
 
 section("2. Data quality assessment")
-
-from engines import assess_data_quality
-
 quality = assess_data_quality(
     power_stream=[r["power"] for r in records],
     hr_stream=[r["heart_rate"] for r in records],
@@ -135,9 +151,6 @@ print(f"  → HR quality: {quality.hr_quality:.2f}")
 # =============================================================================
 
 section("3. Orchestrator: build_workout_summary")
-
-from engines import build_workout_summary, AthleteContext
-
 try:
     t0 = time.time()
     summary = build_workout_summary(
@@ -198,9 +211,6 @@ except Exception as e:
 # =============================================================================
 
 section("4. Durability engine (3h+ ride)")
-
-from engines import calculate_durability_index, generate_hourly_decay_curve, calculate_np_drift
-
 power_only = [r["power"] for r in records]
 
 di = calculate_durability_index(power_only, duration_s)
@@ -235,9 +245,6 @@ if np_drift.get("status") == "success":
 # =============================================================================
 
 section("5. Training variability (ACWR / Monotony)")
-
-from engines import calculate_acwr, calculate_monotony_strain
-
 # Simulated 7-day TSS history
 daily_tss = [85, 95, 60, 110, 70, 130, 90]
 
@@ -262,9 +269,6 @@ print(f"  → Weekly TSS: {ms.get('weekly_tss')}, Strain: {ms.get('strain')}")
 # =============================================================================
 
 section("6. W' balance (interval simulation)")
-
-from engines import calculate_w_prime_balance, analyze_w_prime_usage
-
 # Simulate 4x4min intervals at 360W with 2min recovery at 120W
 interval_power = [180]*600  # 10min warmup
 for _ in range(4):
@@ -293,9 +297,6 @@ print(f"  → Critical depletions: {usage.get('critical_depletions_count')}")
 # =============================================================================
 
 section("7. Metabolic flexibility index")
-
-from engines import calculate_metabolic_flexibility_index, estimate_fat_oxidation_rate
-
 mfi = calculate_metabolic_flexibility_index(fatmax_watts=210, vt2_watts=310)
 print(f"  → MFI: {mfi.get('mfi')} ({mfi.get('classification')})")
 
@@ -308,13 +309,6 @@ print(f"  → Fat ox rate: {fat_ox.get('fat_oxidation_g_per_min')} g/min")
 # =============================================================================
 
 section("8. Explainability (confidence + narrative)")
-
-from engines import (
-    calculate_durability_confidence,
-    generate_durability_narrative,
-    generate_acwr_narrative,
-)
-
 dur_conf = calculate_durability_confidence(
     duration_hours=duration_s / 3600,
     power_data_completeness=quality.power_quality,
