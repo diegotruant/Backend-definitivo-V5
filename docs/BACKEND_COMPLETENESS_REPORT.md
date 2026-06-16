@@ -1,93 +1,93 @@
 # Backend Completeness Report — V5 Team Learning
 
-## Stato generale
+## General status
 
-Il backend è pronto come base di sviluppo per un prodotto frontend avanzato. È stateless, modulare e costruito attorno a motori fisiologici separati dall'API.
+The backend is ready as a development foundation for an advanced frontend product. It is stateless, modular, and built around physiological engines separated from the API.
 
-Questa consegna non include database, autenticazione o job queue: sono intenzionalmente lasciati allo strato applicativo/production. Il backend restituisce JSON serializzabili che il frontend/DB deve salvare e rimandare.
+This delivery does not include a database, authentication, or a job queue: those are intentionally left to the application/production layer. The backend returns JSON-serializable data that the frontend/DB must save and send back.
 
-## Moduli principali
+## Main modules
 
-| Area | Stato | Note |
+| Area | Status | Notes |
 |---|---|---|
-| API FastAPI | Pronta | `api_app.py` |
-| FIT ingest | Pronto | parsing e power curve |
-| MMP / power curve | Pronto | aggiornamento curva persistibile |
-| Metabolic snapshot | Pronto | VO2max, VLamax, MLSS, FatMax, MAP |
-| Expressiveness gate | Pronto | evita valori non affidabili |
-| Workout summary | Pronto | report attività modulare |
-| Mader durability | Pronto | durability meccanicistica |
-| Test in presenza | Pronto | envelope tablet |
-| Lab/lactate validation | Presente | da usare nei test validati |
-| Anchor profile flow | Pronto | proposta → conferma coach → anchor |
-| Kalman / Bayesian / Neural | Presente | motori avanzati già nel repo |
-| Team Learning Engine | Aggiunto | apprendimento residuo team/atleta/fenotipo |
-| Frontend MVP | Presente ma non definitivo | serve ricostruzione secondo blueprint |
+| FastAPI API | Ready | `api_app.py` |
+| FIT ingest | Ready | parsing and power curve |
+| MMP / power curve | Ready | persistable curve updates |
+| Metabolic snapshot | Ready | VO2max, VLamax, MLSS, FatMax, MAP |
+| Expressiveness gate | Ready | avoids unreliable values |
+| Workout summary | Ready | modular activity report |
+| Mader durability | Ready | mechanistic durability |
+| In-person testing | Ready | tablet envelope |
+| Lab/lactate validation | Present | to use in validated tests |
+| Anchor profile flow | Ready | proposal → coach confirmation → anchor |
+| Kalman / Bayesian / Neural | Present | advanced engines already in the repo |
+| Team Learning Engine | Added | residual learning team/athlete/phenotype |
+| Frontend MVP | Present but not final | needs rebuild according to the blueprint |
 
-## Endpoint disponibili
+## Available endpoints
 
-| Endpoint | Stato | Uso frontend |
+| Endpoint | Status | Frontend usage |
 |---|---|---|
-| `GET /health` | Pronto | monitoraggio servizio |
-| `POST /test/propose` | Pronto | upload FIT test |
-| `POST /test/confirm` | Pronto | conferma coach e anchor |
-| `POST /ride/ingest` | Pronto | import attività e curva MMP |
-| `POST /ride/update-profile` | Pronto | aggiornamento profilo da ride |
-| `POST /profile/snapshot` | Pronto | dashboard profilo metabolico |
-| `POST /ride/summary` | Pronto | report attività |
-| `POST /ride/durability` | Pronto | durability da snapshot |
-| `POST /test/in-person` | Pronto | test tablet/lattato/Mader |
-| `POST /team/calibration/update` | Aggiunto | aggiorna modello apprendimento team |
-| `POST /team/calibration/apply` | Aggiunto | applica calibrazione a valore/snapshot |
+| `GET /health` | Ready | service monitoring |
+| `POST /test/propose` | Ready | upload FIT test |
+| `POST /test/confirm` | Ready | coach and anchor confirmation |
+| `POST /ride/ingest` | Ready | import activities and MMP curve |
+| `POST /ride/update-profile` | Ready | update profile from ride |
+| `POST /profile/snapshot` | Ready | metabolic profile dashboard |
+| `POST /ride/summary` | Ready | activity report |
+| `POST /ride/durability` | Ready | durability from snapshot |
+| `POST /test/in-person` | Ready | tablet/lactate/Mader test |
+| `POST /team/calibration/update` | Added | update team learning model |
+| `POST /team/calibration/apply` | Added | apply calibration to value/snapshot |
 
-## Cosa manca per produzione
+## What’s missing for production
 
-Questi punti non sono bug del backend, ma responsabilità dello strato prodotto:
+These points are not backend bugs, but responsibilities of the product layer:
 
-1. Autenticazione e ruoli.
-2. Database persistente.
-3. Storage file FIT.
-4. Job queue per parsing e calcoli pesanti.
-5. Audit log degli accessi e dei modelli.
-6. Gestione GDPR e consensi.
-7. Versionamento modello in DB.
-8. Monitoring errori.
+1. Authentication and roles.
+2. Persistent database.
+3. FIT file storage.
+4. Job queue for parsing and heavy calculations.
+5. Audit log of access and models.
+6. GDPR and consent management.
+7. Model versioning in the DB.
+8. Error monitoring.
 9. Rate limiting.
-10. Backup e disaster recovery.
+10. Backup and disaster recovery.
 
-## Cosa deve salvare il database
+## What the database must store
 
-Minimo indispensabile:
+Minimum required:
 
 - team;
-- atleti;
-- file attività;
+- athletes;
+- activity files;
 - curve MMP;
-- anchor fisiologici;
-- snapshot metabolici;
+- physiological anchors;
+- metabolic snapshots;
 - workout summary;
 - validation events;
-- calibration model team;
+- team calibration model;
 - model version.
 
-## Test eseguiti consigliati
+## Recommended tests to run
 
 ```bash
 PYTHONPATH=. pytest -q tests/pytest_smoke.py tests/test_team_learning_engine.py
 ```
 
-Risultato atteso:
+Expected result:
 
 ```text
 6 passed
 ```
 
-## Posizionamento tecnico
+## Technical positioning
 
-Il backend non deve essere presentato come AI generica. Deve essere presentato come:
+The backend should not be presented as generic AI. It should be presented as:
 
 > Physics/physiology-informed performance engine with audited residual learning.
 
-In italiano:
+Example phrasing:
 
-> Motore di performance basato su fisiologia, validazione da test e apprendimento residuo auditabile.
+> A physiology-based performance engine, validated by tests and with auditable residual learning.

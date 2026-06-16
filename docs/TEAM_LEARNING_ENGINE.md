@@ -1,34 +1,34 @@
 # Team Learning Engine
 
-## Obiettivo
+## Objective
 
-Il `Team Learning Engine` aggiunge un layer di apprendimento residuo e auditabile sopra il modello fisiologico esistente.
+The `Team Learning Engine` adds an auditable residual-learning layer on top of the existing physiological model.
 
-Il principio è:
+The principle is:
 
 ```text
-stima prima del test
-→ test Mader / lattato / lab validato
-→ errore osservato = misurato - predetto
-→ bias atleta / fenotipo / team
-→ nuova stima corretta con cap e confidenza
+estimate before the test
+→ validated Mader / lactate / lab test
+→ observed error = measured - predicted
+→ athlete / phenotype / team bias
+→ new corrected estimate with cap and confidence
 ```
 
-Il motore non sostituisce Mader, Kalman o il metabolic profiler. Impara solo la correzione residua, con limiti conservativi.
+The engine does not replace Mader, Kalman, or the metabolic profiler. It learns only the residual correction, with conservative limits.
 
-## File aggiunto
+## Added file
 
 ```text
 engines/metabolic/team_learning_engine.py
 ```
 
-## Concetti principali
+## Main concepts
 
 ### ValidationEvent
 
-Rappresenta un confronto onesto fra una previsione prodotta prima del test e un valore validato.
+Represents an honest comparison between a prediction produced before the test and a validated value.
 
-Campi chiave:
+Key fields:
 
 - `athlete_id`
 - `team_id`
@@ -45,27 +45,27 @@ Campi chiave:
 
 ### TeamCalibrationModel
 
-Contiene gli eventi validati e produce:
+Contains validated events and produces:
 
-- statistiche di accuratezza team;
-- bias per parametro;
-- correzione per fenotipo;
-- correzione athlete-specific;
-- correzione bounded applicabile a un valore o a uno snapshot metabolico.
+- team accuracy statistics;
+- bias per parameter;
+- phenotype correction;
+- athlete-specific correction;
+- bounded correction applicable to a value or a metabolic snapshot.
 
 ### CorrectionConfig
 
-Imposta i limiti di sicurezza:
+Sets safety limits:
 
-- minimo eventi team;
-- minimo eventi fenotipo;
-- minimo eventi atleta;
-- massimo aggiustamento assoluto;
-- massimo aggiustamento percentuale.
+- minimum team events;
+- minimum phenotype events;
+- minimum athlete events;
+- maximum absolute adjustment;
+- maximum percentage adjustment.
 
-Default conservativi:
+Conservative defaults:
 
-| Parametro | Cap assoluto | Cap percentuale |
+| Parameter | Absolute cap | Percentage cap |
 |---|---:|---:|
 | MLSS | 25 W | 5% |
 | FatMax | 25 W | 7% |
@@ -73,13 +73,13 @@ Default conservativi:
 | VO2max | 4 ml/kg/min | 5% |
 | VLamax | 0.08 mmol/L/s | 15% |
 
-## Endpoint aggiunti
+## Added endpoints
 
 ### `POST /team/calibration/update`
 
-Aggiunge nuovi eventi validati a un modello team già esistente oppure ne crea uno nuovo.
+Adds new validated events to an existing team model or creates a new one.
 
-Payload minimo:
+Minimum payload:
 
 ```json
 {
@@ -102,13 +102,13 @@ Payload minimo:
 }
 ```
 
-Risposta: modello serializzabile con `events` e `accuracy_report`.
+Response: serializable model with `events` and `accuracy_report`.
 
 ### `POST /team/calibration/apply`
 
-Applica la calibrazione a un singolo parametro oppure a uno snapshot metabolico.
+Applies calibration to a single parameter or to a metabolic snapshot.
 
-Esempio parametro singolo:
+Single-parameter example:
 
 ```json
 {
@@ -121,7 +121,7 @@ Esempio parametro singolo:
 }
 ```
 
-Esempio snapshot:
+Snapshot example:
 
 ```json
 {
@@ -138,22 +138,22 @@ Esempio snapshot:
 }
 ```
 
-## Regola scientifica
+## Scientific rule
 
-La previsione deve essere salvata prima del test. Se il sistema vede prima il valore misurato, l'evento non è utile per validare il miglioramento del modello.
+The prediction must be saved before the test. If the system sees the measured value first, the event is not useful for validating model improvement.
 
-## Test
+## Tests
 
-Aggiunto:
+Added:
 
 ```text
 tests/test_team_learning_engine.py
 ```
 
-Verifica:
+Verifies:
 
-- apprendimento bias MLSS bounded;
-- priorità della correzione athlete-specific quando disponibile;
-- serializzazione round-trip;
-- applicazione a snapshot;
-- helper da prediction + lab dict.
+- bounded MLSS bias learning;
+- priority of athlete-specific correction when available;
+- round-trip serialization;
+- application to snapshot;
+- helper from prediction + lab dict.
