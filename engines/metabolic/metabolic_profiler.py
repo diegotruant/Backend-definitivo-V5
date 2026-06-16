@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from engines.core.athlete_context import AthleteContext
 from engines.core.metric_contracts import annotate_payload
+from engines.core.model_safety import finalize_model_metadata
+from engines.core.tiers import DEFAULT_DISPLAY_THRESHOLD, should_display
 from engines.metabolic.cross_validation_engine import (
     cross_validate_metabolic_profile,
     observed_threshold_power,
@@ -885,6 +887,51 @@ class MetabolicProfiler:
     @staticmethod
     def _finalize_snapshot(snap: Dict[str, Any], audit: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """Attach the MMP quality audit if it was produced."""
+        if snap.get("status") == "success":
+            expressiveness = snap.get("expressiveness", {}) or {}
+            missing_inputs = list(expressiveness.get("missing_windows") or [])
+            quality_flags: List[str] = []
+            if not expressiveness.get("fully_expressive", True):
+                quality_flags.append("expressiveness_limited")
+            curve_maximality = snap.get("curve_maximality") or {}
+            if curve_maximality.get("plausible_maximal") is False:
+                quality_flags.append("curve_likely_submaximal")
+            confidence_score = float(snap.get("confidence_score") or 0.0)
+            snap["model_metadata"] = finalize_model_metadata(
+                assumptions=[
+                    "mader_joint_fit_is_model_based_not_direct_measurement",
+                    "metabolic_outputs_depend_on_anchor_quality",
+                ],
+                missing_inputs=missing_inputs,
+                quality_flags=quality_flags,
+                confidence=confidence_score,
+            )
+            show_values = should_display(confidence_score, DEFAULT_DISPLAY_THRESHOLD)
+            flagship_fields = [
+                "estimated_vo2max",
+                "estimated_vlamax_mmol_L_s",
+                "mlss_power_watts",
+                "fatmax_power_watts",
+            ]
+            snap["ui_display"] = {
+                "show_values": show_values,
+                "threshold": DEFAULT_DISPLAY_THRESHOLD,
+                "recommended_mask_fields": (
+                    [] if show_values else [f for f in flagship_fields if snap.get(f) is not None]
+                ),
+                "reason": (
+                    "confidence_above_threshold"
+                    if show_values
+                    else "confidence_below_threshold_use_placeholder"
+                ),
+            }
+        else:
+            snap["model_metadata"] = finalize_model_metadata(
+                assumptions=["snapshot_generation_failed_before_model_convergence"],
+                missing_inputs=[],
+                quality_flags=["engine_error"],
+                confidence=0.0,
+            )
         if audit is not None:
             snap["mmp_quality"] = audit
         annotate_payload(

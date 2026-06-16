@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from engines.core.metric_contracts import annotate_payload
+from engines.core.model_safety import finalize_model_metadata
 
 
 def _clamp(value: float, lo: float = 0.0, hi: float = 1.0) -> float:
@@ -54,7 +55,28 @@ def compute_load_risk(load_state: Dict[str, Any], *, planned_load: float = 0.0) 
         risk = "detraining"
     else:
         risk = "low"
-    return {"status": "success", "risk": risk, "acute_chronic_ratio": round(ratio, 2), "planned_load": round(planned_load, 1)}
+    assumptions: list[str] = []
+    missing_inputs: list[str] = []
+    quality_flags: list[str] = []
+    if _num(load_state.get("acute_load"), 0.0) <= 0.0:
+        missing_inputs.append("acute_load")
+    if _num(load_state.get("chronic_load"), 0.0) <= 0.0:
+        missing_inputs.append("chronic_load")
+    if chronic <= 5.0:
+        quality_flags.append("cold_start_low_chronic_load")
+        assumptions.append("risk_estimate_based_on_limited_load_history")
+    return {
+        "status": "success",
+        "risk": risk,
+        "acute_chronic_ratio": round(ratio, 2),
+        "planned_load": round(planned_load, 1),
+        "model_metadata": finalize_model_metadata(
+            assumptions=assumptions,
+            missing_inputs=missing_inputs,
+            quality_flags=quality_flags,
+            confidence=0.8,
+        ),
+    }
 
 
 def compute_readiness_today(
@@ -77,9 +99,24 @@ def compute_readiness_today(
     balance = _num(load.get("load_balance"), chronic - acute)
     load_component = _clamp(0.55 + (balance / max(chronic, 1.0)) * 0.5)
 
+    assumptions: list[str] = []
+    missing_inputs: list[str] = []
+    quality_flags: list[str] = []
     hrv_component = _clamp(_num(hrv.get("score"), 0.65)) if hrv else 0.65
     sleep_component = _clamp(_num(sleep.get("score"), 0.65)) if sleep else 0.65
     subjective_component = _clamp(_num(subj.get("score"), 0.7)) if subj else 0.7
+    if not hrv:
+        assumptions.append("hrv_component_defaulted_to_0_65")
+        missing_inputs.append("hrv_status")
+    if not sleep:
+        assumptions.append("sleep_component_defaulted_to_0_65")
+        missing_inputs.append("sleep_status")
+    if not subj:
+        assumptions.append("subjective_component_defaulted_to_0_7")
+        missing_inputs.append("subjective_status")
+    if not load:
+        assumptions.append("load_component_derived_without_historical_state")
+        missing_inputs.append("load_state")
 
     score = (
         load_component * 0.42
@@ -104,6 +141,12 @@ def compute_readiness_today(
     elif readiness_score > 85:
         recommendation = "ready_for_quality"
 
+    model_metadata = finalize_model_metadata(
+        assumptions=assumptions,
+        missing_inputs=missing_inputs,
+        quality_flags=quality_flags,
+        confidence=0.78 if load else 0.58,
+    )
     payload = {
         "status": "success",
         "schema_version": "1.0.0",
@@ -118,5 +161,11 @@ def compute_readiness_today(
         },
         "load_risk": risk,
         "warnings": sorted(set(warnings)),
+        "model_metadata": model_metadata,
     }
-    return annotate_payload(payload, module_name="readiness_engine", method="daily_readiness", confidence=0.75 if load else 0.45)
+    return annotate_payload(
+        payload,
+        module_name="readiness_engine",
+        method="daily_readiness",
+        confidence=model_metadata["confidence_score"],
+    )

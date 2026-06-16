@@ -359,6 +359,11 @@ td strong {
   max-width: 560px;
 }
 
+.safety-note {
+  color: #fbbf24 !important;
+  font-weight: 700;
+}
+
 .hero-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

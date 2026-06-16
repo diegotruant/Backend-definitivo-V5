@@ -29,6 +29,8 @@ type Athlete = {
   fatmax_power: number
   metabolic_confidence: number
   metabolic_status: string
+  ui_display_show_values?: boolean
+  ui_display_recommended_mask_fields?: string[]
   category_counts: string
   top_subtypes: string
 }
@@ -53,6 +55,8 @@ type Activity = {
 }
 
 type View = 'dashboard' | 'athletes' | 'activities' | 'metabolic' | 'statistics'
+const CONFIDENCE_DISPLAY_THRESHOLD = 0.55
+const PLACEHOLDER = '—'
 
 const number = (value: string | undefined): number => {
   const parsed = Number(value)
@@ -102,6 +106,22 @@ const parseCsv = (text: string): CsvRow[] => {
   )
 }
 
+const parseBoolean = (value: string | undefined): boolean | undefined => {
+  if (!value) return undefined
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'true' || normalized === '1') return true
+  if (normalized === 'false' || normalized === '0') return false
+  return undefined
+}
+
+const parseCsvStringList = (value: string | undefined): string[] => {
+  if (!value) return []
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+}
+
 const loadCsv = async (path: string): Promise<CsvRow[]> => {
   const response = await fetch(path)
   if (!response.ok) throw new Error(`Could not load ${path}`)
@@ -131,6 +151,8 @@ const mapAthlete = (row: CsvRow): Athlete => ({
   fatmax_power: number(row.fatmax_power),
   metabolic_confidence: number(row.metabolic_confidence),
   metabolic_status: row.metabolic_status,
+  ui_display_show_values: parseBoolean(row.ui_display_show_values),
+  ui_display_recommended_mask_fields: parseCsvStringList(row.ui_display_recommended_mask_fields),
   category_counts: row.category_counts,
   top_subtypes: row.top_subtypes,
 })
@@ -158,6 +180,12 @@ const fmt = (value: number, digits = 0) =>
   Number.isFinite(value) ? value.toLocaleString('it-IT', { maximumFractionDigits: digits }) : '-'
 
 const pct = (value: number) => `${fmt(value * 100, 0)}%`
+
+const formatMetabolicValue = (
+  value: number,
+  digits: number,
+  showValue: boolean,
+): string => (showValue ? fmt(value, digits) : PLACEHOLDER)
 
 function KpiCard({
   label,
@@ -230,6 +258,11 @@ function App() {
   const topFtp = [...athletes].sort((a, b) => b.ftp_estimate - a.ftp_estimate).slice(0, 8)
   const topVo2 = [...athletes].sort((a, b) => b.estimated_vo2max - a.estimated_vo2max).slice(0, 8)
   const activityRows = selectedActivities.slice(0, 50)
+  const showMetabolicValues = selected?.ui_display_show_values ?? ((selected?.metabolic_confidence ?? 0) >= CONFIDENCE_DISPLAY_THRESHOLD)
+  const recommendedMaskFields = selected?.ui_display_recommended_mask_fields ?? []
+  const shouldMaskField = (fieldKey: string): boolean =>
+    !showMetabolicValues
+    || recommendedMaskFields.some((item) => item.toLowerCase() === fieldKey.toLowerCase())
 
   const loadStatisticsFromApi = async () => {
     setStatisticsLoading(true)
@@ -495,6 +528,12 @@ function App() {
                 Profilo generato da MMP aggregata su {selected.parsed_files} file.
                 Le stime metaboliche sono model-derived e non lab validated.
               </p>
+              {!showMetabolicValues && (
+                <p className="safety-note">
+                  Confidenza metabolica bassa ({fmt(selected.metabolic_confidence, 2)} &lt; {CONFIDENCE_DISPLAY_THRESHOLD}):
+                  valori sensibili mascherati per evitare falsa precisione.
+                </p>
+              )}
               <div className="hero-stats">
                 <div><span>FTP</span><strong>{fmt(selected.ftp_estimate, 1)} W</strong></div>
                 <div><span>Best 20'</span><strong>{fmt(selected.best_20min, 1)} W</strong></div>
@@ -502,10 +541,10 @@ function App() {
               </div>
             </div>
 
-            <div className="metric-card"><span>VO2max stimato</span><strong>{fmt(selected.estimated_vo2max, 1)}</strong><small>ml/kg/min</small></div>
-            <div className="metric-card"><span>VLamax</span><strong>{fmt(selected.estimated_vlamax, 3)}</strong><small>mmol/L/s</small></div>
-            <div className="metric-card"><span>MLSS</span><strong>{fmt(selected.mlss_power, 1)}</strong><small>watt</small></div>
-            <div className="metric-card"><span>FatMax</span><strong>{fmt(selected.fatmax_power, 1)}</strong><small>watt</small></div>
+            <div className="metric-card"><span>VO2max stimato</span><strong>{formatMetabolicValue(selected.estimated_vo2max, 1, !shouldMaskField('estimated_vo2max'))}</strong><small>ml/kg/min</small></div>
+            <div className="metric-card"><span>VLamax</span><strong>{formatMetabolicValue(selected.estimated_vlamax, 3, !shouldMaskField('estimated_vlamax_mmol_L_s'))}</strong><small>mmol/L/s</small></div>
+            <div className="metric-card"><span>MLSS</span><strong>{formatMetabolicValue(selected.mlss_power, 1, !shouldMaskField('mlss_power_watts'))}</strong><small>watt</small></div>
+            <div className="metric-card"><span>FatMax</span><strong>{formatMetabolicValue(selected.fatmax_power, 1, !shouldMaskField('fatmax_power_watts'))}</strong><small>watt</small></div>
 
             <div className="panel full">
               <div className="panel-header">
