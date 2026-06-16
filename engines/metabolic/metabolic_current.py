@@ -13,6 +13,7 @@ from typing import Dict, Any, List, Optional, Union
 from datetime import date, datetime
 
 from engines.core.metric_contracts import annotate_payload
+from engines.core.model_safety import finalize_model_metadata
 
 # Flat imports only — avoid `engines.*` or relative imports here, which
 # re-enter `engines/__init__.py` while it is still initialising.
@@ -105,6 +106,12 @@ def get_current_metabolic_status(
             "status": "error",
             "error": "Failed to generate baseline metabolic snapshot",
             "details": baseline_snapshot,
+            "model_metadata": finalize_model_metadata(
+                assumptions=["baseline_snapshot_required_for_detraining_projection"],
+                missing_inputs=["historical_mmp"],
+                quality_flags=["baseline_generation_failed"],
+                confidence=0.0,
+            ),
         }, module_name="metabolic_current", method="mmp_detraining_current_status", confidence=0.0)
     
     # Apply detraining model
@@ -115,6 +122,12 @@ def get_current_metabolic_status(
     )
     
     if current_status.get("status") != "success":
+        current_status["model_metadata"] = finalize_model_metadata(
+            assumptions=["detraining_model_requires_valid_baseline_and_history"],
+            missing_inputs=[],
+            quality_flags=["detraining_failed"],
+            confidence=0.0,
+        )
         return annotate_payload(
             current_status,
             module_name="metabolic_current",
@@ -138,6 +151,15 @@ def get_current_metabolic_status(
         "metabolic_phenotype": baseline_snapshot.get("metabolic_phenotype"),
         "confidence_score": baseline_snapshot.get("confidence_score"),
     }
+    current_status["model_metadata"] = finalize_model_metadata(
+        assumptions=["detraining_projection_is_model_based_not_diagnostic"],
+        missing_inputs=[],
+        quality_flags=[],
+        confidence=min(
+            float(baseline_snapshot.get("confidence_score") or 0.0),
+            float((current_status.get("uncertainty") or {}).get("confidence_score") or 0.0),
+        ),
+    )
     
     return annotate_payload(
         current_status,
