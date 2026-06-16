@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional
 from api.schemas import PowerSourceNormalizationRequest
 from engines.io.power_source_normalizer import analyze_power_source_offsets
 from engines.performance.neuromuscular_profile import analyze_neuromuscular_profile
+from engines.performance.ability_profile import build_ability_profile
+from engines.performance.breakthrough_detector import detect_breakthroughs
 
 
 class PerformanceService:
@@ -28,4 +30,19 @@ class PerformanceService:
             baseline_source_id=req.baseline_source_id,
             warning_threshold_pct=req.warning_threshold_pct,
             severe_threshold_pct=req.severe_threshold_pct,
+        )
+
+    def ability_profile(self, req) -> Dict[str, Any]:
+        return build_ability_profile(
+            req.athlete_profile,
+            weight_kg=req.weight_kg,
+            durability=req.durability,
+            compliance_history=req.compliance_history,
+        )
+
+    def breakthroughs(self, req) -> Dict[str, Any]:
+        return detect_breakthroughs(
+            req.baseline_curve,
+            req.activity_curve,
+            min_gain_pct=req.min_gain_pct,
         )

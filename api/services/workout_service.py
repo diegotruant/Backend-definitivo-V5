@@ -13,6 +13,10 @@ from engines.workouts.calendar_engine import validate_status_transition
 from engines.workouts.compliance_engine import compare_workout_to_activity
 from engines.workouts.feasibility_engine import analyze_workout_feasibility
 from engines.workouts.models import WorkoutValidationError, materialize_workout, validate_workout_payload
+from engines.workouts.recommendation_engine import recommend_workout
+from engines.workouts.progression_levels import compute_progression_levels
+from engines.workouts.adaptive_planner import adapt_plan
+from engines.workouts.exporters import export_erg, export_mrc, export_zwo
 
 
 class WorkoutService:
@@ -59,6 +63,30 @@ class WorkoutService:
             return compare_workout_to_activity(workout, stream, athlete_profile, tolerance_policy)
         except WorkoutValidationError as exc:
             raise workout_validation_error(exc) from exc
+
+    def recommend(self, req) -> Dict[str, Any]:
+        return recommend_workout(
+            req.athlete_profile,
+            readiness=req.readiness,
+            goal=req.goal,
+            recent_workouts=req.recent_workouts,
+        )
+
+    def progression_levels(self, req) -> Dict[str, Any]:
+        return compute_progression_levels(req.athlete_profile, req.workout_history)
+
+    def adapt_plan(self, req) -> Dict[str, Any]:
+        return adapt_plan(req.plan, readiness=req.readiness, last_compliance=req.last_compliance)
+
+    def export_workout(self, req) -> Dict[str, Any]:
+        fmt = str(req.format or "erg").lower()
+        if fmt == "zwo":
+            return export_zwo(req.workout)
+        if fmt == "mrc":
+            return export_mrc(req.workout)
+        if fmt == "erg":
+            return export_erg(req.workout)
+        raise ServiceError("Unsupported workout export format.", status_code=400, code="UNSUPPORTED_EXPORT_FORMAT")
 
     def transition_calendar(self, req: CalendarTransitionRequest) -> Dict[str, Any]:
         return validate_status_transition(req.current_status, req.desired_status)

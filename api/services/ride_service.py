@@ -8,6 +8,8 @@ from api.schemas import AthleteParams, UpdateProfileRequest
 from engines.core.athlete_context import AthleteContext
 from engines.core.athlete_physiological_prior import MeasuredProfile
 from engines.io.workout_summary import build_workout_summary
+from engines.io.activity_intelligence import build_activity_intelligence
+from engines.io.data_quality_report import build_data_quality_report
 from engines.performance.mader_durability import compute_session_durability
 from engines.performance.mmp_aggregator import update_power_curve
 
@@ -83,6 +85,20 @@ class RideService:
             hrv_step_seconds=hrv_step_seconds,
             hrv_max_windows=hrv_max_windows,
         )
+
+    def build_intelligence(
+        self,
+        stream: Any,
+        *,
+        weight_kg: float,
+        ftp: Optional[float] = None,
+        cp: Optional[float] = None,
+        lthr: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        return build_activity_intelligence(stream, weight_kg=weight_kg, ftp=ftp, cp=cp, lthr=lthr)
+
+    def build_data_quality(self, stream: Any) -> Dict[str, Any]:
+        return build_data_quality_report(stream)
 
     def compute_durability(
         self,
