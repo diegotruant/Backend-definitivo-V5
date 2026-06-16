@@ -15,6 +15,10 @@ from api.schemas import (
     WorkoutFeasibilityRequest,
     WorkoutPrescribeRequest,
     WorkoutValidateRequest,
+    WorkoutRecommendationRequest,
+    ProgressionLevelsRequest,
+    AdaptPlanRequest,
+    WorkoutExportRequest,
 )
 from api.services.workout_service import WorkoutService
 
@@ -112,3 +116,59 @@ def workout_calendar_transition(
     service: WorkoutService = Depends(get_workout_service),
 ):
     return json_response(service.transition_calendar(req))
+
+
+@router.post(
+    "/recommend",
+    summary="Recommend next workout",
+    operation_id="workoutsRecommend",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400]},
+)
+def workout_recommend(
+    req: WorkoutRecommendationRequest,
+    service: WorkoutService = Depends(get_workout_service),
+):
+    return json_response(service.recommend(req))
+
+
+@router.post(
+    "/progression-levels",
+    summary="Compute progression levels",
+    operation_id="workoutsProgressionLevels",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400]},
+)
+def workout_progression_levels(
+    req: ProgressionLevelsRequest,
+    service: WorkoutService = Depends(get_workout_service),
+):
+    return json_response(service.progression_levels(req))
+
+
+@router.post(
+    "/adapt-plan",
+    summary="Adapt a planned workout list",
+    operation_id="workoutsAdaptPlan",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400]},
+)
+def workout_adapt_plan(
+    req: AdaptPlanRequest,
+    service: WorkoutService = Depends(get_workout_service),
+):
+    return json_response(service.adapt_plan(req))
+
+
+@router.post(
+    "/export",
+    summary="Export workout text format",
+    operation_id="workoutsExport",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400]},
+)
+def workout_export(
+    req: WorkoutExportRequest,
+    service: WorkoutService = Depends(get_workout_service),
+):
+    return json_response(service.export_workout(req))

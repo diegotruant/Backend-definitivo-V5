@@ -8,7 +8,7 @@ from api.deps import get_performance_service
 from api.helpers import json_response, load_activity_stream
 from api.responses import EnginePayload
 from api.route_docs import ERRORS, JSON_OBJECT
-from api.schemas import PowerSourceNormalizationRequest
+from api.schemas import AbilityProfileRequest, BreakthroughRequest, PowerSourceNormalizationRequest
 from api.services.performance_service import PerformanceService
 
 router = APIRouter(tags=["performance"])
@@ -52,3 +52,33 @@ def power_source_normalize(
     service: PerformanceService = Depends(get_performance_service),
 ):
     return json_response(service.normalize_power_sources(req))
+
+
+@router.post(
+    "/performance/ability-profile",
+    summary="Ability profile levels",
+    description="Zone-specific performance levels from power curve, durability and compliance history.",
+    operation_id="performanceAbilityProfile",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400]},
+)
+def ability_profile(
+    req: AbilityProfileRequest,
+    service: PerformanceService = Depends(get_performance_service),
+):
+    return json_response(service.ability_profile(req))
+
+
+@router.post(
+    "/performance/breakthroughs",
+    summary="Detect performance breakthroughs",
+    description="Compare a new activity power curve against the persisted baseline curve.",
+    operation_id="performanceBreakthroughs",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400]},
+)
+def breakthroughs(
+    req: BreakthroughRequest,
+    service: PerformanceService = Depends(get_performance_service),
+):
+    return json_response(service.breakthroughs(req))

@@ -143,3 +143,41 @@ async def ride_durability(
     return json_response(
         service.compute_durability(stream, weight_kg=weight_kg, metabolic_snapshot=snap or {})
     )
+
+
+@router.post(
+    "/intelligence",
+    summary="Activity intelligence envelope",
+    description="Best efforts, zones, intervals, chart series and data-quality report from FIT or power_json.",
+    operation_id="rideIntelligence",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400], 413: ERRORS[413]},
+)
+async def ride_intelligence(
+    weight_kg: float = Form(70.0),
+    ftp: Optional[float] = Form(None),
+    cp: Optional[float] = Form(None),
+    lthr: Optional[float] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    power_json: Optional[str] = Form(None),
+    service: RideService = Depends(get_ride_service),
+):
+    stream = await load_activity_stream(file, power_json)
+    return json_response(service.build_intelligence(stream, weight_kg=weight_kg, ftp=ftp, cp=cp, lthr=lthr))
+
+
+@router.post(
+    "/data-quality",
+    summary="Activity data-quality report",
+    description="Signal coverage, dropouts, quality flags and sensor availability.",
+    operation_id="rideDataQuality",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400], 413: ERRORS[413]},
+)
+async def ride_data_quality(
+    file: Optional[UploadFile] = File(None),
+    power_json: Optional[str] = Form(None),
+    service: RideService = Depends(get_ride_service),
+):
+    stream = await load_activity_stream(file, power_json)
+    return json_response(service.build_data_quality(stream))
