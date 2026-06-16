@@ -102,7 +102,7 @@ def _torque_nm(power_w: float, cadence_rpm: Optional[float]) -> Optional[float]:
 def analyze_neuromuscular_profile(
     stream: Any,
     *,
-    weight_kg: float = 70.0,
+    weight_kg: Optional[float] = None,
     sprint_threshold_w: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Return a JSON-safe neuromuscular sprint profile from an ActivityStream."""
@@ -142,16 +142,23 @@ def analyze_neuromuscular_profile(
         fatigue_index = None
 
     pmax_w = float(p1 or 0.0)
-    pmax_wkg = pmax_w / max(weight_kg, 1.0)
+    resolved_weight = None
+    if weight_kg is not None:
+        try:
+            w = float(weight_kg)
+            resolved_weight = w if w > 0 else None
+        except (TypeError, ValueError):
+            resolved_weight = None
+    pmax_wkg = (pmax_w / resolved_weight) if resolved_weight else None
     torque = _torque_nm(pmax_w, cadence_peak)
 
     left_balance_peak = None
     if balance.size:
         bseg = balance[max(0, peak_idx - 5): min(balance.size, peak_idx + 6)]
         left_balance_peak = _mean(bseg)
-    if pmax_wkg >= 14:
+    if pmax_wkg is not None and pmax_wkg >= 14:
         phenotype = "neuromuscular_sprinter"
-    elif pmax_wkg >= 10:
+    elif pmax_wkg is not None and pmax_wkg >= 10:
         phenotype = "mixed_power"
     else:
         phenotype = "endurance_limited_sprint"
@@ -161,6 +168,12 @@ def analyze_neuromuscular_profile(
         warnings.append({"severity": "medium", "type": "missing_cadence", "message": "Cadence missing: torque and optimal cadence confidence reduced."})
     if repeatability is None:
         warnings.append({"severity": "low", "type": "few_sprints", "message": "Few repeat sprint candidates detected; repeatability is uncertain."})
+    if resolved_weight is None:
+        warnings.append({
+            "severity": "medium",
+            "type": "missing_body_weight",
+            "message": "Body weight missing: W/kg metrics are not computed.",
+        })
 
     confidence = 0.45 + (0.2 if cadence_peak is not None else 0.0) + (0.2 if len(sprints) >= 2 else 0.0) + (0.1 if left_balance_peak is not None else 0.0)
     return {
@@ -170,7 +183,7 @@ def analyze_neuromuscular_profile(
         "summary": {
             "phenotype": phenotype,
             "pmax_w": round(pmax_w, 1),
-            "pmax_wkg": round(pmax_wkg, 2),
+            "pmax_wkg": round(pmax_wkg, 2) if pmax_wkg is not None else None,
             "cadence_at_pmax_rpm": round(cadence_peak, 1) if cadence_peak is not None else None,
             "torque_at_pmax_nm": round(torque, 1) if torque is not None else None,
             "repeatability_score": round(repeatability, 1) if repeatability is not None else None,

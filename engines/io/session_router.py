@@ -150,7 +150,7 @@ def route_and_run(
     rr_samples: Optional[List[Dict[str, Any]]] = None,
     *,
     elapsed_s: Optional[List[float]] = None,
-    weight_kg: float = 70.0,
+    weight_kg: Optional[float] = None,
     filename: Optional[str] = None,
     laps: Optional[List[Dict[str, Any]]] = None,
     ftp: Optional[float] = None,
@@ -173,7 +173,16 @@ def route_and_run(
         has_rr=has_rr,
         has_metabolic_profile=has_profile,
     )
-    out: Dict[str, Any] = {"routing": decision.to_dict(), "results": {}, "skipped": {}}
+    out: Dict[str, Any] = {"routing": decision.to_dict(), "results": {}, "skipped": {}, "assumptions": []}
+    try:
+        resolved_weight = float(weight_kg) if weight_kg is not None else 0.0
+    except (TypeError, ValueError):
+        resolved_weight = 0.0
+    if resolved_weight <= 0.0:
+        resolved_weight = 70.0
+        out["assumptions"].append(
+            "weight_kg_missing_defaulted_to_70_for_non_official_metrics"
+        )
 
     parr = np.nan_to_num(np.array(power, dtype=float), nan=0.0)
 
@@ -206,8 +215,8 @@ def route_and_run(
             from engines.metabolic.metabolic_profiler import MetabolicProfiler
             from engines.performance.mmp_aggregator import update_power_curve
             import datetime
-            r = update_power_curve(power, datetime.date.today(), weight_kg=weight_kg)
-            prof = MetabolicProfiler(weight=weight_kg, context=ctx)
+            r = update_power_curve(power, datetime.date.today(), weight_kg=resolved_weight)
+            prof = MetabolicProfiler(weight=resolved_weight, context=ctx)
             out["results"]["metabolic_snapshot"] = prof.generate_metabolic_snapshot(r.mmp_for_profiler)
         except Exception as e:
             out["skipped"]["metabolic_profile"] = f"error: {e}"
@@ -217,7 +226,7 @@ def route_and_run(
         try:
             from engines.performance.mader_durability import compute_session_durability
             out["results"]["mader_durability"] = compute_session_durability(
-                power, metabolic_snapshot, weight_kg,
+                power, metabolic_snapshot, resolved_weight,
             )
         except Exception as e:
             out["skipped"]["mader_durability"] = f"error: {e}"
@@ -227,7 +236,7 @@ def route_and_run(
         try:
             from engines.performance.mmp_aggregator import update_power_curve
             import datetime
-            r = update_power_curve(power, datetime.date.today(), weight_kg=weight_kg)
+            r = update_power_curve(power, datetime.date.today(), weight_kg=resolved_weight)
             out["results"]["power_curve"] = {
                 "curve": r.curve, "mmp_for_profiler": r.mmp_for_profiler,
                 "ride_usable": r.ride_usable,

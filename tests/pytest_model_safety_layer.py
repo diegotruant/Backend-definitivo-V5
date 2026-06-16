@@ -1,6 +1,6 @@
 from engines.adaptive_load.trend import calculate_load_trend
 from engines.performance.ability_profile import build_ability_profile
-from engines.readness.readiness_engine import compute_load_risk, compute_readiness_today
+from engines.readiness.readiness_engine import compute_load_risk, compute_readiness_today
 from engines.workouts.recommendation_engine import recommend_workout
 
 

@@ -202,7 +202,7 @@ def enhance_metabolic_snapshot_with_phenotype(
         snapshot:    Output from MetabolicProfiler.generate_metabolic_snapshot()
         phenotype:   Rider phenotype (from coggan_classifier)
         weight_kg:   Athlete weight (not stored in snapshot — pass explicitly).
-                     If None, defaults to 75.0.
+                     If None, W/kg-like derived contributions are not exposed.
         power_30s:   Max 30-second power for sprint demo. If None, derived as
                      1.5 × MLSS (rough sprint estimate from threshold).
         power_1200s: Max 20-minute power for threshold demo. If None, defaults
@@ -239,8 +239,23 @@ def enhance_metabolic_snapshot_with_phenotype(
         snapshot["energy_contributions"] = None
         return snapshot
     
-    # Resolve weight (not in snapshot — pass explicitly or default)
-    weight = weight_kg if weight_kg is not None else 75.0
+    # Resolve weight (not in snapshot). Do not invent a body mass for
+    # coach-facing estimates: missing weight means enhancement is partial.
+    if weight_kg is None:
+        snapshot["phenotype_enhancement_status"] = "insufficient_weight"
+        snapshot["phenotype_enhancement_reason"] = (
+            "weight_kg is required for phenotype energy contributions."
+        )
+        snapshot["energy_contributions"] = None
+        return snapshot
+    weight = float(weight_kg)
+    if weight <= 0:
+        snapshot["phenotype_enhancement_status"] = "invalid_weight"
+        snapshot["phenotype_enhancement_reason"] = (
+            "weight_kg must be positive for phenotype energy contributions."
+        )
+        snapshot["energy_contributions"] = None
+        return snapshot
     
     # Derive sensible defaults for sprint/threshold power if not supplied.
     # Sprint 30s ≈ 1.5 × MLSS is a rough rule for trained cyclists.

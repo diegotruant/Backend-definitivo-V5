@@ -22,6 +22,7 @@ def test_executable_script(script_path):
         capture_output=True,
         text=True,
         check=False,
+        timeout=90,
     )
 
     assert result.returncode == 0, (

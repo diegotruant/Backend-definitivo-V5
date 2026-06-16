@@ -45,7 +45,7 @@ def _date(value: Any) -> Optional[date]:
             return None
 
 
-def _metrics_from_state(state: Dict[str, Any]) -> Dict[str, float]:
+def _metrics_from_state(state: Dict[str, Any]) -> Tuple[Dict[str, float], List[str]]:
     metabolic = state.get("metabolic_metrics") or {}
     athlete = state.get("athlete_profile") or {}
     snap = state.get("metabolic_snapshot") or {}
@@ -57,12 +57,21 @@ def _metrics_from_state(state: Dict[str, Any]) -> Dict[str, float]:
     wprime = _num(merged.get("w_prime_j") or merged.get("wprime_j") or merged.get("w_prime"))
     vo2 = _num(merged.get("vo2max_ml_kg_min") or merged.get("vo2max"))
     vlamax = _num(merged.get("vlamax_mmol_l_s") or merged.get("vlamax"))
+    assumptions: List[str] = []
+    if cp is None:
+        assumptions.append("cp_missing_defaulted_to_250w")
+    if wprime is None:
+        assumptions.append("w_prime_missing_defaulted_to_18000j")
+    if vo2 is None:
+        assumptions.append("vo2max_missing_defaulted_to_50")
+    if vlamax is None:
+        assumptions.append("vlamax_missing_defaulted_to_0_45")
     return {
         "cp_w": float(cp if cp is not None else 250.0),
         "w_prime_j": float(wprime if wprime is not None else 18000.0),
         "vo2max_ml_kg_min": float(vo2 if vo2 is not None else 50.0),
         "vlamax_mmol_l_s": float(vlamax if vlamax is not None else 0.45),
-    }
+    }, assumptions
 
 
 def _iter_events(calendar_plan: Iterable[Dict[str, Any]]) -> List[Tuple[date, Dict[str, Any]]]:
@@ -142,7 +151,7 @@ def project_season_from_plan(
     if (end - today).days > max_days:
         end = today + timedelta(days=max_days)
 
-    metrics = _metrics_from_state(state)
+    metrics, inferred_defaults = _metrics_from_state(state)
     cp0 = metrics["cp_w"]
     wprime0 = metrics["w_prime_j"]
     vo20 = metrics["vo2max_ml_kg_min"]
@@ -235,6 +244,7 @@ def project_season_from_plan(
             "ctl_tau_days": 42,
             "atl_tau_days": 7,
             "max_horizon_days": max_days,
+            "inferred_defaults": inferred_defaults,
         },
         "warnings": warnings[-50:],
     }

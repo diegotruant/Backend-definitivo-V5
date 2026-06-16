@@ -44,6 +44,7 @@ print("\n[Fix #1] Phenotype enhancement uses real snapshot fields")
 enhanced = enhance_metabolic_snapshot_with_phenotype(
     snapshot.copy(),
     phenotype="SPRINTER",
+    weight_kg=72.0,
 )
 
 # The compute_energy_contribution_adaptive uses vo2max for the aerobic threshold

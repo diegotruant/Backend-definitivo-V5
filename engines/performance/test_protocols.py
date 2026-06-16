@@ -25,7 +25,7 @@ incrementale max-power); il test Mader eredita il tier del lattato (REFERENCE
 sul dato, MODEL sulla validazione); CP eredita da power_engine (REFERENCE).
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 import numpy as np
 
 from engines.core.metric_contracts import annotate_payload
@@ -56,13 +56,13 @@ def _err(reason: str, message: str, method: str, **extra) -> Dict[str, Any]:
     )
 
 
-def _athlete_weight(envelope: Dict[str, Any], fallback: float = 70.0) -> float:
+def _athlete_weight(envelope: Dict[str, Any]) -> Optional[float]:
     """Estrae il peso dell'atleta dalla busta comune."""
     try:
         w = float(envelope.get("athlete", {}).get("weight_kg"))
-        return w if w > 0 else fallback
+        return w if w > 0 else None
     except (TypeError, ValueError):
-        return fallback
+        return None
 
 
 # =============================================================================
@@ -300,14 +300,18 @@ def run_wingate_test(envelope: Dict[str, Any]) -> Dict[str, Any]:
     minimum = float(np.min(p))
     fatigue_index = (peak - minimum) / peak * 100.0 if peak > 0 else None
 
+    assumptions = []
+    if weight is None or weight <= 0:
+        assumptions.append("body_weight_missing_peak_power_wkg_not_computed")
     payload = {
         "status": "success",
         "peak_power_w": round(peak, 1),
-        "peak_power_wkg": round(peak / weight, 2) if weight > 0 else None,
+        "peak_power_wkg": round(peak / weight, 2) if weight and weight > 0 else None,
         "mean_power_w": round(mean, 1),
         "min_power_w": round(minimum, 1),
         "fatigue_index_pct": round(fatigue_index, 1) if fatigue_index is not None else None,
         "duration_s": int(td.get("duration_s", p.size)),
+        "assumptions": assumptions,
     }
     return annotate_payload(
         payload,

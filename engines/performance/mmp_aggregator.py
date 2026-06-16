@@ -248,7 +248,7 @@ def update_power_curve(
     stored_curve: Optional[Dict[Any, Any]] = None,
     ride_id: str = "unknown",
     *,
-    weight_kg: float = 70.0,
+    weight_kg: Optional[float] = None,
     hr_stream: Optional[List[float]] = None,
     cadence_stream: Optional[List[float]] = None,
     reliability: float = 1.0,
@@ -295,6 +295,10 @@ def update_power_curve(
     CurveUpdateResult
     """
     result = CurveUpdateResult()
+    if weight_kg is None or float(weight_kg) <= 0:
+        result.notes.append(
+            "weight_kg missing/invalid: W/kg plausibility gates are less informative."
+        )
     rdate = _parse_date(ride_date)
     ref_today = _parse_date(today) if today is not None else rdate
 
