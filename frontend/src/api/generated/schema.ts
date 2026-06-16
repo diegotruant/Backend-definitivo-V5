@@ -164,6 +164,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ride/intelligence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activity intelligence envelope
+         * @description Best efforts, zones, intervals, chart series and data-quality report from FIT or power_json.
+         */
+        post: operations["rideIntelligence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ride/data-quality": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activity data-quality report
+         * @description Signal coverage, dropouts, quality flags and sensor availability.
+         */
+        post: operations["rideDataQuality"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/profile/snapshot": {
         parameters: {
             query?: never;
@@ -272,6 +312,74 @@ export interface paths {
         put?: never;
         /** Validate calendar assignment transition */
         post: operations["workoutsCalendarTransition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workouts/recommend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recommend next workout */
+        post: operations["workoutsRecommend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workouts/progression-levels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Compute progression levels */
+        post: operations["workoutsProgressionLevels"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workouts/adapt-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adapt a planned workout list */
+        post: operations["workoutsAdaptPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workouts/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Export workout text format */
+        post: operations["workoutsExport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -412,6 +520,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/performance/ability-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ability profile levels
+         * @description Zone-specific performance levels from power curve, durability and compliance history.
+         */
+        post: operations["performanceAbilityProfile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/performance/breakthroughs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Detect performance breakthroughs
+         * @description Compare a new activity power curve against the persisted baseline curve.
+         */
+        post: operations["performanceBreakthroughs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/load/manual": {
         parameters: {
             query?: never;
@@ -472,10 +620,227 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/history/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Athlete history summary */
+        post: operations["historySummary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/history/power-curve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Power curve by period */
+        post: operations["historyPowerCurve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/history/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Personal records from history */
+        post: operations["historyRecords"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/history/load": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Historical load trends */
+        post: operations["historyLoad"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/readiness/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Daily readiness score */
+        post: operations["readinessToday"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/load/state/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Update load state */
+        post: operations["loadStateUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/load/risk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check load risk */
+        post: operations["loadRisk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/planning/create-season-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create season plan */
+        post: operations["planningCreateSeasonPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/planning/adapt-week": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adapt week plan */
+        post: operations["planningAdaptWeek"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/planning/check-load-risk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check planned load risk */
+        post: operations["planningCheckLoadRisk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AbilityProfileRequest */
+        AbilityProfileRequest: {
+            /** Athlete Profile */
+            athlete_profile?: {
+                [key: string]: unknown;
+            };
+            /** Weight Kg */
+            weight_kg?: number | null;
+            /** Durability */
+            durability?: {
+                [key: string]: unknown;
+            } | null;
+            /** Compliance History */
+            compliance_history?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** AdaptPlanRequest */
+        AdaptPlanRequest: {
+            /** Plan */
+            plan?: {
+                [key: string]: unknown;
+            }[];
+            /** Readiness */
+            readiness?: {
+                [key: string]: unknown;
+            } | null;
+            /** Last Compliance */
+            last_compliance?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** AdaptWeekRequest */
+        AdaptWeekRequest: {
+            /** Week Plan */
+            week_plan?: {
+                [key: string]: unknown;
+            }[];
+            /** Readiness */
+            readiness?: {
+                [key: string]: unknown;
+            } | null;
+            /** Compliance */
+            compliance?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /**
          * AthleteParams
          * @example {
@@ -557,6 +922,13 @@ export interface components {
             /** Power Json */
             power_json?: string | null;
         };
+        /** Body_rideDataQuality */
+        Body_rideDataQuality: {
+            /** File */
+            file?: string | null;
+            /** Power Json */
+            power_json?: string | null;
+        };
         /** Body_rideDurability */
         Body_rideDurability: {
             /** Weight Kg */
@@ -594,6 +966,24 @@ export interface components {
              * @description Previously persisted curve JSON (optional).
              */
             stored_curve_json?: string | null;
+        };
+        /** Body_rideIntelligence */
+        Body_rideIntelligence: {
+            /**
+             * Weight Kg
+             * @default 70
+             */
+            weight_kg: number;
+            /** Ftp */
+            ftp?: number | null;
+            /** Cp */
+            cp?: number | null;
+            /** Lthr */
+            lthr?: number | null;
+            /** File */
+            file?: string | null;
+            /** Power Json */
+            power_json?: string | null;
         };
         /** Body_rideSummary */
         Body_rideSummary: {
@@ -674,6 +1064,22 @@ export interface components {
             /** Power Json */
             power_json?: string | null;
         };
+        /** BreakthroughRequest */
+        BreakthroughRequest: {
+            /** Baseline Curve */
+            baseline_curve?: {
+                [key: string]: unknown;
+            };
+            /** Activity Curve */
+            activity_curve?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Min Gain Pct
+             * @default 1.5
+             */
+            min_gain_pct: number;
+        };
         /**
          * CalendarPlanEvent
          * @description One planned workout/assignment in a season projection.
@@ -703,6 +1109,18 @@ export interface components {
              * @description Requested next status.
              */
             desired_status: string;
+        };
+        /** CheckLoadRiskRequest */
+        CheckLoadRiskRequest: {
+            /** Plan */
+            plan?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Chronic Load
+             * @default 50
+             */
+            chronic_load: number;
         };
         /**
          * ComplianceResult
@@ -740,6 +1158,22 @@ export interface components {
              */
             measured_on: string;
         };
+        /** CreateSeasonPlanRequest */
+        CreateSeasonPlanRequest: {
+            /** Start Date */
+            start_date?: string | null;
+            /** Target Date */
+            target_date?: string | null;
+            /**
+             * Weekly Hours
+             * @default 8
+             */
+            weekly_hours: number;
+            /** Goal */
+            goal?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /**
          * EnginePayload
          * @description Open-ended JSON returned by physiology engines.
@@ -772,6 +1206,17 @@ export interface components {
              * @description API semver.
              */
             version: string;
+        };
+        /** HistorySummaryRequest */
+        HistorySummaryRequest: {
+            /** Activities */
+            activities?: {
+                [key: string]: unknown;
+            }[];
+            /** As Of */
+            as_of?: string | null;
+            /** Weight Kg */
+            weight_kg?: number | null;
         };
         /**
          * InPersonAthlete
@@ -860,6 +1305,30 @@ export interface components {
             athlete?: components["schemas"]["InPersonAthlete"];
             device?: components["schemas"]["InPersonDevice"] | null;
             test_data?: components["schemas"]["InPersonTestData"];
+        };
+        /** LoadRiskRequest */
+        LoadRiskRequest: {
+            /** Load State */
+            load_state?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Planned Load
+             * @default 0
+             */
+            planned_load: number;
+        };
+        /** LoadStateUpdateRequest */
+        LoadStateUpdateRequest: {
+            /** Previous State */
+            previous_state?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Session Load
+             * @default 0
+             */
+            session_load: number;
         };
         /** ManualLoadRequest */
         ManualLoadRequest: {
@@ -955,6 +1424,38 @@ export interface components {
              * @default 6
              */
             severe_threshold_pct: number;
+        };
+        /** ProgressionLevelsRequest */
+        ProgressionLevelsRequest: {
+            /** Athlete Profile */
+            athlete_profile?: {
+                [key: string]: unknown;
+            };
+            /** Workout History */
+            workout_history?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** ReadinessTodayRequest */
+        ReadinessTodayRequest: {
+            /** Load State */
+            load_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Hrv Status */
+            hrv_status?: {
+                [key: string]: unknown;
+            } | null;
+            /** Sleep Status */
+            sleep_status?: {
+                [key: string]: unknown;
+            } | null;
+            /** Subjective */
+            subjective?: {
+                [key: string]: unknown;
+            } | null;
+            /** Recent Warnings */
+            recent_warnings?: string[];
         };
         /** RideIngestResponse */
         RideIngestResponse: {
@@ -1314,6 +1815,19 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** WorkoutExportRequest */
+        WorkoutExportRequest: {
+            /** Workout */
+            workout?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format
+             * @description erg, mrc or zwo
+             * @default erg
+             */
+            format: string;
+        };
         /**
          * WorkoutFeasibilityContext
          * @description Optional readiness/fatigue context for W′ simulation.
@@ -1354,6 +1868,25 @@ export interface components {
             athlete_profile_used: {
                 [key: string]: unknown;
             };
+        };
+        /** WorkoutRecommendationRequest */
+        WorkoutRecommendationRequest: {
+            /** Athlete Profile */
+            athlete_profile?: {
+                [key: string]: unknown;
+            };
+            /** Readiness */
+            readiness?: {
+                [key: string]: unknown;
+            } | null;
+            /** Goal */
+            goal?: {
+                [key: string]: unknown;
+            } | null;
+            /** Recent Workouts */
+            recent_workouts?: {
+                [key: string]: unknown;
+            }[];
         };
         /**
          * WorkoutStepInput
@@ -1882,6 +2415,132 @@ export interface operations {
             };
         };
     };
+    rideIntelligence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_rideIntelligence"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Payload too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rideDataQuality: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_rideDataQuality"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Payload too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     profileSnapshot: {
         parameters: {
             query?: never;
@@ -2147,6 +2806,198 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CalendarTransitionRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    workoutsRecommend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkoutRecommendationRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    workoutsProgressionLevels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgressionLevelsRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    workoutsAdaptPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdaptPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    workoutsExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkoutExportRequest"];
             };
         };
         responses: {
@@ -2536,6 +3387,102 @@ export interface operations {
             };
         };
     };
+    performanceAbilityProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AbilityProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    performanceBreakthroughs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BreakthroughRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     loadManual: {
         parameters: {
             query?: never;
@@ -2642,6 +3589,486 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["TeamCalibrationApplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    historySummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HistorySummaryRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    historyPowerCurve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HistorySummaryRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    historyRecords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HistorySummaryRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    historyLoad: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HistorySummaryRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readinessToday: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadinessTodayRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    loadStateUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoadStateUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    loadRisk: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoadRiskRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    planningCreateSeasonPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSeasonPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    planningAdaptWeek: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdaptWeekRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    planningCheckLoadRisk: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckLoadRiskRequest"];
             };
         };
         responses: {

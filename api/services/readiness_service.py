@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from engines.readiness.readiness_engine import compute_load_risk, compute_readiness_today, update_load_state
+from engines.readness.readiness_engine import compute_load_risk, compute_readiness_today, update_load_state
 
 
 class ReadinessService:
