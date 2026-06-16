@@ -41,9 +41,9 @@ The interface uses a professional dark palette with blue/green accents, glass
 panels, compact KPI cards and coach-oriented navigation:
 
 - Dashboard
-- Atleti
-- Attivita
-- Profilo metabolico
+- Athletes
+- Activities
+- Metabolic profile
 
 ## Next steps
 

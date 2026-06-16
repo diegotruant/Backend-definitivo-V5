@@ -1,22 +1,22 @@
-# OpenAPI — guida integrazione frontend
+# OpenAPI — frontend integration guide
 
-## Cosa hai a disposizione
+## What you have available
 
-| Risorsa | Path / URL | Uso |
+| Resource | Path / URL | Use |
 |---------|------------|-----|
-| **Spec committata** | `openapi/openapi.json` | Codegen, review PR, offline |
-| **Tipi TypeScript** | `frontend/src/api/generated/schema.ts` | Autocomplete request/response |
-| **Client tipizzato** | `frontend/src/api/client.ts` | Tutte le 24 API, pronto all'uso |
-| **Swagger UI** | `GET /docs` (server avviato) | Esplorazione interattiva |
-| **OpenAPI live** | `GET /openapi.json` | Sync con server in esecuzione |
+| **Committed spec** | `openapi/openapi.json` | Codegen, PR review, offline |
+| **TypeScript types** | `frontend/src/api/generated/schema.ts` | Autocomplete request/response |
+| **Typed client** | `frontend/src/api/client.ts` | All 24 APIs, ready to use |
+| **Swagger UI** | `GET /docs` (server running) | Interactive exploration |
+| **Live OpenAPI** | `GET /openapi.json` | Sync with running server |
 
-## Setup frontend
+## Frontend setup
 
-### Variabile base URL
+### Base URL variable
 
-Il client (`frontend/src/api/client.ts`) risolve l'URL in questo ordine:
+The client (`frontend/src/api/client.ts`) resolves the URL in this order:
 
-1. `VITE_API_BASE_URL` — **Vite** (MVP attuale in `frontend/`)
+1. `VITE_API_BASE_URL` — **Vite** (current MVP in `frontend/`)
 2. `NEXT_PUBLIC_API_BASE_URL` — **Next.js / Vercel / v0**
 3. fallback `http://localhost:8000`
 
@@ -32,7 +32,7 @@ VITE_API_BASE_URL=http://localhost:8000
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
 
-In produzione punta alla URL del backend deployato (es. `https://api.tuodominio.com`).
+In production, point to the deployed backend URL (e.g. `https://api.yourdomain.com`).
 
 ```typescript
 import { api, ApiError } from '@/api/client';
@@ -50,9 +50,9 @@ try {
 }
 ```
 
-## Tutti gli endpoint nel client
+## All endpoints in the client
 
-| Gruppo | Metodi `api.*` |
+| Group | `api.*` methods |
 |--------|----------------|
 | Health | `health()` |
 | Test | `proposeTest`, `confirmTest`, `inPersonTest` |
@@ -64,20 +64,20 @@ try {
 | Load | `manualLoad` |
 | Team | `updateTeamCalibration`, `applyTeamCalibration` |
 
-## Rigenerare dopo modifiche backend
+## Regenerate after backend changes
 
 ```bash
 make openapi-frontend
 ```
 
-Poi committa:
+Then commit:
 
 - `openapi/openapi.json`
 - `frontend/src/api/generated/schema.ts`
 
-## Tipi request
+## Request types
 
-Importa da `api/client` (alias dei componenti OpenAPI):
+Import from `api/client` (aliases of OpenAPI components):
 
 ```typescript
 import type {
@@ -88,22 +88,22 @@ import type {
 } from './api/client';
 ```
 
-Per campi dominio ricchi (MetabolicSnapshot, WorkoutSummary, tier UI) usa anche `contracts.ts`.
+For richer domain fields (MetabolicSnapshot, WorkoutSummary, UI tiers), also use `contracts.ts`.
 
 ## Operation IDs
 
-Ogni endpoint ha un `operationId` stabile (es. `profileSnapshot`, `rideIngest`) visibile in Swagger e in `frontend/src/api/generated/schema.ts` sotto `operations`.
+Each endpoint has a stable `operationId` (e.g. `profileSnapshot`, `rideIngest`) visible in Swagger and in `frontend/src/api/generated/schema.ts` under `operations`.
 
-## Errori HTTP
+## HTTP errors
 
-| Status | Significato |
+| Status | Meaning |
 |--------|-------------|
-| 400 | Input non valido / ServiceError |
-| 413 | Upload o power_json troppo grande |
-| 422 | FIT non parsabile o attività senza potenza |
+| 400 | Invalid input / ServiceError |
+| 413 | Upload or power_json too large |
+| 422 | Unparseable FIT or activity without power |
 
-Il body è sempre `{"detail": ...}`.
+The body is always `{"detail": ...}`.
 
 ## CI
 
-`make check` non rigenera OpenAPI automaticamente. Dopo cambi a `api/routers` o `api/schemas`, esegui `make openapi-frontend` e includi i file generati nel PR.
+`make check` does not regenerate OpenAPI automatically. After changes to `api/routers` or `api/schemas`, run `make openapi-frontend` and include the generated files in the PR.

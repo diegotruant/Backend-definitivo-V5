@@ -1,29 +1,29 @@
-# Frontend Implementation Blueprint — Digital Twin Fisiologico WT
+# Frontend Implementation Blueprint — WT Physiological Digital Twin
 
-## 1. Missione del frontend
+## 1. Frontend mission
 
-Il frontend deve rendere comprensibile un backend fisiologico molto profondo a tre utenti diversi:
+The frontend must make a very deep physiological backend understandable to three different users:
 
-1. **Coach** — vuole sapere cosa fare domani in allenamento.
-2. **Performance scientist** — vuole sapere quanto il modello è accurato e perché.
-3. **Direttore sportivo / management** — vuole capire stato squadra, disponibilità, ruolo gara.
+1. **Coach** — wants to know what to do in training tomorrow.
+2. **Performance scientist** — wants to know how accurate the model is and why.
+3. **Sport director / management** — wants to understand team status, availability, and race role.
 
-Gli sviluppatori non devono inventare interpretazioni ciclistiche: devono usare i contratti, i dizionari metriche e le regole UX qui sotto.
+Developers must not invent cycling interpretations: they must use the contracts, metric dictionaries, and UX rules below.
 
 ---
 
-## 2. Architettura applicativa consigliata
+## 2. Recommended application architecture
 
-### Stack suggerito
+### Suggested stack
 
 - React + TypeScript.
-- Chart library: Recharts, ECharts o Nivo.
-- Stato: TanStack Query per API + Zustand/Redux solo se serve.
+- Chart library: Recharts, ECharts, or Nivo.
+- State: TanStack Query for APIs + Zustand/Redux only if needed.
 - Form: React Hook Form.
-- Tabelle: TanStack Table.
-- Backend base URL configurabile via `.env`.
+- Tables: TanStack Table.
+- Backend base URL configurable via `.env`.
 
-### Cartelle consigliate
+### Recommended folders
 
 ```text
 frontend/src/
@@ -58,38 +58,38 @@ frontend/src/
 
 ---
 
-## 3. Data model lato frontend/database
+## 3. Frontend/database data model
 
-Il backend è stateless. Serve un DB esterno. Tabelle minime:
+The backend is stateless. An external DB is required. Minimum tables:
 
 ### `teams`
 
-| Campo | Tipo | Note |
+| Field | Type | Notes |
 |---|---|---|
 | `id` | string | team id |
-| `name` | string | nome team |
+| `name` | string | team name |
 | `calibration_model` | jsonb | output `/team/calibration/update` |
 | `created_at` | timestamp | |
 
 ### `athletes`
 
-| Campo | Tipo | Note |
+| Field | Type | Notes |
 |---|---|---|
 | `id` | string | athlete id |
 | `team_id` | string | FK |
 | `name` | string | |
-| `weight_kg` | number | aggiornabile |
-| `gender` | string | valore per modello fisiologico |
+| `weight_kg` | number | updateable |
+| `gender` | string | value for physiological model |
 | `training_years` | number | |
-| `discipline` | string | ENDURANCE, ROAD, TT, ecc. |
-| `phenotype` | string | da snapshot o coach |
+| `discipline` | string | ENDURANCE, ROAD, TT, etc. |
+| `phenotype` | string | from snapshot or coach |
 | `latest_anchor` | jsonb | output `/test/confirm` |
 | `latest_curve` | jsonb | output `/ride/ingest` |
-| `latest_snapshot` | jsonb | output `/profile/snapshot` o calibrato |
+| `latest_snapshot` | jsonb | output `/profile/snapshot` or calibrated |
 
 ### `activities`
 
-| Campo | Tipo | Note |
+| Field | Type | Notes |
 |---|---|---|
 | `id` | string | |
 | `athlete_id` | string | |
@@ -97,107 +97,107 @@ Il backend è stateless. Serve un DB esterno. Tabelle minime:
 | `fit_file_url` | string | storage |
 | `summary` | jsonb | output `/ride/summary` |
 | `durability` | jsonb | output `/ride/durability` |
-| `mmp_for_profiler` | jsonb | dalla ingest |
+| `mmp_for_profiler` | jsonb | from ingest |
 | `profile_should_refresh` | boolean | |
 
 ### `validation_events`
 
-Ogni test validato deve salvare la previsione precedente.
+Each validated test must save the prior prediction.
 
-| Campo | Tipo | Note |
+| Field | Type | Notes |
 |---|---|---|
 | `id` | string | |
 | `team_id` | string | |
 | `athlete_id` | string | |
 | `parameter` | string | mlss, vo2max, vlamax, fatmax, map |
-| `predicted_value` | number | stima prima del test |
-| `measured_value` | number | valore test validato |
+| `predicted_value` | number | estimate before test |
+| `measured_value` | number | validated test value |
 | `error_abs` | number | measured - predicted |
 | `error_pct` | number | |
 | `protocol` | string | mader_lactate, lab_vo2, wingate |
-| `phenotype` | string | climber, sprinter, ecc. |
+| `phenotype` | string | climber, sprinter, etc. |
 | `data_depth_score` | number | 0-1 |
 | `measurement_confidence` | number | 0-1 |
-| `model_version` | string | versione backend/modello |
+| `model_version` | string | backend/model version |
 | `test_date` | date | |
 
 ---
 
-## 4. Le pagine principali
+## 4. Main pages
 
 # 4.1 Team Command Center
 
-## Scopo
+## Purpose
 
-Vista iniziale per staff WT. Deve rispondere in 10 secondi a:
+Initial view for WT staff. It must answer within 10 seconds:
 
-- Chi è pronto?
-- Chi ha warning fisiologici o qualità dati scarsa?
-- Il modello sta migliorando?
-- Quali atleti vanno testati?
+- Who is ready?
+- Who has physiological warnings or poor data quality?
+- Is the model improving?
+- Which athletes should be tested?
 
 ## Layout
 
 ### Header
 
-- Nome team.
-- Data ultimo sync.
-- Numero atleti.
+- Team name.
+- Last sync date.
+- Number of athletes.
 - Badge: `Team calibration: None / Learning / Calibrated / High confidence`.
 
 ### KPI cards
 
-1. Atleti con profilo verde.
-2. Atleti con warning giallo.
-3. Atleti con warning rosso.
-4. MAE MLSS team.
-5. Numero test validati ultimi 90 giorni.
-6. Atleti da ritestare.
+1. Athletes with green profile.
+2. Athletes with yellow warning.
+3. Athletes with red warning.
+4. Team MLSS MAE.
+5. Number of validated tests in the last 90 days.
+6. Athletes to retest.
 
-### Tabella atleti
+### Athlete table
 
-Colonne:
+Columns:
 
-- Nome atleta.
-- Fenotipo.
+- Athlete name.
+- Phenotype.
 - MLSS W/kg.
 - VO2max.
 - VLamax.
 - Durability score.
 - Data depth.
-- Ultimo test.
-- Stato modello.
-- Azione consigliata.
+- Last test.
+- Model status.
+- Recommended action.
 
-### Grafici
+### Charts
 
-- Bar chart: stato atleti per colore.
-- Line chart: accuratezza MLSS nel tempo.
+- Bar chart: athlete status by color.
+- Line chart: MLSS accuracy over time.
 - Scatter: MLSS W/kg vs durability score.
-- Bar chart: test mancanti per atleta.
+- Bar chart: missing tests per athlete.
 
 ---
 
 # 4.2 Athlete Digital Twin
 
-## Scopo
+## Purpose
 
-La pagina più importante. Deve mostrare il gemello fisiologico dell'atleta.
+The most important page. It must show the athlete's physiological twin.
 
-## Sezioni
+## Sections
 
 ### A. Athlete header
 
-- Nome.
-- Ruolo/fenotipo.
-- Peso.
-- Ultimo aggiornamento.
-- Confidenza profilo.
-- Ultimo anchor: tipo test e data.
+- Name.
+- Role/phenotype.
+- Weight.
+- Last update.
+- Profile confidence.
+- Last anchor: test type and date.
 
-### B. KPI fisiologici
+### B. Physiological KPIs
 
-Mostrare 6 card:
+Show 6 cards:
 
 1. MLSS W.
 2. MLSS W/kg.
@@ -206,59 +206,59 @@ Mostrare 6 card:
 5. FatMax W.
 6. MAP W.
 
-Ogni card deve avere:
+Each card must have:
 
-- valore;
-- unità;
+- value;
+- unit;
 - badge: measured/model/calibrated/low confidence;
-- trend rispetto ultimo snapshot;
-- tooltip “cosa significa per il coach”.
+- trend vs latest snapshot;
+- tooltip "what it means for the coach".
 
 ### C. Metabolic map
 
-Grafico consigliato:
+Recommended chart:
 
-- asse X: potenza W;
-- linee/aree: contributo grassi, carboidrati, lattato o combustion curve;
-- marker verticali: FatMax, MLSS, MAP.
+- X-axis: power W;
+- lines/areas: fats, carbohydrates, lactate contribution, or combustion curve;
+- vertical markers: FatMax, MLSS, MAP.
 
-Se il backend non fornisce una curva completa, mostrare una visualizzazione semplificata con zone.
+If the backend does not provide a full curve, show a simplified zone-based view.
 
 ### D. Power duration curve
 
-- asse X logaritmico: durata 5s, 15s, 1m, 5m, 20m, 60m;
-- asse Y: watt o W/kg;
-- curva attuale;
-- best precedenti;
-- punti mancanti evidenziati.
+- logarithmic X-axis: duration 5s, 15s, 1m, 5m, 20m, 60m;
+- Y-axis: watts or W/kg;
+- current curve;
+- previous bests;
+- highlighted missing points.
 
 ### E. Expressiveness checklist
 
-Mostrare se il profilo è costruito su dati completi:
+Show whether the profile is built on complete data:
 
-- 5-15 s sprint: presente/mancante;
-- 20-60 s glicolitico: presente/mancante;
-- 3-12 min VO2max: presente/mancante;
-- 20-60 min soglia: presente/mancante.
+- 5-15 s sprint: present/missing;
+- 20-60 s glycolytic: present/missing;
+- 3-12 min VO2max: present/missing;
+- 20-60 min threshold: present/missing.
 
-Se manca una finestra, non colpevolizzare l'utente: mostrare “Serve un test mirato”.
+If a window is missing, do not blame the user: show "A targeted test is needed".
 
 ### F. Learning audit
 
-Se è stata applicata calibrazione team:
+If team calibration has been applied:
 
-- valore base modello;
-- correzione atleta;
-- correzione fenotipo;
-- correzione team;
-- valore finale;
-- cap applicato;
-- confidenza.
+- base model value;
+- athlete correction;
+- phenotype correction;
+- team correction;
+- final value;
+- applied cap;
+- confidence.
 
-Esempio UI:
+UI example:
 
 ```text
-MLSS finale: 372 W
+Final MLSS: 372 W
 Base model: 380 W
 Athlete correction: -5 W
 Phenotype correction: -2 W
@@ -270,24 +270,24 @@ Expected error: ±8 W
 
 # 4.3 Activity Analysis
 
-## Scopo
+## Purpose
 
-Analizzare una singola uscita o gara.
+Analyze a single ride or race.
 
 ## Input
 
-- FIT file oppure attività già caricata.
-- Peso atleta.
-- FTP/MLSS opzionali.
-- Snapshot metabolico opzionale.
+- FIT file or already uploaded activity.
+- Athlete weight.
+- Optional FTP/MLSS.
+- Optional metabolic snapshot.
 
-## Sezioni
+## Sections
 
 ### A. Summary cards
 
-- Durata.
-- Distanza.
-- Dislivello.
+- Duration.
+- Distance.
+- Elevation gain.
 - NP.
 - IF.
 - TSS.
@@ -296,146 +296,146 @@ Analizzare una singola uscita o gara.
 
 ### B. Timeline
 
-Grafico multi-serie:
+Multi-series chart:
 
 - power;
 - heart rate;
 - cadence;
 - altitude;
-- core temperature se presente.
+- core temperature if available.
 
 ### C. Zone distribution
 
-- tempo in zone potenza;
-- tempo in zone metaboliche;
-- confronto obiettivo seduta vs reale.
+- time in power zones;
+- time in metabolic zones;
+- comparison between workout target and actual.
 
 ### D. Cardiac response
 
-Se HR presente:
+If HR is present:
 
 - cardiac drift;
 - aerobic decoupling;
 - HR recovery;
 - cardiac efficiency.
 
-Semaforo:
+Traffic light:
 
-- verde: stabile;
-- giallo: deriva moderata;
-- rosso: deriva alta / possibile fatica o caldo.
+- green: stable;
+- yellow: moderate drift;
+- red: high drift / possible fatigue or heat.
 
 ### E. Durability
 
-Mostrare:
+Show:
 
-- CP residua stimata;
-- sustainable power dopo fatica;
-- curva decadimento;
-- interpretazione coach.
+- estimated residual CP;
+- sustainable power after fatigue;
+- decay curve;
+- coach interpretation.
 
-Frase tipo:
+Suggested sentence:
 
-> L'atleta mantiene una buona capacità sostenibile dopo il carico accumulato: indicazione positiva per gare lunghe.
+> The athlete maintains good sustainable capacity after accumulated load: a positive indicator for long races.
 
 ---
 
 # 4.4 Testing Lab
 
-## Scopo
+## Purpose
 
-Permettere allo staff di caricare test, validarli e creare anchor.
+Allow staff to upload tests, validate them, and create anchors.
 
-## Flow FIT test
+## FIT test flow
 
-1. Upload 1+ FIT.
-2. Chiamare `/test/propose`.
-3. Mostrare proposta:
-   - file usati;
-   - migliori segmenti trovati;
+1. Upload 1+ FIT files.
+2. Call `/test/propose`.
+3. Show proposal:
+   - files used;
+   - best segments found;
    - sprint;
    - CP/MMP;
-   - warning.
-4. Coach conferma o rifiuta.
-5. Se conferma: `/test/confirm`.
-6. Salvare anchor in DB.
+   - warnings.
+4. Coach confirms or rejects.
+5. If confirmed: `/test/confirm`.
+6. Save anchor in DB.
 
-## Flow in-person/lattato
+## In-person/lactate flow
 
-1. Form tablet/test:
-   - protocollo;
-   - atleta;
-   - step potenza/lattato;
+1. Tablet/test form:
+   - protocol;
+   - athlete;
+   - power/lactate steps;
    - device;
-   - note.
-2. Chiamare `/test/in-person`.
-3. Mostrare risultato.
-4. Se validato, creare `ValidationEvent` per Team Learning.
+   - notes.
+2. Call `/test/in-person`.
+3. Show result.
+4. If validated, create `ValidationEvent` for Team Learning.
 
-## Regola essenziale
+## Essential rule
 
-Prima di caricare il valore misurato, salvare la previsione del modello. Senza previsione pre-test non esiste apprendimento scientificamente valido.
+Before saving the measured value, save the model prediction. Without pre-test prediction, scientifically valid learning does not exist.
 
 ---
 
 # 4.5 Model Accuracy & Learning
 
-## Scopo
+## Purpose
 
-Questa è la pagina che rende il prodotto unico.
+This is the page that makes the product unique.
 
-Deve mostrare che il sistema non è una black box: conosce il proprio errore.
+It must show that the system is not a black box: it knows its own error.
 
 ## KPI
 
-Per ogni parametro:
+For each parameter:
 
-- N test validati;
-- bias medio;
+- N validated tests;
+- mean bias;
 - MAE;
-- RMSE se disponibile;
-- errore %;
-- confidenza;
-- stato: insufficient / learning / calibrated.
+- RMSE if available;
+- error %;
+- confidence;
+- status: insufficient / learning / calibrated.
 
-## Grafici
+## Charts
 
-1. Line chart: errore MLSS nel tempo.
-2. Bar chart: MAE per parametro.
+1. Line chart: MLSS error over time.
+2. Bar chart: MAE by parameter.
 3. Scatter: predicted vs measured.
-4. Bar chart: correzione per fenotipo.
-5. Tabella: eventi validati.
+4. Bar chart: correction by phenotype.
+5. Table: validated events.
 
-## Tabella eventi
+## Events table
 
-Colonne:
+Columns:
 
-- Data.
-- Atleta.
-- Parametro.
-- Previsto.
-- Misurato.
-- Errore.
-- Protocollo.
-- Fenotipo.
-- Qualità dato.
-- Versione modello.
+- Date.
+- Athlete.
+- Parameter.
+- Predicted.
+- Measured.
+- Error.
+- Protocol.
+- Phenotype.
+- Data quality.
+- Model version.
 
-## Copy importante
+## Important copy
 
-Usare questa frase nella pagina:
+Use this sentence on the page:
 
-> Il modello viene calibrato solo con test validati. Ogni correzione è limitata da soglie fisiologiche conservative e tracciata nell'audit.
+> The model is calibrated only with validated tests. Every correction is bounded by conservative physiological thresholds and tracked in the audit.
 
 ---
 
 # 4.6 Coach Planner
 
-## Scopo
+## Purpose
 
-Tradurre il profilo in target pratici.
+Translate the profile into practical targets.
 
-## Sezioni
+## Sections
 
 ### A. Target zones
 
@@ -448,19 +448,19 @@ Tradurre il profilo in target pratici.
 
 ### B. Training focus
 
-Generare cards da regole semplici:
+Generate cards from simple rules:
 
-- VLamax alta + obiettivo GC: focus endurance/threshold, limitare glicolitico.
-- VLamax bassa + bisogno sprint: inserire lavori neuromuscolari.
-- MLSS stabile + durability bassa: lavori lunghi con blocchi finali.
-- Cardiac drift alto: endurance base/recupero/calore/idratation check.
+- High VLamax + GC goal: focus endurance/threshold, limit glycolytic work.
+- Low VLamax + sprint need: include neuromuscular work.
+- Stable MLSS + low durability: long sessions with final blocks.
+- High cardiac drift: base endurance/recovery/heat/hydration check.
 
 ### C. Race role suggestion
 
-Non deve decidere automaticamente, ma suggerire:
+It must not decide automatically, but suggest:
 
 - GC/climber;
-- domestique endurance;
+- endurance domestique;
 - lead-out;
 - sprinter;
 - breakaway rider;
@@ -470,45 +470,45 @@ Non deve decidere automaticamente, ma suggerire:
 
 # 4.7 Data Quality Center
 
-## Scopo
+## Purpose
 
-Evitare decisioni basate su dati poveri.
+Avoid decisions based on poor data.
 
 ## Checklist
 
-- Power presente?
-- HR presente?
-- RR presente?
-- Cadence presente?
-- Temperatura/core temp presente?
-- Power meter stabile?
-- MMP completa?
-- Ultimo test recente?
-- Ultimo anchor affidabile?
-- Snapshot calibrato?
+- Power present?
+- HR present?
+- RR present?
+- Cadence present?
+- Temperature/core temp present?
+- Stable power meter?
+- Complete MMP?
+- Recent last test?
+- Reliable latest anchor?
+- Calibrated snapshot?
 
 ## Output
 
-Semaforo globale:
+Global traffic light:
 
-- Verde: dati sufficienti.
-- Giallo: usare cautela.
-- Rosso: test richiesto.
+- Green: sufficient data.
+- Yellow: use caution.
+- Red: test required.
 
 ---
 
-## 5. Design system fisiologico
+## 5. Physiological design system
 
-### Colori semaforo
+### Traffic-light colors
 
-- Verde: affidabile / OK.
-- Giallo: cautela / dati incompleti.
-- Rosso: non affidabile / test richiesto.
-- Blu: modello fisiologico.
-- Viola: calibrazione appresa.
-- Grigio: non disponibile.
+- Green: reliable / OK.
+- Yellow: caution / incomplete data.
+- Red: unreliable / test required.
+- Blue: physiological model.
+- Purple: learned calibration.
+- Gray: not available.
 
-### Badge obbligatori
+### Mandatory badges
 
 - `Measured`
 - `Standard formula`
@@ -518,20 +518,20 @@ Semaforo globale:
 - `Insufficient data`
 - `Experimental`
 
-### Tooltips obbligatori
+### Mandatory tooltips
 
-Ogni metrica avanzata deve avere tooltip:
+Every advanced metric must have a tooltip:
 
-1. cosa significa;
-2. come usarla;
-3. da quali dati viene;
-4. quanto è affidabile.
+1. what it means;
+2. how to use it;
+3. which data it comes from;
+4. how reliable it is.
 
 ---
 
-## 6. Grafici da implementare
+## 6. Charts to implement
 
-| Grafico | Pagina | Tipo |
+| Chart | Page | Type |
 |---|---|---|
 | Power duration curve | Athlete Digital Twin | line, x log |
 | Combustion curve | Athlete Digital Twin | stacked area / line |
@@ -548,7 +548,7 @@ Ogni metrica avanzata deve avere tooltip:
 
 ## 7. Endpoint usage recipes
 
-### Creare profilo da test FIT
+### Create profile from FIT test
 
 ```ts
 const proposal = await api.proposeTest(files)
@@ -557,7 +557,7 @@ const anchor = await api.confirmTest({ proposal, athlete, measured_on })
 storeAthleteAnchor(anchor)
 ```
 
-### Importare attività
+### Import activity
 
 ```ts
 const ingest = await api.ingestRide({ file, ride_date, weight_kg, stored_curve_json })
@@ -568,7 +568,7 @@ if (ingest.profile_should_refresh) {
 }
 ```
 
-### Applicare team calibration
+### Apply team calibration
 
 ```ts
 const calibrated = await api.applyTeamCalibration({
@@ -580,7 +580,7 @@ const calibrated = await api.applyTeamCalibration({
 })
 ```
 
-### Aggiornare calibrazione team dopo test validato
+### Update team calibration after validated test
 
 ```ts
 const updatedModel = await api.updateTeamCalibration({
@@ -593,35 +593,35 @@ storeTeamCalibration(updatedModel)
 
 ---
 
-## 8. Regole anti-errori per sviluppatori
+## 8. Anti-error rules for developers
 
-1. Non calcolare fisiologia nel frontend.
-2. Non inventare valori mancanti.
-3. Non nascondere warning severi.
-4. Non confondere FTP con MLSS.
-5. Non mostrare VO2max/VLamax come misurati se sono stimati.
-6. Non applicare calibrazione team se `calibration_model` è vuoto.
-7. Non usare test validati senza salvare la previsione pre-test.
-8. Non mostrare grafici senza unità.
-9. Non aggregare atleti con unità diverse senza normalizzare W/kg.
-10. Non fare claim “il modello non sbaglia”. Usare “errore atteso ridotto e tracciato”.
+1. Do not compute physiology in the frontend.
+2. Do not invent missing values.
+3. Do not hide severe warnings.
+4. Do not confuse FTP with MLSS.
+5. Do not show VO2max/VLamax as measured when they are estimated.
+6. Do not apply team calibration if `calibration_model` is empty.
+7. Do not use validated tests without saving pre-test prediction.
+8. Do not show charts without units.
+9. Do not aggregate athletes with different units without normalizing W/kg.
+10. Do not claim "the model never fails". Use "expected error reduced and tracked".
 
 ---
 
-## 9. Definition of Done per il primo frontend serio
+## 9. Definition of Done for the first serious frontend
 
-Il primo rilascio è accettabile se contiene:
+The first release is acceptable if it includes:
 
-- Login/team selector anche mock.
-- Lista atleti.
-- Upload FIT per test.
-- Upload FIT per ride.
-- Athlete Digital Twin con KPI e warning.
-- Activity Analysis con summary e zone.
-- Testing Lab con conferma coach.
-- Model Accuracy con almeno tabella eventi e MAE per parametro.
-- Persistenza JSON per anchor, curve, snapshot, calibration model.
-- Tooltips metrica.
-- Stati loading/error/empty.
+- Login/team selector, even mocked.
+- Athlete list.
+- FIT upload for tests.
+- FIT upload for rides.
+- Athlete Digital Twin with KPI and warnings.
+- Activity Analysis with summary and zones.
+- Testing Lab with coach confirmation.
+- Model Accuracy with at least events table and MAE by parameter.
+- JSON persistence for anchor, curve, snapshot, calibration model.
+- Metric tooltips.
+- Loading/error/empty states.
 
-Non è necessario avere subito tutti i grafici avanzati. È necessario non comunicare male la fisiologia.
+It is not necessary to have all advanced charts immediately. It is necessary to avoid miscommunicating physiology.

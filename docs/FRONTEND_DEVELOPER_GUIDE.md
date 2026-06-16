@@ -1,72 +1,72 @@
-# Guida per lo sviluppatore frontend — Digital Twin Backend V5.1
+# Frontend Developer Guide — Digital Twin Backend V5.1
 
-Documento unificato per uno **sviluppatore software** che deve costruire il frontend collegato a questo backend, **senza background nel ciclismo endurance**. Spiega cosa produce il backend (v **5.1.0**), come interpretare le metriche, come disegnarle, come progettare le pagine principali e come usare **TwinState** come modello di persistenza centrale.
+Unified document for a **software developer** who needs to build the frontend connected to this backend, **with no background in endurance cycling**. It explains what the backend (v **5.1.0**) produces, how to interpret the metrics, how to draw them, how to design the main pages, and how to use **TwinState** as the central persistence model.
 
-**Documenti correlati (leggere in questo ordine)**
+**Related documents (read in this order)**
 
-| Priorità | Documento | Contenuto |
+| Priority | Document | Content |
 |----------|-----------|-----------|
-| 1 | Questo file | Panoramica, API, TwinState, mappa pagine |
-| 2 | `docs/FRONTEND_IMPLEMENTATION_BLUEPRINT.md` | Layout dettagliato per pagina, design system, DoD |
-| 3 | `docs/API_PAYLOAD_EXAMPLES.md` | Esempi curl / TypeScript per ogni endpoint |
-| 3b | `docs/OPENAPI_FRONTEND.md` | OpenAPI, codegen TS, client `api.*` |
-| 3c | `openapi/openapi.json` | Contratto HTTP committato (24 endpoint) |
-| 4 | `docs/WORKOUT_SYSTEM_BACKEND_V1.md` | Flusso prescrizione → compliance |
+| 1 | This file | Overview, API, TwinState, page map |
+| 2 | `docs/FRONTEND_IMPLEMENTATION_BLUEPRINT.md` | Detailed layout per page, design system, DoD |
+| 3 | `docs/API_PAYLOAD_EXAMPLES.md` | curl / TypeScript examples for each endpoint |
+| 3b | `docs/OPENAPI_FRONTEND.md` | OpenAPI, TS codegen, `api.*` client |
+| 3c | `openapi/openapi.json` | HTTP contract committed (24 endpoints) |
+| 4 | `docs/WORKOUT_SYSTEM_BACKEND_V1.md` | Prescription flow → compliance |
 | 5 | `docs/BACKEND_IMPLEMENTATIONS_V2.md` | TwinState, projection, neuromuscular |
-| 6 | `docs/COACH_UX_COPYBOOK.md` | Copy coach-facing |
-| 7 | `docs/HARDENING_TESTS.md` | Suite robustezza / stress |
-| 8 | `CONTRATTO_JSON_test.md` | Contratto tablet test in presenza |
+| 6 | `docs/COACH_UX_COPYBOOK.md` | Copy coach facing |
+| 7 | `docs/HARDENING_TESTS.md` | Robustness/stress suite |
+| 8 | `CONTRACT_JSON_test.md` | In-person tablet test contract |
 
-**Riferimenti codice**
+**Code references**
 
-| Risorsa | Path |
+| Resource | Path |
 |---------|------|
-| API HTTP | `api_app.py` |
+| HTTP API | `api_app.py` |
 | Facade Python | `engines/__init__.py` |
-| TwinState canonico | `engines/twin_state/` |
-| Report per attività | `engines/io/workout_summary.py` |
-| Config grafici | `engines/io/chart_builder.py`, `engines/io/activity_charts.py` |
-| Tier / confidenza | `engines/core/tiers.py`, `engines/core/metric_contracts.py` |
-| Sicurezza input | `engines/core/security.py` |
-| Frontend MVP esistente | `frontend/` (oggi legge CSV; va migrato alle API) |
+| Canonical TwinState | `engines/twin_state/` |
+| Report by activity | `engines/io/workout_summary.py` |
+| Graphics config | `engines/io/chart_builder.py`, `engines/io/activity_charts.py` |
+| Tier / confidence | `engines/core/tiers.py`, `engines/core/metric_contracts.py` |
+| Input security | `engines/core/security.py` |
+| Existing MVP frontend | `frontend/` (today reads CSV; must be migrated to the API) |
 
 ---
 
-## 1. Idea di prodotto in una frase
+## 1. Product idea in one sentence
 
-Il backend trasforma **file FIT** (uscite dal ciclocomputer), **test in presenza** (sprint, CP 3/6/12 min, lattato), **allenamenti prescritti** e **dati fisici dell'atleta** in un **profilo fisiologico personalizzato**, in **analisi per ogni allenamento** e in un **gemello digitale** (`TwinState`) che il frontend persiste e aggiorna nel tempo.
+The backend transforms **FIT files** (outputs from the cycle computer), **in-person tests** (sprint, CP 3/6/12 min, lactate), **prescribed workouts** and **athlete physical data** into a **personalized physiological profile**, into **analysis for each workout** and into a **digital twin** (`TwinState`) that the frontend persists and updates over time.
 
-Non è un "consumer platform clone": molti numeri sono **stime modellate**, non misure dirette. Il backend è **onesto** quando mancano dati o la confidenza è bassa (`status: skipped`, campi `null`, `warnings`, `tier`).
+It's not a "consumer platform clone" - many numbers are **modeled estimates**, not direct measurements. The backend is **honest** when data is missing or confidence is low (`status: skipped`, `null` fields, `warnings`, `tier`).
 
 ---
 
-## 2. Glossario minimo (per chi non fa ciclismo)
+## 2. Minimum glossary (for those who don't cycle)
 
-| Termine | Cosa significa | Unità tipica |
+| Term | What does it mean | Typical unit |
 |---------|----------------|--------------|
-| **Potenza (W)** | Quanto "forte" pedala il ciclista | Watt |
-| **FTP** | Potenza sostenibile ~1 h (soglia funzionale) | W |
-| **MLSS / CP** | Potenza alla soglia del lattato (max sostenibile a lungo) | W |
-| **VO₂max** | Capacità aerobica massima | ml/kg/min |
-| **VLamax** | Capacità anaerobica glicolitica | mmol/L/s |
-| **MMP** | Miglior potenza media per ogni durata (curva potenza-durata) | `{secondi: W}` |
-| **NP** | Normalized Power — intensità "equivalente" su terreno variabile | W |
+| **Power (W)** | How "hard" the cyclist pedals | Watt |
+| **FTP** | Sustainable power ~1 h (functional threshold) | W |
+| **MLSS / CP** | Power at lactate threshold (max sustainable for a long time) | W |
+| **VO₂max** | Maximum aerobic capacity | ml/kg/min |
+| **VLamax** | Glycolytic anaerobic capacity | mmol/L/s |
+| **MMP** | Best average power for each duration (power-duration curve) | `{seconds: W}` |
+| **NP** | Normalized Power — “equivalent” intensity on variable terrain | W |
 | **IF** | Intensity Factor = NP / FTP | 0–1+ |
-| **TSS** | Training Stress Score — carico dell'uscita | punti |
-| **CTL / ATL / TSB** | Carico cronico / acuto / forma (detraining engine) | punti |
-| **Durability** | Capacità di mantenere la performance nel tempo (affaticamento) | % o curva CP |
-| **W′** | "Batteria" anaerobica sopra CP | Joule |
-| **DFA-α₁** | Indice HRV legato a zona aerobica/anaerobica | 0–1 |
-| **Fenotipo** | Profilo rider (diesel / all-rounder / sprinter) | etichetta |
-| **TwinState** | Blob JSON unico (`twin_state.v1`) con profilo, carico, calendario, compliance | JSON |
+| **TSS** | Training Stress Score — output load | points |
+| **CTL / ATL / TSB** | Chronic / acute / form load (detraining engine) | points |
+| **Durability** | Ability to maintain performance over time (fatigue) | % or CP curve |
+| **W′** | Anaerobic "Battery" above CP | Joule |
+| **DFA-α₁** | HRV index linked to aerobic/anaerobic zone | 0–1 |
+| **Phenotype** | Rider profile (diesel / all-rounder / sprinter) | label |
+| **TwinState** | Unique JSON blob (`twin_state.v1`) with profile, load, calendar, compliance | JSON |
 
-**Regola d'oro per la UI:** distingui sempre **misura diretta** (potenza, FC dal FIT) da **modello** (VO₂max da MMP, MLSS da Mader).
+**Golden Rule for UI:** Always distinguish **direct measurement** (power, HR from FIT) from **model** (VO₂max from MMP, MLSS from Mader).
 
 ---
 
-## 3. Filosofia dati: tier e confidenza
+## 3. Data philosophy: tiers and confidence
 
-Ogni output importante porta (o può portare):
+Every important output leads (or can lead):
 
 ```json
 {
@@ -78,20 +78,20 @@ Ogni output importante porta (o può portare):
 }
 ```
 
-| Tier | Significato UI | Come mostrarlo |
+| Tiers | UI meaning | How to show it |
 |------|----------------|----------------|
-| **REFERENCE** | Formula standard su dati FIT (NP, TSS, zone) | Numero pieno, badge verde "Misurato / standard" |
-| **MODEL** | Modello fisiologico (Mader, W′, mader_durability) | Numero + badge blu "Modello" + tooltip limitazioni |
-| **HEURISTIC** | Soglie indicative (ACWR, durability empirica) | Numero + badge ambra "Indicativo" |
-| **EXPERIMENTAL** | Esplorativo | Nascosto o sezione "Labs" |
+| **REFERENCE** | Standard formula on FIT data (NP, TSS, zones) | Full number, green "Measured/Standard" badge |
+| **MODEL** | Physiological model (Mader, W′, mader_durability) | Number + blue "Model" badge + limitations tooltip |
+| **HEURISTIC** | Indicative thresholds (ACWR, empirical durability) | Number + amber "Indicative" badge |
+| **EXPERIMENTAL** | Exploratory | Hidden or "Labs" section |
 
-**Se `status !== "success"` o un campo è `null`:** non inventare un valore. Mostra messaggio dal backend (`reason`, `message`, `warnings`).
+**If `status !== "success"` or a field is `null`:** do not invent a value. Show message from backend (`reason`, `message`, `warnings`).
 
 ---
 
-## 4. Architettura frontend ↔ backend (V5.1)
+## 4. Frontend ↔ backend architecture (V5.1)
 
-Il backend è **stateless**: il frontend (o Supabase) persiste **TwinState**, anchor, curve, calibration model e li rimanda alle API.
+The backend is **stateless**: the frontend (or Supabase) persists **TwinState**, anchor, curve, calibration model and sends them back to the API.
 
 ```mermaid
 flowchart TB
@@ -102,7 +102,7 @@ flowchart TB
   end
 
   subgraph onboarding [Flow A - Onboarding test]
-    FIT_TEST[FIT test sprint+CP o tablet lattato]
+    FIT_TEST[FIT test sprint+CP or tablet lactate]
     PROPOSE[POST /test/propose]
     REVIEW[UI revisione coach]
     CONFIRM[POST /test/confirm]
@@ -142,178 +142,178 @@ flowchart TB
   end
 ```
 
-**Principio V5.1:** invece di ricomporre lo stato da molti JSON sparsi, usa `TwinState` come **read model canonico** per la pagina Digital Twin, il Command Center e le proiezioni stagionali.
+**Principle V5.1:** Instead of piecing together state from lots of scattered JSON, use `TwinState` as the **canonical read model** for the Digital Twin page, Command Center, and seasonal projections.
 
 ---
 
-## 5. TwinState v1 — modello di persistenza centrale
+## 5. TwinState v1 — core persistence model
 
 Schema: `twin_state.v1` (`engines/twin_state/models.py`).
 
-### 5.1 Sezioni top-level
+### 5.1 Top-level sections
 
-| Sezione | Contenuto | Aggiornata da |
+| Section | Content | Updated by |
 |---------|-----------|---------------|
-| `athlete_profile` | Peso, sesso, discipline, training_years | `/test/confirm`, edit manuale |
-| `measured_anchor` | VO₂max, MLSS, VLamax misurati | `/test/confirm`, `/test/in-person` |
-| `metabolic_snapshot` | Snapshot completo profiler | `/profile/snapshot`, `/ride/update-profile` |
-| `rolling_power_curve` | Curva MMP aggregata | `/ride/ingest` |
+| `athlete_profile` | Weight, sex, disciplines, training_years | `/test/confirm`, manual edit |
+| `measured_anchor` | VO₂max, MLSS, VLamax measured | `/test/confirm`, `/test/in-person` |
+| `metabolic_snapshot` | Full profiler snapshot | `/profile/snapshot`, `/ride/update-profile` |
+| `rolling_power_curve` | Aggregate MMP curve | `/ride/ingest` |
 | `load_state` | CTL/ATL/TSB, ACWR | ingest + `/load/manual` |
-| `readiness_state` | Readiness adattivo | adaptive_load engines |
-| `sensor_quality` | Completezza sensori FIT | `/ride/summary` |
-| `workout_calendar_state` | Assegnazioni calendario | DB frontend + `/workouts/calendar/transition` |
-| `last_compliance_results` | Ultimi confronti workout vs eseguito | `/workouts/compare` |
-| `team_calibration_state` | Audit correzioni team | `/team/calibration/apply` |
-| `state_confidence` | Score 0–1 globale | calcolato in build/update |
-| `warnings` | Lista warning attivi | tutti i flussi |
-| `event_log` | Cronologia eventi (append-only) | update endpoints |
+| `readiness_state` | Adaptive readiness | adaptive_load engines |
+| `sensor_quality` | Completeness of FIT sensors | `/ride/summary` |
+| `workout_calendar_state` | Calendar assignments | Frontend DB + `/workouts/calendar/transition` |
+| `last_compliance_results` | Latest workout vs performed comparisons | `/workouts/compare` |
+| `team_calibration_state` | Audit corrections team | `/team/calibration/apply` |
+| `state_confidence` | Score 0–1 overall | calculated in build/update |
+| `warnings` | List of active warnings | all flows |
+| `event_log` | Event history (append-only) | update endpoints |
 
-### 5.2 Endpoint TwinState
+### 5.2 TwinState Endpoints
 
-| Metodo | Path | Quando chiamarlo |
+| Method | Path | When to call him |
 |--------|------|------------------|
-| POST | `/twin/state/build` | Dopo primo anchor + snapshot: crea blob iniziale |
-| POST | `/twin/state/update-from-ride` | Dopo ogni ingest/summary: aggiorna curva, load, sensor quality |
-| POST | `/twin/state/update-from-workout-result` | Dopo `/workouts/compare`: append compliance |
-| POST | `/twin/state/project` | What-if stagionale da calendario pianificato |
-| POST | `/projection/season` | Alias di `/twin/state/project` |
+| POST | `/twin/state/build` | After first anchor + snapshot: create initial blob |
+| POST | `/twin/state/update-from-ride` | After each ingest/summary: update curve, load, sensor quality |
+| POST | `/twin/state/update-from-workout-result` | After `/workouts/compare`: append compliance |
+| POST | `/twin/state/project` | Seasonal what-if from planned calendar |
+| POST | `/projection/season` | Alias ​​of `/twin/state/project` |
 
-**Flusso consigliato React:**
+**Recommended React flow:**
 
-1. Carica `twin_state` da DB.
-2. Se assente: `build` con anchor + snapshot + curve.
-3. Dopo ogni FIT: `ingest` → `ride/summary` → `update-from-ride` → salva TwinState.
-4. Prima di mostrare KPI calibrati: `team/calibration/apply` sullo snapshot dentro TwinState.
-5. Per Coach Planner stagionale: `projection/season` con piano calendario.
+1. Load `twin_state` from DB.
+2. If absent: `build` with anchor + snapshot + curves.
+3. After each FIT: `ingest` → `ride/summary` → `update-from-ride` → save TwinState.
+4. Before showing calibrated KPIs: `team/calibration/apply` on the snapshot inside TwinState.
+5. For Seasonal Coach Planner: `projection/season` with calendar plan.
 
 ---
 
-## 6. API HTTP completa (`api_app.py`)
+## 6. Full HTTP API (`api_app.py`)
 
-Base URL esempio: `http://localhost:8000` (`make run` o `uvicorn api_app:app`).
+Base URL example: `http://localhost:8000` (`make run` or `uvicorn api_app:app`).
 
-### 6.1 Health e profilo
+### 6.1 Health and profile
 
-| Metodo | Path | Scopo |
+| Method | Path | Scope |
 |--------|------|--------|
 | GET | `/health` | Health check |
-| POST | `/test/propose` | N file FIT → proposta profilo (non committa) |
-| POST | `/test/confirm` | Proposta confermata → anchor misurato |
-| POST | `/test/in-person` | Envelope tablet → test_protocols / lattato |
-| POST | `/profile/snapshot` | MMP → snapshot metabolico completo |
-| POST | `/ride/update-profile` | MMP uscita + anchor → profilo aggiornato |
+| POST | `/test/propose` | N FIT file → profile proposal (not committed) |
+| POST | `/test/confirm` | Proposal confirmed → anchor measured |
+| POST | `/test/in-person` | Envelope tablet → test_protocols / lactate |
+| POST | `/profile/snapshot` | MMP → complete metabolic snapshot |
+| POST | `/ride/update-profile` | MMP exit + anchor → profile updated |
 
-### 6.2 Attività e analisi
+### 6.2 Activities and analysis
 
-| Metodo | Path | Scopo |
+| Method | Path | Scope |
 |--------|------|--------|
-| POST | `/ride/ingest` | 1 FIT → aggiorna curva potenza |
-| POST | `/ride/summary` | FIT o `power_json` → `workout_summary` completo |
-| POST | `/ride/durability` | FIT + snapshot → CP residua + potenze sostenibili |
-| POST | `/performance/neuromuscular-profile` | Profilo sprint da FIT |
+| POST | `/ride/ingest` | 1 FIT → update power curve |
+| POST | `/ride/summary` | FIT or `power_json` → `workout_summary` complete |
+| POST | `/ride/durability` | FIT + snapshot → residual CP + sustainable powers |
+| POST | `/performance/neuromuscular-profile` | Sprint profile from FIT |
 | POST | `/power-source/normalize` | Offset trainer vs power meter |
-| POST | `/load/manual` | Carico non-ciclismo (RPE × durata) |
+| POST | `/load/manual` | Non-cycling load (RPE × duration) |
 
 ### 6.3 Workout system
 
-| Metodo | Path | Scopo |
+| Method | Path | Scope |
 |--------|------|--------|
-| POST | `/workouts/validate` | Valida template workout |
-| POST | `/workouts/prescribe` | Materializza % target in watt |
-| POST | `/workouts/feasibility` | Preview fattibilità W′ |
-| POST | `/workouts/compare` | Confronto assegnato vs FIT eseguito |
-| POST | `/workouts/calendar/transition` | FSM stato assegnazione calendario |
+| POST | `/workouts/validate` | Valid workout template |
+| POST | `/workouts/prescribe` | Materialize target % in watts |
+| POST | `/workouts/feasibility` | Preview feasibility W′ |
+| POST | `/workouts/compare` | Comparison assigned vs FIT performed |
+| POST | `/workouts/calendar/transition` | FSM calendar assignment status |
 
-### 6.4 TwinState e proiezione
+### 6.4 TwinState and projection
 
-| Metodo | Path | Scopo |
+| Method | Path | Scope |
 |--------|------|--------|
-| POST | `/twin/state/build` | Crea TwinState v1 |
-| POST | `/twin/state/update-from-ride` | Aggiorna dopo uscita |
+| POST | `/twin/state/build` | Create TwinState v1 |
+| POST | `/twin/state/update-from-ride` | Update after release |
 | POST | `/twin/state/update-from-workout-result` | Append compliance |
-| POST | `/twin/state/project` | Proiezione stagionale what-if |
-| POST | `/projection/season` | Alias projection |
+| POST | `/twin/state/project` | Seasonal what-if projection |
+| POST | `/projection/season` | Alias ​​projection |
 
 ### 6.5 Team learning
 
-| Metodo | Path | Scopo |
+| Method | Path | Scope |
 |--------|------|--------|
-| POST | `/team/calibration/update` | Aggiunge eventi validati al modello team |
-| POST | `/team/calibration/apply` | Applica correzione a snapshot o singolo parametro |
+| POST | `/team/calibration/update` | Adds validated events to the team model |
+| POST | `/team/calibration/apply` | Apply fix to snapshot or single parameter |
 
-Dettagli payload: `docs/API_PAYLOAD_EXAMPLES.md`.
+Payload details: `docs/API_PAYLOAD_EXAMPLES.md`.
 
 ---
 
-## 7. Mappa endpoint → schermate frontend
+## 7. Endpoint map → frontend screens
 
-Tabella operativa derivata da `FRONTEND_IMPLEMENTATION_BLUEPRINT.md`. Ogni riga indica **quale endpoint alimenta quale pagina/sezione**.
+Operational table derived from `FRONTEND_IMPLEMENTATION_BLUEPRINT.md`. Each line indicates **which endpoint feeds which page/section**.
 
-| Pagina | Sezione UI | Endpoint primari | Dati da persistere |
+| Page | UI section | Primary endpoints | Data to persist |
 |--------|------------|------------------|-------------------|
-| **Team Command Center** | Header team calibration | — (legge DB) | `teams.calibration_model` |
-| | KPI atleti verde/giallo/rosso | — (deriva da TwinState) | `athletes.twin_state` |
-| | Tabella atleti | `/team/calibration/apply` su snapshot | anchor, snapshot, confidence |
-| | MAE MLSS team | `/team/calibration/update` (storico) | `validation_events` |
-| | Grafico accuratezza | aggregazione `validation_events` | eventi pre/post test |
+| **Team Command Center** | Header team calibration | — (DB law) | `teams.calibration_model` |
+| | KPI athletes green/yellow/red | — (derived from TwinState) | `athletes.twin_state` |
+| | Athletes table | `/team/calibration/apply` on snapshot | anchor, snapshot, confidence |
+| | MAE MLSS team | `/team/calibration/update` (history) | `validation_events` |
+| | Accuracy graph | `validation_events` aggregation | pre/post test events |
 | **Athlete Digital Twin** | Header + confidence | TwinState | `twin_state` |
-| | KPI fisiologici (6 card) | `/profile/snapshot` o snapshot in TwinState | `metabolic_snapshot` |
+| | Physiological KPIs (6 cards) | `/profile/snapshot` or snapshot in TwinState | `metabolic_snapshot` |
 | | Metabolic map / combustion | snapshot.`combustion_curve` | snapshot |
-| | Power duration curve | `rolling_power_curve` in TwinState | curve JSON |
+| | Power duration curve | `rolling_power_curve` in TwinState | JSON curves |
 | | Expressiveness checklist | snapshot.`expressiveness` | snapshot |
-| | Cross-validation semaforo | snapshot.`cross_validation` | snapshot |
-| | Learning audit | `/team/calibration/apply` | `team_calibration_state` |
-| | Durability predittiva | `/ride/durability` (ultima uscita lunga) | `activities.durability` |
-| | Proiezione stagione | `/projection/season` | piano calendario |
+| | Traffic light cross-validation | snapshot.`cross_validation` | snapshot |
+| | Learning audits | `/team/calibration/apply` | `team_calibration_state` |
+| | Predictive durability | `/ride/durability` (last long ride) | `activities.durability` |
+| | Season projection | `/projection/season` | calendar plan |
 | **Activity Analysis** | Summary cards (NP, IF, TSS) | `/ride/summary` | `activities.summary` |
-| | Timeline multi-serie | `activity_charts` configs da summary | stream metadata |
+| | Multi-series timeline | `activity_charts` configs from summary | stream metadata |
 | | Zone distribution | summary.`sections.zones` | summary |
 | | Cardiac response | summary.`sections.cardiac` | summary |
-| | HRV timeline | summary.`sections.hrv` | summary (solo ramp test) |
-| | Mader durability | `/ride/durability` o summary.`mader_durability` | durability JSON |
-| | Neuromuscular (sprint) | `/performance/neuromuscular-profile` | opzionale |
-| **Testing Lab** | Upload FIT → proposta | `/test/propose` | proposal temporanea |
-| | Conferma coach | `/test/confirm` | `measured_anchor` |
-| | Test tablet/lattato | `/test/in-person` | envelope + result |
-| | Pre-test prediction (obbligatorio) | `/profile/snapshot` **prima** del test | `validation_events.predicted_value` |
+| | HRV timeline | summary.`sections.hrv` | summary (ramp test only) |
+| | Mader durability | `/ride/durability` or summary.`mader_durability` | JSON durability |
+| | Neuromuscular (sprint) | `/performance/neuromuscular-profile` | optional |
+| **Testing Lab** | Upload FIT → proposal | `/test/propose` | temporary proposal |
+| | Confirm coach | `/test/confirm` | `measured_anchor` |
+| | Tablet/lactate test | `/test/in-person` | envelope + result |
+| | Pre-test prediction (mandatory) | `/profile/snapshot` **before** testing | `validation_events.predicted_value` |
 | | Post-test learning | `/team/calibration/update` | `calibration_model` |
-| **Model Accuracy** | KPI MAE/bias per parametro | aggregazione `validation_events` | events |
+| **Model Accuracy** | MAE/bias KPI by parameter | `validation_events` aggregation | events |
 | | Scatter predicted vs measured | `validation_events` | events |
-| | Tabella eventi | DB | events |
-| | Aggiorna modello | `/team/calibration/update` | `calibration_model` |
-| **Coach Planner** | Editor workout | `/workouts/validate` | template library |
-| | Prescrizione watt | `/workouts/prescribe` | prescription |
-| | Preview fattibilità | `/workouts/feasibility` | feasibility report |
-| | Assegnazione calendario | `/workouts/calendar/transition` | assignment status |
+| | Event table | DB | events |
+| | Update model | `/team/calibration/update` | `calibration_model` |
+| **Coach Planner** | Workout editor | `/workouts/validate` | template library |
+| | Watt prescription | `/workouts/prescribe` | prescription |
+| | Preview feasibility | `/workouts/feasibility` | feasibility report |
+| | Calendar assignment | `/workouts/calendar/transition` | assignment status |
 | | Target zones | snapshot.`zones` | snapshot |
-| | Training focus cards | regole frontend su VLamax/durability | snapshot + readiness |
+| | Training focus cards | frontend rules on VLamax/durability | snapshot + readiness |
 | | Season what-if | `/projection/season` | calendar plan |
-| **Data Quality Center** | Checklist sensori | TwinState.`sensor_quality` | twin_state |
+| **Data Quality Center** | Sensor checklist | TwinState.`sensor_quality` | twin_state |
 | | MMP completeness | TwinState.`rolling_power_curve` | twin_state |
 | | Anchor freshness | TwinState.`measured_anchor` | twin_state |
 | | Power source warning | `/power-source/normalize` | offset report |
-| | Carico non-ciclismo | `/load/manual` | manual sessions |
+| | Non-cycling load | `/load/manual` | manual sessions |
 
-### 6.6 Regole di navigazione tra pagine
+### 6.6 Navigation rules between pages
 
-| Evento utente | Sequenza API |
+| User event | API Sequence |
 |---------------|--------------|
-| Nuovo atleta + test FIT | propose → confirm → snapshot → twin/build |
-| Upload uscita | ingest → summary → twin/update-from-ride → (se refresh) update-profile |
-| Test validato con learning | snapshot (pre-test) → in-person/confirm → validation_event → calibration/update |
-| Assegna workout | validate → prescribe → feasibility → (salva DB) → compare → twin/update-from-workout |
-| Apri Digital Twin | carica twin_state → calibration/apply → render |
+| New athlete + FIT test | propose → confirm → snapshot → twin/build |
+| Upload output | ingest → summary → twin/update-from-ride → (if refresh) update-profile |
+| Test validated with learning | snapshot (pre-test) → in-person/confirm → validation_event → calibration/update |
+| Assign workouts | validate → prescribe → feasibility → (save DB) → compare → twin/update-from-workout |
+| Open Digital Twin | load twin_state → calibration/apply → render |
 
 ---
 
-## 8. Flow operativi
+## 8. Operational flows
 
-### 8.1 Flow A — Creazione profilo (test FIT)
+### 8.1 Flow A — Profile creation (FIT test)
 
-1. Coach carica 1+ FIT (sprint + CP3/6/12 idealmente).
+1. Coach loads 1+ FIT (sprint + CP3/6/12 ideally).
 2. `POST /test/propose` (multipart `files[]`) → `ProfileProposal`.
-3. UI di **revisione**: sprint scelto, blocchi CP, confidence, file sorgente.
-4. Coach conferma → `POST /test/confirm`:
+3. **review** UI: chosen sprint, CP blocks, confidence, source file.
+4. Coach confirm → `POST /test/confirm`:
 
 ```json
 {
@@ -323,19 +323,19 @@ Tabella operativa derivata da `FRONTEND_IMPLEMENTATION_BLUEPRINT.md`. Ogni riga 
 }
 ```
 
-5. `POST /profile/snapshot` con MMP derivata.
-6. `POST /twin/state/build` → salva `twin_state` in DB.
+5. `POST /profile/snapshot` with MMP derived.
+6. `POST /twin/state/build` → save `twin_state` to DB.
 
-### 8.2 Flow B — Monitoraggio uscite
+### 8.2 Flow B — Output monitoring
 
-1. `POST /ride/ingest` — form: `file`, `ride_date`, `weight_kg`, `stored_curve_json` (opzionale).
-2. `POST /ride/summary` con stesso FIT + opz. `metabolic_snapshot_json`.
-3. `POST /twin/state/update-from-ride` con `ingest_result` + `ride_summary`.
-4. Se `profile_should_refresh`: `POST /ride/update-profile` → aggiorna snapshot in TwinState.
+1. `POST /ride/ingest` — form: `file`, `ride_date`, `weight_kg`, `stored_curve_json` (optional).
+2. `POST /ride/summary` with same FIT + opt. `metabolic_snapshot_json`.
+3. `POST /twin/state/update-from-ride` with `ingest_result` + `ride_summary`.
+4. If `profile_should_refresh`: `POST /ride/update-profile` → update snapshot in TwinState.
 
-### 8.3 Flow C — Prescrizione workout
+### 8.3 Flow C — Workout prescription
 
-Vedi `docs/WORKOUT_SYSTEM_BACKEND_V1.md`:
+See `docs/WORKOUT_SYSTEM_BACKEND_V1.md`:
 
 ```
 validate → prescribe → feasibility → (assign in DB) → compare → twin/update-from-workout-result
@@ -343,49 +343,49 @@ validate → prescribe → feasibility → (assign in DB) → compare → twin/u
 
 ### 8.4 Flow D — Team learning
 
-1. **Prima** del test: salva `predicted_value` da snapshot corrente.
-2. Dopo test validato: crea `ValidationEvent` con `measured_value`.
-3. `POST /team/calibration/update` con evento.
-4. Su Digital Twin: `POST /team/calibration/apply` prima di mostrare KPI.
+1. **Before** testing: Save `predicted_value` from current snapshot.
+2. After validated test: Create `ValidationEvent` with `measured_value`.
+3. `POST /team/calibration/update` with event.
+4. On Digital Twin: `POST /team/calibration/apply` before showing KPI.
 
 ---
 
-## 9. Snapshot metabolico — cuore del Digital Twin
+## 9. Metabolic snapshot — heart of the Digital Twin
 
-Campi principali da mostrare nella pagina profilo:
+Main fields to show on the profile page:
 
-| Campo | Descrizione | UI |
+| Field | Description | UI |
 |-------|-------------|-----|
-| `estimated_vo2max` | VO₂max stimato | KPI grande + unità ml/kg/min |
-| `estimated_vlamax_mmol_L_s` | VLamax | KPI + scala fenotipo |
-| `mlss_power_watts` / `mlss_power_wkg` | Soglia lattato | KPI W e W/kg |
-| `fatmax_power_watts` | Massima ossidazione grassi | KPI |
-| `map_aerobic_watts` | MAP aerobica | KPI secondario |
-| `metabolic_phenotype` | Diesel / sprinter / … | Badge + icona |
-| `confidence_score` | Affidabilità globale | Gauge 0–100% |
-| `combustion_curve` | Grassi vs carboidrati vs potenza | Area chart stacked |
-| `zones` | Zone da profilo | Barre o tabella |
-| `cross_validation` | Coerenza modello vs potenza osservata | Semaforo + testo |
-| `unmasked_estimates` | Valori "debug" se campo mascherato | Solo modal tecnico |
-| `expressiveness` | Quali durate MMP mancano | Checklist ancore |
+| `estimated_vo2max` | Estimated VO₂max | Large KPI + units ml/kg/min |
+| `estimated_vlamax_mmol_L_s` | VLamax | KPI + phenotype scale |
+| `mlss_power_watts` / `mlss_power_wkg` | Lactate threshold | KPIs W and W/kg |
+| `fatmax_power_watts` | Maximum fat oxidation | KPIs |
+| `map_aerobic_watts` | Aerobic MAP | Secondary KPI |
+| `metabolic_phenotype` | Diesel / sprinter / … | Badge + icon |
+| `confidence_score` | Global reliability | Gauge 0–100% |
+| `combustion_curve` | Fat vs carbs vs power | Area chart stacked |
+| `zones` | Profile zones | Bars or table |
+| `cross_validation` | Model consistency vs observed power | Traffic light + text |
+| `unmasked_estimates` | "Debug" values ​​if masked field | Technical modal only |
+| `expressiveness` | What MMP durations are missing | Anchor checklist |
 
-**Mascheramento:** se MMP non copre durate soglia, `mlss_power_watts` può essere `null` ma `unmasked_estimates` ha il valore grezzo. La UI **non** deve mostrare il valore mascherato come certo.
+**Masking:** If MMP does not cover threshold durations, `mlss_power_watts` can be `null` but `unmasked_estimates` has the raw value. The UI should **not** show the masked value as certain.
 
 **Cross-validation (`cross_validation`):**
 
 | `severity` | UI |
 |------------|-----|
-| `none` | Verde — profilo coerente |
-| `mild` / `moderate` | Giallo — warning + `recommended_action` |
-| `severe` | Rosso — "Non affidabile, ripetere test" |
+| `none` | Green — consistent profile |
+| `mild` / `moderate` | Yellow — warning + `recommended_action` |
+| `severe` | Red — "Unreliable, repeat test" |
 
 ---
 
-## 10. Report singola attività — `build_workout_summary`
+## 10. Single activity report — `build_workout_summary`
 
-Endpoint: `POST /ride/summary` (multipart: `file` **oppure** `power_json`, `weight_kg`, opz. `ftp`, `metabolic_snapshot_json`).
+Endpoint: `POST /ride/summary` (multipart: `file` **or** `power_json`, `weight_kg`, opt. `ftp`, `metabolic_snapshot_json`).
 
-### 10.1 Struttura risposta
+### 10.1 Response structure
 
 ```json
 {
@@ -406,88 +406,88 @@ Endpoint: `POST /ride/summary` (multipart: `file` **oppure** `power_json`, `weig
 }
 ```
 
-### 10.2 Sezioni e grafici consigliati
+### 10.2 Recommended sections and graphs
 
-| Sezione | Contenuto | Visualizzazione |
+| Section | Content | Visualization |
 |---------|-----------|-----------------|
 | **power** | NP, IF, TSS, VI, MMP, CP+W′ fit | KPI row + `chart_power_duration_curve` |
-| **zones** | Coggan 7 zone, Friel HR, Seiler 3 zone | Donut / barre stacked |
-| **classification** | Fenotipo Coggan da MMP | `chart_phenotype_spider` |
-| **hrv** | Timeline DFA-α₁ (se RR) | `chart_hrv_timeline` |
+| **zones** | Coggan 7 zones, Friel HR, Seiler 3 zones | Stacked donuts/bars |
+| **classification** | Coggan phenotype from MMP | `chart_phenotype_spider` |
+| **hrv** | DFA-α₁ Timeline (if RR) | `chart_hrv_timeline` |
 | **cardiac** | Drift, decoupling, recovery, kinetics | `chart_cardiac_drift`, `chart_hr_recovery` |
-| **mader_durability** | CP residua ODE + potenze sostenibili | Vedi §10.3 |
+| **mader_durability** | ODE residual CP + sustainable powers | See §10.3 |
 
-**Headline** (card in cima): `tss`, `normalized_power`, `intensity_factor`, `worst_cardiac_drift_pct`, `rider_phenotype`, `mader_durability_loss_pct`, `mader_sustainable_3h_w`.
+**Headline** (top card): `tss`, `normalized_power`, `intensity_factor`, `worst_cardiac_drift_pct`, `rider_phenotype`, `mader_durability_loss_pct`, `mader_sustainable_3h_w`.
 
 ### 10.3 Mader durability
 
-Endpoint dedicato: `POST /ride/durability` (richiede `metabolic_snapshot_json` valido).
+Dedicated endpoint: `POST /ride/durability` (requires valid `metabolic_snapshot_json`).
 
-| Campo | Grafico |
+| Field | Graphic |
 |-------|---------|
-| `cp_residual_curve` | Linea tempo: CP residua (W) vs secondi |
-| `kj_above_cp_curve` | Asse X alternativo: kJ sopra soglia |
-| `durability_loss_pct` | KPI % perdita CP (nadir sessione) |
-| `sustainability.sustainable_steady_power_w` | Tabella potenza max costante 1h–5h |
-| `sustainability.training_recommendations` | Testo coach |
+| `cp_residual_curve` | Timeline: Remaining CP (W) vs. seconds |
+| `kj_above_cp_curve` | Alternate X-axis: kJ above threshold |
+| `durability_loss_pct` | KPI % CP loss (session nadir) |
+| `sustainability.sustainable_steady_power_w` | Constant max power table 1h–5h |
+| `sustainability.training_recommendations` | Coach text |
 
 ---
 
-## 11. Catalogo motori — cosa fa il backend
+## 11. Engine catalog — what the backend does
 
-### 11.1 Per attività (dopo ogni FIT)
+### 11.1 By activity (after each FIT)
 
-| Modulo | Output chiave | Grafico / UI |
+| Module | Key output | Graphic / UI |
 |--------|---------------|--------------|
-| `fit_parser` | Stream campionato | — (interno) |
-| `power_engine` | NP, IF, TSS, MMP | KPI + curva P-D |
-| `zones_engine` | Tempo in zona | Donut multipli |
-| `coggan_classifier` | Fenotipo | Spider / badge |
-| `hrv_engine` | α₁ per finestra | Linea + bande 0.75 / 0.50 |
-| `cardiac_engine` | Drift, decoupling | Linee segmenti |
-| `mader_durability` | CP residua meccanicistica | Curve §10.3 |
-| `interval_detector` | Categoria sessione | Chip TEST/HIIT/FREE |
-| `session_router` | Motori eseguiti | Timeline pipeline (debug) |
-| `neuromuscular_profile` | Pmax, repeat sprint | KPI sprint |
+| `fit_parser` | Stream championship | - (internal) |
+| `power_engine` | NP, IF, TSS, MMP | KPI + P-D curve |
+| `zones_engine` | Weather in the area | Multiple donuts |
+| `coggan_classifier` | Phenotype | Spider / badge |
+| `hrv_engine` | α₁ for window | Line + bands 0.75 / 0.50 |
+| `cardiac_engine` | Drift, decoupling | Segment lines |
+| `mader_durability` | Mechanistic residual CP | Curves §10.3 |
+| `interval_detector` | Session category | Chip TEST/HIIT/FREE |
+| `session_router` | Engines run | Timeline pipeline (debugging) |
+| `neuromuscular_profile` | Pmax, repeat sprint | Sprint KPIs |
 
-### 11.2 Longitudinale / profilo / twin
+### 11.2 Longitudinal / profile / twin
 
-| Modulo | Output chiave | Grafico / UI |
+| Module | Key output | Graphic / UI |
 |--------|---------------|--------------|
-| `metabolic_profiler` | Snapshot completo | Digital Twin |
-| `cross_validation_engine` | Coerenza | Semaforo + matrix |
-| `metabolic_kalman` | Traiettoria nel tempo | Linea con banda |
-| `metabolic_current` | Stato attuale + detraining | KPI decay |
+| `metabolic_profiler` | Full snapshot | Digital Twin |
+| `cross_validation_engine` | Consistency | Traffic light + matrix |
+| `metabolic_kalman` | Trajectory over time | Line with band |
+| `metabolic_current` | Current status + detraining | KPI decay |
 | `detraining_engine` | CTL/ATL/TSB | `chart_training_load` |
-| `team_learning_engine` | Correzioni calibrate | Learning audit panel |
-| `season_projection_engine` | What-if stagionale | Linee CP/CTL proiettate |
-| `manual_load` | Carico gym/corsa | Modificatore readiness |
+| `team_learning_engine` | Calibrated corrections | Learning audit panel |
+| `season_projection_engine` | Seasonal what-ifs | Projected CP/CTL lines |
+| `manual_load` | Gym/running load | Readiness modifier |
 
 ### 11.3 Workout system
 
-| Modulo | Endpoint | UI |
+| Module | Endpoints | UI |
 |--------|----------|-----|
-| `validate` | `/workouts/validate` | Editor errori |
-| `prescribe` | `/workouts/prescribe` | Preview watt per step |
-| `feasibility` | `/workouts/feasibility` | Semáforo W′ |
-| `compliance` | `/workouts/compare` | Score + discrepanze |
-| `calendar_fsm` | `/workouts/calendar/transition` | Stato assegnazione |
+| `validate` | `/workouts/validate` | Error editor |
+| `prescribe` | `/workouts/prescribe` | Preview watts per step |
+| `feasibility` | `/workouts/feasibility` | Traffic light W′ |
+| `compliance` | `/workouts/compare` | Score + discrepancies |
+| `calendar_fsm` | `/workouts/calendar/transition` | Assignment status |
 
 ---
 
-## 12. Pagina Digital Twin — specifica funzionale
+## 12. Digital Twin page — functional specification
 
-### 12.1 Obiettivo
+### 12.1 Objective
 
-Una vista **per atleta** che risponde a:
+A view **per athlete** that responds to:
 
-1. Chi è fisiologicamente (VO₂max, VLamax, MLSS, fenotipo)?
-2. Il profilo è **affidabile** (ancore + cross-validation)?
-3. Come **evolve** nel tempo (load, readiness, projection)?
-4. Cosa può **sostenere** (mader_durability, season projection)?
-5. Cosa **manca** per migliorare la stima?
+1. Who is it physiologically (VO₂max, VLamax, MLSS, phenotype)?
+2. Is the profile **reliable** (anchors + cross-validation)?
+3. How does it **evolve** over time (load, readiness, projection)?
+4. What can **support** (mader_durability, season projection)?
+5. What is **missing** to improve the estimate?
 
-### 12.2 Layout consigliato (desktop)
+### 12.2 Recommended layout (desktop)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -508,29 +508,29 @@ Una vista **per atleta** che risponde a:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 12.3 Stati della pagina
+### 12.3 Page states
 
-| Stato | Condizione | Cosa mostrare |
+| State | Condition | What to show |
 |-------|------------|---------------|
-| **Empty** | Nessun FIT / nessun test | CTA "Carica test sprint+CP" |
-| **Partial** | Anchor parziale o MMP povera | Campi `null` grigiati + checklist ancore |
-| **Ready** | TwinState + cross_validation ok | Tutti i pannelli predittivi |
-| **Stale** | Anchor vecchio (>90 gg) | Banner "Ricalibrare con test" |
-| **Calibrated** | Team learning attivo | Learning audit + badge "Team calibrated" |
+| **Empty** | No FIT / no testing | CTA "Load sprint test+CP" |
+| **Partial** | Partial anchor or poor MMP | Grayed out `null` fields + checklist anchors |
+| **Ready** | TwinState + cross_validation ok | All predictive panels |
+| **Stale** | Old anchor (>90 days) | "Recalibrate with Test" Banner |
+| **Calibrated** | Active team learning | Learning audit + "Team calibrated" badge |
 
-### 12.4 Cosa **non** fare
+### 12.4 What **not** to do
 
-- Non mostrare VO₂max/MLSS come "verità di laboratorio" senza test lattato.
-- Non nascondere `warnings` e `cross_validation.severity`.
-- Non usare DFA-α₁ da uscita libera per estrarre soglie.
-- Non chiamare snapshot senza MMP con almeno 3 durate diverse.
-- Non applicare calibrazione team senza `validation_events` pre-test.
+- Do not show VO₂max/MLSS as "lab truth" without lactate testing.
+- Don't hide `warnings` and `cross_validation.severity`.
+- Do not use DFA-α₁ from free output to extract thresholds.
+- Don't call snapshots without MMPs with at least 3 different durations.
+- Don't apply team calibration without `validation_events` pre-test.
 
 ---
 
-## 13. `chart_builder` — integrazione pratica
+## 13. `chart_builder` — convenient integration
 
-Il backend non renderizza grafici: restituisce **config JSON** compatibili con Recharts / Chart.js / Plotly.
+The backend does not render charts: it returns **config JSON** compatible with Recharts / Chart.js / Plotly.
 
 ```python
 from engines.io.chart_builder import (
@@ -541,63 +541,63 @@ from engines.io.chart_builder import (
 )
 ```
 
-**Palette ufficiale:** vedi `COLORS` in `chart_builder.py`.
+**Official palette:** see `COLORS` in `chart_builder.py`.
 
-**Frontend:** componente `<EngineChart config={payload} />` che fa switch su `config.type`.
+**Frontend:** `<EngineChart config={payload} />` component that switches to `config.type`.
 
 ---
 
-## 14. Modello dati da persistere (Supabase / DB)
+## 14. Data model to persist (Supabase / DB)
 
-| Entità | Campi minimi | Note |
+| Entity | Minimum fields | Notes |
 |--------|--------------|------|
-| `teams` | id, name, `calibration_model` JSON | Da `/team/calibration/update` |
+| `teams` | id, name, `calibration_model` JSON | From `/team/calibration/update` |
 | `athletes` | id, team_id, weight_kg, gender, phenotype | |
-| `twin_states` | athlete_id, `twin_state` JSON, updated_at | **Entità centrale V5.1** |
-| `measured_profile` | vo2max, mlss_watts, vlamax, measured_on | Da `/test/confirm` (anche in TwinState) |
-| `power_curve` | athlete_id, curve JSON | Da `/ride/ingest` (anche in TwinState) |
+| `twin_states` | athlete_id, `twin_state` JSON, updated_at | **Central Entity V5.1** |
+| `measured_profile` | vo2max, mlss_watts, vlamax, measured_on | From `/test/confirm` (also in TwinState) |
+| `power_curve` | athlete_id, JSON curves | From `/ride/ingest` (also in TwinState) |
 | `activities` | fit_url, date, summary, durability JSON | `/ride/summary`, `/ride/durability` |
-| `validation_events` | predicted, measured, parameter, protocol | **Obbligatorio per learning** |
+| `validation_events` | predicted, measured, parameter, protocol | **Required for learning** |
 | `workout_assignments` | workout, prescription, status, compliance | Coach Planner |
-| `test_sessions` | envelope JSON, result JSON | Tablet |
+| `test_sessions` | envelope JSON, result JSON | Tablets |
 
-Schema SQL di riferimento: `docs/workout_db_schema_v1.sql`.
+Reference SQL schema: `docs/workout_db_schema_v1.sql`.
 
 ---
 
-## 15. Roadmap UI consigliata
+## 15. Recommended UI roadmap
 
-### Fase 1 — MVP (sostituire CSV in `frontend/`)
+### Phase 1 — MVP (replace CSV in `frontend/`)
 
-- [ ] Client API verso `api_app.py` (tutti gli endpoint §6)
-- [ ] TwinState build/update come persistenza centrale
-- [ ] Lista atleti + Activity Analysis
+- [ ] API client to `api_app.py` (all endpoints §6)
+- [ ] TwinState build/update as central persistence
+- [ ] Athlete list + Activity Analysis
 - [ ] Digital Twin (snapshot + KPI + cross_validation)
 - [ ] Upload FIT test → propose → confirm
-- [ ] Upload FIT uscita → ingest → summary
+- [ ] Upload FIT output → ingest → summary
 
-### Fase 2 — Coach pro
+### Phase 2 — Coach pro
 
 - [ ] Testing Lab + validation_events + team calibration
 - [ ] Model Accuracy page
 - [ ] Coach Planner (workouts/*)
-- [ ] mader_durability su uscite lunghe
+- [ ] mader_durability on long rides
 - [ ] Season projection
 
-### Fase 3 — Avanzato
+### Phase 3 — Advanced
 
-- [ ] Kalman trend API (`/profile/kalman` — da aggiungere)
-- [ ] Race simulation GPX (`/race/simulate` — da aggiungere)
-- [ ] Data Quality Center completo
-- [ ] Neuromuscular profile su attività sprint
+- [ ] Kalman trend API (`/profile/kalman` — to be added)
+- [ ] Race simulation GPX (`/race/simulate` — to be added)
+- [ ] Complete Data Quality Center
+- [ ] Neuromuscular profile on sprint activities
 
 ---
 
-## 16. Hardening e stress test — stato verificato
+## 16. Hardening and stress testing — been verified
 
-Eseguito su **Backend V5.1.0** (2026-06-01).
+Run on **Backend V5.1.0** (2026-06-01).
 
-### 16.1 Comandi
+### 16.1 Commands
 
 ```bash
 # Hardening (malformed input, JSON safety, timeout)
@@ -611,33 +611,33 @@ python3 -m pytest -q tests/pytest_*.py
 python3 -m pytest -q pytest_script_suite.py
 ```
 
-### 16.2 Risultati ultima esecuzione
+### 16.2 Last run results
 
-| Suite | Risultato |
+| Suite | Result |
 |-------|-----------|
 | Hardening (`-m hardening`) | **13 passed** |
 | Stress (`-m "hardening and stress"`) | **5 passed** |
-| Security hardening | incluso sopra |
+| Security hardening | included above |
 | Multitenant contract (`pytest_multitenant_stress.py`) | **2 passed** |
 | Full pytest (`tests/pytest_*.py`) | **55 passed**, 6 skipped |
 | Script suite (`pytest_script_suite.py`) | **25 passed** |
-| **Totale** | **~95 test verdi** |
+| **Total** | **~95 green tests** |
 
-I 6 skip sono test FIT/environment-dependent quando mancano file o dipendenze opzionali.
+The 6 skips are FIT/environment-dependent tests when optional files or dependencies are missing.
 
-### 16.3 Cosa copre la suite
+### 16.3 What the suite covers
 
-- Parser FIT su dati sparsi, gap, sensori enhanced
-- FIT corrotti → `FitFileError` tipizzato
-- Workout feasibility >1000 step sotto deadline
-- Compliance con stream grandi, NaN, sensori mancanti
-- API 4xx strutturati (no 500 non gestiti)
-- Payload JSON ricorsivamente sicuri (no NaN/Inf)
-- Limiti upload size e profondità JSON (`engines/core/security.py`)
+- FIT parser on sparse data, gaps, enhanced sensors
+- Corrupt FITs → `FitFileError` typed
+- Workout feasibility >1000 steps under deadline
+- Compliance with large streams, NaN, missing sensors
+- Structured 4xx APIs (no 500 unmanaged)
+- Recursively safe JSON payloads (no NaN/Inf)
+- JSON upload size and depth limits (`engines/core/security.py`)
 
-### 16.4 Stress HTTP live (opzionale pre-release)
+### 16.4 Live HTTP Stress (optional pre-release)
 
-Richiede server uvicorn in esecuzione:
+Requires uvicorn server running:
 
 ```bash
 uvicorn api_app:app --host 0.0.0.0 --port 8000 &
@@ -649,40 +649,40 @@ python tools/stress/multitenant_stress.py \
 
 Output: `stress_summary.json`, `stress_requests.csv`, `stress_report.md`.
 
-Vedi `docs/MULTI_TENANT_STRESS_TESTING.md` e `docs/HARDENING_TESTS.md`.
+See `docs/MULTI_TENANT_STRESS_TESTING.md` and `docs/HARDENING_TESTS.md`.
 
-### 16.5 Gate CI consigliato
+### 16.5 CI gate recommended
 
-| Quando | Cosa eseguire |
+| When | What to do |
 |--------|---------------|
-| Ogni PR su API/parser/workouts | `pytest -m hardening` |
+| Each PR on API/parser/workouts | `pytest -m hardening` |
 | Pre-release | hardening + stress + `pytest_script_suite.py` |
-| Pre-deploy infra | `multitenant_stress.py` contro staging |
+| Pre-deploy infra | `multitenant_stress.py` against staging |
 
 ---
 
-## 17. Esempio flusso completo (sequenza V5.1)
+## 17. Full end-to-end flow example (V5.1 sequence)
 
 ```
-1. Coach carica FIT test                    → POST /test/propose
-2. UI revisione, coach conferma             → POST /test/confirm
-3. Snapshot iniziale                        → POST /profile/snapshot
-4. Crea gemello digitale                    → POST /twin/state/build → salva DB
-5. Atleta pedala, FIT uscita                → POST /ride/ingest
-6. Analisi attività                         → POST /ride/summary
-7. Aggiorna TwinState                       → POST /twin/state/update-from-ride
-8. Se profile_should_refresh                → POST /ride/update-profile
-9. Pagina Activity Analysis                 → summary + durability da DB
-10. Pagina Digital Twin                     → twin_state + calibration/apply
-11. Test validato in lab                    → validation_event → /team/calibration/update
-12. Coach assegna workout                   → validate → prescribe → feasibility
-13. Atleta esegue, upload FIT               → /workouts/compare → twin/update-from-workout
-14. Pianificazione stagione                 → /projection/season
+1. Coach uploads FIT test                   → POST /test/propose
+2. UI review, coach confirms                → POST /test/confirm
+3. Initial snapshot                         → POST /profile/snapshot
+4. Create digital twin                      → POST /twin/state/build → save DB
+5. Athlete rides, FIT uploaded              → POST /ride/ingest
+6. Activity analysis                        → POST /ride/summary
+7. Update TwinState                         → POST /twin/state/update-from-ride
+8. If profile_should_refresh                → POST /ride/update-profile
+9. Activity Analysis page                   → summary + durability from DB
+10. Digital Twin page                       → twin_state + calibration/apply
+11. Lab-validated test                      → validation_event → /team/calibration/update
+12. Coach assigns workout                   → validate → prescribe → feasibility
+13. Athlete completes, FIT upload           → /workouts/compare → twin/update-from-workout
+14. Season planning                         → /projection/season
 ```
 
 ---
 
-## 18. Import Python utili
+## 18. Useful Python imports
 
 ```python
 from engines import (
@@ -702,13 +702,13 @@ from engines.twin_state.models import TWIN_STATE_SCHEMA_VERSION
 
 ---
 
-## 19. Endpoint ancora da aggiungere (fase futura)
+## 19. Endpoints yet to be added (future phase)
 
-| Endpoint proposto | Motore | Pagina target |
+| Proposed endpoint | Motor | Target page |
 |-------------------|--------|---------------|
 | `POST /profile/kalman` | `process_workout_history` | Digital Twin trend |
-| `POST /race/simulate` | `simulate_gpx_race` | Coach Planner / pre-gara |
+| `POST /race/simulate` | `simulate_gpx_race` | Coach Planner / pre-competition |
 
 ---
 
-*Documento unificato per Backend-definitivo-V5 **5.1.0**. Aggiornare quando si aggiungono endpoint in `api_app.py` o nuovi motori in `engines/`.*
+*Unified documentation for Backend-definitivo-V5 **5.1.0**. Update when new endpoints are added in `api_app.py` or new engines are introduced in `engines/`.*

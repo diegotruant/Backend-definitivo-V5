@@ -177,7 +177,7 @@ const mapActivity = (row: CsvRow): Activity => ({
 })
 
 const fmt = (value: number, digits = 0) =>
-  Number.isFinite(value) ? value.toLocaleString('it-IT', { maximumFractionDigits: digits }) : '-'
+  Number.isFinite(value) ? value.toLocaleString('en-US', { maximumFractionDigits: digits }) : '-'
 
 const pct = (value: number) => `${fmt(value * 100, 0)}%`
 
@@ -277,10 +277,10 @@ function App() {
       if (summary.statistics_page) {
         setStatisticsPage(summary.statistics_page)
       } else {
-        setStatisticsError('La risposta /ride/summary non contiene statistics_page.')
+        setStatisticsError('/ride/summary response does not include statistics_page.')
       }
     } catch (err) {
-      setStatisticsError(err instanceof Error ? err.message : 'Errore caricamento statistiche')
+      setStatisticsError(err instanceof Error ? err.message : 'Error loading statistics')
     } finally {
       setStatisticsLoading(false)
     }
@@ -293,7 +293,7 @@ function App() {
   }, [view])
 
   if (loading) {
-    return <main className="loading">Caricamento dati backend...</main>
+    return <main className="loading">Loading backend data...</main>
   }
 
   if (error) {
@@ -314,10 +314,10 @@ function App() {
         <nav className="nav">
           {[
             ['dashboard', 'Dashboard'],
-            ['athletes', 'Atleti'],
-            ['activities', 'Attivita'],
-            ['statistics', 'Statistiche ride'],
-            ['metabolic', 'Profilo metabolico'],
+            ['athletes', 'Athletes'],
+            ['activities', 'Activities'],
+            ['statistics', 'Ride statistics'],
+            ['metabolic', 'Metabolic profile'],
           ].map(([key, label]) => (
             <button
               key={key}
@@ -331,8 +331,8 @@ function App() {
 
         <div className="sidebar-card">
           <span>Dataset</span>
-          <strong>{athletes.length} atleti</strong>
-          <small>{activities.length.toLocaleString('it-IT')} attivita FIT</small>
+          <strong>{athletes.length} athletes</strong>
+          <small>{activities.length.toLocaleString('en-US')} FIT activities</small>
         </div>
       </aside>
 
@@ -340,10 +340,10 @@ function App() {
         <header className="topbar">
           <div>
             <Pill tone="green">Backend connected</Pill>
-            <h1>Performance analytics per coach</h1>
+            <h1>Performance analytics for coaches</h1>
             <p>
-              Dashboard moderna per leggere power metrics, qualita dati, carico,
-              durability e profilo metabolico calcolati dal backend.
+              Modern dashboard for reading power metrics, data quality, load,
+              durability, and metabolic profile outputs computed by the backend.
             </p>
           </div>
           <select value={selectedAthlete} onChange={(event) => setSelectedAthlete(event.target.value)}>
@@ -358,10 +358,10 @@ function App() {
         {view === 'dashboard' && (
           <>
             <section className="kpi-grid">
-              <KpiCard label="Atleti monitorati" value={fmt(athletes.length)} detail="dataset completo" />
-              <KpiCard label="Ore analizzate" value={fmt(totals.totalHours, 1)} detail="timeline FIT sintetica" tone="green" />
-              <KpiCard label="TSS totale" value={fmt(totals.totalTss, 0)} detail="carico aggregato" tone="violet" />
-              <KpiCard label="Qualita media" value={pct(totals.meanQuality)} detail="power + HR + cadence" tone="amber" />
+              <KpiCard label="Athletes monitored" value={fmt(athletes.length)} detail="full dataset" />
+              <KpiCard label="Hours analyzed" value={fmt(totals.totalHours, 1)} detail="synthetic FIT timeline" tone="green" />
+              <KpiCard label="Total TSS" value={fmt(totals.totalTss, 0)} detail="aggregated load" tone="violet" />
+              <KpiCard label="Average quality" value={pct(totals.meanQuality)} detail="power + HR + cadence" tone="amber" />
             </section>
 
             <section className="panel-grid">
@@ -369,7 +369,7 @@ function App() {
                 <div className="panel-header">
                   <div>
                     <span>Ranking</span>
-                    <h2>Top FTP stimato</h2>
+                    <h2>Top estimated FTP</h2>
                   </div>
                   <Pill>FTP medio {fmt(totals.meanFtp, 1)} W</Pill>
                 </div>
@@ -388,7 +388,7 @@ function App() {
                 <div className="panel-header">
                   <div>
                     <span>Metabolic engine</span>
-                    <h2>Top VO2max stimato</h2>
+                    <h2>Top estimated VO2max</h2>
                   </div>
                   <Pill tone="amber">model-derived</Pill>
                 </div>
@@ -411,26 +411,26 @@ function App() {
             <div className="panel-header">
               <div>
                 <span>Roster</span>
-                <h2>Atleti</h2>
+                <h2>Athletes</h2>
               </div>
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Cerca atleta..."
+                placeholder="Search athlete..."
               />
             </div>
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Atleta</th>
+                    <th>Athlete</th>
                     <th>FIT</th>
                     <th>FTP</th>
                     <th>NP media</th>
                     <th>IF</th>
-                    <th>Qualita</th>
+                    <th>Quality</th>
                     <th>VO2max</th>
-                    <th>Azioni</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -445,7 +445,7 @@ function App() {
                       <td>{fmt(athlete.estimated_vo2max, 1)}</td>
                       <td>
                         <button className="link-button" onClick={() => { setSelectedAthlete(athlete.athlete); setView('metabolic') }}>
-                          Apri profilo
+                          Open profile
                         </button>
                       </td>
                     </tr>
@@ -461,7 +461,7 @@ function App() {
             <div className="panel-header">
               <div>
                 <span>{selected.athlete}</span>
-                <h2>Ultime attivita analizzate</h2>
+                <h2>Latest analyzed activities</h2>
               </div>
               <Pill>{selectedActivities.length} file FIT</Pill>
             </div>
@@ -470,14 +470,14 @@ function App() {
                 <thead>
                   <tr>
                     <th>File</th>
-                    <th>Durata</th>
-                    <th>Tipo</th>
+                    <th>Duration</th>
+                    <th>Type</th>
                     <th>TSS</th>
                     <th>NP</th>
                     <th>IF</th>
                     <th>HR</th>
                     <th>Durability</th>
-                    <th>Qualita</th>
+                    <th>Quality</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -502,18 +502,18 @@ function App() {
 
         {view === 'statistics' && (
           <>
-            {statisticsLoading && <main className="loading">Caricamento statistics_page da /ride/summary...</main>}
+            {statisticsLoading && <main className="loading">Loading statistics_page from /ride/summary...</main>}
             {statisticsError && !statisticsLoading && (
               <section className="panel full">
                 <p className="error-state">{statisticsError}</p>
-                <button type="button" onClick={() => void loadStatisticsFromApi()}>Riprova</button>
+                <button type="button" onClick={() => void loadStatisticsFromApi()}>Retry</button>
               </section>
             )}
             {statisticsPage && !statisticsLoading && (
               <StatisticsPage
                 metrics={statisticsPage}
-                title={`Statistiche — ${selected?.athlete ?? 'atleta'}`}
-                subtitle="Campi da statistics_page (POST /ride/summary)"
+                title={`Statistics — ${selected?.athlete ?? 'athlete'}`}
+                subtitle="Fields from statistics_page (POST /ride/summary)"
               />
             )}
           </>
@@ -525,23 +525,23 @@ function App() {
               <Pill tone="green">{selected.metabolic_status}</Pill>
               <h2>{selected.athlete}</h2>
               <p>
-                Profilo generato da MMP aggregata su {selected.parsed_files} file.
-                Le stime metaboliche sono model-derived e non lab validated.
+                Profile generated from MMP aggregated across {selected.parsed_files} files.
+                Metabolic estimates are model-derived and not lab-validated.
               </p>
               {!showMetabolicValues && (
                 <p className="safety-note">
-                  Confidenza metabolica bassa ({fmt(selected.metabolic_confidence, 2)} &lt; {CONFIDENCE_DISPLAY_THRESHOLD}):
-                  valori sensibili mascherati per evitare falsa precisione.
+                  Low metabolic confidence ({fmt(selected.metabolic_confidence, 2)} &lt; {CONFIDENCE_DISPLAY_THRESHOLD}):
+                  sensitive values are masked to avoid false precision.
                 </p>
               )}
               <div className="hero-stats">
                 <div><span>FTP</span><strong>{fmt(selected.ftp_estimate, 1)} W</strong></div>
                 <div><span>Best 20'</span><strong>{fmt(selected.best_20min, 1)} W</strong></div>
-                <div><span>TSS totale</span><strong>{fmt(selected.total_tss, 0)}</strong></div>
+                <div><span>Total TSS</span><strong>{fmt(selected.total_tss, 0)}</strong></div>
               </div>
             </div>
 
-            <div className="metric-card"><span>VO2max stimato</span><strong>{formatMetabolicValue(selected.estimated_vo2max, 1, !shouldMaskField('estimated_vo2max'))}</strong><small>ml/kg/min</small></div>
+            <div className="metric-card"><span>Estimated VO2max</span><strong>{formatMetabolicValue(selected.estimated_vo2max, 1, !shouldMaskField('estimated_vo2max'))}</strong><small>ml/kg/min</small></div>
             <div className="metric-card"><span>VLamax</span><strong>{formatMetabolicValue(selected.estimated_vlamax, 3, !shouldMaskField('estimated_vlamax_mmol_L_s'))}</strong><small>mmol/L/s</small></div>
             <div className="metric-card"><span>MLSS</span><strong>{formatMetabolicValue(selected.mlss_power, 1, !shouldMaskField('mlss_power_watts'))}</strong><small>watt</small></div>
             <div className="metric-card"><span>FatMax</span><strong>{formatMetabolicValue(selected.fatmax_power, 1, !shouldMaskField('fatmax_power_watts'))}</strong><small>watt</small></div>
@@ -550,7 +550,7 @@ function App() {
               <div className="panel-header">
                 <div>
                   <span>Power-duration</span>
-                  <h2>Migliori valori MMP</h2>
+                  <h2>Best MMP values</h2>
                 </div>
               </div>
               <div className="mmp-grid">

@@ -1,6 +1,6 @@
 # API Payload Examples
 
-Base URL locale:
+Local base URL:
 
 ```text
 http://localhost:8000
@@ -12,7 +12,7 @@ http://localhost:8000
 curl http://localhost:8000/health
 ```
 
-Risposta:
+Response:
 
 ```json
 {
@@ -28,7 +28,7 @@ Risposta:
 
 Multipart form:
 
-- `files`: uno o più file FIT.
+- `files`: one or more FIT files.
 
 ```ts
 const form = new FormData()
@@ -36,10 +36,10 @@ files.forEach(f => form.append('files', f))
 const res = await fetch('/test/propose', { method: 'POST', body: form })
 ```
 
-Uso UI:
+UI usage:
 
-- mostrare proposta al coach;
-- non salvare come anchor finché il coach non conferma.
+- show the proposal to the coach;
+- do not save it as an anchor until the coach confirms.
 
 ---
 
@@ -50,7 +50,7 @@ Payload:
 ```json
 {
   "proposal": {
-    "...": "output completo di /test/propose"
+    "...": "full output from /test/propose"
   },
   "athlete": {
     "weight_kg": 72,
@@ -63,7 +63,7 @@ Payload:
 }
 ```
 
-Risposta da salvare come `latest_anchor` atleta.
+Response to save as athlete `latest_anchor`.
 
 ---
 
@@ -74,7 +74,7 @@ Multipart form:
 - `file`: FIT.
 - `ride_date`: `YYYY-MM-DD`.
 - `weight_kg`: number.
-- `stored_curve_json`: curva precedente, opzionale.
+- `stored_curve_json`: previous curve, optional.
 
 ```ts
 const form = new FormData()
@@ -85,7 +85,7 @@ form.append('stored_curve_json', JSON.stringify(previousCurve))
 const res = await fetch('/ride/ingest', { method: 'POST', body: form })
 ```
 
-Risposta:
+Response:
 
 ```json
 {
@@ -98,7 +98,7 @@ Risposta:
 }
 ```
 
-Salvare sempre `curve`. Usare `profile_should_refresh` per decidere se rigenerare snapshot.
+Always save `curve`. Use `profile_should_refresh` to decide whether to regenerate the snapshot.
 
 ---
 
@@ -118,28 +118,28 @@ Payload:
 }
 ```
 
-Campi UI attesi:
+Expected UI fields:
 
 - `estimated_vo2max`;
 - `estimated_vlamax_mmol_L_s`;
 - `mlss_power_watts`;
 - `fatmax_power_watts`;
-- `metabolic_phenotype` o `phenotype`;
+- `metabolic_phenotype` or `phenotype`;
 - `confidence_score`;
 - `combustion_curve`;
 - `zones`;
 - `warnings`;
 - `expressiveness`.
 
-Il frontend deve gestire campi mancanti/null.
+The frontend must handle missing/null fields.
 
 ---
 
 ## POST /ride/summary
 
-Accetta FIT o `power_json`.
+Accepts FIT or `power_json`.
 
-Multipart form con FIT:
+Multipart form with FIT:
 
 ```ts
 const form = new FormData()
@@ -152,7 +152,7 @@ form.append('discipline', 'ENDURANCE')
 form.append('metabolic_snapshot_json', JSON.stringify(snapshot))
 ```
 
-Risposta principale:
+Main response:
 
 ```json
 {
@@ -170,7 +170,7 @@ Risposta principale:
 }
 ```
 
-La UI deve essere modulare: se una sezione manca o è `skipped`, nascondere il grafico e mostrare il motivo.
+The UI must be modular: if a section is missing or `skipped`, hide the chart and show the reason.
 
 ---
 
@@ -178,9 +178,9 @@ La UI deve essere modulare: se una sezione manca o è `skipped`, nascondere il g
 
 Multipart form:
 
-- `file` o `power_json`;
+- `file` or `power_json`;
 - `weight_kg`;
-- `metabolic_snapshot_json`, obbligatorio.
+- `metabolic_snapshot_json`, required.
 
 ```ts
 const form = new FormData()
@@ -189,18 +189,18 @@ form.append('weight_kg', '72')
 form.append('metabolic_snapshot_json', JSON.stringify(snapshot))
 ```
 
-Output da visualizzare:
+Output to display:
 
-- CP residua;
-- potenza sostenibile residua;
-- decadimento;
-- note/warning.
+- residual CP;
+- residual sustainable power;
+- decay;
+- notes/warnings.
 
 ---
 
 ## POST /test/in-person
 
-Payload envelope generico:
+Generic envelope payload:
 
 ```json
 {
@@ -228,7 +228,7 @@ Payload envelope generico:
 }
 ```
 
-Dopo la validazione coach, creare `ValidationEvent` per il Team Learning Engine.
+After coach validation, create a `ValidationEvent` for the Team Learning Engine.
 
 ---
 
@@ -257,13 +257,13 @@ Payload:
 }
 ```
 
-Risposta: `calibration_model` aggiornato da salvare su `teams.calibration_model`.
+Response: updated `calibration_model` to save in `teams.calibration_model`.
 
 ---
 
 ## POST /team/calibration/apply
 
-Singolo valore:
+Single value:
 
 ```json
 {
@@ -288,4 +288,4 @@ Snapshot:
 }
 ```
 
-La UI deve mostrare l'audit della correzione, non solo il valore finale.
+The UI must show the correction audit, not only the final value.
