@@ -7,7 +7,7 @@ requested by the product): elevation, speed, power, HR, cadence, temperature,
 L/R balance, cycling dynamics (power phase, PCO), time-in-zone, thermal
 (core/skin/heat-strain), respiration, standing/seated, plus the derived
 "performance" metrics (training effect, stamina) computed from our own engines
-since the proprietary Garmin/Firstbeat values are rarely written to the FIT.
+since the proprietary consumer platform/proprietary provider values are rarely written to the FIT.
 
 Every builder follows the same envelope as chart_builder.py:
     { "type", "title", "description", "x_axis", "y_axis", "series", ... }

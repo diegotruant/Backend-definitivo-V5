@@ -625,7 +625,7 @@ def parse_fit_file_enhanced(
                 # All 50 or near-constant → single-side estimated
                 stream.pedaling_balance_source = "single_estimated"
 
-    # Garmin stores RR data in dedicated 'hrv' messages (not in record),
+    # consumer platform stores RR data in dedicated 'hrv' messages (not in record),
     # each containing a 'time' field with a list of beat-to-beat intervals
     # in seconds. We flatten the full sequence, then distribute beats to
     # the nearest record-second bucket by walking elapsed time.

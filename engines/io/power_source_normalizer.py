@@ -55,9 +55,9 @@ def _source_id(activity: Dict[str, Any]) -> str:
 
 def _source_kind(activity: Dict[str, Any]) -> str:
     text = " ".join(str(activity.get(k) or "") for k in ("source", "device_name", "modality", "power_source_id")).lower()
-    if any(x in text for x in ("trainer", "tacx", "kickr", "neo", "indoor", "zwift", "rullo")):
+    if any(x in text for x in ("trainer", "trainer_device", "indoor_trainer_a", "neo", "indoor", "virtual platform", "rullo")):
         return "indoor_trainer"
-    if any(x in text for x in ("pedal", "crank", "spider", "assioma", "quarq", "garmin", "power meter", "outdoor")):
+    if any(x in text for x in ("pedal", "crank", "spider", "outdoor_meter_a", "crank_meter", "head_unit", "power meter", "outdoor")):
         return "outdoor_power_meter"
     return "unknown"
 
