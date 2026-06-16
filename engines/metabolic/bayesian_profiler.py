@@ -110,6 +110,8 @@ class BayesianMetabolicSnapshot:
     expressiveness: Optional[Dict[str, Any]] = None
     calculated_at: str = ""
     message: str = ""
+    mcmc_fallback: bool = False
+    fallback_reason: str = ""
     
     def to_dict(self) -> Dict[str, Any]:
         d = {
@@ -144,12 +146,80 @@ class BayesianMetabolicSnapshot:
             "context_used": self.context_used,
             "calculated_at": self.calculated_at,
         })
+        if self.mcmc_fallback:
+            d["mcmc_fallback"] = True
+            d["fallback_reason"] = self.fallback_reason
         return annotate_payload(
             d,
             module_name="bayesian_profiler",
             method="adaptive_metropolis_mader",
             confidence_field="bayesian_confidence",
         )
+
+
+# =============================================================================
+# Bimodal / convergence helpers
+# =============================================================================
+
+_BIMODAL_RATIO_THRESHOLD = 3.5
+
+
+def _compute_vo2_floor(profiler, mmp: Dict[int, float], eta: float) -> float:
+    from engines.metabolic.cross_validation_engine import observed_threshold_power
+
+    obs_thr = observed_threshold_power(mmp)
+    if obs_thr is None or obs_thr <= 0:
+        return 0.0
+    coeff_w_to_vo2 = 10.8 * (0.23 / eta)
+    return float(
+        profiler.const.vo2_basale
+        + coeff_w_to_vo2 * (obs_thr / profiler.weight) * 1.05
+    )
+
+
+def _mcmc_misconverged(
+    *,
+    vo2_post: PosteriorSummary,
+    mlss_w: float,
+    ref_vo2: Optional[float],
+    ref_mlss: Optional[float],
+    vo2_floor: float,
+    acceptance_rate: float,
+) -> Optional[str]:
+    """Return a fallback reason when the chain landed in a non-physical basin."""
+    if ref_vo2 is not None and vo2_post.mean < ref_vo2 * 0.88:
+        return "vo2_below_reference_fit"
+    if vo2_floor > 0 and vo2_post.mean < vo2_floor * 0.98:
+        return "vo2_below_aerobic_floor"
+    if vo2_floor > 0 and vo2_post.ci95_low < vo2_floor * 0.90:
+        return "vo2_ci_below_aerobic_floor"
+    if ref_mlss is not None and ref_mlss > 0 and mlss_w < ref_mlss * 0.80:
+        return "mlss_below_reference_fit"
+    if acceptance_rate < 0.12:
+        return "acceptance_rate_too_low"
+    return None
+
+
+def _posterior_from_point(
+    mean: float,
+    std: float,
+    prior_mean: float,
+    prior_std: float,
+) -> PosteriorSummary:
+    """Build a conservative posterior summary anchored on a trusted point estimate."""
+    std = max(std, 1e-6)
+    return PosteriorSummary(
+        mean=mean,
+        median=mean,
+        std=std,
+        ci95_low=mean - 1.96 * std,
+        ci95_high=mean + 1.96 * std,
+        ci80_low=mean - 1.28 * std,
+        ci80_high=mean + 1.28 * std,
+        prior_mean=prior_mean,
+        prior_std=prior_std,
+        n_effective_samples=1,
+    )
 
 
 # =============================================================================
@@ -335,7 +405,7 @@ def bayesian_metabolic_snapshot(
     BayesianMetabolicSnapshot
     """
     # Import ExpressivenessReport locally to avoid circular imports
-    from engines.metabolic.metabolic_profiler import ExpressivenessReport
+    from engines.metabolic.metabolic_profiler import ExpressivenessReport, MetabolicProfiler
     
     if len(mmp) < 3:
         return BayesianMetabolicSnapshot(
@@ -361,14 +431,41 @@ def bayesian_metabolic_snapshot(
         * np.clip(900.0 / np.maximum(durs, 900.0), 0.6, 1.0)
     )
     weights /= np.max(weights)
+
+    bimodality_ratio = MetabolicProfiler._bimodality_ratio(mmp)
+    is_bimodal = bimodality_ratio is not None and bimodality_ratio >= _BIMODAL_RATIO_THRESHOLD
+    segmented_snap: Optional[Dict[str, Any]] = None
+    if is_bimodal:
+        segmented_snap = profiler.generate_metabolic_snapshot_segmented(mmp)
+        if segmented_snap.get("status") != "success":
+            segmented_snap = None
+
+    classic_snap = profiler.generate_metabolic_snapshot(mmp)
+    ref_vo2 = classic_snap.get("estimated_vo2max") if classic_snap.get("status") == "success" else None
+    ref_mlss = classic_snap.get("mlss_power_watts") if classic_snap.get("status") == "success" else None
+    if segmented_snap is not None:
+        ref_vo2 = segmented_snap.get("estimated_vo2max") or ref_vo2
+        ref_mlss = segmented_snap.get("mlss_power_watts") or ref_mlss
+
+    vo2_floor = _compute_vo2_floor(profiler, mmp, eta)
     
     # Priors
     vo2_guess = float(np.clip(
         max(35.0, min(85.0, (pows[int(np.argmax(weights))] / profiler.weight) * 12.0)),
         25.0, 95.0,
     ))
+    explicit_vo2_prior = prior_vo2_mean
     if prior_vo2_mean is None:
         prior_vo2_mean = vo2_guess
+    if (
+        explicit_vo2_prior is None
+        and segmented_snap is not None
+        and segmented_snap.get("estimated_vo2max") is not None
+    ):
+        prior_vo2_mean = float(segmented_snap["estimated_vo2max"])
+        prior_vo2_std = min(prior_vo2_std, 6.0)
+    elif vo2_floor > 0:
+        prior_vo2_mean = max(prior_vo2_mean, vo2_floor)
     if prior_vla_mean is None:
         prior_vla_mean = profiler.context.vlamax_initial_guess()
     
@@ -431,7 +528,8 @@ def bayesian_metabolic_snapshot(
         sigma = np.exp(log_sigma)
         
         # Bounds check (hard prior = -inf outside)
-        if vo2 < 20.0 or vo2 > 100.0:
+        vo2_lower = max(20.0, vo2_floor * 0.95) if vo2_floor > 0 else 20.0
+        if vo2 < vo2_lower or vo2 > 100.0:
             return -np.inf
         if vla < 0.05 or vla > 2.0:
             return -np.inf
@@ -499,6 +597,46 @@ def bayesian_metabolic_snapshot(
     
     phenotype = profiler._classify_metabolic_phenotype(vla_est)
     
+    fallback_reason: Optional[str] = None
+    if is_bimodal and segmented_snap is not None:
+        fallback_reason = _mcmc_misconverged(
+            vo2_post=vo2_post,
+            mlss_w=float(w_mlss),
+            ref_vo2=ref_vo2,
+            ref_mlss=ref_mlss,
+            vo2_floor=vo2_floor,
+            acceptance_rate=accept_rate,
+        )
+        if fallback_reason is not None:
+            seg_vo2 = float(segmented_snap["estimated_vo2max"])
+            seg_vla = float(
+                segmented_snap.get("estimated_vlamax_mmol_L_s")
+                or vla_est
+                or prior_vla_mean
+            )
+            vo2_post = _posterior_from_point(
+                seg_vo2,
+                max(vo2_post.std, prior_vo2_std * 0.35),
+                prior_vo2_mean,
+                prior_vo2_std,
+            )
+            vla_post = _posterior_from_point(
+                seg_vla,
+                max(vla_post.std, prior_vla_std * 0.35),
+                prior_vla_mean,
+                prior_vla_std,
+            )
+            vo2_est = seg_vo2
+            vla_est = seg_vla
+            try:
+                w_mlss, w_fat, _, _, _ = profiler._calculate_curves(vo2_est, vla_est, eta)
+                map_w = profiler._map_estimate(vo2_est, eta)
+            except Exception:
+                w_mlss = segmented_snap.get("mlss_power_watts", w_mlss)
+                w_fat = segmented_snap.get("fatmax_power_watts", w_fat)
+                map_w = segmented_snap.get("map_aerobic_watts", map_w)
+            phenotype = segmented_snap.get("metabolic_phenotype") or phenotype
+    
     # Bayesian confidence:
     # How much the data narrowed the posterior relative to the prior.
     # For each parameter: reduction = 1 - (posterior_std / prior_std)
@@ -536,7 +674,16 @@ def bayesian_metabolic_snapshot(
                 "vlamax": {"mean": round(prior_vla_mean, 4), "std": prior_vla_std},
                 "sigma": {"scale": prior_sigma},
             },
+            "bimodality_ratio": round(bimodality_ratio, 3) if bimodality_ratio is not None else None,
+            "vo2_floor": round(vo2_floor, 2) if vo2_floor > 0 else None,
+            "reference_fit": {
+                "vo2max": ref_vo2,
+                "mlss_power_watts": ref_mlss,
+                "segmented": segmented_snap is not None,
+            },
         },
         expressiveness=expressiveness.to_dict(),
         calculated_at=datetime.now().isoformat(),
+        mcmc_fallback=fallback_reason is not None,
+        fallback_reason=fallback_reason or "",
     )

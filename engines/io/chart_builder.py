@@ -743,7 +743,7 @@ def chart_cross_validation_matrix(
                 "Method": method,
                 "VT1 (W)": f"{vt1:.0f}" if vt1 else "N/A",
                 "VT2 (W)": f"{vt2:.0f}" if vt2 else "N/A",
-                "Agreement": "\u2713" if vt1 and vt2 else "Partial",
+                "Agreement": "✓" if vt1 and vt2 else "Partial",
             }
             for method, vt1, vt2 in zip(methods, vt1_powers, vt2_powers)
         ],
@@ -763,7 +763,7 @@ def chart_hr_kinetics(
     steady_state_hr: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
-    Heart rate rise with exponential fit showing time constant \u03c4.
+    Heart rate rise with exponential fit showing time constant τ.
     
     Args:
         time_seconds: Time from work start
@@ -783,7 +783,7 @@ def chart_hr_kinetics(
         fit_hr = steady_state_hr * (1 - np.exp(-fit_time / tau))
         
         fit_curve = {
-            "name": f"Exponential Fit (\u03c4={tau:.0f}s)",
+            "name": f"Exponential Fit (τ={tau:.0f}s)",
             "x": (fit_time / 60).tolist(),
             "y": fit_hr.tolist(),
             "color": COLORS["danger"],
@@ -793,7 +793,7 @@ def chart_hr_kinetics(
     return {
         "type": "line_scatter",
         "title": "Heart Rate Kinetics",
-        "description": f"Time constant \u03c4 = {tau:.0f}s" if tau else "HR response to work",
+        "description": f"Time constant τ = {tau:.0f}s" if tau else "HR response to work",
         
         "x_axis": {
             "label": "Time (minutes)",

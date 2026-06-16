@@ -120,8 +120,8 @@ _TIER_SCORES = {
 def classify_duration(wkg: float, duration_key: str, gender: str) -> Dict[str, Any]:
     """
     Classify one W/kg value at a given duration vs population tables.
-    duration_key \u2208 {'5s', '1min', '5min', 'ftp'}
-    gender \u2208 {'MALE', 'FEMALE'}
+    duration_key ∈ {'5s', '1min', '5min', 'ftp'}
+    gender ∈ {'MALE', 'FEMALE'}
     """
     tables = _MALE_TABLES if gender.upper() == "MALE" else _FEMALE_TABLES
     if duration_key not in tables:

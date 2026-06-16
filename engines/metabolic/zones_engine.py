@@ -19,7 +19,7 @@ References:
   - Coggan & Allen 2010, "Training and Racing with a Power Meter"
   - Friel 2009, "The Cyclist's Training Bible" 4th ed.
   - Seiler 2010, Int J Sports Physiol Perform 5: 276–291
-  - St\u00f6ggl & Sperlich 2014, Front Physiol 5:33 (polarization classification)
+  - Stöggl & Sperlich 2014, Front Physiol 5:33 (polarization classification)
 """
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -63,7 +63,7 @@ FRIEL_HR_ZONES = [
 # =============================================================================
 
 def _stream_arrays(stream) -> Dict[str, np.ndarray]:
-    """Extract (t, power, hr) as float arrays. Power None\u21920, HR None\u2192nan."""
+    """Extract (t, power, hr) as float arrays. Power None→0, HR None→nan."""
     t = np.array(stream.elapsed_s, dtype=float)
     p = np.array([
         float(v) if v is not None and v >= 0 else 0.0
@@ -187,10 +187,10 @@ def friel_hr_zones(stream, lthr: float) -> Dict[str, Any]:
 # SEILER 3-ZONE POLARIZATION
 # =============================================================================
 
-# Polarization classification thresholds (St\u00f6ggl & Sperlich 2014):
-# - Polarized:  Z1 \u2265 75%, Z3 \u2265 15%, Z2 \u2264 10%
+# Polarization classification thresholds (Stöggl & Sperlich 2014):
+# - Polarized:  Z1 ≥ 75%, Z3 ≥ 15%, Z2 ≤ 10%
 # - Pyramidal:  Z1 > Z2 > Z3, all > 0%, and not polarized
-# - Threshold:  Z2 \u2265 35% (dominant zone is the middle band)
+# - Threshold:  Z2 ≥ 35% (dominant zone is the middle band)
 # - Mixed:      none of the above
 _POLARIZED_Z1_MIN = 75.0
 _POLARIZED_Z3_MIN = 15.0
@@ -199,7 +199,7 @@ _THRESHOLD_Z2_MIN = 35.0
 
 
 def _classify_distribution(z1: float, z2: float, z3: float) -> str:
-    """Classify training intensity distribution per St\u00f6ggl & Sperlich."""
+    """Classify training intensity distribution per Stöggl & Sperlich."""
     if z1 >= _POLARIZED_Z1_MIN and z3 >= _POLARIZED_Z3_MIN and z2 <= _POLARIZED_Z2_MAX:
         return "POLARIZED"
     if z2 >= _THRESHOLD_Z2_MIN:
@@ -311,7 +311,7 @@ def seiler_polarization(
         "total_valid_s": int(total_valid_s),
         "distribution_class": distribution,
         "interpretation": interpretations[distribution],
-        "reference": "Seiler 2010; St\u00f6ggl & Sperlich 2014",
+        "reference": "Seiler 2010; Stöggl & Sperlich 2014",
     }
 
 

@@ -289,7 +289,7 @@ class AthleteContext:
     def expected_eta(self) -> float:
         """
         Expected gross mechanical efficiency (P_mech / P_metab).
-        Modulated by training_years: [0 years \u2192 0.205] ... [\u226510 years \u2192 0.245].
+        Modulated by training_years: [0 years → 0.205] ... [≥10 years → 0.245].
 
         References: Coyle 1991, Joyner & Coyle 2008. Saturation at 10 years is
         consistent with the documented long-term mitochondrial adaptation time course.
@@ -301,8 +301,8 @@ class AthleteContext:
     def tau_base_floor(self) -> float:
         """
         Floor of the lactate-kinetics time constant (s).
-        Trained athletes have faster clearance \u2192 lower tau.
-        Modulated by training_years: [0 years \u2192 18s] ... [\u226510 years \u2192 10s].
+        Trained athletes have faster clearance → lower tau.
+        Modulated by training_years: [0 years → 18s] ... [≥10 years → 10s].
 
         References: Beneke 2003 (clearance rate vs training status).
         """
@@ -325,9 +325,9 @@ class AthleteContext:
     def phenotype_thresholds(self) -> Tuple[float, float]:
         """
         vlamax thresholds (mmol/L/s) for metabolic classification:
-          - vlamax < endurance_max     \u2192 Endurance
-          - vlamax <= allrounder_max   \u2192 All-Rounder
-          - vlamax > allrounder_max    \u2192 Sprinter (Explosive)
+          - vlamax < endurance_max     → Endurance
+          - vlamax <= allrounder_max   → All-Rounder
+          - vlamax > allrounder_max    → Sprinter (Explosive)
 
         Thresholds are modulated by declared discipline: athletes who identify as
         ENDURANCE are classified as Endurance at slightly higher vlamax values

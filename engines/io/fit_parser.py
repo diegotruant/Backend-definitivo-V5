@@ -269,9 +269,9 @@ def detect_and_fill_gaps(
         (filled_values, updated_quality, gap_stats)
     
     Gap handling:
-        - Missing data (value=0 for power/HR) with dt < gap_short_s \u2192 interpolate
-        - Missing data with gap_short_s <= dt < gap_long_s \u2192 forward-fill
-        - Missing data with dt >= gap_long_s \u2192 mark unreliable
+        - Missing data (value=0 for power/HR) with dt < gap_short_s → interpolate
+        - Missing data with gap_short_s <= dt < gap_long_s → forward-fill
+        - Missing data with dt >= gap_long_s → mark unreliable
     """
     n = len(values)
     filled = values.copy()
@@ -329,12 +329,12 @@ def detect_and_fill_gaps(
                 quality[gap_start:gap_end] = QUALITY_INTERPOLATED
                 gaps_interpolated += 1
             elif gap_start == 0 and gap_end < n:
-                # Gap at start \u2192 forward-fill from first valid
+                # Gap at start → forward-fill from first valid
                 filled[gap_start:gap_end] = filled[gap_end]
                 quality[gap_start:gap_end] = QUALITY_FORWARD_FILLED
                 gaps_forward_filled += 1
             else:
-                # Gap at end \u2192 backward-fill
+                # Gap at end → backward-fill
                 filled[gap_start:gap_end] = filled[gap_start - 1]
                 quality[gap_start:gap_end] = QUALITY_FORWARD_FILLED
                 gaps_forward_filled += 1
@@ -346,12 +346,12 @@ def detect_and_fill_gaps(
                 quality[gap_start:gap_end] = QUALITY_FORWARD_FILLED
                 gaps_forward_filled += 1
             else:
-                # Gap at start with no prior value \u2192 mark unreliable
+                # Gap at start with no prior value → mark unreliable
                 quality[gap_start:gap_end] = QUALITY_UNRELIABLE
                 gaps_unreliable += 1
         
         else:
-            # Long gap \u2192 unreliable
+            # Long gap → unreliable
             quality[gap_start:gap_end] = QUALITY_UNRELIABLE
             gaps_unreliable += 1
     
@@ -1008,9 +1008,9 @@ if __name__ == "__main__":
     # Simulate sensor dropout
     n = 300
     power = np.full(n, 200.0)
-    power[100:110] = 0  # 10s gap \u2192 interpolate
-    power[150:180] = 0  # 30s gap \u2192 forward-fill
-    power[250:280] = 0  # 30s gap \u2192 forward-fill
+    power[100:110] = 0  # 10s gap → interpolate
+    power[150:180] = 0  # 30s gap → forward-fill
+    power[250:280] = 0  # 30s gap → forward-fill
     
     quality = np.full(n, QUALITY_GOOD, dtype=np.uint8)
     elapsed = np.arange(n, dtype=np.float32)

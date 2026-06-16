@@ -18,7 +18,7 @@ knows how to do: they hook into existing modules.
   - P/C curve         → optimal cadence from sprint peaks.
   - Wingate            → peak/mean/minimum + fatigue index.
 
-The input/output JSON contract is documented in CONTRATTO_JSON_test.md.
+The input/output JSON contract is documented in TEST_JSON_CONTRACT.md.
 
 Tier: REFERENCE for tests that apply direct formulas (P/C curve, wingate,
 incremental max-power); the Mader test inherits the lactate tier (REFERENCE

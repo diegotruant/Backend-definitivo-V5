@@ -35,7 +35,7 @@ def get_current_metabolic_status(
     This is the main entry point for Edge Functions / Lambda handlers.
     
     Parameters:
-        historical_mmp: Best efforts by duration (seconds \u2192 watts)
+        historical_mmp: Best efforts by duration (seconds → watts)
             Example: {30: 850, 60: 720, 180: 520, 300: 420, 600: 340, 1200: 290}
         
         workout_history: Recent workouts with TSS (last 90 days)

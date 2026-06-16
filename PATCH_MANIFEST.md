@@ -64,7 +64,7 @@ feat: add product analytics backend engines
 
 ## Modified files
 
-- `CONTRATTO_JSON_test.md`
+- `TEST_JSON_CONTRACT.md`
 - `DEVELOPMENT_TEAM_HANDOFF.md`
 - `api/app.py`
 - `api/deps.py`

@@ -111,7 +111,7 @@ class TeamCalibrationApplyRequest(BaseModel):
 
 
 class InPersonTestRequest(InPersonTestEnvelope):
-    """Tablet envelope — see CONTRATTO_JSON_test.md."""
+    """Tablet envelope — see TEST_JSON_CONTRACT.md."""
 
 
 class TwinStateBuildRequest(BaseModel):

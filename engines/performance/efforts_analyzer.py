@@ -170,7 +170,7 @@ def analyze_efforts(
 
 
 def _format_duration(s: int) -> str:
-    """Convert seconds to human-readable string (e.g. 300 \u2192 '5min')."""
+    """Convert seconds to human-readable string (e.g. 300 → '5min')."""
     if s < 60:
         return f"{s}s"
     m = s // 60

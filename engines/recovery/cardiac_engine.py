@@ -62,12 +62,12 @@ _DRIFT_FAIR = 10.0
 # HR Recovery (Cole et al. 1999 NEJM; Imai et al. 1994 J Am Coll Cardiol):
 # absolute HR drop in the first 60 / 120 seconds after cessation of effort.
 # Cole specifically validated HRR1min on cycle ergometer.
-_HRR60_POOR = 12.0       # \u2264 12 bpm: independent mortality predictor (Cole)
+_HRR60_POOR = 12.0       # ≤ 12 bpm: independent mortality predictor (Cole)
 _HRR60_AVERAGE = 18.0    # 12–18: untrained but normal
 _HRR60_GOOD = 25.0       # 18–25: trained
 # > 25: elite endurance
 
-# Trained subjects show HRR120s \u2265 35-40 bpm; untrained 22-30 bpm.
+# Trained subjects show HRR120s ≥ 35-40 bpm; untrained 22-30 bpm.
 _HRR120_POOR = 22.0
 _HRR120_AVERAGE = 30.0
 _HRR120_GOOD = 38.0
@@ -82,7 +82,7 @@ _TAU_HR_ON_AVERAGE = 50.0    # 35–50s: moderately fit
 # Cardiac Efficiency Index W/bpm at MLSS (Pinet 2010; observational):
 # higher values = more work per beat, indicator of trained myocardium.
 # Values modulated by body weight; we report absolute and weight-normalized.
-_CEI_WKG_BPM_LOW = 0.030     # W/(kg\u00b7bpm) at MLSS
+_CEI_WKG_BPM_LOW = 0.030     # W/(kg·bpm) at MLSS
 _CEI_WKG_BPM_MID = 0.045
 _CEI_WKG_BPM_HIGH = 0.055
 
@@ -577,7 +577,7 @@ def compute_cardiac_efficiency(
         return {"available": False, "reason": "INVALID_HR"}
 
     cei = p / h
-    cei_norm = cei / weight  # W/(kg\u00b7bpm)
+    cei_norm = cei / weight  # W/(kg·bpm)
 
     return {
         "available": True,

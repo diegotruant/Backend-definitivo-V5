@@ -69,7 +69,7 @@ _CP_FIT_MIN_POINTS = 3
 def _stream_to_arrays(stream) -> Dict[str, np.ndarray]:
     """
     Extract aligned numpy arrays from an ActivityStream-like object.
-    Power None \u2192 0.0 (treated as coasting/stop, standard convention for
+    Power None → 0.0 (treated as coasting/stop, standard convention for
     averaging; for NP these get smoothed by the 30s rolling window).
     """
     n = len(stream.elapsed_s)
@@ -155,9 +155,9 @@ def training_stress_score(np_value: float, ftp: float, duration_s: float) -> flo
 def variability_index(np_value: float, avg_power: float) -> Optional[float]:
     """
     VI = NP / AvgPower. Pacing indicator:
-      ~1.00 \u2192 perfectly steady (TT, climbing intervals)
-      1.05 \u2192 mixed terrain endurance
-      >1.10 \u2192 highly variable (criterium, surges, MTB)
+      ~1.00 → perfectly steady (TT, climbing intervals)
+      1.05 → mixed terrain endurance
+      >1.10 → highly variable (criterium, surges, MTB)
     """
     if avg_power <= 0:
         return None
@@ -212,7 +212,7 @@ def detect_sprints(
 ) -> List[Dict[str, Any]]:
     """
     Identify sprint efforts: contiguous segments where power > 1.5 × FTP
-    sustained for \u2265 3 seconds. Returns peak power and duration of each.
+    sustained for ≥ 3 seconds. Returns peak power and duration of each.
     """
     if ftp <= 0 or power.size == 0:
         return []
@@ -305,9 +305,9 @@ def estimate_ftp_from_mmp(
 ) -> Dict[str, Any]:
     """
     Estimate FTP from MMP curve using the best available method:
-      1. If we have a 20-min max effort \u2192 95% of it (Coggan's standard).
-      2. Else, if CP fit is available and the activity covers 2–15 min \u2192 CP.
-      3. Else \u2192 return None.
+      1. If we have a 20-min max effort → 95% of it (Coggan's standard).
+      2. Else, if CP fit is available and the activity covers 2–15 min → CP.
+      3. Else → return None.
 
     The caller should treat this as an estimate and prefer an explicit FTP
     from a formal test when available.
@@ -414,7 +414,7 @@ class PowerEngine:
         tss = training_stress_score(np_val, self.ftp, total_s)
         vi = variability_index(np_val, avg_p)
         dt = safe_dt(t)
-        work_kj = float(np.sum(p) * dt) / 1000.0  # \u03a3(W\u00b7s) \u2192 kJ
+        work_kj = float(np.sum(p) * dt) / 1000.0  # Σ(W·s) → kJ
 
         # MMP curve
         mmp = mean_maximal_power(p)

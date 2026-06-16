@@ -6,7 +6,7 @@ Usage:
   python3 run_in_person_test.py path/to/envelope.json
   cat envelope.json | python3 run_in_person_test.py
 
-See CONTRATTO_JSON_test.md for the input schema.
+See TEST_JSON_CONTRACT.md for the input schema.
 """
 
 from __future__ import annotations

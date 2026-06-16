@@ -42,7 +42,7 @@ check("rejects <5 steps", err.get("status") == "error")
 check("reason set", err.get("reason") == "insufficient_lactate_steps")
 
 
-print("\n[3] Full Mader validation (CONTRATTO example)")
+print("\n[3] Full Mader validation (TEST_JSON_CONTRACT example)")
 mmp = {15: 980, 60: 540, 300: 340, 720: 300, 1200: 285, 3600: 255}
 result = validate_model_against_lactate(steps, profiler, mmp)
 check("validation success", result.get("status") == "success")

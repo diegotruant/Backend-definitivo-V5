@@ -8,10 +8,10 @@ ENHANCEMENTS:
 - More accurate energy contribution modeling
 
 PHENOTYPE PARAMETERS:
-  SPRINTER:     High PCr capacity (25kJ), slower recovery (\u03c4=60s), high anaerobic priority
-  TT_CLIMBER:   Low PCr capacity (15kJ), faster recovery (\u03c4=45s), low anaerobic priority
-  PURSUITER:    Medium PCr (20kJ), fast recovery (\u03c4=40s), medium anaerobic
-  ALL_ROUNDER:  Balanced PCr (20kJ), medium recovery (\u03c4=50s), medium anaerobic
+  SPRINTER:     High PCr capacity (25kJ), slower recovery (τ=60s), high anaerobic priority
+  TT_CLIMBER:   Low PCr capacity (15kJ), faster recovery (τ=45s), low anaerobic priority
+  PURSUITER:    Medium PCr (20kJ), fast recovery (τ=40s), medium anaerobic
+  ALL_ROUNDER:  Balanced PCr (20kJ), medium recovery (τ=50s), medium anaerobic
 """
 
 from typing import Dict, Any, Optional
@@ -112,8 +112,8 @@ def compute_energy_contribution_adaptive(
     total_energy_kj = (power_w * duration_s) / 1000.0
     
     # PCr contribution: exponential decay
-    # PCr available = capacity × (1 - exp(-t/\u03c4_depletion))
-    # Use \u03c4_depletion = 10s (standard literature for maximal efforts)
+    # PCr available = capacity × (1 - exp(-t/τ_depletion))
+    # Use τ_depletion = 10s (standard literature for maximal efforts)
     tau_depletion = 10.0
     pcr_available_kj = pcr_capacity_kj * (1.0 - np.exp(-duration_s / tau_depletion))
     pcr_contribution_kj = min(pcr_available_kj, total_energy_kj)
@@ -158,7 +158,7 @@ def compute_recovery_curve_adaptive(
     """
     Model PCr recovery curve after maximal effort.
     
-    Recovery follows: PCr(t) = PCr_capacity × (1 - exp(-t / \u03c4_recovery))
+    Recovery follows: PCr(t) = PCr_capacity × (1 - exp(-t / τ_recovery))
     
     Parameters:
         max_effort_s: Duration of preceding maximal effort
@@ -297,7 +297,7 @@ if __name__ == "__main__":
         print(f"\
 {phenotype}:")
         print(f"  PCr capacity: {params['pcr_capacity_kj']:.1f} kJ")
-        print(f"  Recovery \u03c4: {params['recovery_tau_s']:.0f} s")
+        print(f"  Recovery τ: {params['recovery_tau_s']:.0f} s")
         print(f"  Anaerobic priority: {params['anaerobic_priority']:.2f}")
         
         # 30s sprint contribution

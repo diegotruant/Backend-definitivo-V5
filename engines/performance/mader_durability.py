@@ -70,7 +70,7 @@ _VO2_BASALE      = 3.5          # ml/kg/min — resting VO2
 _EQUIV_O2_LA     = 0.01576      # mmol O2 per mmol lactate
 _VOL_REL         = 0.45         # lactate distribution volume
 _KS1             = 0.0631       # Michaelis-Menten ox-phos
-_KS2             = 1.331        # Michaelis-Menten glicolisi
+_KS2             = 1.331        # Michaelis-Menten glycolysis
 _MLSS_NET_FRAC   = 0.05         # net-production threshold for MLSS
 
 # PCr kinetics (Forbes 2009, consistent with tau_pcr_rec in project logs)

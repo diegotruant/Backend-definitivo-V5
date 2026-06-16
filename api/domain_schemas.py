@@ -104,7 +104,7 @@ class WorkoutFeasibilityContext(BaseModel):
 
 
 class InPersonAthlete(BaseModel):
-    """Tablet test athlete envelope — see CONTRATTO_JSON_test.md."""
+    """Tablet test athlete envelope — see TEST_JSON_CONTRACT.md."""
 
     model_config = ConfigDict(extra="allow")
 
@@ -131,7 +131,7 @@ class InPersonDevice(BaseModel):
 
 
 class InPersonTestData(BaseModel):
-    """Protocol-specific block — extra keys allowed per CONTRATTO_JSON_test.md."""
+    """Protocol-specific block — extra keys allowed per TEST_JSON_CONTRACT.md."""
 
     model_config = ConfigDict(extra="allow")
 

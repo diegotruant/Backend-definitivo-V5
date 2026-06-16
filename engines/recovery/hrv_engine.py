@@ -13,7 +13,7 @@ CHANGELOG vs 3.0.0-Local
 - Sliding DFA implemented locally: removed dependency on
   sliding_dfa_alpha1 (the library did not expose per-window diagnostics).
 - _normal_z_for_ci now supports 90/95/97.5/99% via table + interpolation.
-- Forced hysteresis: AEROBIC\u2194ANAEROBIC transitions always pass through MIXED.
+- Forced hysteresis: AEROBIC↔ANAEROBIC transitions always pass through MIXED.
 - _detect_threshold_crossing: persistence with explicit semantics (total
   number of consecutive windows below threshold required, including the crossing).
 - _correct_ectopic now iterative (max 3 passes) with convergence.
@@ -80,7 +80,7 @@ _DFA_N_MAX = 16
 
 # SQI weights (NB: heuristic, not validated on an external dataset)
 # The weights (0.55, 0.30, 0.15) and CV-penalty bounds (0.12, 0.25)
-# were chosen to yield SQI\u22480.80 on "clean" cycling traces
+# were chosen to yield SQI≈0.80 on "clean" cycling traces
 # and SQI<0.70 under heavy artifact burden (>15%).
 # Replace with validated values once a reference dataset is available.
 _SQI_W_ARTIFACT = 0.55
@@ -110,7 +110,7 @@ def _resolve_dfa_thresholds(context: Optional[AthleteContext]) -> Tuple[float, f
 
 
 def _resolve_confidence(context: Optional[AthleteContext]) -> str:
-    """HIGH for trained subjects (\u22653 years), MEDIUM for novices."""
+    """HIGH for trained subjects (≥3 years), MEDIUM for novices."""
     if context is None:
         return "HIGH"
     if context.effective_training_years() < 3.0:
@@ -550,7 +550,7 @@ def _ema(values: List[float], alpha: float = _EMA_ALPHA) -> List[float]:
 def _apply_hysteresis_status(alpha_series: List[float], vt1: float, vt2: float) -> List[str]:
     """
     Robust classification with a hysteresis band.
-    AEROBIC\u2194ANAEROBIC transitions ALWAYS pass through MIXED as a mandatory
+    AEROBIC↔ANAEROBIC transitions ALWAYS pass through MIXED as a mandatory
     intermediate state, ensuring consistent band application across both thresholds.
     """
     if not alpha_series:
@@ -624,8 +624,8 @@ def _detect_threshold_crossing(
     persistence_windows semantics:
     "total number of consecutive windows below threshold required,
     including the crossing itself".
-    So persistence_windows=2 \u2192 crossing + 1 subsequent window below.
-    persistence_windows=1 \u2192 crossing only (no persistence).
+    So persistence_windows=2 → crossing + 1 subsequent window below.
+    persistence_windows=1 → crossing only (no persistence).
     """
     if persistence_windows < 1:
         raise ValueError("persistence_windows must be >= 1")

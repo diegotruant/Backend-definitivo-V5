@@ -1220,7 +1220,7 @@ export interface components {
         };
         /**
          * InPersonAthlete
-         * @description Tablet test athlete envelope — see CONTRATTO_JSON_test.md.
+         * @description Tablet test athlete envelope — see TEST_JSON_CONTRACT.md.
          */
         InPersonAthlete: {
             /** Id */
@@ -1269,7 +1269,7 @@ export interface components {
         };
         /**
          * InPersonTestData
-         * @description Protocol-specific block — extra keys allowed per CONTRATTO_JSON_test.md.
+         * @description Protocol-specific block — extra keys allowed per TEST_JSON_CONTRACT.md.
          */
         InPersonTestData: {
             /** Steps */
@@ -1289,7 +1289,7 @@ export interface components {
         };
         /**
          * InPersonTestRequest
-         * @description Tablet envelope — see CONTRATTO_JSON_test.md.
+         * @description Tablet envelope — see TEST_JSON_CONTRACT.md.
          */
         InPersonTestRequest: {
             /**

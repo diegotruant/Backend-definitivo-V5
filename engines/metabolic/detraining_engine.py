@@ -316,7 +316,7 @@ def _generate_recommendations(tl: Dict[str, float], status: str) -> List[str]:
     recs = []
     
     if status == "DETRAINING":
-        recs.append(f"\u26a0\ufe0f {tl['days_since_last_workout']} days without training — estimated VO2max -5-10%")
+        recs.append(f"⚠️ {tl['days_since_last_workout']} days without training — estimated VO2max -5-10%")
         recs.append("Recommendation: 2 Z4-Z5 sessions this week to halt decay")
     elif status == "DECLINING":
         recs.append(f"CTL declining ({tl['ctl']:.0f} TSS/day) — aerobic capacity at risk")
@@ -372,11 +372,11 @@ if __name__ == "__main__":
     print(f"CTL: {result['training_load']['ctl']:.1f}")
     print()
     print("METABOLIC PARAMETERS:")
-    print(f"  VO2max:  {result['baseline_vo2max']:.1f} \u2192 {result['current_vo2max']:.1f} ml/kg/min  ({result['decay']['vo2max_pct']:.1f}% decay)")
-    print(f"  VLamax:  {result['baseline_vlamax']:.2f} \u2192 {result['current_vlamax']:.2f} mmol/L/s  ({result['decay']['vlamax_pct']:.1f}% decay)")
-    print(f"  MLSS:    {result['baseline_mlss_watts']:.0f} \u2192 {result['current_mlss_watts']:.0f}W  ({result['decay']['mlss_pct']:.1f}% decay)")
-    print(f"  MAP:     {result['baseline_map_watts']:.0f} \u2192 {result['current_map_watts']:.0f}W  ({result['decay']['map_pct']:.1f}% decay)")
+    print(f"  VO2max:  {result['baseline_vo2max']:.1f} → {result['current_vo2max']:.1f} ml/kg/min  ({result['decay']['vo2max_pct']:.1f}% decay)")
+    print(f"  VLamax:  {result['baseline_vlamax']:.2f} → {result['current_vlamax']:.2f} mmol/L/s  ({result['decay']['vlamax_pct']:.1f}% decay)")
+    print(f"  MLSS:    {result['baseline_mlss_watts']:.0f} → {result['current_mlss_watts']:.0f}W  ({result['decay']['mlss_pct']:.1f}% decay)")
+    print(f"  MAP:     {result['baseline_map_watts']:.0f} → {result['current_map_watts']:.0f}W  ({result['decay']['map_pct']:.1f}% decay)")
     print()
     print("RECOMMENDATIONS:")
     for rec in result['recommendations']:
-        print(f"  \u2022 {rec}")
+        print(f"  • {rec}")
