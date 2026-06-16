@@ -160,6 +160,35 @@ export const api = {
     return jsonFetch<EnginePayload>('/ride/durability', { method: 'POST', body: form });
   },
 
+
+
+  /** POST /ride/intelligence */
+  rideIntelligence: (args: {
+    file?: File;
+    power_json?: number[];
+    weight_kg?: number;
+    ftp?: number;
+    cp?: number;
+    lthr?: number;
+  }) => {
+    const form = new FormData();
+    form.append('weight_kg', String(args.weight_kg ?? 70));
+    if (args.ftp != null) form.append('ftp', String(args.ftp));
+    if (args.cp != null) form.append('cp', String(args.cp));
+    if (args.lthr != null) form.append('lthr', String(args.lthr));
+    if (args.file) form.append('file', args.file);
+    if (args.power_json) form.append('power_json', JSON.stringify(args.power_json));
+    return jsonFetch<EnginePayload>('/ride/intelligence', { method: 'POST', body: form });
+  },
+
+  /** POST /ride/data-quality */
+  rideDataQuality: (args: { file?: File; power_json?: number[] }) => {
+    const form = new FormData();
+    if (args.file) form.append('file', args.file);
+    if (args.power_json) form.append('power_json', JSON.stringify(args.power_json));
+    return jsonFetch<EnginePayload>('/ride/data-quality', { method: 'POST', body: form });
+  },
+
   /** POST /workouts/validate */
   validateWorkout: (payload: WorkoutValidateRequest) =>
     jsonFetch<EnginePayload>('/workouts/validate', { method: 'POST', body: JSON.stringify(payload) }),
@@ -202,6 +231,24 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+
+
+
+  /** POST /workouts/recommend */
+  recommendWorkout: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/workouts/recommend', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /workouts/progression-levels */
+  workoutProgressionLevels: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/workouts/progression-levels', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /workouts/adapt-plan */
+  adaptWorkoutPlan: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/workouts/adapt-plan', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /workouts/export */
+  exportWorkout: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/workouts/export', { method: 'POST', body: JSON.stringify(payload) }),
 
   /** POST /twin/state/build */
   twinStateBuild: (payload: TwinStateBuildRequest) =>
@@ -246,6 +293,16 @@ export const api = {
     return jsonFetch<EnginePayload>('/performance/neuromuscular-profile', { method: 'POST', body: form });
   },
 
+
+
+  /** POST /performance/ability-profile */
+  abilityProfile: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/performance/ability-profile', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /performance/breakthroughs */
+  performanceBreakthroughs: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/performance/breakthroughs', { method: 'POST', body: JSON.stringify(payload) }),
+
   /** POST /power-source/normalize */
   powerSourceNormalize: (payload: PowerSourceNormalizationRequest) =>
     jsonFetch<EnginePayload>('/power-source/normalize', {
@@ -256,6 +313,48 @@ export const api = {
   /** POST /load/manual */
   manualLoad: (payload: ManualLoadRequest) =>
     jsonFetch<EnginePayload>('/load/manual', { method: 'POST', body: JSON.stringify(payload) }),
+
+
+
+  /** POST /load/state/update */
+  updateLoadState: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/load/state/update', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /load/risk */
+  loadRisk: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/load/risk', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /readiness/today */
+  readinessToday: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/readiness/today', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /history/summary */
+  historySummary: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/history/summary', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /history/power-curve */
+  historyPowerCurve: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/history/power-curve', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /history/records */
+  historyRecords: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/history/records', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /history/load */
+  historyLoad: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/history/load', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /planning/create-season-plan */
+  createSeasonPlan: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/planning/create-season-plan', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /planning/adapt-week */
+  adaptWeek: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/planning/adapt-week', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /planning/check-load-risk */
+  checkPlannedLoadRisk: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/planning/check-load-risk', { method: 'POST', body: JSON.stringify(payload) }),
 
   /** POST /team/calibration/update */
   updateTeamCalibration: (payload: TeamCalibrationUpdateRequest) =>
