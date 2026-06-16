@@ -215,7 +215,7 @@ def extract_ride_curve(
         # Reuse the quality engine's spike remover if available, so the
         # de-spiking rule lives in exactly one place.
         try:
-            from data_quality_engine import _remove_power_spikes
+            from engines.core.data_quality_engine import _remove_power_spikes
             arr = np.asarray(_remove_power_spikes(arr), dtype=float)
         except Exception:
             # Fallback: simple isolated-spike clamp. A reading is a spike
@@ -334,7 +334,7 @@ def update_power_curve(
     # ---- Quality gate on the incoming ride -----------------------------
     if enforce_quality_gate:
         try:
-            from data_quality_engine import assess_data_quality
+            from engines.core.data_quality_engine import assess_data_quality
             q = assess_data_quality(
                 power_stream=list(new_power_stream),
                 hr_stream=list(hr_stream) if hr_stream is not None else None,

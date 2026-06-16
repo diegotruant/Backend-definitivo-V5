@@ -46,7 +46,7 @@ from engines.io.chart_builder import chart_power_duration_curve, chart_training_
 from engines.metabolic.coggan_classifier import classify_from_mmp
 from engines.performance.efforts_analyzer import analyze_efforts
 from engines.performance.mmp_quality import analyze_mmp_quality, clean_mmp
-from engines.performance.neural_ode import NeuralDynamics, NeuralPowerDuration
+from engines.performance.mader_residual_mlp import NeuralDynamics, NeuralPowerDuration
 from engines.performance.power_engine import PowerEngine, estimate_ftp_from_mmp, fit_critical_power, mean_maximal_power
 from engines.metabolic.zones_engine import ZonesEngine
 

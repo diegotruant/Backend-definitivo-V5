@@ -63,7 +63,7 @@ import numpy as np
 # If metric_contracts is not importable (e.g. in isolated tests), we use a
 # fallback that returns the payload unchanged so the module remains usable.
 try:
-    from metric_contracts import annotate_payload
+    from engines.core.metric_contracts import annotate_payload
 except Exception:  # pragma: no cover
     def annotate_payload(payload, **kwargs):  # type: ignore
         return payload

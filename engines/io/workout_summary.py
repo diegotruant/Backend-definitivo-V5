@@ -193,7 +193,7 @@ def build_workout_summary(
         ]
         if rr_samples:
             try:
-                from hrv_engine import analyze_rr_stream  # lazy — avoids circular import
+                from engines.recovery.hrv_engine import analyze_rr_stream  # lazy — avoids circular import
 
                 duration_s = float(getattr(stream, "total_elapsed_s", 0) or getattr(stream, "n_samples", 0) or 0)
                 base_step = 10.0 if hrv_step_seconds is None else max(1.0, float(hrv_step_seconds))
