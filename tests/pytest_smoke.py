@@ -1,4 +1,4 @@
-from engines import Tier, tier_for
+from engines.core.tiers import Tier, tier_for
 
 
 def test_tier_lookup_smoke() -> None:

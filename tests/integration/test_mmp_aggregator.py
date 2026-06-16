@@ -8,7 +8,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import numpy as np
 from datetime import date
-from engines import update_power_curve, curve_to_mmp, extract_ride_curve
+from engines.performance.mmp_aggregator import (
+    curve_to_mmp,
+    extract_ride_curve,
+    update_power_curve,
+)
 
 _p = 0
 _f = 0

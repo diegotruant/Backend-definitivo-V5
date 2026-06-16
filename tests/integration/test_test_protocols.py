@@ -66,7 +66,7 @@ check("peak power", float(wingate.get("peak_power_w", 0)) == 900)
 
 
 print("\n[4] Dispatcher run_test")
-from engines import run_in_person_test
+from engines.performance.test_protocols import run_test as run_in_person_test
 
 unknown = run_in_person_test({"test_type": "invalid"})
 check("unknown type errors", unknown.get("status") == "error")

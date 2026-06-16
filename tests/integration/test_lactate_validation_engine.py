@@ -33,7 +33,8 @@ check("obla 4mmol present", thr.obla_4mmol_w is not None)
 
 print("\n[2] Insufficient steps guard")
 from engines.metabolic.lactate_validation_engine import validate_model_against_lactate
-from engines import MetabolicProfiler, AthleteContext
+from engines.core.athlete_context import AthleteContext
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
 
 profiler = MetabolicProfiler(weight=72.0, context=AthleteContext())
 short = [LactateStep(power_w=200, lactate_mmol=2.0)] * 3

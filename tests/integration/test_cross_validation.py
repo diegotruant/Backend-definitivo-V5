@@ -6,7 +6,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from engines import cross_validate_metabolic_profile, MetabolicProfiler
+from engines.metabolic.cross_validation_engine import cross_validate_metabolic_profile
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
 
 _passed = 0
 _failed = 0
