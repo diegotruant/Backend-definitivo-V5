@@ -278,7 +278,7 @@ def build_workout_summary(
         }
 
     # =========================================================================
-    # 6. MADER DURABILITY — CP residua meccanicistica (richiede profilo metabolico)
+    # 6. MADER DURABILITY — mechanistic residual CP (requires metabolic profile)
     # =========================================================================
     if (
         metabolic_snapshot
@@ -298,8 +298,8 @@ def build_workout_summary(
                 headline_preview = (sus.get("sustainable_steady_power_w") or {}).get("at_10pct_cp_loss")
                 if headline_preview:
                     out["warnings"].append(
-                        "Mader durability: potenze sostenibili stimate con profilo metabolico "
-                        f"(perdita CP sessione {md.get('durability_loss_pct', '?')}%)."
+                        "Mader durability: sustainable powers estimated from metabolic profile "
+                        f"(session CP loss {md.get('durability_loss_pct', '?')}%)."
                     )
         except Exception as exc:
             out["sections"]["mader_durability"] = {
@@ -311,8 +311,8 @@ def build_workout_summary(
             "status": "skipped",
             "reason": "NO_METABOLIC_PROFILE",
             "message": (
-                "Durability meccanicistica Mader richiede generate_metabolic_snapshot() "
-                "(ancore sprint + CP 3/6/12 o test in presenza)."
+                "Mader mechanistic durability requires generate_metabolic_snapshot() "
+                "(sprint + CP 3/6/12 anchors or in-person testing)."
             ),
         }
 

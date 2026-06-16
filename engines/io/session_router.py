@@ -31,7 +31,7 @@ Routing table (category/subtype -> engines):
   STEADY (sweet_spot, z2...)  -> power curve + durability HRV
   FREE / UNCLASSIFIED         -> power curve + durability HRV
   HIIT                        -> power curve + interval stimulus (+ durability)
-  ride/hiit + profilo Mader   -> mader_durability (CP residua ODE + potenze sostenibili)
+  ride/hiit + Mader profile  -> mader_durability (residual CP ODE + sustainable powers)
 
 Known limitation: a CP test made of two maximal blocks with recovery between
 them (e.g. CP3 + CP6, no sprint) is structurally indistinguishable from a HIIT

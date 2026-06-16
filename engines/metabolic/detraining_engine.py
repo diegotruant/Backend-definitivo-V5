@@ -316,20 +316,20 @@ def _generate_recommendations(tl: Dict[str, float], status: str) -> List[str]:
     recs = []
     
     if status == "DETRAINING":
-        recs.append(f"\u26a0\ufe0f {tl['days_since_last_workout']} giorni senza allenamento — VO2max stimato -5-10%")
-        recs.append("Raccomandazione: 2 sessioni Z4-Z5 questa settimana per arrestare decay")
+        recs.append(f"\u26a0\ufe0f {tl['days_since_last_workout']} days without training — estimated VO2max -5-10%")
+        recs.append("Recommendation: 2 Z4-Z5 sessions this week to halt decay")
     elif status == "DECLINING":
-        recs.append(f"CTL in calo ({tl['ctl']:.0f} TSS/giorno) — capacità aerobica a rischio")
-        recs.append("Raccomandazione: incrementare volume o intensità per mantenere fitness")
+        recs.append(f"CTL declining ({tl['ctl']:.0f} TSS/day) — aerobic capacity at risk")
+        recs.append("Recommendation: increase volume or intensity to maintain fitness")
     elif status == "MAINTAINING":
-        recs.append(f"Maintenance regime attivo (CTL {tl['ctl']:.0f}) — fitness stabile")
+        recs.append(f"Maintenance regime active (CTL {tl['ctl']:.0f}) — fitness stable")
     else:
-        recs.append(f"CTL in crescita ({tl['ctl']:.0f}) — adattamenti in corso")
+        recs.append(f"CTL rising ({tl['ctl']:.0f}) — adaptations in progress")
     
     if tl["tsb"] < -20:
-        recs.append("TSB molto negativo — considera recovery settimana prossima")
+        recs.append("TSB very negative — consider a recovery week next week")
     elif tl["tsb"] > 15:
-        recs.append("TSB positivo — buon momento per test o gara")
+        recs.append("TSB positive — good time for testing or racing")
     
     return recs
 

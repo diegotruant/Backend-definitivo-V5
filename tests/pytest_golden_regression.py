@@ -122,15 +122,55 @@ def test_golden_power_metric_cases(case: dict) -> None:
         return
 
     if case.get("fixture") == "synthetic_ride":
-        from engines.io.fit_parser import parse_fit_file_enhanced
+        from tests.fixtures.synthetic_fit import parse_synthetic_fit
         from engines.io.activity_statistics import compute_activity_statistics
 
-        fit_path = Path(__file__).resolve().parents[1] / "assets" / "synthetic_ride.fit"
+        fit_path = Path(__file__).resolve().parent / "assets" / "synthetic_ride.fit"
         if not fit_path.exists():
             pytest.skip("synthetic_ride.fit not committed in this workspace")
-        stream = parse_fit_file_enhanced(str(fit_path))
+        stream = parse_synthetic_fit(fit_path.read_bytes())
         stats = compute_activity_statistics(stream, weight_kg=case["weight_kg"], ftp=case["ftp"])
         metrics = stats["metrics"]
         assert metrics["avg_power_w"] >= expected["avg_power_w_min"]
         assert metrics["work_kj"] >= expected["work_kj_min"]
         assert metrics["max_hr_bpm"] >= expected["max_hr_bpm_min"]
+
+
+@pytest.mark.parametrize("case", _load_cases("lactate_lab_cases.json"), ids=lambda c: c["id"])
+def test_golden_lactate_lab_cases(case: dict) -> None:
+    from engines.metabolic.lactate_validation_engine import (
+        LactateStep,
+        compute_lactate_thresholds,
+        validate_model_against_lactate,
+    )
+
+    expected = case["expected"]
+    steps = [LactateStep(**s) for s in case["steps"]]
+
+    if "mlss_dmax_range" in expected:
+        thr = compute_lactate_thresholds(steps)
+        lo, hi = expected["mlss_dmax_range"]
+        assert thr.mlss_dmax_w is not None
+        assert lo <= thr.mlss_dmax_w <= hi
+        if "obla_4mmol_range" in expected:
+            lo_o, hi_o = expected["obla_4mmol_range"]
+            assert thr.obla_4mmol_w is not None
+            assert lo_o <= thr.obla_4mmol_w <= hi_o
+        if "aerobic_2mmol_range" in expected:
+            lo_a, hi_a = expected["aerobic_2mmol_range"]
+            assert thr.aerobic_2mmol_w is not None
+            assert lo_a <= thr.aerobic_2mmol_w <= hi_a
+        return
+
+    profiler = MetabolicProfiler(weight=case["weight_kg"], context=AthleteContext())
+    out = validate_model_against_lactate(steps, profiler, case["mmp"])
+    assert out.get("status") == expected["status"]
+    if expected.get("validated") is not None:
+        assert out.get("validated") is expected["validated"]
+    if "mlss_model_range" in expected:
+        mlss = out.get("mlss_model_watts")
+        assert mlss is not None
+        lo, hi = expected["mlss_model_range"]
+        assert lo <= mlss <= hi
+    if "abs_error_pct_max" in expected:
+        assert abs(out.get("error_pct", 999.0)) <= expected["abs_error_pct_max"]

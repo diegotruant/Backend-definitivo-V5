@@ -87,7 +87,7 @@ def analyze_workout_feasibility(
             "warnings": warnings,
             "recommendations": [{
                 "type": "provide_profile",
-                "message": "Serve un profilo atleta con CP e W′ per valutare la fattibilità del workout.",
+                "message": "An athlete profile with CP and W′ is required to assess workout feasibility.",
             }],
             "step_analysis": [],
         }
@@ -105,7 +105,7 @@ def analyze_workout_feasibility(
             "limiting_factor": "missing_cp",
             "summary": {"cp_w": None, "w_prime_j": w_prime_j, "planned_duration_s": workout.duration_s},
             "warnings": warnings,
-            "recommendations": [{"type": "provide_profile", "message": "Serve CP per simulare W′bal."}],
+            "recommendations": [{"type": "provide_profile", "message": "CP is required to simulate W′bal."}],
             "step_analysis": [],
         }
 
@@ -216,18 +216,18 @@ def analyze_workout_feasibility(
         warnings.append({
             "severity": "high" if min_pct_total < 10 else "medium",
             "type": "low_w_prime_balance",
-            "message": f"W′bal stimata scende al {min_pct_total:.1f}%: workout molto esigente per questo atleta.",
+            "message": f"Estimated W′bal drops to {min_pct_total:.1f}%: a very demanding workout for this athlete.",
         })
         recommendations.append({
             "type": "increase_recovery_or_reduce_power",
-            "message": "Aumentare i recuperi o ridurre i target degli intervalli sopra CP.",
+            "message": "Increase recovery periods or reduce targets for intervals above CP.",
         })
     elif min_pct_total < 35:
         limiting_factor = "limited_w_prime_margin"
         warnings.append({
             "severity": "medium",
             "type": "limited_w_prime_margin",
-            "message": f"Margine W′ limitato: minimo stimato {min_pct_total:.1f}%.",
+            "message": f"Limited W′ margin: estimated minimum {min_pct_total:.1f}%.",
         })
 
     confidence = 0.9
@@ -238,7 +238,7 @@ def analyze_workout_feasibility(
         warnings.append({
             "severity": "medium",
             "type": "fatigue_context_not_modelled",
-            "message": "Lo stato di fatica è segnalato ma la V1 usa soprattutto CP/W′; interpretare con cautela.",
+            "message": "Fatigue state is noted but V1 relies mainly on CP/W′; interpret with caution.",
         })
 
     return {

@@ -2,65 +2,66 @@
 Lactate Validation Engine — invasive ground-truth calibration
 ==============================================================
 
-SCOPO
------
-Questo modulo fa una cosa sola: prende i dati REALI di un test del lattato
-(test di Mader in presenza, con prelievo capillare a fine di ogni step) e li
-usa per VALIDARE il modello metabolico non invasivo (`MetabolicProfiler`,
-che stima il profilo dalla sola MMP).
+PURPOSE
+-------
+This module does one thing: takes REAL data from a lactate test
+(in-person Mader test with capillary sampling at the end of each step) and
+uses it to VALIDATE the non-invasive metabolic model (`MetabolicProfiler`,
+which estimates the profile from MMP alone).
 
-È il momento di ONBOARDING di un atleta nuovo. Esempio: arriva Lorenzo.
-Il coach gli fa UNA volta il test del lattato. Da quei dati si ricava la MLSS
-"vera" (misurata). La si confronta con la MLSS che il Mader Python predice
-dalla MMP di Lorenzo. Se i due valori convergono, il modello è validato PER
-LORENZO: da quel momento Lorenzo si monitora all'infinito senza più pungerlo.
+This is the ONBOARDING moment for a new athlete. Example: Lorenzo arrives.
+The coach performs the lactate test ONCE. From that data the true MLSS is
+derived (measured). It is compared with the MLSS that the Mader Python model
+predicts from Lorenzo's MMP. If the two values converge, the model is validated
+FOR LORENZO: from that point on Lorenzo can be monitored indefinitely without
+further blood sampling.
 
-DIFFERENZA da `cross_validation_engine.py`
-------------------------------------------
-  - cross_validation_engine  → valida il Mader Python SENZA lattato, usando
-                               come riferimento la potenza osservata nella MMP.
-                               Serve DOPO, nel monitoraggio continuo.
-  - lactate_validation_engine → valida il Mader Python CONTRO il lattato reale.
-                               Serve UNA VOLTA, all'onboarding.
+DIFFERENCE from `cross_validation_engine.py`
+--------------------------------------------
+  - cross_validation_engine  → validates Mader Python WITHOUT lactate, using
+                               observed power in the MMP as reference.
+                               Used LATER, during continuous monitoring.
+  - lactate_validation_engine → validates Mader Python AGAINST real lactate.
+                               Used ONCE, at onboarding.
 
-Sono due momenti diversi del ciclo di vita dell'atleta. Non si sovrappongono.
+These are two different moments in the athlete lifecycle. They do not overlap.
 
-PERCHÉ D-MAX E NON SOGLIA FISSA 4 mmol/L
-----------------------------------------
-La validazione ha senso solo se il riferimento "vero" nasce da una matematica
-INDIPENDENTE da quella del modello che stiamo validando. Il Mader Python usa
-una cinetica Michaelis-Menten. Se ricavassimo la MLSS "vera" con lo stesso
-modello, confronteremmo il modello con se stesso: validazione nulla.
+WHY D-MAX AND NOT A FIXED 4 mmol/L THRESHOLD
+--------------------------------------------
+Validation only makes sense if the "true" reference comes from mathematics
+INDEPENDENT of the model being validated. Mader Python uses Michaelis-Menten
+kinetics. If we derived the "true" MLSS with the same model, we would be
+comparing the model to itself: null validation.
 
-Il D-max ricava la soglia dalla GEOMETRIA della curva lattato/potenza
-(il punto più distante dalla retta che unisce primo e ultimo punto),
-senza assumere nessuna soglia fissa e senza usare Michaelis-Menten.
-È quindi un riferimento metodologicamente indipendente — l'unico onesto.
+D-max derives the threshold from the GEOMETRY of the lactate/power curve
+(the point farthest from the line joining the first and last point),
+without assuming any fixed threshold and without using Michaelis-Menten.
+It is therefore a methodologically independent reference — the only honest one.
 
-Calcoliamo comunque anche la soglia fissa 4 mmol/L (OBLA classica di Mader)
-perché costa zero e dà confrontabilità con i dati storici.
+We still compute the fixed 4 mmol/L threshold (classic Mader OBLA)
+because it costs nothing and provides comparability with historical data.
 
-REQUISITO DI PROTOCOLLO
------------------------
-Il D-max ha bisogno di almeno MIN_LACTATE_STEPS punti per essere affidabile:
-con 3 o meno punti la "curva" è troppo povera e il D-max diventa rumore.
-Il modulo RIFIUTA input con troppi pochi step e spiega perché. In pratica
-questo impone al coach il protocollo corretto (step incrementali fino a
-lattato chiaramente sovra-soglia).
+PROTOCOL REQUIREMENT
+--------------------
+D-max needs at least MIN_LACTATE_STEPS points to be reliable:
+with 3 or fewer points the "curve" is too sparse and D-max becomes noise.
+The module REJECTS inputs with too few steps and explains why. In practice
+this enforces the correct protocol (incremental steps until lactate is
+clearly above threshold).
 
-Tier: REFERENCE (la misura da lattato è ground truth; il giudizio di
-validazione è MODEL).
+Tier: REFERENCE (lactate measurement is ground truth; the validation
+judgment is MODEL).
 """
 
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
-# annotate_payload: stessa funzione usata dagli altri moduli del backend per
-# etichettare l'output con modulo/metodo/confidenza/limitazioni. La firma è
-# dedotta dalle chiamate in metabolic_profiler.py e metabolic_flexibility_engine.py.
-# Se metric_contracts non è importabile (es. in test isolati), usiamo un
-# fallback che restituisce il payload invariato, così il modulo resta usabile.
+# annotate_payload: same function used by other backend modules to
+# tag output with module/method/confidence/limitations. The signature is
+# inferred from calls in metabolic_profiler.py and metabolic_flexibility_engine.py.
+# If metric_contracts is not importable (e.g. in isolated tests), we use a
+# fallback that returns the payload unchanged so the module remains usable.
 try:
     from metric_contracts import annotate_payload
 except Exception:  # pragma: no cover
@@ -69,45 +70,45 @@ except Exception:  # pragma: no cover
 
 
 # =============================================================================
-# Parametri del metodo
+# Method parameters
 # =============================================================================
 
-# Numero minimo di step lattato per un D-max affidabile.
+# Minimum number of lactate steps for a reliable D-max.
 MIN_LACTATE_STEPS = 5
 
-# Soglia fissa OBLA classica (Mader 1976): lattato = 4 mmol/L.
+# Classic fixed OBLA threshold (Mader 1976): lactate = 4 mmol/L.
 OBLA_THRESHOLD_MMOL = 4.0
-# Soglia aerobica classica (LT1 approssimata): lattato = 2 mmol/L.
+# Classic aerobic threshold (approximate LT1): lactate = 2 mmol/L.
 AEROBIC_THRESHOLD_MMOL = 2.0
 
-# Tolleranza di validazione: di quanto può discostarsi la MLSS predetta dal
-# Mader Python dalla MLSS vera (D-max) prima di considerare il modello
-# NON validato per quell'atleta. Espressa in percentuale della MLSS vera.
-# 8% riflette la variabilità biologica tipica della letteratura MLSS.
+# Validation tolerance: how far the MLSS predicted by Mader Python may deviate
+# from the true MLSS (D-max) before the model is considered NOT validated
+# for that athlete. Expressed as a percentage of true MLSS.
+# 8% reflects typical biological variability in the MLSS literature.
 VALIDATION_TOLERANCE_PCT = 8.0
 
 
 # =============================================================================
-# Strutture dati
+# Data structures
 # =============================================================================
 
 @dataclass
 class LactateStep:
-    """Un singolo step del test del lattato."""
-    power_w: float          # potenza media tenuta nello step (W)
-    lactate_mmol: float     # lattato a fine step (mmol/L)
-    hr_mean: Optional[float] = None      # FC media nello step (bpm)
-    cadence_mean: Optional[float] = None # cadenza media (rpm)
-    duration_s: Optional[float] = None   # durata step (s)
+    """A single step of the lactate test."""
+    power_w: float          # mean power held during the step (W)
+    lactate_mmol: float     # lactate at end of step (mmol/L)
+    hr_mean: Optional[float] = None      # mean HR during the step (bpm)
+    cadence_mean: Optional[float] = None # mean cadence (rpm)
+    duration_s: Optional[float] = None   # step duration (s)
 
 
 @dataclass
 class LactateThresholds:
-    """Soglie ricavate dai dati lattato reali (ground truth)."""
-    mlss_dmax_w: Optional[float] = None       # MLSS via D-max (riferimento principale)
-    obla_4mmol_w: Optional[float] = None       # soglia 4 mmol/L classica
-    aerobic_2mmol_w: Optional[float] = None    # soglia 2 mmol/L (LT1 approssimata)
-    dmax_lactate_at_threshold: Optional[float] = None  # lattato al punto D-max
+    """Thresholds derived from real lactate data (ground truth)."""
+    mlss_dmax_w: Optional[float] = None       # MLSS via D-max (primary reference)
+    obla_4mmol_w: Optional[float] = None       # classic 4 mmol/L threshold
+    aerobic_2mmol_w: Optional[float] = None    # 2 mmol/L threshold (approximate LT1)
+    dmax_lactate_at_threshold: Optional[float] = None  # lactate at D-max point
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -119,11 +120,11 @@ class LactateThresholds:
 
 
 # =============================================================================
-# Calcolo soglie dai dati lattato
+# Threshold computation from lactate data
 # =============================================================================
 
 def _sorted_steps(steps: List[LactateStep]) -> Tuple[np.ndarray, np.ndarray]:
-    """Ritorna (potenze, lattati) ordinati per potenza crescente."""
+    """Return (powers, lactates) sorted by ascending power."""
     pairs = sorted(
         ((s.power_w, s.lactate_mmol) for s in steps if s.power_w > 0 and s.lactate_mmol > 0),
         key=lambda x: x[0],
@@ -137,9 +138,9 @@ def _interpolate_power_at_lactate(
     powers: np.ndarray, lacts: np.ndarray, target_lactate: float
 ) -> Optional[float]:
     """
-    Trova la potenza a cui il lattato raggiunge `target_lactate`,
-    interpolando linearmente tra i due step che lo racchiudono.
-    Ritorna None se la soglia non è attraversata dai dati.
+    Find the power at which lactate reaches `target_lactate`,
+    by linear interpolation between the two enclosing steps.
+    Returns None if the threshold is not crossed by the data.
     """
     for i in range(len(powers) - 1):
         l0, l1 = lacts[i], lacts[i + 1]
@@ -155,17 +156,17 @@ def _dmax_threshold(
     powers: np.ndarray, lacts: np.ndarray
 ) -> Tuple[Optional[float], Optional[float]]:
     """
-    D-max modificato.
+    Modified D-max.
 
-    Costruisce la retta che congiunge il primo e l'ultimo punto della curva
-    lattato/potenza, poi trova il punto della curva con la massima distanza
-    perpendicolare da quella retta. La potenza di quel punto è la soglia.
+    Builds the line joining the first and last point of the lactate/power
+    curve, then finds the curve point with maximum perpendicular distance
+    from that line. The power at that point is the threshold.
 
-    Ritorna (potenza_soglia, lattato_alla_soglia). None se non calcolabile.
+    Returns (threshold_power, lactate_at_threshold). None if not computable.
 
-    Nota: questo è il D-max "modificato" perché lavora sui punti misurati
-    (non su un polinomio fittato). Per curve lattato ben formate con 5+ punti
-    è stabile e standard nella letteratura moderna.
+    Note: this is "modified" D-max because it works on measured points
+    (not a fitted polynomial). For well-formed lactate curves with 5+ points
+    it is stable and standard in modern literature.
     """
     if len(powers) < 3:
         return None, None
@@ -178,11 +179,11 @@ def _dmax_threshold(
     if line_len < 1e-9:
         return None, None
 
-    # Distanza perpendicolare di ogni punto dalla retta (primo→ultimo).
-    # Usiamo la formula del prodotto vettoriale 2D / lunghezza segmento.
+    # Perpendicular distance of each point from the line (first→last).
+    # We use the 2D cross-product formula / segment length.
     best_idx = None
     best_dist = -1.0
-    for i in range(1, len(powers) - 1):  # estremi esclusi: distanza nulla
+    for i in range(1, len(powers) - 1):  # endpoints excluded: zero distance
         px, py = powers[i], lacts[i]
         dist = abs(dy * (px - x0) - dx * (py - y0)) / line_len
         if dist > best_dist:
@@ -196,17 +197,17 @@ def _dmax_threshold(
 
 def compute_lactate_thresholds(steps: List[LactateStep]) -> LactateThresholds:
     """
-    Calcola le soglie dai dati lattato reali.
+    Compute thresholds from real lactate data.
 
-    - MLSS via D-max → riferimento principale (indipendente da Mader)
-    - OBLA 4 mmol/L → confrontabilità storica
-    - Soglia aerobica 2 mmol/L → LT1 approssimata
+    - MLSS via D-max → primary reference (independent of Mader)
+    - OBLA 4 mmol/L → historical comparability
+    - Aerobic 2 mmol/L threshold → approximate LT1
     """
     powers, lacts = _sorted_steps(steps)
     thr = LactateThresholds()
 
     if len(powers) < 3:
-        return thr  # non abbastanza punti; il chiamante gestisce l'errore
+        return thr  # not enough points; caller handles the error
 
     dmax_w, dmax_lact = _dmax_threshold(powers, lacts)
     thr.mlss_dmax_w = round(dmax_w, 1) if dmax_w is not None else None
@@ -222,7 +223,7 @@ def compute_lactate_thresholds(steps: List[LactateStep]) -> LactateThresholds:
 
 
 # =============================================================================
-# Validazione del modello non invasivo contro il lattato reale
+# Validation of the non-invasive model against real lactate
 # =============================================================================
 
 def validate_model_against_lactate(
@@ -232,27 +233,27 @@ def validate_model_against_lactate(
     expected_eta: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
-    Valida il Mader Python (MetabolicProfiler) contro il lattato reale.
+    Validate Mader Python (MetabolicProfiler) against real lactate.
 
-    Parametri
-    ---------
+    Parameters
+    ----------
     steps : list[LactateStep]
-        Gli step del test del lattato (potenza + lattato a fine step).
+        Lactate test steps (power + lactate at end of step).
     profiler : MetabolicProfiler
-        Istanza già costruita col peso e il contesto dell'atleta.
+        Instance already built with the athlete's weight and context.
     mmp : dict
-        La MMP dell'atleta {durata_s: watt}. È quella su cui il Mader Python
-        stima il profilo, da confrontare col lattato.
+        The athlete's MMP {duration_s: watts}. This is what Mader Python uses
+        to estimate the profile, to be compared against lactate.
     expected_eta : float, optional
-        Efficienza meccanica da passare al profiler (altrimenti la risolve lui).
+        Mechanical efficiency to pass to the profiler (otherwise it resolves it).
 
-    Ritorna
+    Returns
     -------
     dict
-        Payload JSON con: soglie da lattato, MLSS predetta dal modello,
-        scarto, e verdetto di validazione.
+        JSON payload with: lactate thresholds, MLSS predicted by the model,
+        error, and validation verdict.
     """
-    # --- Guardia di protocollo: D-max richiede abbastanza punti ---------
+    # --- Protocol guard: D-max requires enough points ---------
     valid_steps = [s for s in steps if s.power_w > 0 and s.lactate_mmol > 0]
     if len(valid_steps) < MIN_LACTATE_STEPS:
         return annotate_payload(
@@ -260,10 +261,10 @@ def validate_model_against_lactate(
                 "status": "error",
                 "reason": "insufficient_lactate_steps",
                 "message": (
-                    f"Il D-max richiede almeno {MIN_LACTATE_STEPS} step lattato "
-                    f"validi; ne sono stati forniti {len(valid_steps)}. Ripetere "
-                    f"il test con più gradini di potenza, fino a lattato "
-                    f"chiaramente sovra-soglia (>6-8 mmol/L)."
+                    f"D-max requires at least {MIN_LACTATE_STEPS} valid lactate steps; "
+                    f"only {len(valid_steps)} were provided. Repeat the test with "
+                    f"more power increments until lactate is clearly above threshold "
+                    f"(>6-8 mmol/L)."
                 ),
                 "steps_provided": len(valid_steps),
                 "steps_required": MIN_LACTATE_STEPS,
@@ -273,7 +274,7 @@ def validate_model_against_lactate(
             confidence=0.0,
         )
 
-    # --- 1. Soglie "vere" dal lattato (ground truth) --------------------
+    # --- 1. "True" thresholds from lactate (ground truth) --------------------
     thresholds = compute_lactate_thresholds(valid_steps)
     mlss_true = thresholds.mlss_dmax_w
 
@@ -283,9 +284,8 @@ def validate_model_against_lactate(
                 "status": "error",
                 "reason": "dmax_not_computable",
                 "message": (
-                    "Impossibile calcolare il D-max: la curva lattato/potenza "
-                    "non ha una forma utilizzabile (controllare che il lattato "
-                    "cresca con la potenza)."
+                    "Unable to compute D-max: the lactate/power curve does not "
+                    "have a usable shape (check that lactate increases with power)."
                 ),
                 "lactate_thresholds": thresholds.to_dict(),
             },
@@ -294,7 +294,7 @@ def validate_model_against_lactate(
             confidence=0.0,
         )
 
-    # --- 2. MLSS predetta dal Mader Python sulla MMP --------------------
+    # --- 2. MLSS predicted by Mader Python from MMP --------------------
     snapshot = profiler.generate_metabolic_snapshot(mmp, expected_eta=expected_eta)
 
     if snapshot.get("status") != "success":
@@ -303,8 +303,8 @@ def validate_model_against_lactate(
                 "status": "error",
                 "reason": "model_snapshot_failed",
                 "message": (
-                    "Il modello non invasivo non ha prodotto uno snapshot valido "
-                    "sulla MMP fornita: " + str(snapshot.get("message", "errore sconosciuto"))
+                    "The non-invasive model did not produce a valid snapshot "
+                    "for the provided MMP: " + str(snapshot.get("message", "unknown error"))
                 ),
                 "lactate_thresholds": thresholds.to_dict(),
                 "model_snapshot": snapshot,
@@ -321,9 +321,9 @@ def validate_model_against_lactate(
                 "status": "error",
                 "reason": "model_mlss_unavailable",
                 "message": (
-                    "Il modello non ha potuto stimare la MLSS dalla MMP "
-                    "(probabilmente manca l'ancora di durata soglia 20-60 min "
-                    "nella MMP). Vedi 'expressiveness' nello snapshot."
+                    "The model could not estimate MLSS from the MMP "
+                    "(probably missing a 20-60 min threshold-duration anchor "
+                    "in the MMP). See 'expressiveness' in the snapshot."
                 ),
                 "lactate_thresholds": thresholds.to_dict(),
                 "model_snapshot": snapshot,
@@ -333,7 +333,7 @@ def validate_model_against_lactate(
             confidence=0.0,
         )
 
-    # --- 3. Confronto e verdetto ----------------------------------------
+    # --- 3. Comparison and verdict ----------------------------------------
     error_w = float(mlss_model) - float(mlss_true)
     error_pct = 100.0 * error_w / float(mlss_true)
     abs_error_pct = abs(error_pct)
@@ -342,51 +342,51 @@ def validate_model_against_lactate(
         validated = True
         severity = "none"
         verdict = (
-            f"Modello VALIDATO per questo atleta. La MLSS predetta dalla MMP "
-            f"({mlss_model:.0f}W) coincide con la MLSS misurata da lattato "
-            f"({mlss_true:.0f}W) entro il {VALIDATION_TOLERANCE_PCT:.0f}% "
-            f"(scarto {error_pct:+.1f}%). Da ora il monitoraggio può proseguire "
-            f"in modo non invasivo, senza ripetere il test del lattato."
+            f"Model VALIDATED for this athlete. MLSS predicted from MMP "
+            f"({mlss_model:.0f}W) matches lactate-measured MLSS "
+            f"({mlss_true:.0f}W) within {VALIDATION_TOLERANCE_PCT:.0f}% "
+            f"(error {error_pct:+.1f}%). Monitoring can now continue "
+            f"non-invasively without repeating the lactate test."
         )
         recommended_action = (
-            "Procedere col monitoraggio non invasivo. Rivalutare con un nuovo "
-            "test del lattato solo dopo cambiamenti fisiologici importanti "
-            "(blocco di allenamento lungo, lunga interruzione, infortunio)."
+            "Proceed with non-invasive monitoring. Re-evaluate with a new "
+            "lactate test only after major physiological changes "
+            "(long training block, extended break, injury)."
         )
     elif abs_error_pct <= 2 * VALIDATION_TOLERANCE_PCT:
         validated = False
         severity = "moderate"
         verdict = (
-            f"Modello NON ancora validato. La MLSS predetta ({mlss_model:.0f}W) "
-            f"si discosta dalla MLSS misurata ({mlss_true:.0f}W) del "
-            f"{error_pct:+.1f}%, oltre la tolleranza del "
-            f"{VALIDATION_TOLERANCE_PCT:.0f}%. Lo scarto è moderato."
+            f"Model NOT yet validated. Predicted MLSS ({mlss_model:.0f}W) "
+            f"deviates from measured MLSS ({mlss_true:.0f}W) by "
+            f"{error_pct:+.1f}%, beyond the {VALIDATION_TOLERANCE_PCT:.0f}% "
+            f"tolerance. The error is moderate."
         )
         recommended_action = (
-            "Verificare la qualità della MMP (durate soglia presenti? sforzi "
-            "massimali recenti?) e la calibrazione del misuratore di potenza "
-            "usato nel test. Eventualmente ripetere il test del lattato."
+            "Check MMP quality (threshold durations present? recent maximal "
+            "efforts?) and calibration of the power meter used in the test. "
+            "Consider repeating the lactate test."
         )
     else:
         validated = False
         severity = "severe"
         verdict = (
-            f"Modello NON validato. La MLSS predetta ({mlss_model:.0f}W) si "
-            f"discosta fortemente dalla MLSS misurata ({mlss_true:.0f}W): "
-            f"{error_pct:+.1f}%. Non usare il modello non invasivo per questo "
-            f"atleta finché lo scarto non è chiarito."
+            f"Model NOT validated. Predicted MLSS ({mlss_model:.0f}W) deviates "
+            f"strongly from measured MLSS ({mlss_true:.0f}W): "
+            f"{error_pct:+.1f}%. Do not use the non-invasive model for this "
+            f"athlete until the discrepancy is resolved."
         )
         recommended_action = (
-            "Scarto eccessivo. Possibili cause: MMP non rappresentativa "
-            "(sforzi sub-massimali), power meter del test scalibrato, o "
-            "fenotipo atipico fuori dalla calibrazione di default del Mader. "
-            "Rivedere i dati di input prima di affidarsi al modello."
+            "Excessive error. Possible causes: unrepresentative MMP "
+            "(sub-maximal efforts), miscalibrated test power meter, or "
+            "atypical phenotype outside default Mader calibration. "
+            "Review input data before relying on the model."
         )
 
-    # Confidenza del verdetto: alta se molti step e convergenza netta,
-    # ridotta se siamo al limite della tolleranza.
+    # Verdict confidence: high with many steps and clear convergence,
+    # reduced when near the tolerance limit.
     margin = 1.0 - min(1.0, abs_error_pct / (2 * VALIDATION_TOLERANCE_PCT))
-    step_factor = min(1.0, len(valid_steps) / 7.0)  # 7+ step = pieno
+    step_factor = min(1.0, len(valid_steps) / 7.0)  # 7+ steps = full weight
     confidence = round(float(np.clip(0.4 + 0.5 * margin * step_factor, 0.2, 0.95)), 3)
 
     return annotate_payload(
@@ -397,38 +397,38 @@ def validate_model_against_lactate(
             "verdict": verdict,
             "recommended_action": recommended_action,
             "n_lactate_steps": len(valid_steps),
-            # Ground truth dal lattato
+            # Ground truth from lactate
             "lactate_thresholds": thresholds.to_dict(),
             "mlss_true_watts": mlss_true,
-            # Predizione del modello non invasivo
+            # Non-invasive model prediction
             "mlss_model_watts": round(float(mlss_model), 1),
-            # Confronto
+            # Comparison
             "error_watts": round(error_w, 1),
             "error_pct": round(error_pct, 1),
             "tolerance_pct": VALIDATION_TOLERANCE_PCT,
-            # Snapshot completo del modello, per audit
+            # Full model snapshot for audit
             "model_snapshot": snapshot,
         },
         module_name="lactate_validation_engine",
         method="validate_model_against_lactate",
         confidence=confidence,
         limitations=[
-            "MLSS di riferimento stimata via D-max dai punti lattato misurati.",
-            "La validazione è specifica per l'atleta testato, non generalizzabile.",
-            f"Richiede almeno {MIN_LACTATE_STEPS} step lattato per il D-max.",
+            "Reference MLSS estimated via D-max from measured lactate points.",
+            "Validation is specific to the tested athlete, not generalizable.",
+            f"Requires at least {MIN_LACTATE_STEPS} lactate steps for D-max.",
         ],
     )
 
 
 # =============================================================================
-# Helper per costruire gli step dal payload JSON dell'app
+# Helper to build steps from the app JSON payload
 # =============================================================================
 
 def steps_from_payload(raw_steps: List[Dict[str, Any]]) -> List[LactateStep]:
     """
-    Converte la lista di step JSON che arriva dall'app in oggetti LactateStep.
+    Convert the step list JSON from the app into LactateStep objects.
 
-    Formato atteso per ogni step:
+    Expected format for each step:
         {"power_w": 250, "lactate_mmol": 3.2, "hr_mean": 165,
          "cadence_mean": 92, "duration_s": 300}
     """
@@ -448,7 +448,7 @@ def steps_from_payload(raw_steps: List[Dict[str, Any]]) -> List[LactateStep]:
 
 
 if __name__ == "__main__":
-    # Demo con dati sintetici: un atleta con MLSS reale ~250W da lattato.
+    # Demo with synthetic data: an athlete with true MLSS ~250W from lactate.
     demo_steps = [
         LactateStep(power_w=150, lactate_mmol=1.2),
         LactateStep(power_w=200, lactate_mmol=1.8),
@@ -458,7 +458,7 @@ if __name__ == "__main__":
         LactateStep(power_w=320, lactate_mmol=10.2),
     ]
     thr = compute_lactate_thresholds(demo_steps)
-    print("Soglie da lattato:")
+    print("Thresholds from lactate:")
     print("  MLSS (D-max):    ", thr.mlss_dmax_w, "W")
     print("  OBLA (4 mmol/L): ", thr.obla_4mmol_w, "W")
-    print("  Aerobica (2):    ", thr.aerobic_2mmol_w, "W")
+    print("  Aerobic (2):     ", thr.aerobic_2mmol_w, "W")

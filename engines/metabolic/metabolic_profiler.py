@@ -1,8 +1,8 @@
 """
 Metabolic Profiler Engine — PURE PRODUCTION API
-Versione: 3.3.1-Tethered + AthleteContext (decoupled context module)
-Modulo backend per il Reverse Engineering Fisiologico (MMP -> Fenotipo).
-Nessuna dipendenza esterna oltre a numpy e scipy.
+Version: 3.3.1-Tethered + AthleteContext (decoupled context module)
+Backend module for Physiological Reverse Engineering (MMP -> Phenotype).
+No external dependencies beyond numpy and scipy.
 """
 
 import numpy as np
@@ -215,21 +215,21 @@ class MetabolicProfiler:
 
     def _generate_zones(self, w_mlss: float, map_w: float) -> List[Dict[str, Any]]:
         return [
-            {"name": "Z1 - Recupero", "minWatt": 0, "maxWatt": round(w_mlss * 0.55)},
+            {"name": "Z1 - Recovery", "minWatt": 0, "maxWatt": round(w_mlss * 0.55)},
             {"name": "Z2 - Endurance", "minWatt": round(w_mlss * 0.55) + 1, "maxWatt": round(w_mlss * 0.75)},
             {"name": "Z3 - Tempo", "minWatt": round(w_mlss * 0.75) + 1, "maxWatt": round(w_mlss * 0.90)},
-            {"name": "Z4 - Soglia (MLSS)", "minWatt": round(w_mlss * 0.90) + 1, "maxWatt": round(w_mlss * 1.05)},
+            {"name": "Z4 - Threshold (MLSS)", "minWatt": round(w_mlss * 0.90) + 1, "maxWatt": round(w_mlss * 1.05)},
             {"name": "Z5 - VO2max", "minWatt": round(w_mlss * 1.05) + 1, "maxWatt": round(map_w)},
         ]
 
     def _classify_metabolic_phenotype(self, vlamax: float) -> dict:
         endurance_max, allrounder_max = self.context.phenotype_thresholds()
         if vlamax < endurance_max:
-            return {"category": "Endurance (Diesel)", "level": "Bassa", "description": "Ideale per endurance pura. Consuma pochi carboidrati, ottima efficienza."}
+            return {"category": "Endurance (Diesel)", "level": "Low", "description": "Ideal for pure endurance. Low carbohydrate demand, excellent efficiency."}
         elif vlamax <= allrounder_max:
-            return {"category": "All-Rounder (Passista)", "level": "Media", "description": "Profilo bilanciato. Ottima resistenza e capacità di gestire cambi di ritmo."}
+            return {"category": "All-Rounder (Passista)", "level": "Moderate", "description": "Balanced profile. Strong endurance and good ability to handle pace changes."}
         else:
-            return {"category": "Sprinter (Esplosivo)", "level": "Alta", "description": "Motore glicolitico. Eccellente potenza esplosiva, consuma molti carboidrati."}
+            return {"category": "Sprinter (Explosive)", "level": "High", "description": "Glycolytic engine. Excellent explosive power, high carbohydrate demand."}
 
     def generate_metabolic_snapshot(
         self,

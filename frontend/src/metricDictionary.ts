@@ -73,11 +73,11 @@ export const metricDictionary: Record<string, MetricDefinition> = {
   },
 };
 
-export function confidenceLabel(score?: number | null): 'Alta' | 'Media' | 'Bassa' | 'Non disponibile' {
-  if (score == null) return 'Non disponibile';
-  if (score >= 0.8) return 'Alta';
-  if (score >= 0.55) return 'Media';
-  return 'Bassa';
+export function confidenceLabel(score?: number | null): 'High' | 'Moderate' | 'Low' | 'Unavailable' {
+  if (score == null) return 'Unavailable';
+  if (score >= 0.8) return 'High';
+  if (score >= 0.55) return 'Moderate';
+  return 'Low';
 }
 
 export function statusColor(status?: string, confidence?: number | null): 'green' | 'yellow' | 'red' | 'gray' {

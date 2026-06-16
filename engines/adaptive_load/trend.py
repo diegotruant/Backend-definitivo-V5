@@ -48,17 +48,17 @@ def extract_history_loads(history: Optional[list[Dict[str, Any]]]) -> list[float
 def extract_dual_series(
     history: Optional[list[Dict[str, Any]]],
 ) -> tuple[list[float], list[float]]:
-    """Estrae due serie parallele dai record storici.
+    """Extract two parallel series from historical records.
 
-    Restituisce (external_loads, combined_loads):
-      - external_loads : solo carico ESTERNO (TSS) — il "nominale"
-      - combined_loads : session_load combinato esterno+interno — il "reale"
+    Returns (external_loads, combined_loads):
+      - external_loads : EXTERNAL load only (TSS) — the "nominal" value
+      - combined_loads : combined external+internal session_load — the "actual" value
 
-    Un record contribuisce a una serie solo se quel valore è presente, così le
-    due serie restano allineate per indice quando entrambi i campi esistono.
-    Quando manca il session_load combinato, si ripiega sul TSS (degradazione
-    con grazia: senza segnali interni le due serie coincidono e la divergenza
-    è zero, esattamente come il Banister classico).
+    A record contributes to a series only when that value is present, so the
+    two series stay index-aligned when both fields exist. When combined
+    session_load is missing, fall back to TSS (graceful degradation: without
+    internal signals the two series match and divergence is zero, exactly like
+    classic Banister).
     """
     if not history:
         return [], []
@@ -73,7 +73,7 @@ def extract_dual_series(
             or item.get("session_load")
             or item.get("adaptive_load")
             or item.get("load")
-            or ext_raw  # fallback: nessun interno -> usa l'esterno
+            or ext_raw  # fallback: no internal signal -> use external
         )
         try:
             ext_v = float(ext_raw) if ext_raw is not None else None
@@ -131,14 +131,14 @@ def calculate_load_trend(
     monotony = calculate_monotony_strain(last_7)
 
     # ------------------------------------------------------------------
-    # Binario ESTERNO parallelo + divergenza esterno/interno
+    # Parallel EXTERNAL track + external/internal divergence
     # ------------------------------------------------------------------
-    # 'tsb' qui sopra è calcolato sul session_load COMBINATO (esterno+interno):
-    # è la freschezza "reale". Tracciamo in parallelo un CTL/ATL/TSB sul SOLO
-    # TSS esterno (la freschezza "nominale", quella che vedrebbe coaching platform).
-    # La differenza tra i due TSB è il segnale: quando l'esterno dice "fresco"
-    # ma l'interno dice "affaticato", è il pre-allarme di overreaching che il
-    # carico esterno da solo non vede.
+    # 'tsb' above is computed on COMBINED session_load (external+internal):
+    # the "actual" freshness. In parallel we track CTL/ATL/TSB on EXTERNAL
+    # TSS only (the "nominal" freshness a coaching platform would show).
+    # The gap between the two TSB values is the signal: when external says
+    # "fresh" but internal says "fatigued", that is the overreaching early
+    # warning that external load alone cannot see.
     external_series, _combined = extract_dual_series(history)
     if current_external_load is not None:
         try:
@@ -153,14 +153,14 @@ def calculate_load_trend(
         atl_ext = ewma(external_series[-14:], span=7)
         ctl_ext = ewma(external_series[-56:], span=42)
         tsb_ext = None if atl_ext is None or ctl_ext is None else ctl_ext - atl_ext
-        # divergence = TSB esterno - TSB interno(combinato).
-        # > 0  -> l'esterno sopravvaluta la freschezza (fatica interna nascosta)
-        # < 0  -> il corpo ha assorbito meglio del nominale
+        # divergence = external TSB - internal (combined) TSB.
+        # > 0  -> external overstates freshness (hidden internal fatigue)
+        # < 0  -> the body absorbed load better than nominal suggests
         divergence = None if (tsb_ext is None or tsb is None) else tsb_ext - tsb
         divergence_status = None
-        # Soglie calibrate sulla scala 0-100 del session_load di questo backend
-        # (non sulla scala TSS pura). Una divergenza realistica su un blocco di
-        # carico va da ~3 (lieve) a ~7+ (severo).
+        # Thresholds calibrated on this backend's 0-100 session_load scale
+        # (not pure TSS). A realistic divergence over a loading block ranges
+        # from ~3 (mild) to ~7+ (severe).
         if divergence is not None:
             if divergence >= 6.0:
                 divergence_status = "hidden_fatigue"

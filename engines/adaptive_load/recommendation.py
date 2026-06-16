@@ -73,7 +73,7 @@ def generate_recommendation(
 
     if risk_points >= 5:
         status = "red"
-        message = "Segnali convergenti di fatica/stress: preferire recupero o riposo."
+        message = "Converging fatigue/stress signals: favor recovery or rest."
         modifier = {
             "volume_multiplier": 0.40,
             "intensity_cap": "Z1/Z2",
@@ -81,7 +81,7 @@ def generate_recommendation(
         }
     elif risk_points >= 2:
         status = "yellow"
-        message = "Carico o recupero non ottimali: ridurre volume o intensità."
+        message = "Load or recovery suboptimal: reduce volume or intensity."
         modifier = {
             "volume_multiplier": 0.70,
             "intensity_cap": "Z2/Z3",
@@ -89,7 +89,7 @@ def generate_recommendation(
         }
     elif opportunity_points >= 4:
         status = "blue"
-        message = "Buona finestra di readiness: possibile sessione chiave se prevista dal piano."
+        message = "Good readiness window: a key session is viable if planned."
         modifier = {
             "volume_multiplier": 1.0,
             "intensity_cap": None,
@@ -97,7 +97,7 @@ def generate_recommendation(
         }
     else:
         status = "green"
-        message = "Allenamento previsto sostenibile."
+        message = "Planned training is sustainable."
         modifier = {
             "volume_multiplier": 1.0,
             "intensity_cap": None,

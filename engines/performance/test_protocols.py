@@ -1,28 +1,28 @@
 """
-Test Protocols Engine — calcolo dei test in presenza (it4cycling-style)
+Test Protocols Engine — in-person test computation (it4cycling-style)
 =======================================================================
 
-SCOPO
------
-Questo modulo riceve i dati di un test eseguito in presenza dal coach (via
-l'app tablet collegata al rullo) e ne calcola i risultati, restituendo JSON
-pronto per il frontend / lo storico / l'export PDF.
+PURPOSE
+-------
+This module receives data from an in-person test performed by the coach (via
+the tablet app connected to the trainer) and computes the results, returning
+JSON ready for the frontend / history / PDF export.
 
-Un test = una funzione. Le funzioni NON ricalcolano cose che il backend sa
-già fare: si agganciano ai moduli esistenti.
+One test = one function. Functions do NOT recompute things the backend already
+knows how to do: they hook into existing modules.
 
-  - Mader (lattato)   → delega a lactate_validation_engine (D-max + validazione
-                        del modello non invasivo). È il test di onboarding.
-  - Critical Power     → delega a power_engine.fit_critical_power (fit Monod).
-  - Incrementale       → soglia da risposta FC/potenza + max power.
-  - Curva P/C          → cadenza ottimale dai picchi di sprint.
-  - Wingate            → picco/media/minimo + indice di affaticamento.
+  - Mader (lactate)   → delegates to lactate_validation_engine (D-max + validation
+                        of the non-invasive model). This is the onboarding test.
+  - Critical Power     → delegates to power_engine.fit_critical_power (Monod fit).
+  - Incremental       → threshold from HR/power response + max power.
+  - P/C curve         → optimal cadence from sprint peaks.
+  - Wingate            → peak/mean/minimum + fatigue index.
 
-Il contratto JSON di input/output è documentato in CONTRATTO_JSON_test.md.
+The input/output JSON contract is documented in CONTRATTO_JSON_test.md.
 
-Tier: REFERENCE per i test che applicano formule dirette (curva P/C, wingate,
-incrementale max-power); il test Mader eredita il tier del lattato (REFERENCE
-sul dato, MODEL sulla validazione); CP eredita da power_engine (REFERENCE).
+Tier: REFERENCE for tests that apply direct formulas (P/C curve, wingate,
+incremental max-power); the Mader test inherits the lactate tier (REFERENCE
+on data, MODEL on validation); CP inherits from power_engine (REFERENCE).
 """
 
 from typing import Any, Dict, Optional
@@ -30,10 +30,10 @@ import numpy as np
 
 from engines.core.metric_contracts import annotate_payload
 
-# Fit CP/W' già esistente nel backend — NON riscriverlo, si chiama.
+# Existing CP/W' fit in the backend — do NOT rewrite it, call it.
 from engines.performance.power_engine import fit_critical_power
 
-# Validazione col lattato (modulo dedicato) — usato dal test Mader.
+# Lactate validation (dedicated module) — used by the Mader test.
 from engines.metabolic.lactate_validation_engine import (
     validate_model_against_lactate,
     steps_from_payload,
@@ -41,11 +41,11 @@ from engines.metabolic.lactate_validation_engine import (
 
 
 # =============================================================================
-# Helper comuni
+# Shared helpers
 # =============================================================================
 
 def _err(reason: str, message: str, method: str, **extra) -> Dict[str, Any]:
-    """Costruisce una risposta di errore uniforme e annotata."""
+    """Build a uniform, annotated error response."""
     payload = {"status": "error", "reason": reason, "message": message}
     payload.update(extra)
     return annotate_payload(
@@ -57,7 +57,7 @@ def _err(reason: str, message: str, method: str, **extra) -> Dict[str, Any]:
 
 
 def _athlete_weight(envelope: Dict[str, Any]) -> Optional[float]:
-    """Estrae il peso dell'atleta dalla busta comune."""
+    """Extract the athlete's weight from the common envelope."""
     try:
         w = float(envelope.get("athlete", {}).get("weight_kg"))
         return w if w > 0 else None
@@ -66,7 +66,7 @@ def _athlete_weight(envelope: Dict[str, Any]) -> Optional[float]:
 
 
 # =============================================================================
-# 1. MADER (test del lattato) — onboarding
+# 1. MADER (lactate test) — onboarding
 # =============================================================================
 
 def run_mader_test(
@@ -74,37 +74,37 @@ def run_mader_test(
     profiler,
 ) -> Dict[str, Any]:
     """
-    Esegue il test di Mader col lattato.
+    Run the Mader lactate test.
 
-    Delega interamente a lactate_validation_engine: calcola la MLSS vera col
-    D-max dai punti lattato, la confronta con la MLSS che il modello non
-    invasivo predice dalla MMP, ed emette il verdetto di validazione.
+    Fully delegates to lactate_validation_engine: computes true MLSS with
+    D-max from lactate points, compares it with the MLSS the non-invasive
+    model predicts from MMP, and issues the validation verdict.
 
-    Parametri
-    ---------
+    Parameters
+    ----------
     envelope : dict
-        La busta completa (vedi contratto). test_data deve contenere
-        'steps' (con lattato) e 'mmp'.
+        The full envelope (see contract). test_data must contain
+        'steps' (with lactate) and 'mmp'.
     profiler : MetabolicProfiler
-        Istanza già costruita col peso/contesto dell'atleta.
+        Instance already built with the athlete's weight/context.
     """
     td = envelope.get("test_data", {})
     raw_steps = td.get("steps")
     mmp = td.get("mmp")
 
     if not raw_steps:
-        return _err("missing_steps", "Mancano gli step del test del lattato.",
+        return _err("missing_steps", "Missing lactate test steps.",
                     "run_mader_test")
     if not mmp:
         return _err("missing_mmp",
-                    "Manca la MMP dell'atleta: serve per validare il modello "
-                    "non invasivo contro il lattato.",
+                    "Missing athlete MMP: required to validate the non-invasive "
+                    "model against lactate.",
                     "run_mader_test")
 
     steps = steps_from_payload(raw_steps)
-    eta = td.get("expected_eta")  # opzionale
+    eta = td.get("expected_eta")  # optional
 
-    # Tutta la logica vera è qui dentro (D-max + validazione).
+    # All real logic lives here (D-max + validation).
     return validate_model_against_lactate(
         steps=steps,
         profiler=profiler,
@@ -114,28 +114,28 @@ def run_mader_test(
 
 
 # =============================================================================
-# 2. INCREMENTALE
+# 2. INCREMENTAL
 # =============================================================================
 
 def run_incremental_test(envelope: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Test incrementale a potenza crescente (senza lattato).
+    Incremental power test (without lactate).
 
-    Estrae: massima potenza raggiunta, FC massima osservata, numero di step
-    completati. La soglia precisa, se serve, va dal modello sulla MMP
-    (non da qui): questo test fornisce i dati grezzi e il max-power.
+    Extracts: maximum power reached, maximum observed HR, number of steps
+    completed. Precise threshold, if needed, comes from the model on MMP
+    (not from here): this test provides raw data and max power.
     """
     td = envelope.get("test_data", {})
     steps = td.get("steps")
     if not steps:
-        return _err("missing_steps", "Mancano gli step dell'incrementale.",
+        return _err("missing_steps", "Missing incremental test steps.",
                     "run_incremental_test")
 
     powers = [float(s["power_w"]) for s in steps if s.get("power_w")]
     hrs = [float(s["hr_mean"]) for s in steps if s.get("hr_mean")]
 
     if not powers:
-        return _err("no_power_data", "Nessun dato di potenza valido.",
+        return _err("no_power_data", "No valid power data.",
                     "run_incremental_test")
 
     max_power = max(powers)
@@ -147,35 +147,35 @@ def run_incremental_test(envelope: Dict[str, Any]) -> Dict[str, Any]:
         "hr_max_observed": round(hr_max_obs, 0) if hr_max_obs else None,
         "steps_completed": len(steps),
         "notes": (
-            "Max-power e FC max dal test. Per la soglia metabolica usare il "
-            "modello sulla MMP costruita da questo test."
+            "Max power and max HR from the test. For metabolic threshold use the "
+            "model on the MMP built from this test."
         ),
     }
     return annotate_payload(
         payload,
         module_name="test_protocols",
         method="run_incremental_test",
-        confidence=0.85,  # dato diretto, alta affidabilità
+        confidence=0.85,  # direct measurement, high reliability
     )
 
 
 # =============================================================================
-# 3. CURVA POTENZA / CADENZA
+# 3. POWER / CADENCE CURVE
 # =============================================================================
 
 def run_power_cadence_test(envelope: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Curva potenza/cadenza da 4-5 sprint massimali a RPM diverse.
+    Power/cadence curve from 4-5 maximal sprints at different RPMs.
 
-    Trova la cadenza a cui l'atleta esprime la potenza di picco massima,
-    interpolando una parabola sui punti (modello classico: la potenza in
-    funzione della cadenza ha forma a campana).
+    Finds the cadence at which the athlete produces peak power,
+    by fitting a parabola to the points (classic model: power as a
+    function of cadence has a bell-shaped curve).
     """
     td = envelope.get("test_data", {})
     points = td.get("points")
     if not points or len(points) < 3:
         return _err("insufficient_points",
-                    "Servono almeno 3 sprint a cadenze diverse per la curva.",
+                    "At least 3 sprints at different cadences are required for the curve.",
                     "run_power_cadence_test",
                     points_provided=len(points) if points else 0)
 
@@ -183,25 +183,25 @@ def run_power_cadence_test(envelope: Dict[str, Any]) -> Dict[str, Any]:
     watts = np.array([float(p["w_peak"]) for p in points if p.get("w_peak")], dtype=float)
 
     if len(rpms) < 3 or len(rpms) != len(watts):
-        return _err("invalid_points", "Punti cadenza/potenza incompleti.",
+        return _err("invalid_points", "Incomplete cadence/power points.",
                     "run_power_cadence_test")
 
-    # Fit parabolico watts = a*rpm^2 + b*rpm + c; il vertice dà la cadenza ottimale.
+    # Parabolic fit watts = a*rpm^2 + b*rpm + c; vertex gives optimal cadence.
     optimal_cadence = None
     peak_power_fit = None
     try:
         coeffs = np.polyfit(rpms, watts, 2)
         a, b, c = coeffs
-        if a < 0:  # parabola con massimo (campana), come atteso
+        if a < 0:  # parabola with maximum (bell curve), as expected
             vertex_rpm = -b / (2 * a)
-            # accetta il vertice solo se cade dentro/vicino al range testato
+            # accept vertex only if it falls within/near the tested range
             if rpms.min() - 10 <= vertex_rpm <= rpms.max() + 10:
                 optimal_cadence = float(vertex_rpm)
                 peak_power_fit = float(a * vertex_rpm**2 + b * vertex_rpm + c)
     except Exception:
         pass
 
-    # Fallback: se il fit non dà un massimo valido, usa il punto misurato migliore.
+    # Fallback: if fit does not yield a valid maximum, use the best measured point.
     if optimal_cadence is None:
         idx = int(np.argmax(watts))
         optimal_cadence = float(rpms[idx])
@@ -230,25 +230,25 @@ def run_power_cadence_test(envelope: Dict[str, Any]) -> Dict[str, Any]:
 
 def run_critical_power_test(envelope: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Test di Critical Power da più prove massimali (2-15 min).
+    Critical Power test from multiple maximal efforts (2-15 min).
 
-    Delega al fit già esistente in power_engine.fit_critical_power, che vuole
-    una lista [{"duration_s": ..., "power_w": ...}].
+    Delegates to the existing fit in power_engine.fit_critical_power, which expects
+    a list [{"duration_s": ..., "power_w": ...}].
     """
     td = envelope.get("test_data", {})
     efforts = td.get("efforts")
     if not efforts:
-        return _err("missing_efforts", "Mancano le prove per il fit CP.",
+        return _err("missing_efforts", "Missing efforts for CP fit.",
                     "run_critical_power_test")
 
-    # fit_critical_power filtra da sé la finestra 120-900s e vuole min 3 punti.
+    # fit_critical_power filters the 120-900s window itself and requires min 3 points.
     result = fit_critical_power(efforts)
 
     if result is None:
         return _err(
             "cp_fit_failed",
-            "Fit CP non riuscito: servono almeno 3 prove massimali nella "
-            "finestra 2-15 min (120-900s), e CP/W' devono risultare positivi.",
+            "CP fit failed: at least 3 maximal efforts in the "
+            "2-15 min window (120-900s) are required, and CP/W' must be positive.",
             "run_critical_power_test",
             efforts_provided=len(efforts),
         )
@@ -258,7 +258,7 @@ def run_critical_power_test(envelope: Dict[str, Any]) -> Dict[str, Any]:
         result,
         module_name="test_protocols",
         method="run_critical_power_test",
-        confidence=result.get("r_squared", 0.8),  # R² come proxy di confidenza
+        confidence=result.get("r_squared", 0.8),  # R² as confidence proxy
     )
 
 
@@ -268,27 +268,27 @@ def run_critical_power_test(envelope: Dict[str, Any]) -> Dict[str, Any]:
 
 def run_wingate_test(envelope: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Test di Wingate: sprint massimale cronometrato (classico 30s).
+    Wingate test: timed maximal sprint (classic 30s).
 
-    Calcola picco, media, minimo e indice di affaticamento:
-        fatigue_index = (picco - minimo) / picco * 100
+    Computes peak, mean, minimum, and fatigue index:
+        fatigue_index = (peak - minimum) / peak * 100
     """
     td = envelope.get("test_data", {})
     stream = td.get("power_stream")
     if not stream:
         return _err("missing_power_stream",
-                    "Manca lo stream di potenza secondo-per-secondo.",
+                    "Missing second-by-second power stream.",
                     "run_wingate_test")
 
     p = np.array([float(x) for x in stream if x is not None], dtype=float)
     p = p[p >= 0]
     if p.size < 5:
         return _err("stream_too_short",
-                    "Stream di potenza troppo corto per un Wingate.",
+                    "Power stream too short for a Wingate test.",
                     "run_wingate_test")
 
     weight = _athlete_weight(envelope)
-    # peso esplicito nel test_data ha priorità, se presente
+    # explicit weight in test_data takes priority, if present
     if td.get("body_weight_kg"):
         try:
             weight = float(td["body_weight_kg"])
@@ -317,25 +317,25 @@ def run_wingate_test(envelope: Dict[str, Any]) -> Dict[str, Any]:
         payload,
         module_name="test_protocols",
         method="run_wingate_test",
-        confidence=0.90,  # misure dirette
+        confidence=0.90,  # direct measurements
     )
 
 
 # =============================================================================
-# Dispatcher: instrada la busta al test giusto
+# Dispatcher: routes the envelope to the correct test
 # =============================================================================
 
 def run_test(envelope: Dict[str, Any], profiler=None) -> Dict[str, Any]:
     """
-    Punto d'ingresso unico. Legge envelope['test_type'] e chiama la funzione
-    giusta. Il profiler serve solo al test Mader (gli altri lo ignorano).
+    Single entry point. Reads envelope['test_type'] and calls the appropriate
+    function. The profiler is only needed for the Mader test (others ignore it).
     """
     test_type = envelope.get("test_type")
 
     if test_type == "mader":
         if profiler is None:
             return _err("profiler_required",
-                        "Il test Mader richiede un'istanza di MetabolicProfiler.",
+                        "The Mader test requires a MetabolicProfiler instance.",
                         "run_test")
         return run_mader_test(envelope, profiler)
     if test_type == "incrementale":
@@ -348,5 +348,5 @@ def run_test(envelope: Dict[str, Any], profiler=None) -> Dict[str, Any]:
         return run_wingate_test(envelope)
 
     return _err("unknown_test_type",
-                f"Tipo di test sconosciuto: {test_type!r}.",
+                f"Unknown test type: {test_type!r}.",
                 "run_test")

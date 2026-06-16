@@ -134,13 +134,13 @@ def chart_elevation(stream: Any) -> Dict[str, Any]:
     alt = getattr(stream, "altitude", None)
     t = getattr(stream, "time", None)
     if not _valid(alt) or not _valid(t):
-        return _na("Nessun dato di altitudine valido nel file FIT")
+        return _na("No valid altitude data in the FIT file")
         
     alt = np.asarray(alt, float)
     t = np.asarray(t, float)
     
-    # RISOLTO: Rimuove i NaN prima del diff invece di usare nan_to_num(0) 
-    # che gonfiava artificialmente il dislivello sui dropout del sensore.
+    # FIXED: Drop NaNs before diff instead of nan_to_num(0), which artificially
+    # inflated elevation gain on sensor dropouts.
     valid_mask = ~np.isnan(alt)
     clean_alt = alt[valid_mask]
     
@@ -148,17 +148,17 @@ def chart_elevation(stream: Any) -> Dict[str, Any]:
     if len(clean_alt) > 1:
         gain = float(np.sum(np.clip(np.diff(clean_alt), 0, None)))
         
-    # Forward fill per rendere presentabile il tracciato grafico
+    # Forward-fill to produce a presentable plot trace
     alt_filled = _forward_fill_nan(alt, default_val=0.0)
     t_ds, alt_ds = _downsample(t, alt_filled)
     
     return {
         "type": "line",
-        "title": "Altimetria",
-        "description": f"Profilo altimetrico della sessione. Dislivello totale accumulato: {int(gain)} m.",
-        "x_axis": {"label": "Tempo", "unit": "s", "data": t_ds},
-        "y_axis": {"label": "Quota", "unit": "m", "color": COLORS["altitude"]},
-        "series": [{"name": "Altitudine", "data": alt_ds, "color": COLORS["altitude"]}],
+        "title": "Elevation Profile",
+        "description": f"Session elevation profile. Total accumulated ascent: {int(gain)} m.",
+        "x_axis": {"label": "Time", "unit": "s", "data": t_ds},
+        "y_axis": {"label": "Elevation", "unit": "m", "color": COLORS["altitude"]},
+        "series": [{"name": "Altitude", "data": alt_ds, "color": COLORS["altitude"]}],
         "summary": {"elevation_gain_m": round(gain, 1), "max_altitude_m": round(float(np.nanmax(alt)), 1)}
     }
 
@@ -167,7 +167,7 @@ def chart_speed(stream: Any) -> Dict[str, Any]:
     speed = getattr(stream, "speed", None)
     t = getattr(stream, "time", None)
     if not _valid(speed) or not _valid(t):
-        return _na("Nessun dato di velocità nel file FIT")
+        return _na("No speed data in the FIT file")
         
     # Convert from m/s to km/h
     y = np.asarray(speed, float) * 3.6
@@ -178,11 +178,11 @@ def chart_speed(stream: Any) -> Dict[str, Any]:
     
     return {
         "type": "line",
-        "title": "Velocità",
-        "description": "Andamento della velocità lungo la sessione.",
-        "x_axis": {"label": "Tempo", "unit": "s", "data": t_ds},
-        "y_axis": {"label": "Velocità", "unit": "km/h", "color": COLORS["speed"]},
-        "series": [{"name": "Velocità", "data": y_ds, "color": COLORS["speed"]}],
+        "title": "Speed",
+        "description": "Speed over the course of the session.",
+        "x_axis": {"label": "Time", "unit": "s", "data": t_ds},
+        "y_axis": {"label": "Speed", "unit": "km/h", "color": COLORS["speed"]},
+        "series": [{"name": "Speed", "data": y_ds, "color": COLORS["speed"]}],
         "summary": {"avg_speed_kmh": round(float(np.nanmean(y)), 1), "max_speed_kmh": round(float(np.nanmax(y)), 1)}
     }
 
@@ -191,9 +191,9 @@ def chart_power(stream: Any) -> Dict[str, Any]:
     power = getattr(stream, "power", None)
     t = getattr(stream, "time", None)
     if not _valid(power) or not _valid(t):
-        return _na("Nessun dato di potenza erogata trovato")
+        return _na("No power output data found")
 
-    # Keep the package chart contract (`x_axis.data`, Italian labels, stream.time),
+    # Keep the package chart contract (`x_axis.data`, English labels, stream.time),
     # but compute the physiology-facing summary correctly. 0 W is valid coasting;
     # only NaN is filled. Normalized Power follows the standard 30 s rolling mean
     # -> fourth power -> average -> fourth root pipeline. VI is NP / average power.
@@ -220,11 +220,11 @@ def chart_power(stream: Any) -> Dict[str, Any]:
 
     return {
         "type": "line",
-        "title": "Potenza",
-        "description": "Serie temporale della potenza erogata (1Hz), con NP e VI calcolati sulla potenza pulita.",
-        "x_axis": {"label": "Tempo", "unit": "s", "data": t_ds},
-        "y_axis": {"label": "Potenza", "unit": "W", "color": COLORS["power"]},
-        "series": [{"name": "Potenza", "data": y_ds, "color": COLORS["power"]}],
+        "title": "Power",
+        "description": "Time series of power output (1 Hz), with NP and VI computed from cleaned power.",
+        "x_axis": {"label": "Time", "unit": "s", "data": t_ds},
+        "y_axis": {"label": "Power", "unit": "W", "color": COLORS["power"]},
+        "series": [{"name": "Power", "data": y_ds, "color": COLORS["power"]}],
         "summary": {
             "avg_power_w": round(avg_power, 1),
             "max_power_w": int(round(max_power)),
@@ -241,7 +241,7 @@ def chart_heart_rate(stream: Any) -> Dict[str, Any]:
     hr = getattr(stream, "heart_rate", None)
     t = getattr(stream, "time", None)
     if not _valid(hr) or not _valid(t):
-        return _na("Nessun dato di frequenza cardiaca rilevato")
+        return _na("No heart rate data detected")
         
     y = _forward_fill_nan(np.asarray(hr, float), default_val=60.0)
     t = np.asarray(t, float)
@@ -249,11 +249,11 @@ def chart_heart_rate(stream: Any) -> Dict[str, Any]:
     
     return {
         "type": "line",
-        "title": "Frequenza Cardiaca",
-        "description": "Andamento del battito cardiaco durante l'attività.",
-        "x_axis": {"label": "Tempo", "unit": "s", "data": t_ds},
-        "y_axis": {"label": "FC", "unit": "bpm", "color": COLORS["hr"]},
-        "series": [{"name": "Frequenza Cardiaca", "data": y_ds, "color": COLORS["hr"]}],
+        "title": "Heart Rate",
+        "description": "Heart rate trend during the activity.",
+        "x_axis": {"label": "Time", "unit": "s", "data": t_ds},
+        "y_axis": {"label": "HR", "unit": "bpm", "color": COLORS["hr"]},
+        "series": [{"name": "Heart Rate", "data": y_ds, "color": COLORS["hr"]}],
         "summary": {"avg_hr_bpm": round(float(np.mean(y)), 1), "max_hr_bpm": int(np.max(y))}
     }
 
@@ -262,7 +262,7 @@ def chart_cadence(stream: Any) -> Dict[str, Any]:
     cadence = getattr(stream, "cadence", None)
     t = getattr(stream, "time", None)
     if not _valid(cadence) or not _valid(t):
-        return _na("Nessun dato di cadenza (pedalamento) disponibile")
+        return _na("No cadence (pedaling) data available")
         
     y = _forward_fill_nan(np.asarray(cadence, float), default_val=0.0)
     t = np.asarray(t, float)
@@ -270,11 +270,11 @@ def chart_cadence(stream: Any) -> Dict[str, Any]:
     
     return {
         "type": "line",
-        "title": "Cadenza di Pedalata",
-        "description": "Tracciato dei giri al minuto (RPM).",
-        "x_axis": {"label": "Tempo", "unit": "s", "data": t_ds},
-        "y_axis": {"label": "Cadenza", "unit": "rpm", "color": COLORS["cadence"]},
-        "series": [{"name": "Cadenza", "data": y_ds, "color": COLORS["cadence"]}],
+        "title": "Pedal Cadence",
+        "description": "Revolutions per minute (RPM) trace.",
+        "x_axis": {"label": "Time", "unit": "s", "data": t_ds},
+        "y_axis": {"label": "Cadence", "unit": "rpm", "color": COLORS["cadence"]},
+        "series": [{"name": "Cadence", "data": y_ds, "color": COLORS["cadence"]}],
         "summary": {"avg_cadence_rpm": round(float(np.mean(y[y > 0])), 1) if np.any(y > 0) else 0.0}
     }
 
@@ -283,7 +283,7 @@ def chart_respiration(stream: Any) -> Dict[str, Any]:
     resp = getattr(stream, "respiration_rate", None)
     t = getattr(stream, "time", None)
     if not _valid(resp) or not _valid(t):
-        return _na("Frequenza respiratoria non disponibile (richiede fascia HR evoluta)")
+        return _na("Respiration rate unavailable (requires advanced HR strap)")
         
     y = _forward_fill_nan(np.asarray(resp, float), default_val=15.0)
     t = np.asarray(t, float)
@@ -291,11 +291,11 @@ def chart_respiration(stream: Any) -> Dict[str, Any]:
     
     return {
         "type": "line",
-        "title": "Frequenza Respiratoria",
-        "description": "Frequenza respiratoria stimata via HRV.",
-        "x_axis": {"label": "Tempo", "unit": "s", "data": t_ds},
-        "y_axis": {"label": "Frequenza Respiratoria", "unit": "brpm", "color": COLORS["secondary"]},
-        "series": [{"name": "Respirazione", "data": y_ds, "color": COLORS["secondary"]}],
+        "title": "Respiration Rate",
+        "description": "Respiration rate estimated from HRV.",
+        "x_axis": {"label": "Time", "unit": "s", "data": t_ds},
+        "y_axis": {"label": "Respiration Rate", "unit": "brpm", "color": COLORS["secondary"]},
+        "series": [{"name": "Respiration", "data": y_ds, "color": COLORS["secondary"]}],
         "summary": {"avg_resp_brpm": round(float(np.mean(y)), 1), "max_resp_brpm": round(float(np.max(y)), 1)}
     }
 
@@ -304,7 +304,7 @@ def chart_ambient_temp(stream: Any) -> Dict[str, Any]:
     temp = getattr(stream, "temperature", None)
     t = getattr(stream, "time", None)
     if not _valid(temp) or not _valid(t):
-        return _na("Nessun dato di temperatura ambientale trovato")
+        return _na("No ambient temperature data found")
         
     y = _forward_fill_nan(np.asarray(temp, float), default_val=20.0)
     t = np.asarray(t, float)
@@ -312,11 +312,11 @@ def chart_ambient_temp(stream: Any) -> Dict[str, Any]:
     
     return {
         "type": "line",
-        "title": "Temperatura Ambientale",
-        "description": "Temperatura registrata dal ciclocomputer.",
-        "x_axis": {"label": "Tempo", "unit": "s", "data": t_ds},
-        "y_axis": {"label": "Temperatura", "unit": "°C", "color": COLORS["temp"]},
-        "series": [{"name": "Temp Ambiente", "data": y_ds, "color": COLORS["temp"]}],
+        "title": "Ambient Temperature",
+        "description": "Temperature recorded by the bike computer.",
+        "x_axis": {"label": "Time", "unit": "s", "data": t_ds},
+        "y_axis": {"label": "Temperature", "unit": "°C", "color": COLORS["temp"]},
+        "series": [{"name": "Ambient Temp", "data": y_ds, "color": COLORS["temp"]}],
         "summary": {"avg_temp_c": round(float(np.mean(y)), 1), "max_temp_c": round(float(np.max(y)), 1)}
     }
 
@@ -325,7 +325,7 @@ def chart_lr_balance(stream: Any) -> Dict[str, Any]:
     balance = getattr(stream, "left_right_balance", None)
     t = getattr(stream, "time", None)
     if not _valid(balance) or not _valid(t):
-        return _na("Bilanciamento Sx/Dx non disponibile (richiede potenziometro dual-sided)")
+        return _na("Left/right balance unavailable (requires dual-sided power meter)")
         
     b = np.asarray(balance, float)
     # FIT format can be direct percentage or encoded. Assuming standard percentage format here.
@@ -342,13 +342,13 @@ def chart_lr_balance(stream: Any) -> Dict[str, Any]:
     
     return {
         "type": "line",
-        "title": "Bilanciamento Gamba Destra / Sinistra",
-        "description": "Ripartizione percentuale della spinta tra i due arti.",
-        "x_axis": {"label": "Tempo", "unit": "s", "data": t_ds},
-        "y_axis": {"label": "Ripartizione Spinta", "unit": "%", "color": COLORS["primary"]},
+        "title": "Left / Right Leg Balance",
+        "description": "Percentage distribution of force between both limbs.",
+        "x_axis": {"label": "Time", "unit": "s", "data": t_ds},
+        "y_axis": {"label": "Force Distribution", "unit": "%", "color": COLORS["primary"]},
         "series": [
-            {"name": "Sinistra (Left)", "data": left_ds, "color": COLORS["left"]},
-            {"name": "Destra (Right)", "data": right_ds, "color": COLORS["right"]}
+            {"name": "Left", "data": left_ds, "color": COLORS["left"]},
+            {"name": "Right", "data": right_ds, "color": COLORS["right"]}
         ],
         "summary": {"avg_left_pct": round(float(np.mean(left)), 1), "avg_right_pct": round(float(np.mean(right)), 1)}
     }
@@ -359,30 +359,30 @@ def chart_position(stream: Any) -> Dict[str, Any]:
     lat = getattr(stream, "lat", None)
     lon = getattr(stream, "lon", None)
     if not _valid(lat) or not _valid(lon):
-        return _na("Coordinate GPS assenti nel file FIT")
-    return {"type": "map", "available": True, "description": "Tracciato GPS pronto per il rendering cartografico della mappa."}
+        return _na("GPS coordinates absent from the FIT file")
+    return {"type": "map", "available": True, "description": "GPS trace ready for map rendering."}
 
 
 def chart_power_phase(stream: Any) -> Dict[str, Any]:
     # Cycling Dynamics
     p_phase = getattr(stream, "left_power_phase", None)
     if not _valid(p_phase):
-        return _na("Cycling Dynamics (Fase di Potenza) non supportata dai pedali in uso")
-    return {"type": "cycling_dynamics", "available": True, "description": "Dati dell'arco di spinta pronti per l'analisi bio-meccanica."}
+        return _na("Cycling dynamics (power phase) not supported by the pedals in use")
+    return {"type": "cycling_dynamics", "available": True, "description": "Power stroke arc data ready for biomechanical analysis."}
 
 
 def chart_platform_offset(stream: Any) -> Dict[str, Any]:
     # PCO (Platform Center Offset)
     pco = getattr(stream, "left_pco", None)
     if not _valid(pco):
-        return _na("Platform Center Offset (PCO) assente")
-    return {"type": "cycling_dynamics", "available": True, "description": "Dati di disallineamento della bitta sull'asse del pedale."}
+        return _na("Platform center offset (PCO) absent")
+    return {"type": "cycling_dynamics", "available": True, "description": "Cleat misalignment data on the pedal spindle axis."}
 
 
 def chart_time_in_power_zone(stream: Any, zones: List[Dict[str, Any]]) -> Dict[str, Any]:
     power = getattr(stream, "power", None)
     if not _valid(power) or not zones:
-        return _na("Zone di potenza non configurate o dati di potenza assenti")
+        return _na("Power zones not configured or power data absent")
         
     p = np.asarray(power, float)
     p = p[~np.isnan(p)]
@@ -399,28 +399,28 @@ def chart_time_in_power_zone(stream: Any, zones: List[Dict[str, Any]]) -> Dict[s
         
     return {
         "type": "bar",
-        "title": "Tempo nelle Zone di Potenza",
-        "description": "Suddivisione del tempo della sessione nelle zone fisiologiche target impostate.",
-        "x_axis": {"label": "Zone", "data": labels},
-        "y_axis": {"label": "Tempo", "unit": "s"},
-        "series": [{"name": "Tempo in Zona", "data": seconds, "color": COLORS["primary"]}],
+        "title": "Time in Power Zones",
+        "description": "Session time split across configured target physiological zones.",
+        "x_axis": {"label": "Zones", "data": labels},
+        "y_axis": {"label": "Time", "unit": "s"},
+        "series": [{"name": "Time in Zone", "data": seconds, "color": COLORS["primary"]}],
         "summary": {"total_allocated_min": round(sum(seconds) / 60, 1)}
     }
 
 
 def chart_time_in_intensity(hrv_durability: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     if not hrv_durability or "time_in_intensity" not in hrv_durability:
-        return _na("Metriche HRV Durability / Stima Intensità metabolica non calcolate")
+        return _na("HRV durability metrics / metabolic intensity estimate not computed")
     # Directly map predefined structure
     data = hrv_durability["time_in_intensity"]
     return {
         "type": "bar",
-        "title": "Ripartizione Substrati Energetici",
-        "description": "Tempo stimato in regime lipidico (Fat) vs glicolitico (Carb) basato sulla cinetica d'intensità.",
-        "x_axis": {"data": ["Lipidi (Fat)", "Carboidrati (Cho)"]},
+        "title": "Energy Substrate Distribution",
+        "description": "Estimated time in lipid (fat) vs glycolytic (carb) metabolism based on intensity kinetics.",
+        "x_axis": {"data": ["Lipids (Fat)", "Carbohydrates (Cho)"]},
         "y_axis": {"unit": "min"},
         "series": [
-            {"name": "Minuti Spesi", "data": [data.get("fat_min", 0), data.get("carb_min", 0)], "color": COLORS["fat"]}
+            {"name": "Minutes Spent", "data": [data.get("fat_min", 0), data.get("carb_min", 0)], "color": COLORS["fat"]}
         ]
     }
 
@@ -434,12 +434,12 @@ def chart_thermal(stream: Any) -> Dict[str, Any]:
     t = getattr(stream, "time", None)
     
     if not _valid(core) or not _valid(t):
-        return _na("Sensore di temperatura CORE assente (es. CORE Body Temp non connesso)")
+        return _na("CORE temperature sensor absent (e.g. CORE Body Temp not connected)")
         
     t = np.asarray(t, float)
     
-    # RISOLTO: Sostituito il vecchio nan_to_num fisso con un algoritmo 
-    # di forward-fill per eliminare i crolli innaturali del sensore termico.
+    # FIXED: Replaced fixed nan_to_num with a forward-fill algorithm
+    # to eliminate unnatural drops from the thermal sensor.
     c = _forward_fill_nan(np.asarray(core, float), default_val=37.0)
     s = _forward_fill_nan(np.asarray(skin, float), default_val=33.0) if _valid(skin) else np.full_like(c, 33.0)
     
@@ -453,10 +453,10 @@ def chart_thermal(stream: Any) -> Dict[str, Any]:
     
     return {
         "type": "line",
-        "title": "Profilo Termico & Carico di Calore",
-        "description": "Analisi combinata della temperatura corporea interna (Core), cutanea ed indice di Heat Strain.",
-        "x_axis": {"label": "Tempo", "unit": "s", "data": t_ds},
-        "y_axis": {"label": "Temperatura", "unit": "°C"},
+        "title": "Thermal Profile & Heat Load",
+        "description": "Combined analysis of core body temperature, skin temperature, and heat strain index.",
+        "x_axis": {"label": "Time", "unit": "s", "data": t_ds},
+        "y_axis": {"label": "Temperature", "unit": "°C"},
         "series": [
             {"name": "Core Body Temp", "data": c_ds, "color": COLORS["warning"]},
             {"name": "Skin Temp", "data": s_ds, "color": COLORS["temp"]},

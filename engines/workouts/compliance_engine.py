@@ -98,7 +98,7 @@ def compare_workout_to_activity(
             "discrepancies": [{
                 "severity": "high",
                 "type": "empty_activity",
-                "message": "Il FIT non contiene campioni utilizzabili.",
+                "message": "FIT file contains no usable samples.",
             }],
             "intervals": [],
         }
@@ -181,7 +181,7 @@ def compare_workout_to_activity(
                 "severity": "high" if is_key else "medium",
                 "type": "short_step",
                 "step_id": step.step_id,
-                "message": f"Step {step.step_id} più corto del previsto ({actual_duration}s su {step.duration_s}s).",
+                "message": f"Step {step.step_id} shorter than prescribed ({actual_duration}s of {step.duration_s}s).",
             })
         elif target_used and (time_in_target_pct or 0.0) < min_time_in_target_pct:
             status = "outside_target"
@@ -190,7 +190,7 @@ def compare_workout_to_activity(
                 "severity": severity,
                 "type": "outside_target",
                 "step_id": step.step_id,
-                "message": f"Step {step.step_id}: solo {time_in_target_pct:.1f}% nel target {target_used}.",
+                "message": f"Step {step.step_id}: only {time_in_target_pct:.1f}% within target {target_used}.",
             })
 
         intervals.append({
@@ -236,14 +236,14 @@ def compare_workout_to_activity(
         discrepancies.append({
             "severity": "medium",
             "type": "no_comparable_targets",
-            "message": "Nessuno step ha un target confrontabile con i sensori disponibili nel FIT.",
+            "message": "No step has a target comparable to sensors available in the FIT file.",
         })
     if any(step.power_range(athlete_profile) for step in workout.steps) and not has_power:
         confidence = min(confidence, 0.45)
         discrepancies.append({
             "severity": "high",
             "type": "missing_power",
-            "message": "Workout prescritto su potenza, ma il FIT non contiene power data.",
+            "message": "Workout prescribed on power, but the FIT file has no power data.",
         })
     if actual_duration_s < planned_duration * 0.5:
         confidence = min(confidence, 0.6)

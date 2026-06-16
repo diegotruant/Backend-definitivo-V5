@@ -1,55 +1,55 @@
 """
-Mader Durability Engine — CP Residua via Forward ODE
+Mader Durability Engine — Residual CP via Forward ODE
 Version: 1.0.0
 
-Stima la CP residua in funzione dei kJ spesi sopra CP durante una sessione,
-propagando lo stato metabolico (PCr, lattato) con un forward ODE coerente
-con i parametri già stimati da MetabolicProfiler.
+Estimates residual CP as a function of kJ spent above CP during a session,
+propagating metabolic state (PCr, lactate) with a forward ODE consistent
+with parameters already estimated by MetabolicProfiler.
 
-FONDAMENTA TEORICHE
--------------------
-Nel modello di Mader, W' non è un serbatoio costante: dipende dallo stato
-istantaneo del sistema PCr + lattato. Durante una sessione lunga:
+THEORETICAL FOUNDATIONS
+-----------------------
+In the Mader model, W' is not a constant reservoir: it depends on the
+instantaneous state of the PCr + lactate system. During a long session:
 
-  1. PCr si depleta durante gli sforzi sopra soglia e si ricarica parzialmente
-     durante il recupero (tau_pcr ~20-22s, rallentato dall'acidosi).
+  1. PCr depletes during efforts above threshold and partially recharges
+     during recovery (tau_pcr ~20-22s, slowed by acidosis).
 
-  2. Il lattato accumulato comprime la CP aerobica via inibizione enzimatica
-     della glicogenolisi e riduzione del delta-pH per l'ossidoriduzione.
+  2. Accumulated lactate compresses aerobic CP via enzymatic inhibition
+     of glycogenolysis and reduced delta-pH for oxidation-reduction.
 
-  3. CP_residua(t) = f(PCr_norm, La_excess) — crolla progressivamente con
-     il lavoro cumulativo sopra soglia.
+  3. CP_residual(t) = f(PCr_norm, La_excess) — progressively declines with
+     cumulative work above threshold.
 
-DIFFERENZA DAL durability_engine.py ESISTENTE
+DIFFERENCE FROM EXISTING durability_engine.py
 ----------------------------------------------
-durability_engine.py è empirico (Riis & Paton 2022): confronta potenza media
-prima/ultima ora. Non modella il meccanismo, non dipende dai parametri
-fisiologici dell'atleta, non distingue atleti con lo stesso DI ma profili
-metabolici diversi.
+durability_engine.py is empirical (Riis & Paton 2022): it compares mean power
+in the first vs. last hour. It does not model the mechanism, does not depend on
+the athlete's physiological parameters, and does not distinguish athletes with
+the same DI but different metabolic profiles.
 
-Questo modulo è meccanicistico: usa vo2max, vlamax, mlss, eta del profilo
-atleta per simulare la deplezione metabolica e restituire una CP_residua
-che dipende dal profilo fisiologico specifico.
+This module is mechanistic: it uses vo2max, vlamax, mlss, and eta from the
+athlete profile to simulate metabolic depletion and return a CP_residual
+that depends on the specific physiological profile.
 
-UTILIZZO
---------
+USAGE
+-----
 from engines.performance.mader_durability import MaderDurabilityEngine
 
 engine = MaderDurabilityEngine(
     weight_kg=80.0,
-    vo2max=55.0,          # ml/kg/min — da generate_metabolic_snapshot
+    vo2max=55.0,          # ml/kg/min — from generate_metabolic_snapshot
     vlamax=0.45,          # mmol/L/s
-    mlss_w=260.0,         # Watt — CP proxy
-    eta=0.23,             # efficienza meccanica
+    mlss_w=260.0,         # W — CP proxy
+    eta=0.23,             # mechanical efficiency
 )
 
 result = engine.compute(power_stream_1hz)
 
-# Output principale
-result["cp_residual_curve"]   # CP residua (W) per ogni secondo
-result["kj_above_cp_curve"]   # kJ spesi sopra CP (asse x)
-result["cp_residual_at_kj"]   # lookup table {kJ: CP_residua}
-result["durability_loss_pct"] # % di caduta CP alla fine della sessione
+# Primary outputs
+result["cp_residual_curve"]   # residual CP (W) for each second
+result["kj_above_cp_curve"]   # kJ spent above CP (x-axis)
+result["cp_residual_at_kj"]   # lookup table {kJ: CP_residual}
+result["durability_loss_pct"] # % CP drop at end of session
 """
 
 from __future__ import annotations
@@ -63,54 +63,54 @@ from engines.core.metric_contracts import annotate_payload
 
 
 # ---------------------------------------------------------------------------
-# Costanti fisiche Mader (identiche a MaderConstants in metabolic_profiler)
+# Mader physical constants (identical to MaderConstants in metabolic_profiler)
 # ---------------------------------------------------------------------------
 
-_VO2_BASALE      = 3.5          # ml/kg/min — VO2 a riposo
-_EQUIV_O2_LA     = 0.01576      # mmol O2 per mmol lattato
-_VOL_REL         = 0.45         # volume distribuzione lattato
+_VO2_BASALE      = 3.5          # ml/kg/min — resting VO2
+_EQUIV_O2_LA     = 0.01576      # mmol O2 per mmol lactate
+_VOL_REL         = 0.45         # lactate distribution volume
 _KS1             = 0.0631       # Michaelis-Menten ox-phos
 _KS2             = 1.331        # Michaelis-Menten glicolisi
-_MLSS_NET_FRAC   = 0.05         # soglia net-production per MLSS
+_MLSS_NET_FRAC   = 0.05         # net-production threshold for MLSS
 
-# Cinetica PCr (Forbes 2009, coerente con tau_pcr_rec nei log del progetto)
-_TAU_PCR_REC     = 22.0         # s — recupero PCr a pH neutro
-_PCR_PH_SLOW     = 0.05         # s extra per mmol/L [La] sopra 4
-_PCR_SPRINT_TAU  = 8.0          # s — deplezione PCr durante sprint
+# PCr kinetics (Forbes 2009, consistent with tau_pcr_rec in project logs)
+_TAU_PCR_REC     = 22.0         # s — PCr recovery at neutral pH
+_PCR_PH_SLOW     = 0.05         # s extra per mmol/L [La] above 4
+_PCR_SPRINT_TAU  = 8.0          # s — PCr depletion during sprint
 
-# Dimensionamento pool PCr
-_PCR_J_PER_W_MLSS = 120.0       # J per W di MLSS (calibrazione interna)
-_PCR_MIN_J       = 8_000.0      # J — floor fisiologico
-_PCR_MAX_J       = 60_000.0     # J — ceiling fisiologico
+# PCr pool sizing
+_PCR_J_PER_W_MLSS = 120.0       # J per W of MLSS (internal calibration)
+_PCR_MIN_J       = 8_000.0      # J — physiological floor
+_PCR_MAX_J       = 60_000.0     # J — physiological ceiling
 
-# Lattato — clearance e inibizione
-_LA_REST         = 1.0          # mmol/L — lattato basale
-_LA_INHIBIT_REF  = 4.0          # mmol/L — soglia inizio inibizione CP
-_LA_INHIBIT_MAX  = 10.0         # mmol/L — inibizione massima
-_CP_INHIBIT_FRAC = 0.20         # frazione max di CP soppressa dall'acidosi
+# Lactate — clearance and inhibition
+_LA_REST         = 1.0          # mmol/L — basal lactate
+_LA_INHIBIT_REF  = 4.0          # mmol/L — threshold for onset of CP inhibition
+_LA_INHIBIT_MAX  = 10.0         # mmol/L — maximum inhibition
+_CP_INHIBIT_FRAC = 0.20         # max fraction of CP suppressed by acidosis
 
-# Soglia sub-massimale — esclude potenza zero (freewheel, semafor, ecc.)
+# Sub-maximal threshold — excludes zero power (freewheel, stoplight, etc.)
 _MIN_POWER_W     = 20.0
 
 
 # ---------------------------------------------------------------------------
-# Dataclass parametri atleta
+# Athlete parameters dataclass
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class DurabilityAthleteParams:
     """
-    Parametri fisiologici estratti da generate_metabolic_snapshot().
+    Physiological parameters extracted from generate_metabolic_snapshot().
 
-    Tutti i campi hanno default fisiologicamente ragionevoli per permettere
-    istanziazione rapida in test o con dati parziali.
+    All fields have physiologically reasonable defaults to allow quick
+    instantiation in tests or with partial data.
     """
     weight_kg: float          # kg
     vo2max: float             # ml/kg/min
     vlamax: float             # mmol/L/s
     mlss_w: float             # W — Critical Power proxy
-    eta: float = 0.23         # efficienza meccanica (tipico 0.21-0.25)
-    la_capacity: float = 14.0 # mmol/L — capacità tampone lattato
+    eta: float = 0.23         # mechanical efficiency (typical 0.21-0.25)
+    la_capacity: float = 14.0 # mmol/L — lactate buffering capacity
 
 
 # ---------------------------------------------------------------------------
@@ -119,15 +119,15 @@ class DurabilityAthleteParams:
 
 class MaderDurabilityEngine:
     """
-    Forward ODE metabolico per stima CP_residua durante una sessione intera.
+    Metabolic forward ODE for estimating CP_residual over a full session.
 
     Parameters
     ----------
     weight_kg : float
     vo2max    : float   ml/kg/min
     vlamax    : float   mmol/L/s
-    mlss_w    : float   W (MLSS o CP dal profiler)
-    eta       : float   efficienza meccanica (default 0.23)
+    mlss_w    : float   W (MLSS or CP from profiler)
+    eta       : float   mechanical efficiency (default 0.23)
     la_capacity : float mmol/L (default 14.0)
     """
 
@@ -155,7 +155,7 @@ class MaderDurabilityEngine:
         ))
 
     # ------------------------------------------------------------------
-    # API pubblica
+    # Public API
     # ------------------------------------------------------------------
 
     def compute(
@@ -165,25 +165,25 @@ class MaderDurabilityEngine:
         kj_resolution: float = 1.0,
     ) -> Dict[str, Any]:
         """
-        Simula la sessione e restituisce la CP residua.
+        Simulate the session and return residual CP.
 
         Parameters
         ----------
-        power_stream : sequenza di potenza 1Hz (W)
-        dt           : passo temporale in secondi (default 1.0)
-        kj_resolution: risoluzione della lookup table in kJ (default 1.0)
+        power_stream : 1 Hz power sequence (W)
+        dt           : time step in seconds (default 1.0)
+        kj_resolution: lookup table resolution in kJ (default 1.0)
 
         Returns
         -------
-        Dict con:
-          cp_residual_curve    : List[float] — CP residua (W) per ogni sample
-          kj_above_cp_curve    : List[float] — kJ spesi sopra CP per ogni sample
-          cp_residual_at_kj    : Dict[int, float] — lookup {kJ: CP_residua}
-          durability_loss_pct  : float — % perdita CP fine sessione
-          pcr_curve            : List[float] — PCr normalizzato [0,1]
-          lactate_curve        : List[float] — lattato stimato (mmol/L)
-          session_kj_above_cp  : float — kJ totali spesi sopra CP
-          cp_baseline          : float — CP iniziale (W)
+        Dict with:
+          cp_residual_curve    : List[float] — residual CP (W) per sample
+          kj_above_cp_curve    : List[float] — kJ spent above CP per sample
+          cp_residual_at_kj    : Dict[int, float] — lookup {kJ: CP_residual}
+          durability_loss_pct  : float — % CP loss at end of session
+          pcr_curve            : List[float] — normalized PCr [0,1]
+          lactate_curve        : List[float] — estimated lactate (mmol/L)
+          session_kj_above_cp  : float — total kJ spent above CP
+          cp_baseline          : float — initial CP (W)
           api_contract, uncertainty, tier, tier_explanation
         """
         power = np.asarray(power_stream, dtype=float)
@@ -191,15 +191,15 @@ class MaderDurabilityEngine:
 
         if n < 60:
             return annotate_payload(
-                {"status": "insufficient_data", "reason": "Sessione troppo breve (<60s)"},
+                {"status": "insufficient_data", "reason": "Session too short (<60s)"},
                 module_name="mader_durability",
                 method="forward_ode_cp_residual",
                 confidence=0.0,
             )
 
         cp0 = self.p.mlss_w
-        pcr_j = self._pcr_max_j          # pool PCr attuale (J)
-        la    = _LA_REST                  # lattato corrente (mmol/L)
+        pcr_j = self._pcr_max_j          # current PCr pool (J)
+        la    = _LA_REST                  # current lactate (mmol/L)
 
         cp_curve  = np.empty(n, dtype=float)
         kj_curve  = np.empty(n, dtype=float)
@@ -211,35 +211,35 @@ class MaderDurabilityEngine:
         for i in range(n):
             p_i = float(power[i])
 
-            # --- Metabolic rates a questa potenza ---
+            # --- Metabolic rates at this power ---
             vo2_req, vla_prod, vla_elim = self._metabolic_rates(p_i)
 
             # --- PCr dynamics ---
             if p_i > cp0:
-                # Deplezione: frazione anaerobica alattacida proporzionale
-                # all'eccesso di potenza sopra MAP aerobica
+                # Depletion: alactic anaerobic fraction proportional to
+                # power excess above aerobic MAP
                 map_w = self._map_watts()
                 p_excess_pcr = max(0.0, p_i - map_w)
-                pcr_drain = p_excess_pcr * dt * 0.15     # ~15% eccesso su MAP
+                pcr_drain = p_excess_pcr * dt * 0.15     # ~15% excess above MAP
                 pcr_j = max(0.0, pcr_j - pcr_drain)
             else:
-                # Recupero PCr: tau dipende dal pH (proxy: lattato)
+                # PCr recovery: tau depends on pH (proxy: lactate)
                 tau_pcr = _TAU_PCR_REC + max(0.0, la - 4.0) * _PCR_PH_SLOW
                 pcr_recovery = (self._pcr_max_j - pcr_j) * (1.0 - np.exp(-dt / tau_pcr))
                 pcr_j = min(self._pcr_max_j, pcr_j + pcr_recovery)
 
-            # --- Lattato dynamics ---
-            # Cap netto a 0.05 mmol/L/s (massimo fisiologico in sprint, Mader 2003).
-            # Clearance attiva proporzionale all'eccesso su La_rest.
+            # --- Lactate dynamics ---
+            # Net cap at 0.05 mmol/L/s (physiological maximum in sprint, Mader 2003).
+            # Active clearance proportional to excess above La_rest.
             la_clear_active = 0.003 * max(0.0, la - _LA_REST)
             net_la_raw = vla_prod - vla_elim - la_clear_active
             net_la_capped = float(np.clip(net_la_raw, -0.08, 0.05))
             la = float(np.clip(la + net_la_capped * dt, _LA_REST, self.p.la_capacity))
 
-            # --- CP_residua ---
+            # --- CP_residual ---
             cp_res = self._cp_residual(pcr_j, la, cp0)
 
-            # --- kJ sopra CP ---
+            # --- kJ above CP ---
             if p_i > cp0 and p_i > _MIN_POWER_W:
                 kj_above_cp += (p_i - cp0) * dt / 1000.0
 
@@ -248,25 +248,25 @@ class MaderDurabilityEngine:
             pcr_norm[i]  = pcr_j / self._pcr_max_j
             la_curve[i]  = la
 
-        # --- Lookup table kJ -> CP_residua ---
-        # Smooth cp_curve prima del lookup per ridurre oscillazioni da recovery.
-        # Finestra 60s: abbastanza larga da smussare recuperi brevi, abbastanza
-        # piccola da preservare il trend di deplezione su scala oraria.
+        # --- Lookup table kJ -> CP_residual ---
+        # Smooth cp_curve before lookup to reduce recovery oscillations.
+        # 60s window: wide enough to smooth brief recoveries, narrow enough
+        # to preserve depletion trend on hourly scale.
         kernel = int(min(60, max(10, len(cp_curve) // 100)))
         cp_smooth = np.convolve(cp_curve, np.ones(kernel) / kernel, mode="same")
-        # Fix bordi: i bordi della convoluzione "same" sono distorte; usa i valori originali
+        # Edge fix: "same" convolution edges are distorted; use original values
         cp_smooth[:kernel//2] = cp_curve[:kernel//2]
         cp_smooth[-(kernel//2):] = cp_curve[-(kernel//2):]
         cp_at_kj = self._build_lookup(kj_curve, cp_smooth, kj_resolution)
 
         cp_final = float(cp_curve[-1])
         cp_min   = float(np.min(cp_curve))
-        # durability_loss_pct: basato sul nadir (cp_min), non sul finale.
-        # Il finale può recuperare nel defaticamento; il nadir cattura il
-        # momento peggiore della sessione — quello che conta in gara.
+        # durability_loss_pct: based on nadir (cp_min), not final value.
+        # Final value may recover during cooldown; nadir captures the
+        # worst point of the session — what matters in competition.
         loss_pct = (cp0 - cp_min) / cp0 * 100.0 if cp0 > 0 else 0.0
 
-        # Confidence: cala se la sessione è sub-massimale (poca potenza sopra CP)
+        # Confidence: decreases for sub-maximal sessions (little power above CP)
         pct_above_cp = float(np.mean(power[power > _MIN_POWER_W] > cp0)) if np.any(power > _MIN_POWER_W) else 0.0
         confidence = float(np.clip(0.40 + 0.50 * pct_above_cp, 0.20, 0.90))
 
@@ -298,18 +298,18 @@ class MaderDurabilityEngine:
             method="forward_ode_cp_residual",
             confidence=confidence,
             limitations=[
-                "Il pool PCr è stimato da MLSS×120J/W — non calibrato su sprint massimale individuale.",
-                "La cinetica di clearance del lattato usa parametri di popolazione.",
-                "Confidence cala per sessioni con poca potenza sopra CP (sub-massimale).",
+                "PCr pool is estimated from MLSS×120J/W — not calibrated to individual maximal sprint.",
+                "Lactate clearance kinetics use population-level parameters.",
+                "Confidence decreases for sessions with little power above CP (sub-maximal).",
             ],
         )
 
     # ------------------------------------------------------------------
-    # Helpers interni
+    # Internal helpers
     # ------------------------------------------------------------------
 
     def _map_watts(self) -> float:
-        """MAP aerobica (potenza a VO2max)."""
+        """Aerobic MAP (power at VO2max)."""
         return float(np.clip(
             (self.p.vo2max - _VO2_BASALE) * self.p.weight_kg / 10.8 * (self.p.eta / 0.23),
             50.0, 2500.0,
@@ -317,8 +317,8 @@ class MaderDurabilityEngine:
 
     def _metabolic_rates(self, w: float) -> tuple[float, float, float]:
         """
-        Restituisce (vo2_act, vla_prod, vla_elim) per una potenza w scalare.
-        Logica identica a MetabolicProfiler._metabolic_rates ma scalare.
+        Return (vo2_act, vla_prod, vla_elim) for a scalar power w.
+        Logic identical to MetabolicProfiler._metabolic_rates but scalar.
         """
         coeff = 10.8 * (0.23 / self.p.eta)
         vo2_req = _VO2_BASALE + coeff * (w / self.p.weight_kg)
@@ -333,30 +333,30 @@ class MaderDurabilityEngine:
 
     def _cp_residual(self, pcr_j: float, la: float, cp0: float) -> float:
         """
-        CP residua in funzione dello stato metabolico corrente.
+        Residual CP as a function of current metabolic state.
 
-        Due meccanismi di soppressione:
-        1. PCr depletion: W' fosfatico ridotto linearmente con PCr_norm.
-           Effetto: riduce il "tetto" anaerobico disponibile, quindi CP effettiva
-           cala perché il modello CP/W' assume W' disponibile.
-        2. Lactate / acidosi: lattato sopra _LA_INHIBIT_REF comprime CP
-           via inibizione enzimatica (analogo all'effetto pH su actomiosina ATPasi).
+        Two suppression mechanisms:
+        1. PCr depletion: phosphocreatine W' reduced linearly with PCr_norm.
+           Effect: reduces available anaerobic ceiling, so effective CP
+           falls because the CP/W' model assumes W' is available.
+        2. Lactate / acidosis: lactate above _LA_INHIBIT_REF compresses CP
+           via enzymatic inhibition (analogous to pH effect on actomyosin ATPase).
         """
-        # Componente PCr
+        # PCr component
         pcr_norm = pcr_j / self._pcr_max_j
-        # CP dipende dalla quota aerobica (MLSS) + contributo PCr
-        # Quando PCr è pieno, CP = cp0. Quando è vuoto, CP cala della
-        # quota che il PCr sosteneva (stimata ~10-15% di cp0 per atleti mixed).
+        # CP depends on aerobic share (MLSS) + PCr contribution
+        # When PCr is full, CP = cp0. When depleted, CP falls by the
+        # share PCr was supporting (estimated ~10-15% of cp0 for mixed athletes).
         pcr_contribution_frac = 0.08
         cp_pcr = cp0 * (1.0 - pcr_contribution_frac * (1.0 - pcr_norm))
 
-        # Componente lattato / acidosi
+        # Lactate / acidosis component
         la_excess = max(0.0, la - _LA_INHIBIT_REF)
         la_range = max(1.0, _LA_INHIBIT_MAX - _LA_INHIBIT_REF)
         inhibition = _CP_INHIBIT_FRAC * min(1.0, la_excess / la_range)
         cp_la = cp_pcr * (1.0 - inhibition)
 
-        return float(max(cp0 * 0.40, cp_la))   # floor: CP non scende sotto 40% del baseline
+        return float(max(cp0 * 0.40, cp_la))   # floor: CP does not fall below 40% of baseline
 
     def _build_lookup(
         self,
@@ -365,7 +365,7 @@ class MaderDurabilityEngine:
         resolution: float,
     ) -> Dict[int, float]:
         """
-        Lookup table {kJ_intero: CP_residua_media} campionata ogni `resolution` kJ.
+        Lookup table {integer_kJ: mean_CP_residual} sampled every `resolution` kJ.
         """
         max_kj = float(kj_curve[-1])
         if max_kj < resolution:
@@ -375,7 +375,7 @@ class MaderDurabilityEngine:
         kj_steps = np.arange(0.0, max_kj + resolution, resolution)
 
         for kj_target in kj_steps:
-            # Indici dove kJ spesi sono nell'intorno di kj_target ± resolution/2
+            # Indices where kJ spent are within kj_target ± resolution/2
             mask = np.abs(kj_curve - kj_target) <= resolution / 2.0
             if mask.any():
                 result[int(round(kj_target))] = round(float(np.mean(cp_curve[mask])), 1)
@@ -384,7 +384,7 @@ class MaderDurabilityEngine:
 
 
 # ---------------------------------------------------------------------------
-# Factory: costruisce l'engine direttamente dall'output di generate_metabolic_snapshot
+# Factory: builds the engine directly from generate_metabolic_snapshot output
 # ---------------------------------------------------------------------------
 
 def from_metabolic_snapshot(
@@ -392,16 +392,16 @@ def from_metabolic_snapshot(
     weight_kg: float,
 ) -> Optional["MaderDurabilityEngine"]:
     """
-    Costruisce MaderDurabilityEngine dall'output di MetabolicProfiler.generate_metabolic_snapshot().
+    Build MaderDurabilityEngine from MetabolicProfiler.generate_metabolic_snapshot() output.
 
     Parameters
     ----------
-    snapshot   : dict restituito da generate_metabolic_snapshot()
-    weight_kg  : peso atleta in kg
+    snapshot   : dict returned by generate_metabolic_snapshot()
+    weight_kg  : athlete weight in kg
 
     Returns
     -------
-    MaderDurabilityEngine oppure None se i parametri minimi non sono disponibili
+    MaderDurabilityEngine or None if minimum parameters are unavailable
     """
     if snapshot.get("status") != "success":
         return None
@@ -429,7 +429,7 @@ def from_metabolic_snapshot(
 
 
 # ---------------------------------------------------------------------------
-# Coaching layer: potenze sostenibili da CP_residua
+# Coaching layer: sustainable power from CP_residual
 # ---------------------------------------------------------------------------
 
 def sustainability_targets(
@@ -439,11 +439,11 @@ def sustainability_targets(
     loss_thresholds_pct: tuple[float, ...] = (5.0, 10.0, 15.0),
 ) -> Dict[str, Any]:
     """
-    Traduce cp_residual_at_kj in budget energetici e potenze steady-state
-    sostenibili per durata, per pianificare gare lunghe o allenamenti mirati.
+    Translate cp_residual_at_kj into energy budgets and duration-specific
+    sustainable steady-state power for long-race planning or targeted training.
 
-    Per ogni soglia di perdita CP (es. 10%), stima la potenza massima costante
-    sostenibile per 1-5 h senza superare il budget di kJ sopra CP associato.
+    For each CP loss threshold (e.g. 10%), estimates the maximum constant power
+    sustainable for 1-5 h without exceeding the associated kJ-above-CP budget.
     """
     if durability_result.get("status") != "success":
         return {"status": "unavailable", "reason": "durability_compute_failed"}
@@ -475,18 +475,18 @@ def sustainability_targets(
     loss_pct = float(durability_result.get("durability_loss_pct") or 0.0)
     if loss_pct >= 15.0:
         focus = (
-            "Alta perdita di CP residua: privilegiare volume aerobico sotto soglia "
-            "e ridurre blocchi ripetuti sopra MLSS in fase di recupero."
+            "High residual CP loss: prioritize sub-threshold aerobic volume "
+            "and reduce repeated blocks above MLSS during recovery phases."
         )
     elif loss_pct >= 8.0:
         focus = (
-            "Perdita moderata: utili blocchi soglia brevi; evitare lunghi tratti "
-            "continui sopra MLSS quando la CP residua è già compressa."
+            "Moderate loss: short threshold blocks are useful; avoid long continuous "
+            "segments above MLSS when residual CP is already compressed."
         )
     else:
         focus = (
-            "Buona resistenza metabolica: profilo adatto a blocchi soglia e lavoro "
-            "prolungato moderato sopra la base aerobica."
+            "Good metabolic durability: profile suited to threshold blocks and "
+            "sustained moderate work above aerobic base."
         )
 
     return {
@@ -500,8 +500,8 @@ def sustainability_targets(
         "cp_final_w": durability_result.get("cp_final"),
         "training_recommendations": [focus],
         "interpretation": (
-            "Potenze sostenibili = stima a regime costante: a parità di kJ sopra CP, "
-            "la CP residua meccanicistica non scende oltre la soglia di perdita indicata."
+            "Sustainable powers = steady-state estimate: for a given kJ above CP, "
+            "mechanistic residual CP does not fall below the indicated loss threshold."
         ),
     }
 
@@ -515,9 +515,9 @@ def compute_session_durability(
     kj_resolution: float = 1.0,
 ) -> Dict[str, Any]:
     """
-    Pipeline unica: profilo metabolico → forward ODE → target di sostenibilità.
+    Single pipeline: metabolic profile → forward ODE → sustainability targets.
 
-    Usata da workout_summary, session_router e audit batch.
+    Used by workout_summary, session_router, and audit batch.
     """
     engine = from_metabolic_snapshot(metabolic_snapshot, weight_kg)
     if engine is None:
@@ -526,8 +526,8 @@ def compute_session_durability(
                 "status": "unavailable",
                 "reason": "missing_metabolic_profile",
                 "message": (
-                    "Servono VO2max, VLamax e MLSS da generate_metabolic_snapshot() "
-                    "per la durability meccanicistica Mader."
+                    "VO2max, VLamax, and MLSS from generate_metabolic_snapshot() "
+                    "are required for Mader mechanistic durability."
                 ),
             },
             module_name="mader_durability",
@@ -554,7 +554,7 @@ if __name__ == "__main__":
     print("MADER DURABILITY ENGINE — Self-test")
     print("=" * 70)
 
-    # Profilo: atleta all-rounder 75kg, VO2max 55, VLamax 0.45, MLSS 265W
+    # Profile: all-rounder athlete 75kg, VO2max 55, VLamax 0.45, MLSS 265W
     engine = MaderDurabilityEngine(
         weight_kg=75.0,
         vo2max=55.0,
@@ -565,9 +565,9 @@ if __name__ == "__main__":
     )
 
     rng = np.random.default_rng(42)
-    duration_s = 3 * 3600   # 3 ore
+    duration_s = 3 * 3600   # 3 hours
 
-    # Sessione realistica: riscaldamento + zona 3 + 3 scatti + defaticamento
+    # Realistic session: warmup + zone 3 + 3 surges + cooldown
     warmup   = np.full(1800, 150.0)                                          # 30 min Z1
     base     = rng.normal(230.0, 15.0, 3600).clip(150, 400)                 # 1h Z2
     intervals = np.concatenate([
@@ -582,24 +582,24 @@ if __name__ == "__main__":
     result = engine.compute(power)
 
     print(f"\nCP baseline       : {result['cp_baseline']:.0f} W")
-    print(f"CP finale         : {result['cp_final']:.0f} W")
-    print(f"Perdita durability: {result['durability_loss_pct']:.1f}%")
-    print(f"kJ spesi sopra CP : {result['session_kj_above_cp']:.1f} kJ")
+    print(f"Final CP          : {result['cp_final']:.0f} W")
+    print(f"Durability loss   : {result['durability_loss_pct']:.1f}%")
+    print(f"kJ above CP       : {result['session_kj_above_cp']:.1f} kJ")
     unc = result["uncertainty"]
     conf_score = unc.get("confidence_score", unc) if isinstance(unc, dict) else unc
     print(f"Confidence        : {conf_score:.2f}")
 
-    print("\nLookup CP_residua @ kJ spesi sopra CP:")
+    print("\nLookup CP_residual @ kJ spent above CP:")
     lookup = result["cp_residual_at_kj"]
     for kj in sorted(lookup.keys()):
         if kj % 5 == 0:
             print(f"  {kj:4d} kJ → {lookup[kj]:.0f} W")
 
-    # Test con atleta ad alta VLamax (sprinter) — deve perdere CP più velocemente
+    # Test with high-VLamax athlete (sprinter) — should lose CP faster
     engine_sprinter = MaderDurabilityEngine(
         weight_kg=80.0, vo2max=48.0, vlamax=0.80,
         mlss_w=220.0, eta=0.22,
     )
     r2 = engine_sprinter.compute(power)
-    print(f"\nSprinter (VLamax=0.80): perdita {r2['durability_loss_pct']:.1f}% vs {result['durability_loss_pct']:.1f}% all-rounder")
-    print("\n[OK] Self-test completato")
+    print(f"\nSprinter (VLamax=0.80): loss {r2['durability_loss_pct']:.1f}% vs {result['durability_loss_pct']:.1f}% all-rounder")
+    print("\n[OK] Self-test completed")

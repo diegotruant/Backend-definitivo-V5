@@ -34,6 +34,7 @@ _SUBPACKAGE_MAP: dict[str, str] = {
     "efforts_analyzer": "engines.performance.efforts_analyzer",
     "interval_detector": "engines.performance.interval_detector",
     "mader_durability": "engines.performance.mader_durability",
+    "mader_residual_mlp": "engines.performance.mader_residual_mlp",
     "mmp_aggregator": "engines.performance.mmp_aggregator",
     "mmp_quality": "engines.performance.mmp_quality",
     "neural_ode": "engines.performance.neural_ode",

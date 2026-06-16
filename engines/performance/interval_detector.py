@@ -17,7 +17,7 @@ Three-strategy cascade with declared confidence:
   Strategy C — Signal features    (confidence 0.40-0.60, source="signal")
   Fallback   — "UNCLASSIFIED"     (confidence 0.00, requires human review)
 
-A is preferred when the file naming convention is parlante (e.g.
+A is preferred when the file naming convention is descriptive (e.g.
 `activity_..._ramp_test_01.fit`). B is used when the FIT has structured
 laps (≥10 laps with regular durations). C is the last resort when
 neither A nor B applies.
@@ -303,17 +303,20 @@ def _classify_by_laps(
             notes.append(f"{len(long_laps)} threshold-power laps of 7-10min — FTP 2x8 signature")
             return ("TEST", "ftp_2x8", 0.85, notes)
             
-    # --- Singolo test CP/MMP da LAP (es. CP3, CP6, CP12 isolato) ---
+    # --- Isolated CP/MMP test from lap structure (e.g. CP3, CP6, CP12) ---
     if 2 <= n <= 8:
         for d, p in zip(durs, powers):
-            # Cerchiamo un lap isolato e marcatamente sopra-soglia
+            # Look for an isolated lap markedly above threshold
             if p is not None and 150 <= d <= 1500 and (ftp is None or p >= 1.05 * ftp):
                 if d < 240: sub = "cp3"
                 elif d < 500: sub = "cp6"
                 elif d < 900: sub = "cp12"
                 else: sub = "ftp_20min"
                 
-                notes.append(f"Lap isolato massimale di {int(d)}s ad alta intensità ({int(p)}W) — test {sub}")
+                notes.append(
+                    f"Isolated maximal lap of {int(d)}s at high intensity "
+                    f"({int(p)}W) — {sub} test"
+                )
                 return ("TEST", sub, 0.85, notes)
     
     # --- HIIT signature: many short laps with work/rest alternation ---
@@ -440,8 +443,8 @@ def _detect_sustained_blocks(
 
 def _detect_ramp_protocol(powers: List[float], min_steps: int = 4) -> Dict[str, Any]:
     """
-    Rileva matematicamente la presenza di una "funzione a scala" (staircase) nel segnale di potenza.
-    Verifica durate fisse, incrementi costanti e stabilità intra-gradino.
+    Mathematically detect a staircase pattern in the power signal.
+    Checks fixed step durations, consistent increments, and intra-step stability.
     """
     import numpy as np
     p = np.array(powers, dtype=float)
@@ -451,18 +454,18 @@ def _detect_ramp_protocol(powers: List[float], min_steps: int = 4) -> Dict[str, 
 
     best_ramp = {"is_ramp": False, "confidence": 0.0}
     
-    # Durate tipiche dei gradini nei protocolli ciclistici (in secondi)
-    # Copre micro-ramps (15s), amatori (30s), standard (60s), e step-test (120s, 180s)
+    # Typical step durations in cycling protocols (seconds)
+    # Covers micro-ramps (15s), recreational (30s), standard (60s), and step tests (120s, 180s)
     candidate_durations = [15, 20, 30, 45, 60, 120, 150, 180]
 
     for d in candidate_durations:
-        # 1. Trova il "phase offset" ottimale. 
-        # Cerca il punto di inizio che allinea perfettamente la griglia dei gradini,
-        # minimizzando la deviazione standard media (varianza intra-blocco).
+        # 1. Find the optimal phase offset.
+        # Search for the start point that best aligns the step grid,
+        # minimizing mean intra-block standard deviation.
         best_offset = 0
         min_mean_std = float('inf')
 
-        for offset in range(0, d, 5):  # Scansione a salti di 5s per efficienza
+        for offset in range(0, d, 5):  # Scan in 5s increments for efficiency
             stds = []
             for i in range(offset, n - d + 1, d):
                 stds.append(np.std(p[i:i+d]))
@@ -472,7 +475,7 @@ def _detect_ramp_protocol(powers: List[float], min_steps: int = 4) -> Dict[str, 
                     min_mean_std = avg_std
                     best_offset = offset
 
-        # 2. Estrai i blocchi allineati usando l'offset ottimale
+        # 2. Extract aligned blocks using the optimal offset
         steps = []
         for i in range(best_offset, n - d + 1, d):
             block = p[i:i+d]
@@ -485,7 +488,7 @@ def _detect_ramp_protocol(powers: List[float], min_steps: int = 4) -> Dict[str, 
         if len(steps) < min_steps:
             continue
 
-        # 3. Cerca la sequenza monotona crescente più lunga (la rampa vera e propria)
+        # 3. Find the longest monotonically increasing sequence (the actual ramp)
         current_streak = []
         longest_streak = []
 
@@ -494,10 +497,10 @@ def _detect_ramp_protocol(powers: List[float], min_steps: int = 4) -> Dict[str, 
             curr = steps[i]
             delta = curr["mean"] - prev["mean"]
 
-            # Un gradino è valido se:
-            # - L'incremento è tipico di un test (+4W a +60W)
-            # - La potenza è sufficientemente stabile. Usiamo una tolleranza del 20% o 15W 
-            #   per non penalizzare i test eseguiti su strada o senza ERG mode.
+            # A step is valid if:
+            # - The increment is typical of a test (+4W to +60W)
+            # - Power is sufficiently stable. Use a 20% or 15W tolerance
+            #   so outdoor or non-ERG tests are not penalized.
             if 4 <= delta <= 60 and curr["std"] < max(15.0, curr["mean"] * 0.20):
                 if not current_streak:
                     current_streak.append(prev)
@@ -510,17 +513,17 @@ def _detect_ramp_protocol(powers: List[float], min_steps: int = 4) -> Dict[str, 
         if len(current_streak) > len(longest_streak):
             longest_streak = current_streak
 
-        # 4. Valuta la regolarità architettonica dei gradini trovati
+        # 4. Evaluate architectural regularity of the detected steps
         if len(longest_streak) >= min_steps:
             deltas = [longest_streak[j]["mean"] - longest_streak[j-1]["mean"] 
                       for j in range(1, len(longest_streak))]
             avg_delta = float(np.mean(deltas))
             cv_delta = float(np.std(deltas)) / avg_delta if avg_delta > 0 else 999.0
 
-            # Se il delta CV è < 40%, significa che gli incrementi sono molto regolari 
-            # (es. salti da 23W, 26W, 25W, 24W per un target di 25W)
+            # If delta CV is < 45%, increments are highly regular
+            # (e.g. steps of 23W, 26W, 25W, 24W for a 25W target)
             if cv_delta < 0.45:
-                # La confidenza sale all'aumentare dei gradini e della loro regolarità (basso CV)
+                # Confidence rises with more steps and lower increment CV
                 conf = min(0.99, 0.60 + (len(longest_streak) * 0.04) - (cv_delta * 0.6))
                 
                 if conf > best_ramp["confidence"]:
@@ -591,9 +594,10 @@ def _classify_by_signal(
         and int(ramp_info.get("n_steps", 0)) >= 6
     ):
         notes.append(
-            f"Rilevata struttura Ramp/Step Test: {ramp_info['n_steps']} gradini continui da "
-            f"{ramp_info['step_duration']}s, incremento medio +{ramp_info['step_increment']}W "
-            f"(regolarità incrementi CV={ramp_info['delta_cv']*100:.0f}%)."
+            f"Detected Ramp/Step Test structure: {ramp_info['n_steps']} consecutive "
+            f"{ramp_info['step_duration']}s steps, mean increment "
+            f"+{ramp_info['step_increment']}W "
+            f"(increment regularity CV={ramp_info['delta_cv']*100:.0f}%)."
         )
         return ("TEST", "ramp_test", ramp_info["confidence"], notes)
 
@@ -601,7 +605,7 @@ def _classify_by_signal(
     if ftp and n >= 360:
         blocks = _detect_sustained_blocks(powers, ftp)
         
-        # 1. Test MMP Multiplo
+        # 1. Multiple MMP test
         if 2 <= len(blocks) <= 4:
             durs_b = sorted(b["duration_s"] for b in blocks)
             dur_spread = (durs_b[-1] / durs_b[0]) if durs_b[0] > 0 else 1.0
@@ -614,17 +618,20 @@ def _classify_by_signal(
                 )
                 return ("TEST", "cp_test", 0.80, notes)
                 
-        # 2. Test CP Singolo Isolato
+        # 2. Isolated single CP test
         elif len(blocks) == 1:
             b = blocks[0]
             d = b["duration_s"]
-            # Richiede potenza molto alta (>105% FTP) e basso coefficiente di variazione
+            # Requires very high power (>105% FTP) and low coefficient of variation
             if 150 <= d <= 1500 and b["mean_w"] >= 1.05 * ftp and b["cv_pct"] <= 12.0:
                 if d < 240: sub = "cp3"
                 elif d < 500: sub = "cp6"
                 elif d < 900: sub = "cp12"
                 else: sub = "ftp_20min"
-                notes.append(f"Singolo sforzo massimale sostenuto di {int(d)}s (CV={b['cv_pct']:.1f}%) — test {sub} isolato.")
+                notes.append(
+                    f"Single sustained maximal effort of {int(d)}s "
+                    f"(CV={b['cv_pct']:.1f}%) — isolated {sub} test."
+                )
                 return ("TEST", sub, 0.75, notes)
 
     # --- Mixed test signature: sprint(s) + continuous high-power block
@@ -957,103 +964,106 @@ _TEST_DESCRIPTIONS: Dict[str, Dict[str, Any]] = {
     "sprint_set": {
         "title": "Sprint Set",
         "duration_min": 45,
-        "setting": "trainer indoor (preferito) o pista chiusa",
+        "setting": "indoor trainer (preferred) or closed track",
         "phases": [
-            ("Warm-up Z2 progressivo", "15 min"),
-            ("4× sprint 5s all-out, recovery 5min Z1", "21 min"),
-            ("2× 15s all-out, recovery 5min Z1", "12 min"),
-            ("2× 30s all-out, recovery 8min Z1", "18 min"),
-            ("2× 60s all-out sostenibile, recovery 10min Z1", "22 min"),
-            ("Cooldown Z1", "10 min"),
+            ("Progressive Z2 warm-up", "15 min"),
+            ("4× 5s all-out sprints, 5 min Z1 recovery", "21 min"),
+            ("2× 15s all-out, 5 min Z1 recovery", "12 min"),
+            ("2× 30s all-out, 8 min Z1 recovery", "18 min"),
+            ("2× 60s sustainable all-out, 10 min Z1 recovery", "22 min"),
+            ("Z1 cooldown", "10 min"),
         ],
         "fills": ["neuromuscular", "glycolytic"],
         "anchors_produced": "5s, 15s, 30s, 60s",
-        "notes": "Recupero pieno tra ripetizioni; non eseguire dopo workout intenso (TSB < -10).",
+        "notes": "Full recovery between reps; do not perform after hard training (TSB < -10).",
     },
     "ramp_test": {
         "title": "Ramp Test",
         "duration_min": 30,
-        "setting": "trainer indoor",
+        "setting": "indoor trainer",
         "phases": [
-            ("Warm-up Z2 progressivo", "15 min"),
-            ("Ramp: +25W ogni 1 min da 100W ad esaurimento", "20-30 min"),
-            ("Cooldown Z1", "10 min"),
+            ("Progressive Z2 warm-up", "15 min"),
+            ("Ramp: +25W every 1 min from 100W to exhaustion", "20-30 min"),
+            ("Z1 cooldown", "10 min"),
         ],
         "fills": ["vo2max"],
-        "anchors_produced": "peak ramp (3-5 min ai watt più alti)",
-        "notes": "Incremento +25W/min fitta meglio i parametri Mader rispetto a step più rapidi.",
+        "anchors_produced": "peak ramp (3-5 min at highest power)",
+        "notes": "+25W/min increment fits Mader parameters better than faster steps.",
     },
     "cp6": {
         "title": "CP6 — 6 min all-out",
         "duration_min": 45,
-        "setting": "trainer o strada (piatta, no vento)",
+        "setting": "trainer or road (flat, no wind)",
         "phases": [
-            ("Warm-up 20 min con 2× allungo 1min", "20 min"),
-            ("Recupero 5 min Z1", "5 min"),
-            ("6 min all-out sostenibile (pacing: 1' controllato + 5' progressivo)", "6 min"),
+            ("Warm-up 20 min with 2× 1 min accelerations", "20 min"),
+            ("Recovery 5 min Z1", "5 min"),
+            ("6 min sustainable all-out (pacing: 1 min controlled + 5 min progressive)", "6 min"),
             ("Cooldown 10 min Z1", "10 min"),
         ],
         "fills": ["vo2max"],
         "anchors_produced": "360s",
-        "notes": "Alternativa al ramp test; produce un anchor 360s diretto.",
+        "notes": "Alternative to ramp test; produces a direct 360s anchor.",
     },
     "cp12": {
         "title": "CP12 — 12 min all-out",
         "duration_min": 50,
-        "setting": "trainer o strada (piatta)",
+        "setting": "trainer or road (flat)",
         "phases": [
             ("Warm-up 20 min", "20 min"),
-            ("Recupero 5 min Z1", "5 min"),
-            ("12 min all-out (pacing: 2' controllato + 10' progressivo)", "12 min"),
+            ("Recovery 5 min Z1", "5 min"),
+            ("12 min all-out (pacing: 2 min controlled + 10 min progressive)", "12 min"),
             ("Cooldown 10 min Z1", "10 min"),
         ],
         "fills": ["threshold"],
         "anchors_produced": "720s",
-        "notes": "Produce anchor 12min usato per stimare MLSS.",
+        "notes": "Produces a 12-min anchor used to estimate MLSS.",
     },
     "ftp_2x8": {
         "title": "FTP 2×8 Test",
         "duration_min": 60,
-        "setting": "trainer indoor (preferito per controllo)",
+        "setting": "indoor trainer (preferred for control)",
         "phases": [
             ("Warm-up 15 min", "15 min"),
-            ("8 min all-out sostenibile", "8 min"),
+            ("8 min sustainable all-out", "8 min"),
             ("Recovery 10 min Z1", "10 min"),
-            ("8 min all-out sostenibile", "8 min"),
+            ("8 min sustainable all-out", "8 min"),
             ("Cooldown 10 min", "10 min"),
         ],
         "fills": ["threshold"],
-        "anchors_produced": "480s × 2 (si usa il migliore)",
-        "notes": "Test FTP classico (Coggan 2×8min). Alternativa al ftp_20min.",
+        "anchors_produced": "480s × 2 (best effort used)",
+        "notes": "Classic FTP test (Coggan 2×8min). Alternative to ftp_20min.",
     },
     "mixed_test": {
         "title": "Mixed Test (Flow Protocol)",
         "duration_min": 60,
-        "setting": "trainer indoor",
+        "setting": "indoor trainer",
         "phases": [
             ("Warm-up 15 min", "15 min"),
-            ("Sprint set: 3× 15s all-out con 5min recovery", "20 min"),
+            ("Sprint set: 3× 15s all-out with 5 min recovery", "20 min"),
             ("Recovery 10 min Z1", "10 min"),
             ("CP12: 12 min all-out", "12 min"),
             ("Cooldown 10 min", "10 min"),
         ],
         "fills": ["neuromuscular", "glycolytic", "vo2max"],
         "anchors_produced": "5s, 15s, 30s, 720s",
-        "notes": "Combina sprint anchor + cp12 anchor in una sessione. NON copre la finestra threshold (>20min); per quella serve ftp_20min separato.",
+        "notes": (
+            "Combines sprint anchor + CP12 anchor in one session. Does NOT cover "
+            "the threshold window (>20 min); use a separate ftp_20min for that."
+        ),
     },
     "ftp_20min": {
         "title": "FTP 20-min Test",
         "duration_min": 60,
-        "setting": "strada piatta (preferito) o trainer",
+        "setting": "flat road (preferred) or trainer",
         "phases": [
-            ("Warm-up 20 min con 2× 1min @ 90% FTP", "20 min"),
+            ("Warm-up 20 min with 2× 1 min @ 90% FTP", "20 min"),
             ("Recovery 5 min Z1", "5 min"),
-            ("20 min all-out sostenibile", "20 min"),
+            ("20 min sustainable all-out", "20 min"),
             ("Cooldown 15 min", "15 min"),
         ],
         "fills": ["threshold"],
-        "anchors_produced": "1200s (FTP = 95% del 20-min)",
-        "notes": "Test FTP classico. Anchor 1200s usato direttamente per stimare MLSS.",
+        "anchors_produced": "1200s (FTP = 95% of 20-min)",
+        "notes": "Classic FTP test. 1200s anchor used directly to estimate MLSS.",
     },
 }
 
@@ -1185,8 +1195,8 @@ def protocol_completeness(
             duration_min=td["duration_min"],
             fills_windows=relevant_fills,
             rationale=(
-                f"Sessione combinata che copre {len(relevant_fills)} finestre "
-                f"({', '.join(relevant_fills)}) in {td['duration_min']} minuti."
+                f"Combined session covering {len(relevant_fills)} windows "
+                f"({', '.join(relevant_fills)}) in {td['duration_min']} minutes."
             ),
             priority=1,
         ))
@@ -1217,7 +1227,7 @@ def protocol_completeness(
                     duration_min=td.get("duration_min", 45),
                     fills_windows=fills_relevant,
                     rationale=(
-                        f"Riempie la finestra '{window}' "
+                        f"Fills the '{window}' window "
                         f"({td.get('anchors_produced', '?')})."
                     ),
                     priority=priority,

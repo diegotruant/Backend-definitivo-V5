@@ -82,12 +82,12 @@ def test_adaptive_load_report_smoke() -> None:
 
 
 def test_external_internal_divergence_detects_hidden_fatigue() -> None:
-    """Il binario esterno parallelo deve segnalare hidden_fatigue quando il
-    carico interno (session_load combinato) supera sistematicamente il TSS."""
+    """The parallel external track must flag hidden_fatigue when internal load
+    (combined session_load) systematically exceeds TSS."""
     from engines.adaptive_load.trend import calculate_load_trend
 
-    # 42 giorni: TSS costante ma session_load combinato cresce fino a +50%
-    # (sessioni che costano più del nominale: HRV depressa, drift, caldo).
+    # 42 days: constant TSS but combined session_load grows to +50%
+    # (sessions that cost more than nominal: depressed HRV, drift, heat).
     history = []
     for i in range(42):
         dow = i % 7
@@ -102,14 +102,14 @@ def test_external_internal_divergence_detects_hidden_fatigue() -> None:
     )
     div = trend["external_internal_divergence"]
     assert div["available"] is True
-    # Il TSB esterno (nominale) deve risultare più "fresco" dell'interno (reale)
+    # External (nominal) TSB should read fresher than internal (actual) TSB
     assert div["tsb_external"] > div["tsb_internal"]
     assert div["divergence"] >= 6.0
     assert div["divergence_status"] == "hidden_fatigue"
 
 
 def test_external_internal_divergence_graceful_without_internal() -> None:
-    """Senza segnali interni le due serie coincidono: divergenza ~0 (Banister classico)."""
+    """Without internal signals the two series match: divergence ~0 (classic Banister)."""
     from engines.adaptive_load.trend import calculate_load_trend
 
     history = [{"tss": 80.0} for _ in range(40)]

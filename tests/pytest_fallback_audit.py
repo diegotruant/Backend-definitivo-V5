@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import warnings
-
 import pytest
 
+from engines.core.athlete_context import AthleteContext
 from engines.core.athlete_weight import resolve_weight_kg
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
 from engines.performance.neuromuscular_profile import analyze_neuromuscular_profile
 from engines.performance.test_protocols import run_test as run_in_person_test
-from engines.metabolic.metabolic_profiler import MetabolicProfiler
-from engines.core.athlete_context import AthleteContext
 
 
 def test_resolve_weight_kg_explicit_is_official() -> None:
@@ -52,24 +50,10 @@ def test_in_person_wingate_without_weight_has_no_wkg() -> None:
     assert out.get("peak_power_wkg") is None
 
 
-def test_readness_import_emits_deprecation_warning() -> None:
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        import importlib
-
-        importlib.reload(importlib.import_module("engines.readness.readiness_engine"))
-    assert any(
-        issubclass(w.category, DeprecationWarning) and "engines.readness" in str(w.message)
-        for w in caught
-    )
+def test_readness_package_removed() -> None:
+    with pytest.raises(ModuleNotFoundError):
+        import engines.readness  # noqa: F401
 
 
-def test_readiness_canonical_import_has_no_readness_deprecation() -> None:
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        from engines.readiness.readiness_engine import compute_readiness_today  # noqa: F401
-
-    assert not any(
-        issubclass(w.category, DeprecationWarning) and "engines.readness" in str(w.message)
-        for w in caught
-    )
+def test_readiness_canonical_import_works() -> None:
+    from engines.readiness.readiness_engine import compute_readiness_today  # noqa: F401

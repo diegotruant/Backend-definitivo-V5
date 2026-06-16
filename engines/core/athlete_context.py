@@ -2,20 +2,20 @@
 AthleteContext — shared physiological context model
 Version: 1.1.0
 
-Modulo condiviso tra engine (HRV, Metabolic, ecc.) per:
-- validazione robusta input utente
-- graceful degradation con default fisiologici neutri
-- getter fisiologici context-aware
+Shared module across engines (HRV, Metabolic, etc.) for:
+- robust user-input validation
+- graceful degradation with neutral physiological defaults
+- context-aware physiological getters
 
 CHANGELOG vs 1.0.0
 ------------------
-- Completati i 4 getter mancanti che il MetabolicProfiler già chiamava:
+- Completed the 4 missing getters that MetabolicProfiler already called:
   expected_eta(), vlamax_initial_guess(), tau_base_floor(),
   phenotype_thresholds().
-- Fix: cho_oxidation_coefficient() ora restituisce float (1.0) anche per
-  FEMALE — prima ritornava int (1), violando la signature.
-- Tutti i nuovi getter sono pure functions di (gender, training_years,
-  discipline) e non sollevano mai eccezioni.
+- Fix: cho_oxidation_coefficient() now returns float (1.0) for FEMALE as well —
+  previously it returned int (1), violating the signature.
+- All new getters are pure functions of (gender, training_years, discipline)
+  and never raise exceptions.
 """
 
 from dataclasses import dataclass
@@ -24,7 +24,7 @@ import numpy as np
 
 
 # =============================================================================
-# DEFAULT FISIOLOGICI NEUTRI (graceful degradation)
+# NEUTRAL PHYSIOLOGICAL DEFAULTS (graceful degradation)
 # =============================================================================
 
 _DEFAULT_GENDER = "MALE"
@@ -68,36 +68,36 @@ _SPORT_TO_DISCIPLINE = {
 
 
 # =============================================================================
-# COSTANTI FISIOLOGICHE PER I GETTER DERIVATI
+# PHYSIOLOGICAL CONSTANTS FOR DERIVED GETTERS
 # =============================================================================
 
-# Gross mechanical efficiency in ciclismo (P_mech / P_metab):
-# Coyle 1991: 0.18-0.23 popolazione generica. Joyner & Coyle 2008: elite ~0.245.
-# Modulazione lineare su training_years [0..10] anni.
-_ETA_MIN = 0.205   # principiante
-_ETA_MAX = 0.245   # elite (>=10 anni)
+# Gross mechanical efficiency in cycling (P_mech / P_metab):
+# Coyle 1991: 0.18-0.23 in the general population. Joyner & Coyle 2008: elite ~0.245.
+# Linear modulation over training_years [0..10] years.
+_ETA_MIN = 0.205   # beginner
+_ETA_MAX = 0.245   # elite (>=10 years)
 _ETA_SATURATION_YEARS = 10.0
 
-# Floor della costante di tempo della cinetica del lattato (s).
-# Beneke 2003 + Mader: tau ridotto in atleti allenati per clearance più rapida.
-# Modulazione lineare su training_years [0..10] anni.
-_TAU_FLOOR_MIN = 10.0   # elite, clearance rapida
-_TAU_FLOOR_MAX = 18.0   # principiante
+# Floor of the lactate-kinetics time constant (s).
+# Beneke 2003 + Mader: lower tau in trained athletes for faster clearance.
+# Linear modulation over training_years [0..10] years.
+_TAU_FLOOR_MIN = 10.0   # elite, fast clearance
+_TAU_FLOOR_MAX = 18.0   # beginner
 _TAU_SATURATION_YEARS = 10.0
 
-# Soglie vlamax (mmol/L/s) per classificazione fenotipo metabolico.
-# Mader/Heck originale: ~0.40 e ~0.60. Modulate per disciplina dichiarata
-# in modo che chi si dichiara "ENDURANCE" sia più facilmente classificato
-# tale, e simmetricamente per SPRINT (priore bayesiano leggero).
+# vlamax thresholds (mmol/L/s) for metabolic phenotype classification.
+# Mader/Heck original: ~0.40 and ~0.60. Modulated by declared discipline so
+# athletes who identify as "ENDURANCE" are more easily classified as such, and
+# symmetrically for SPRINT (light Bayesian prior).
 _PHENO_THRESHOLDS_BY_DISCIPLINE = {
     "ENDURANCE": (0.35, 0.50),
     "MIXED":     (0.40, 0.55),
     "SPRINT":    (0.45, 0.65),
 }
 
-# Initial guess vlamax per l'ottimizzazione least_squares.
-# Valore di partenza diverso per disciplina riduce probabilità di minimi
-# locali quando si parte già "vicini" al fenotipo plausibile.
+# Initial vlamax guess for least_squares optimization.
+# Discipline-specific starting values reduce the chance of local minima when
+# starting already near the plausible phenotype.
 _VLAMAX_INIT_BY_DISCIPLINE = {
     "ENDURANCE": 0.35,
     "MIXED":     0.50,
@@ -112,15 +112,15 @@ _VLAMAX_INIT_BY_DISCIPLINE = {
 @dataclass(frozen=True)
 class AthleteContext:
     """
-    Contesto biografico/fisiologico dell'atleta.
+    Athlete biographical/physiological context.
 
-    Tutti i campi sono Optional: se assenti o invalidi, il sistema applica
-    fallback fisiologici neutri e segnala via inferred_fields() quali valori
-    sono stati inferiti.
+    All fields are Optional: when absent or invalid, the system applies neutral
+    physiological fallbacks and reports via inferred_fields() which values were
+    inferred.
 
-    Campi:
+    Fields:
       - gender: "MALE" | "FEMALE"
-      - training_years: anni di allenamento strutturato
+      - training_years: years of structured training
       - discipline: physiological category or cycling sport name. Accepts:
           Physiological: "ENDURANCE" | "MIXED" | "SPRINT"
           Sport names:   "ROAD" | "TT" | "TIME_TRIAL" | "GRAVEL" | "TRIATHLON"
@@ -129,7 +129,7 @@ class AthleteContext:
                          | "TRACK" | "TRACK_SPRINT" | "BMX" | "KEIRIN"
         Sport names are mapped internally to one of the three physiological
         categories. See _SPORT_TO_DISCIPLINE for the full mapping.
-      - body_fat_pct: % massa grassa
+      - body_fat_pct: body-fat percentage
     """
 
     gender: Optional[str] = None
@@ -138,7 +138,7 @@ class AthleteContext:
     body_fat_pct: Optional[float] = None
 
     # -------------------------------------------------------------------------
-    # Risoluzione robusta (mai solleva)
+    # Robust resolution (never raises)
     # -------------------------------------------------------------------------
 
     def effective_gender(self) -> str:
@@ -188,8 +188,8 @@ class AthleteContext:
 
     def effective_body_fat(self) -> float:
         """
-        Se body_fat_pct è valido -> usa input.
-        Altrimenti default sesso-specifico:
+        If body_fat_pct is valid -> use the provided value.
+        Otherwise apply sex-specific defaults:
           - MALE: 15%
           - FEMALE: 22%
         """
@@ -203,13 +203,13 @@ class AthleteContext:
         return 15.0 if self.effective_gender() == "MALE" else 22.0
 
     # -------------------------------------------------------------------------
-    # Audit inferenze
+    # Inference audit
     # -------------------------------------------------------------------------
 
     def inferred_fields(self) -> List[str]:
         """
-        Lista dei campi riempiti con default (assenti o invalidi).
-        Utile per trasparenza API e debug.
+        List of fields filled with defaults (missing or invalid).
+        Useful for API transparency and debugging.
         """
         out: List[str] = []
 
@@ -257,43 +257,42 @@ class AthleteContext:
         return out
 
     # -------------------------------------------------------------------------
-    # Getter fisiologici derivati (gender-aware)
+    # Derived physiological getters (gender-aware)
     # -------------------------------------------------------------------------
 
     def active_muscle_fraction(self) -> float:
         """
-        Frazione FFM attivamente coinvolta nel pedalare.
-        Valori euristici robusti per popolazione generale.
+        Fraction of FFM actively involved in pedaling.
+        Robust heuristic values for the general population.
         """
         return 0.31 if self.effective_gender() == "MALE" else 0.28
 
     def fat_oxidation_coefficient(self) -> float:
         """
-        Coefficiente relativo di ossidazione grassi.
-        Donne mediamente più orientate alla fat oxidation a parità di intensità
+        Relative fat-oxidation coefficient.
+        Women are on average more fat-oxidation oriented at matched intensity
         (Tarnopolsky 2008, Venables 2005).
         """
         return 0.526 if self.effective_gender() == "MALE" else 0.580
 
     def cho_oxidation_coefficient(self) -> float:
         """
-        Coefficiente relativo di ossidazione carboidrati.
-        Donne mediamente meno orientate al CHO rispetto agli uomini.
+        Relative carbohydrate-oxidation coefficient.
+        Women are on average less CHO-oriented than men.
         """
         return 1.25 if self.effective_gender() == "MALE" else 1.0
 
     # -------------------------------------------------------------------------
-    # Getter fisiologici derivati (training-aware)
+    # Derived physiological getters (training-aware)
     # -------------------------------------------------------------------------
 
     def expected_eta(self) -> float:
         """
-        Efficienza meccanica gross attesa (P_mech / P_metab).
-        Modulata da training_years: [0 anni \u2192 0.205] ... [\u226510 anni \u2192 0.245].
+        Expected gross mechanical efficiency (P_mech / P_metab).
+        Modulated by training_years: [0 years \u2192 0.205] ... [\u226510 years \u2192 0.245].
 
-        Riferimenti: Coyle 1991, Joyner & Coyle 2008. La saturazione a 10 anni
-        è coerente con la time-course documentata di adattamenti
-        mitocondriali a lungo termine.
+        References: Coyle 1991, Joyner & Coyle 2008. Saturation at 10 years is
+        consistent with the documented long-term mitochondrial adaptation time course.
         """
         years = self.effective_training_years()
         blend = float(np.clip(years / _ETA_SATURATION_YEARS, 0.0, 1.0))
@@ -301,40 +300,40 @@ class AthleteContext:
 
     def tau_base_floor(self) -> float:
         """
-        Floor della costante di tempo (s) della cinetica del lattato.
-        Atleti allenati hanno clearance più rapida \u2192 tau più basso.
-        Modulato da training_years: [0 anni \u2192 18s] ... [\u226510 anni \u2192 10s].
+        Floor of the lactate-kinetics time constant (s).
+        Trained athletes have faster clearance \u2192 lower tau.
+        Modulated by training_years: [0 years \u2192 18s] ... [\u226510 years \u2192 10s].
 
-        Riferimenti: Beneke 2003 (clearance rate vs training status).
+        References: Beneke 2003 (clearance rate vs training status).
         """
         years = self.effective_training_years()
         blend = float(np.clip(years / _TAU_SATURATION_YEARS, 0.0, 1.0))
         return round(_TAU_FLOOR_MAX - (_TAU_FLOOR_MAX - _TAU_FLOOR_MIN) * blend, 2)
 
     # -------------------------------------------------------------------------
-    # Getter fisiologici derivati (discipline-aware)
+    # Derived physiological getters (discipline-aware)
     # -------------------------------------------------------------------------
 
     def vlamax_initial_guess(self) -> float:
         """
-        Punto iniziale per ottimizzazione vlamax (mmol/L/s).
-        Discipline-aware per ridurre il rischio di minimi locali partendo
-        già "vicini" al fenotipo dichiarato dall'atleta.
+        Starting point for vlamax optimization (mmol/L/s).
+        Discipline-aware to reduce the risk of local minima by starting already
+        near the athlete's declared phenotype.
         """
         return _VLAMAX_INIT_BY_DISCIPLINE[self.effective_discipline()]
 
     def phenotype_thresholds(self) -> Tuple[float, float]:
         """
-        Soglie vlamax (mmol/L/s) per classificazione metabolica:
-          - vlamax < endurance_max     \u2192 Endurance (Diesel)
-          - vlamax <= allrounder_max   \u2192 All-Rounder (Passista)
-          - vlamax > allrounder_max    \u2192 Sprinter (Esplosivo)
+        vlamax thresholds (mmol/L/s) for metabolic classification:
+          - vlamax < endurance_max     \u2192 Endurance
+          - vlamax <= allrounder_max   \u2192 All-Rounder
+          - vlamax > allrounder_max    \u2192 Sprinter (Explosive)
 
-        Le soglie sono modulate dalla discipline dichiarata: chi si dichiara
-        ENDURANCE viene classificato Endurance con vlamax leggermente più alta
-        (e simmetricamente per SPRINT). Funziona come priore bayesiano leggero
-        sul fenotipo, senza forzare la classificazione finale.
+        Thresholds are modulated by declared discipline: athletes who identify as
+        ENDURANCE are classified as Endurance at slightly higher vlamax values
+        (and symmetrically for SPRINT). This acts as a light Bayesian prior on
+        phenotype without forcing the final classification.
 
-        Default neutro (MIXED): (0.40, 0.55), aderente a Mader/Heck.
+        Neutral default (MIXED): (0.40, 0.55), aligned with Mader/Heck.
         """
         return _PHENO_THRESHOLDS_BY_DISCIPLINE[self.effective_discipline()]

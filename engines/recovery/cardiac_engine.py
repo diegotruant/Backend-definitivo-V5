@@ -2,14 +2,14 @@
 Cardiac Response Engine — descriptive analysis of HR / HRR / cardiac efficiency
 Version: 1.0.0
 
-Modulo backend che, dato uno stream di attività con (timestamp, potenza, HR e
-opzionalmente RR), produce un Cardiac Response Profile descrittivo.
+Backend module that, given an activity stream with (timestamp, power, HR, and
+optionally RR), produces a descriptive Cardiac Response Profile.
 
-NESSUNA logica predittiva: questo modulo legge la risposta cardiaca misurata
-e la confronta con benchmark scientifici e (se forniti) con le soglie
-metaboliche/autonomiche derivate da MetabolicProfiler e HRV engine.
+NO predictive logic: this module reads the measured cardiac response and
+compares it against scientific benchmarks and (when provided) metabolic/autonomic
+thresholds derived from MetabolicProfiler and the HRV engine.
 
-Metriche implementate (con riferimenti):
+Implemented metrics (with references):
   - Aerobic Decoupling (Pa:Hr)               Friel 2006, Maunder 2021
   - Cardiac Drift Index                       Coyle 2001, Lambert 2008
   - HR Recovery (HRR60s, HRR120s)             Cole 1999, Imai 1994
@@ -22,8 +22,8 @@ API:
   analyzer = CardiacResponseAnalyzer(
       weight=90.0,
       context=ctx,
-      metabolic_snapshot=snap,   # optional, abilita cross-val
-      hrv_timeline=hrv_points,   # optional, abilita cross-val con DFA
+      metabolic_snapshot=snap,   # optional, enables cross-validation
+      hrv_timeline=hrv_points,   # optional, enables cross-validation with DFA
   )
   result = analyzer.analyze(activity_samples)
 """

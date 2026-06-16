@@ -1,0 +1,45 @@
+[
+  {
+    "id": "six_step_dmax_anchor",
+    "description": "Published-style lactate ramp with D-max MLSS near 250W",
+    "steps": [
+      {"power_w": 150, "lactate_mmol": 1.2, "duration_s": 300},
+      {"power_w": 200, "lactate_mmol": 1.8, "duration_s": 300},
+      {"power_w": 230, "lactate_mmol": 2.6, "duration_s": 300},
+      {"power_w": 260, "lactate_mmol": 4.1, "duration_s": 300},
+      {"power_w": 290, "lactate_mmol": 6.8, "duration_s": 300},
+      {"power_w": 320, "lactate_mmol": 10.2, "duration_s": 300}
+    ],
+    "expected": {
+      "mlss_dmax_range": [235.0, 270.0],
+      "obla_4mmol_range": [250.0, 285.0],
+      "aerobic_2mmol_range": [190.0, 225.0]
+    }
+  },
+  {
+    "id": "mader_onboarding_validation",
+    "description": "Lactate validation against MMP when model and lab agree",
+    "weight_kg": 72.0,
+    "steps": [
+      {"power_w": 150, "lactate_mmol": 1.2},
+      {"power_w": 200, "lactate_mmol": 1.8},
+      {"power_w": 230, "lactate_mmol": 2.6},
+      {"power_w": 260, "lactate_mmol": 4.1},
+      {"power_w": 290, "lactate_mmol": 6.8},
+      {"power_w": 320, "lactate_mmol": 10.2}
+    ],
+    "mmp": {
+      "5": 850,
+      "60": 400,
+      "300": 285,
+      "1200": 258,
+      "3600": 245
+    },
+    "expected": {
+      "status": "success",
+      "validated": true,
+      "mlss_model_range": [245.0, 265.0],
+      "abs_error_pct_max": 8.0
+    }
+  }
+]

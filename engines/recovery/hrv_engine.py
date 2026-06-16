@@ -1,36 +1,36 @@
 """
-HRV / DFA-α1 Engine — modulato da AthleteContext.
-Versione: 4.0.0-Local (per-window quality + unified DFA pipeline)
+HRV / DFA-α1 Engine — modulated by AthleteContext.
+Version: 4.0.0-Local (per-window quality + unified DFA pipeline)
 
-Modulo backend per l'analisi della variabilità cardiaca via DFA-α1
-e la detection delle soglie ventilatorie con robustezza migliorata.
+Backend module for heart rate variability analysis via DFA-α1
+and ventilatory threshold detection with improved robustness.
 
 CHANGELOG vs 3.0.0-Local
 ------------------------
-- Quality (artifact_ratio, SQI) calcolata PER-FINESTRA, non più globalmente.
-- DFA-α1 e diagnostica regressiva unificate in _dfa_alpha1_full(): singolo
-  passaggio, garanzia di coerenza tra α₁ pubblicato e R²/CI riportati.
-- Sliding DFA implementata localmente: rimossa dipendenza da
-  sliding_dfa_alpha1 (la libreria non esponeva diagnostica per-finestra).
-- _normal_z_for_ci ora supporta 90/95/97.5/99% via tabella + interpolazione.
-- Isteresi forzata: transizioni AEROBIC\u2194ANAEROBIC passano sempre da MIXED.
-- _detect_threshold_crossing: persistenza con semantica esplicita (numero
-  totale di finestre consecutive sotto soglia richieste, incluso il crossing).
-- _correct_ectopic ora iterativo (max 3 passaggi) con convergenza.
-- step_seconds esposto nell'API pubblica (era hardcoded a 10s).
-- quality_summary aggregato (mean/min/max), non più solo results[0].
-- status_basis aggiunto al metadata per chiarezza (smoothed_with_hysteresis).
-- Pesi SQI documentati come euristici non validati.
-- Rimosso fallback flatline silenzioso in _correct_ectopic.
+- Quality (artifact_ratio, SQI) computed PER-WINDOW, no longer globally.
+- DFA-α1 and regression diagnostics unified in _dfa_alpha1_full(): single
+  pass, guaranteeing consistency between published α₁ and reported R²/CI.
+- Sliding DFA implemented locally: removed dependency on
+  sliding_dfa_alpha1 (the library did not expose per-window diagnostics).
+- _normal_z_for_ci now supports 90/95/97.5/99% via table + interpolation.
+- Forced hysteresis: AEROBIC\u2194ANAEROBIC transitions always pass through MIXED.
+- _detect_threshold_crossing: persistence with explicit semantics (total
+  number of consecutive windows below threshold required, including the crossing).
+- _correct_ectopic now iterative (max 3 passes) with convergence.
+- step_seconds exposed in the public API (was hardcoded to 10s).
+- quality_summary aggregated (mean/min/max), no longer only results[0].
+- status_basis added to metadata for clarity (smoothed_with_hysteresis).
+- SQI weights documented as heuristic, not validated.
+- Removed silent flatline fallback in _correct_ectopic.
 
-BREAKING CHANGES per i test
+BREAKING CHANGES for tests
 ---------------------------
-- detect_thresholds_from_activity ora accetta step_seconds.
-- quality_summary cambia struttura (campi *_mean, *_min, *_max).
-- metadata include nuovi campi (step_s, n_scales_used, status_basis).
-- Filtraggio finestre invalide: le finestre con SQI<min o art_ratio>max
-  ora vengono escluse dall'output (prima passavano se la qualità globale
-  era OK). Output potrebbe essere più corto o frammentato in dataset rumorosi.
+- detect_thresholds_from_activity now accepts step_seconds.
+- quality_summary changes structure (*_mean, *_min, *_max fields).
+- metadata includes new fields (step_s, n_scales_used, status_basis).
+- Invalid window filtering: windows with SQI<min or art_ratio>max
+  are now excluded from output (previously passed if global quality
+  was OK). Output may be shorter or fragmented on noisy datasets.
 """
 
 from typing import List, Dict, Optional, Tuple, Any
@@ -39,17 +39,17 @@ import math
 
 import numpy as np
 
-# Manteniamo solo clean_rr_intervals come utility esterna.
-# dfa_alpha1 e sliding_dfa_alpha1 non vengono più usati: tutto il calcolo
-# DFA passa per _dfa_alpha1_full() in questo modulo, così l'α₁ pubblicato
-# e la diagnostica regressiva (R², stderr, CI) provengono dalla stessa pipeline.
+# Keep only clean_rr_intervals as an external utility.
+# dfa_alpha1 and sliding_dfa_alpha1 are no longer used: all DFA computation
+# goes through _dfa_alpha1_full() in this module, so the published α₁
+# and regression diagnostics (R², stderr, CI) come from the same pipeline.
 from engines.core.analysis import clean_rr_intervals
 from engines.core.athlete_context import AthleteContext
 from engines.core.metric_contracts import annotate_payload
 
 
 # =============================================================================
-# SOGLIE CANONICHE (Rogers / Gronwald 2020)
+# CANONICAL THRESHOLDS (Rogers / Gronwald 2020)
 # =============================================================================
 
 _DFA_VT1_CANONICAL = 0.75   # Aerobic threshold (AT1 / HRVT)
@@ -57,32 +57,32 @@ _DFA_VT2_CANONICAL = 0.50   # Anaerobic threshold (AT2 / HRVT2)
 
 
 # =============================================================================
-# PARAMETRI DI QUALIT\u00c0 / ROBUSTEZZA
+# QUALITY / ROBUSTNESS PARAMETERS
 # =============================================================================
 
 _MIN_BEATS_DFA = 64
 _MIN_RR_MS = 300.0
 _MAX_RR_MS = 2000.0
-_MAX_REL_JUMP = 0.20               # >20% battito-battito => possibile artefatto
-_MAX_ARTIFACT_RATIO = 0.20         # reject finestra se oltre
-_MIN_SQI_FOR_VALID = 0.70          # reject finestra se sotto
+_MAX_REL_JUMP = 0.20               # >20% beat-to-beat => possible artifact
+_MAX_ARTIFACT_RATIO = 0.20         # reject window if exceeded
+_MIN_SQI_FOR_VALID = 0.70          # reject window if below
 _MIN_R2_FOR_HIGH_CONF = 0.85
-_MIN_SQI_FOR_HIGH_CONF = 0.80      # sotto questo: confidence MEDIUM
+_MIN_SQI_FOR_HIGH_CONF = 0.80      # below this: confidence MEDIUM
 
 # Smoothing / hysteresis
 _EMA_ALPHA = 0.35
 _HYSTERESIS_BAND = 0.02
-_PERSISTENCE_WINDOWS = 2           # finestre consecutive sotto soglia, INCLUSO il crossing
+_PERSISTENCE_WINDOWS = 2           # consecutive windows below threshold, INCLUDING the crossing
 
-# Scale DFA short-term (Peng et al., Gronwald et al.)
+# DFA short-term scales (Peng et al., Gronwald et al.)
 _DFA_N_MIN = 4
 _DFA_N_MAX = 16
 
-# Pesi SQI (NB: euristici non validati su dataset esterno)
-# I pesi (0.55, 0.30, 0.15) e i bordi del CV-penalty (0.12, 0.25)
-# sono stati scelti per produrre SQI\u22480.80 su tracciate "pulite" cycling
-# e SQI<0.70 in presenza di forte burden artefattuale (>15%).
-# Sostituire con valori validati appena disponibile un dataset di riferimento.
+# SQI weights (NB: heuristic, not validated on an external dataset)
+# The weights (0.55, 0.30, 0.15) and CV-penalty bounds (0.12, 0.25)
+# were chosen to yield SQI\u22480.80 on "clean" cycling traces
+# and SQI<0.70 under heavy artifact burden (>15%).
+# Replace with validated values once a reference dataset is available.
 _SQI_W_ARTIFACT = 0.55
 _SQI_W_CORR_IMPACT = 0.30
 _SQI_W_CV_PENALTY = 0.15
@@ -91,11 +91,11 @@ _SQI_CV_HI = 0.25
 
 
 # =============================================================================
-# RISOLUZIONE PARAMETRI MODULATI DAL CONTEXT
+# CONTEXT-MODULATED PARAMETER RESOLUTION
 # =============================================================================
 
 def _resolve_dfa_thresholds(context: Optional[AthleteContext]) -> Tuple[float, float]:
-    """Restituisce (vt1_threshold, vt2_threshold) modulati da training_years."""
+    """Return (vt1_threshold, vt2_threshold) modulated by training_years."""
     if context is None:
         return (_DFA_VT1_CANONICAL, _DFA_VT2_CANONICAL)
 
@@ -110,7 +110,7 @@ def _resolve_dfa_thresholds(context: Optional[AthleteContext]) -> Tuple[float, f
 
 
 def _resolve_confidence(context: Optional[AthleteContext]) -> str:
-    """HIGH per soggetti allenati (\u22653 anni), MEDIUM per novizi."""
+    """HIGH for trained subjects (\u22653 years), MEDIUM for novices."""
     if context is None:
         return "HIGH"
     if context.effective_training_years() < 3.0:
@@ -119,7 +119,7 @@ def _resolve_confidence(context: Optional[AthleteContext]) -> str:
 
 
 def _classify(alpha1: float, vt1: float, vt2: float) -> str:
-    """Classifica lo stato metabolico corrente."""
+    """Classify the current metabolic state."""
     if alpha1 > vt1:
         return "AEROBIC"
     if alpha1 > vt2:
@@ -138,10 +138,10 @@ def _winsorize_rr(rr: np.ndarray) -> np.ndarray:
 
 def _artifact_mask(rr: np.ndarray) -> np.ndarray:
     """
-    True = campione potenzialmente artefatto.
-    Criteri:
-    - fuori range fisiologico
-    - salto relativo battito-battito eccessivo
+    True = potentially artifacted sample.
+    Criteria:
+    - outside physiological range
+    - excessive beat-to-beat relative jump
     """
     if rr.size == 0:
         return np.array([], dtype=bool)
@@ -162,12 +162,12 @@ def _artifact_mask(rr: np.ndarray) -> np.ndarray:
 
 def _correct_ectopic(rr: np.ndarray, art_mask: np.ndarray, max_passes: int = 3) -> np.ndarray:
     """
-    Correzione ectopici iterativa:
-    - sostituisce punti artefatti con interpolazione lineare sui validi
-    - rivaluta la maschera dopo ogni passaggio
-    - converge quando non rileva più artefatti o quando la maschera è stabile
+    Iterative ectopic correction:
+    - replaces artifacted points with linear interpolation over valid samples
+    - re-evaluates the mask after each pass
+    - converges when no further artifacts are detected or the mask is stable
 
-    Solleva ValueError se ci sono <2 punti validi (caller deve gateare prima).
+    Raises ValueError if there are <2 valid points (caller must gate first).
     """
     if rr.size == 0:
         return rr
@@ -202,10 +202,10 @@ def _correct_ectopic(rr: np.ndarray, art_mask: np.ndarray, max_passes: int = 3) 
 
 def _compute_sqi(rr_raw: np.ndarray, rr_corr: np.ndarray, art_ratio: float) -> float:
     """
-    SQI 0..1, combinando:
+    SQI 0..1, combining:
     - artifact burden
-    - differenza raw vs corrected (normalizzata)
-    - variabilità eccessiva non fisiologica
+    - raw vs corrected difference (normalized)
+    - non-physiological excess variability
     """
     if rr_raw.size == 0:
         return 0.0
@@ -231,9 +231,9 @@ def _compute_sqi(rr_raw: np.ndarray, rr_corr: np.ndarray, art_ratio: float) -> f
 
 def _prepare_rr_quality(rr_intervals: List[float]) -> Dict[str, Any]:
     """
-    Quality assessment per un singolo segmento RR.
-    Usato da calculate_dfa_alpha1 (segmento puntuale) e come pulizia
-    iniziale globale prima della sliding window.
+    Quality assessment for a single RR segment.
+    Used by calculate_dfa_alpha1 (point segment) and as initial
+    global cleanup before the sliding window.
     """
     rr_raw = np.array(rr_intervals, dtype=float)
     if rr_raw.size == 0:
@@ -249,7 +249,7 @@ def _prepare_rr_quality(rr_intervals: List[float]) -> Dict[str, Any]:
     art_mask = _artifact_mask(rr_w)
     art_ratio = float(np.mean(art_mask))
 
-    # Gate prima della correzione: serve almeno il minimo per interpolare
+    # Gate before correction: need at least the minimum to interpolate
     valid_count = int((~art_mask).sum())
     if valid_count < 2 or art_ratio > 0.95:
         return {
@@ -290,8 +290,8 @@ def _prepare_rr_quality(rr_intervals: List[float]) -> Dict[str, Any]:
 # UNIFIED DFA-α1 + DIAGNOSTICS (single-pass)
 # =============================================================================
 
-# Z-table per CI normali a una coda (two-sided usa 1-α/2).
-# Valori dalla distribuzione N(0,1) standard.
+# Z-table for one-tailed normal CIs (two-sided uses 1-α/2).
+# Values from the standard N(0,1) distribution.
 _Z_TABLE = {
     0.90: 1.645,
     0.95: 1.960,
@@ -302,8 +302,8 @@ _Z_TABLE = {
 
 def _normal_z_for_ci(ci_level: float = 0.95) -> float:
     """
-    Z-score per CI bilaterale al livello richiesto.
-    Tabella per i livelli standard, interpolazione lineare per gli intermedi.
+    Z-score for a two-sided CI at the requested level.
+    Table lookup for standard levels, linear interpolation for intermediate values.
     """
     if ci_level in _Z_TABLE:
         return _Z_TABLE[ci_level]
@@ -325,16 +325,16 @@ def _normal_z_for_ci(ci_level: float = 0.95) -> float:
 
 def _dfa_alpha1_full(rr: np.ndarray, ci_level: float = 0.95) -> Dict[str, Any]:
     """
-    Calcola α₁ DFA + diagnostica di regressione log-log in un singolo passaggio.
+    Compute DFA α₁ + log-log regression diagnostics in a single pass.
 
     Pipeline:
-    - Profilo integrato: y = cumsum(rr - mean(rr))
-    - Scale short-term: N=4..16 (lineari, standard letteratura)
-    - Per ogni N: detrending lineare per segmento, RMS dei residui
+    - Integrated profile: y = cumsum(rr - mean(rr))
+    - Short-term scales: N=4..16 (linear, literature standard)
+    - For each N: linear detrending per segment, RMS of residuals
     - F(N) = sqrt(mean(rms²)) — fluctuation function
-    - Regressione log-log: log F(N) = α₁ * log N + intercept
+    - Log-log regression: log F(N) = α₁ * log N + intercept
 
-    Garantisce che α₁ pubblicato e diagnostica derivino dalla STESSA fit.
+    Guarantees that published α₁ and diagnostics come from the SAME fit.
     """
     none_result = {
         "alpha1": None,
@@ -349,12 +349,12 @@ def _dfa_alpha1_full(rr: np.ndarray, ci_level: float = 0.95) -> Dict[str, Any]:
     if rr.size < _MIN_BEATS_DFA:
         return none_result
 
-    # Profilo integrato
+    # Integrated profile
     x = rr - np.mean(rr)
     y = np.cumsum(x)
     n = len(y)
 
-    # Scale short-term lineari, limitate da n//4 (servono almeno 2 segmenti)
+    # Linear short-term scales, limited by n//4 (need at least 2 segments)
     nvals = np.arange(_DFA_N_MIN, min(_DFA_N_MAX, n // 4) + 1)
     if nvals.size < 4:
         return none_result
@@ -395,7 +395,7 @@ def _dfa_alpha1_full(rr: np.ndarray, ci_level: float = 0.95) -> Dict[str, Any]:
     if sxx <= 0:
         return none_result
 
-    slope = sxy / sxx  # questo \u00c8 α₁
+    slope = sxy / sxx  # this IS α₁
     intercept = y_mean - slope * x_mean
     y_hat = slope * lx + intercept
     resid = ly - y_hat
@@ -434,7 +434,7 @@ def _dfa_alpha1_full(rr: np.ndarray, ci_level: float = 0.95) -> Dict[str, Any]:
 
 
 # =============================================================================
-# SLIDING DFA (locale, con quality per-finestra)
+# SLIDING DFA (local, with per-window quality)
 # =============================================================================
 
 def _sliding_dfa_local(
@@ -445,12 +445,12 @@ def _sliding_dfa_local(
     beat_times_s: Optional[np.ndarray] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Sliding DFA-α₁ con diagnostica E qualità per-finestra.
+    Sliding DFA-α₁ with diagnostics AND per-window quality.
 
-    rr_corrected: serie post-correzione ectopici (per il calcolo DFA e t-cumul)
-    rr_winsorized_raw: serie pre-correzione (per artifact_ratio per-finestra)
+    rr_corrected: post-ectopic-correction series (for DFA computation and t-cumul)
+    rr_winsorized_raw: pre-correction series (for per-window artifact_ratio)
 
-    Le due array DEVONO avere la stessa lunghezza e mappare 1:1.
+    The two arrays MUST have the same length and map 1:1.
     """
     if rr_corrected.size != rr_winsorized_raw.size:
         raise ValueError("rr_corrected and rr_winsorized_raw must have same length")
@@ -495,7 +495,7 @@ def _sliding_dfa_local(
             t_start += step_s
             continue
 
-        # Quality PER-FINESTRA (sui RR raw winsorized di quella finestra)
+        # PER-WINDOW quality (on that window's winsorized raw RR)
         art_mask_w = _artifact_mask(rr_win_raw)
         art_ratio_w = float(np.mean(art_mask_w))
         sqi_w = _compute_sqi(rr_win_raw, rr_win_corr, art_ratio_w)
@@ -508,7 +508,7 @@ def _sliding_dfa_local(
             elif sqi_w < _MIN_SQI_FOR_VALID:
                 rejected_w = "LOW_SQI"
 
-        # DFA + diagnostica unificate
+        # Unified DFA + diagnostics
         full = _dfa_alpha1_full(rr_win_corr)
 
         if full["alpha1"] is not None:
@@ -549,10 +549,9 @@ def _ema(values: List[float], alpha: float = _EMA_ALPHA) -> List[float]:
 
 def _apply_hysteresis_status(alpha_series: List[float], vt1: float, vt2: float) -> List[str]:
     """
-    Classificazione robusta con banda di isteresi.
-    Le transizioni AEROBIC\u2194ANAEROBIC passano SEMPRE da MIXED come stato
-    intermedio obbligatorio, garantendo applicazione coerente della banda
-    su entrambe le soglie.
+    Robust classification with a hysteresis band.
+    AEROBIC\u2194ANAEROBIC transitions ALWAYS pass through MIXED as a mandatory
+    intermediate state, ensuring consistent band application across both thresholds.
     """
     if not alpha_series:
         return []
@@ -564,7 +563,7 @@ def _apply_hysteresis_status(alpha_series: List[float], vt1: float, vt2: float) 
     for a in alpha_series[1:]:
         if state == "AEROBIC":
             if a <= (vt1 - _HYSTERESIS_BAND):
-                state = "MIXED"  # mai salto diretto a ANAEROBIC
+                state = "MIXED"  # never jump directly to ANAEROBIC
         elif state == "MIXED":
             if a >= (vt1 + _HYSTERESIS_BAND):
                 state = "AEROBIC"
@@ -572,7 +571,7 @@ def _apply_hysteresis_status(alpha_series: List[float], vt1: float, vt2: float) 
                 state = "ANAEROBIC"
         else:  # ANAEROBIC
             if a >= (vt2 + _HYSTERESIS_BAND):
-                state = "MIXED"  # mai salto diretto a AEROBIC
+                state = "MIXED"  # never jump directly to AEROBIC
 
         statuses.append(state)
 
@@ -620,13 +619,13 @@ def _detect_threshold_crossing(
     persistence_windows: int = _PERSISTENCE_WINDOWS,
 ) -> Tuple[Optional[Dict[str, Any]], Optional[int], Optional[float]]:
     """
-    Trova crossing robusto della soglia DALL'ALTO con persistenza.
+    Find a robust downward threshold crossing with persistence.
 
-    Semantica di persistence_windows:
-    "numero TOTALE di finestre consecutive sotto soglia richieste,
-    incluso il crossing stesso".
-    Quindi persistence_windows=2 \u2192 crossing + 1 finestra successiva sotto.
-    persistence_windows=1 \u2192 solo il crossing (no persistenza).
+    persistence_windows semantics:
+    "total number of consecutive windows below threshold required,
+    including the crossing itself".
+    So persistence_windows=2 \u2192 crossing + 1 subsequent window below.
+    persistence_windows=1 \u2192 crossing only (no persistence).
     """
     if persistence_windows < 1:
         raise ValueError("persistence_windows must be >= 1")
@@ -644,8 +643,8 @@ def _detect_threshold_crossing(
         if not (prev_a1 > threshold and curr_a1 <= threshold):
             continue
 
-        # Crossing al sample i. Verifica le (persistence_windows - 1)
-        # finestre SUCCESSIVE a i. Se non ci sono abbastanza dati, scarta.
+        # Crossing at sample i. Verify the (persistence_windows - 1)
+        # SUBSEQUENT windows after i. Discard if there are not enough data.
         end_idx = i + persistence_windows  # exclusive
         if end_idx > n:
             continue
@@ -683,7 +682,7 @@ def _detect_threshold_crossing(
 
 
 # =============================================================================
-# API PUBBLICA
+# PUBLIC API
 # =============================================================================
 
 def analyze_rr_stream(
@@ -693,14 +692,14 @@ def analyze_rr_stream(
     context: Optional[AthleteContext] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Main entry point per processing di un'attività completa.
+    Main entry point for processing a complete activity.
 
     Pipeline:
-    1) Concatenazione RR + winsorize + correzione ectopici GLOBALE (pulizia)
-    2) Sliding DFA con qualità+diagnostica PER-FINESTRA
-    3) Filtro finestre invalide (sotto soglie SQI/artifact)
-    4) Smoothing α₁ (EMA) + classificazione status con isteresi
-    5) Output strutturato con confidence per-finestra
+    1) RR concatenation + winsorize + GLOBAL ectopic correction (cleanup)
+    2) Sliding DFA with PER-WINDOW quality + diagnostics
+    3) Filter invalid windows (below SQI/artifact thresholds)
+    4) α₁ smoothing (EMA) + status classification with hysteresis
+    5) Structured output with per-window confidence
     """
     if not rr_samples:
         return []
@@ -737,7 +736,7 @@ def analyze_rr_stream(
     vt1, vt2 = _resolve_dfa_thresholds(context)
     base_confidence = _resolve_confidence(context)
 
-    # 1) Pulizia globale (winsorize + correzione)
+    # 1) Global cleanup (winsorize + correction)
     rr_arr = np.array(all_rr, dtype=float)
     rr_w = _winsorize_rr(rr_arr)
     art_mask_global = _artifact_mask(rr_w)
@@ -752,7 +751,7 @@ def analyze_rr_stream(
         warnings.warn(f"Global ectopic correction failed: {exc}")
         return []
 
-    # 2) Sliding DFA con qualità per-finestra
+    # 2) Sliding DFA with per-window quality
     try:
         windows = _sliding_dfa_local(
             rr_corrected=rr_corr_global,
@@ -770,7 +769,7 @@ def analyze_rr_stream(
     if not windows:
         return []
 
-    # 3) Filtro finestre invalide
+    # 3) Filter invalid windows
     total = len(windows)
     valid_windows = [w for w in windows if w["valid"]]
     rejected_count = total - len(valid_windows)
@@ -786,7 +785,7 @@ def analyze_rr_stream(
     if not valid_windows:
         return []
 
-    # 4) Smoothing + isteresi
+    # 4) Smoothing + hysteresis
     alpha_series = [w["alpha1"] for w in valid_windows]
     smoothed = _ema(alpha_series, alpha=_EMA_ALPHA)
     statuses = _apply_hysteresis_status(smoothed, vt1, vt2)
@@ -797,7 +796,7 @@ def analyze_rr_stream(
         a1_s = float(smoothed[i])
         status = statuses[i]
 
-        # Confidence per-finestra
+        # Per-window confidence
         conf = base_confidence
         if w["r_squared"] is not None and w["r_squared"] < _MIN_R2_FOR_HIGH_CONF:
             conf = "MEDIUM" if conf == "HIGH" else conf
@@ -824,7 +823,7 @@ def analyze_rr_stream(
                 "vt2_threshold": vt2,
                 "artifact_ratio": w["artifact_ratio"],
                 "sqi": w["sqi"],
-                "rejected_reason": w["rejected_reason"],  # None se valid
+                "rejected_reason": w["rejected_reason"],  # None if valid
                 "r_squared": w["r_squared"],
                 "residual_std": w["residual_std"],
                 "slope_stderr": w["slope_stderr"],
@@ -841,7 +840,7 @@ def calculate_dfa_alpha1(
     rr_intervals: List[float],
     context: Optional[AthleteContext] = None,
 ) -> Dict[str, Any]:
-    """Calcolo puntuale per segmenti RR brevi con quality gating + diagnostics."""
+    """Point estimate for short RR segments with quality gating + diagnostics."""
     if len(rr_intervals) < _MIN_BEATS_DFA:
         return {
             "alpha1": None,
@@ -871,7 +870,7 @@ def calculate_dfa_alpha1(
         }
 
     try:
-        # clean_rr_intervals come ulteriore filtro (rimosso outlier residui)
+        # clean_rr_intervals as an additional filter (removes residual outliers)
         rr = clean_rr_intervals(np.array(quality["rr_corrected"], dtype=float))
         full = _dfa_alpha1_full(rr)
 
@@ -948,11 +947,11 @@ def detect_thresholds_from_activity(
     step_seconds: float = 10.0,
 ) -> Dict[str, Any]:
     """
-    Rilevamento combinato VT1 + VT2 con:
-    - smoothing alpha1 (EMA)
-    - crossing robusto con persistenza
-    - interpolazione lineare della potenza al crossing
-    - quality summary aggregato (mean/min/max) su tutte le finestre valide
+    Combined VT1 + VT2 detection with:
+    - alpha1 smoothing (EMA)
+    - robust crossing with persistence
+    - linear power interpolation at the crossing
+    - aggregated quality summary (mean/min/max) over all valid windows
     """
     results = analyze_rr_stream(
         rr_data,
@@ -977,7 +976,7 @@ def detect_thresholds_from_activity(
         results, vt2_th, power_data, power_timestamps
     )
 
-    # Quality aggregato su TUTTE le finestre valide
+    # Quality aggregated over ALL valid windows
     art_ratios = [
         r["metadata"]["artifact_ratio"]
         for r in results
