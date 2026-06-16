@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ddtraining-digital-twin"
+name = "physiology-digital-twin"
 version = "5.1.0"
 description = "Stateless analytics backend for endurance sports — metabolic profiling, HRV, training load, session classification, longitudinal tracking."
 readme = "README.md"

@@ -27,7 +27,7 @@ nel blocco `test_data`.
     "hr_max": 192
   },
   "device": {
-    "trainer": "Wahoo Kickr | Tacx Neo | ...",
+    "trainer": "smart trainer | indoor trainer | ...",
     "power_source": "trainer | power_meter",
     "control_mode": "erg | manual"
   },

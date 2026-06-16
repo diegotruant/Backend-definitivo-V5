@@ -4,7 +4,7 @@
 
 Questo repository contiene il backend per una piattaforma di performance intelligence per ciclismo elite. Il team frontend non deve conoscere il ciclismo: deve costruire un'interfaccia che visualizza correttamente i dati, rispetta la confidenza dei modelli e guida coach e performance scientist nelle decisioni.
 
-Il prodotto non deve apparire come un clone di Strava, Garmin o TrainingPeaks. Deve apparire come un **digital twin fisiologico**: un sistema che combina dati reali, modelli metabolici, test validati e apprendimento atleta/team.
+Il prodotto non deve apparire come un clone di social activity platform, consumer platform o coaching platform. Deve apparire come un **digital twin fisiologico**: un sistema che combina dati reali, modelli metabolici, test validati e apprendimento atleta/team.
 
 ## Cosa è già pronto nel backend
 
