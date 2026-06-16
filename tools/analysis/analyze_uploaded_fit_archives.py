@@ -11,17 +11,14 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
-from engines import (
-    AthleteContext,
-    MetabolicProfiler,
-    assess_data_quality,
-    build_workout_summary,
-    classify_session,
-    cross_validate_metabolic_profile,
-    curve_to_mmp,
-    parse_fit_file_enhanced,
-    update_power_curve,
-)
+from engines.core.athlete_context import AthleteContext
+from engines.core.data_quality_engine import assess_data_quality
+from engines.io.fit_parser import parse_fit_file_enhanced
+from engines.io.workout_summary import build_workout_summary
+from engines.metabolic.cross_validation_engine import cross_validate_metabolic_profile
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.performance.interval_detector import classify_session
+from engines.performance.mmp_aggregator import curve_to_mmp, update_power_curve
 from engines.performance.power_engine import estimate_ftp_from_mmp, mean_maximal_power
 
 

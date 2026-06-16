@@ -24,7 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import fitparse
-from engines import classify_session
+from engines.performance.interval_detector import classify_session
 
 
 FIT_DIR = Path("/mnt/user-data/uploads")

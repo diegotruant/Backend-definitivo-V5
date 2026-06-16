@@ -29,13 +29,15 @@ sys.path.insert(0, str(Path(__file__).parent))
 from datetime import datetime, timedelta, date
 import numpy as np
 
-from engines import (
-    MetabolicProfiler, AthleteContext, parse_fit_records_enhanced, build_workout_summary,
-    get_current_metabolic_status, calculate_ctl_atl_tsb,
-    calculate_w_prime_balance, analyze_w_prime_usage,
-    calculate_acwr, calculate_monotony_strain,
-    analyze_efforts,
-)
+from engines.core.athlete_context import AthleteContext
+from engines.io.fit_parser import parse_fit_records_enhanced
+from engines.io.workout_summary import build_workout_summary
+from engines.metabolic.detraining_engine import calculate_ctl_atl_tsb
+from engines.metabolic.metabolic_current import get_current_metabolic_status
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.performance.efforts_analyzer import analyze_efforts
+from engines.performance.training_variability_engine import calculate_acwr, calculate_monotony_strain
+from engines.performance.w_prime_balance_engine import analyze_w_prime_usage, calculate_w_prime_balance
 
 
 results = []

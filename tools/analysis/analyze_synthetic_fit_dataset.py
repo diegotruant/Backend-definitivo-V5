@@ -15,15 +15,12 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 
-from engines import (
-    AthleteContext,
-    MetabolicProfiler,
-    assess_data_quality,
-    build_workout_summary,
-    calculate_durability_index,
-    calculate_np_drift,
-    classify_session,
-)
+from engines.core.athlete_context import AthleteContext
+from engines.core.data_quality_engine import assess_data_quality
+from engines.io.workout_summary import build_workout_summary
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.performance.durability_engine import calculate_durability_index, calculate_np_drift
+from engines.performance.interval_detector import classify_session
 from engines.io.fit_parser import ActivityStreamEnhanced
 from engines.performance.power_engine import estimate_ftp_from_mmp, mean_maximal_power
 

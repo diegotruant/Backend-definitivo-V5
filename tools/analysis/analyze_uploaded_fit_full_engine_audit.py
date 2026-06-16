@@ -12,38 +12,34 @@ from typing import Any, Callable, Dict, List, Tuple
 
 import numpy as np
 
-from engines import (
-    AthleteContext,
-    DailyInput,
-    MetabolicProfiler,
-    analyze_rr_stream,
-    analyze_heat_acclimation,
-    analyze_pedaling_balance,
-    analyze_thermal_session,
-    analyze_w_prime_usage,
-    apply_detraining_model,
-    assess_data_quality,
-    bayesian_metabolic_snapshot,
-    build_workout_summary,
-    calculate_acwr,
-    calculate_ctl_atl_tsb,
-    calculate_durability_index,
+from engines.core.athlete_context import AthleteContext
+from engines.core.data_quality_engine import assess_data_quality
+from engines.io.fit_parser import parse_fit_file_enhanced
+from engines.io.workout_summary import build_workout_summary
+from engines.metabolic.bayesian_profiler import bayesian_metabolic_snapshot
+from engines.metabolic.cross_validation_engine import cross_validate_metabolic_profile
+from engines.metabolic.detraining_engine import apply_detraining_model, calculate_ctl_atl_tsb
+from engines.metabolic.metabolic_current import get_current_metabolic_status
+from engines.metabolic.metabolic_flexibility_engine import (
     calculate_metabolic_flexibility_index,
-    calculate_monotony_strain,
-    calculate_np_drift,
-    calculate_w_prime_balance,
-    classify_session,
-    cross_validate_metabolic_profile,
-    curve_to_mmp,
     estimate_fat_oxidation_rate,
-    generate_acwr_narrative,
-    generate_hourly_decay_curve,
-    compute_session_durability,
-    get_current_metabolic_status,
-    parse_fit_file_enhanced,
-    process_workout_history,
-    update_power_curve,
 )
+from engines.metabolic.metabolic_kalman import DailyInput, process_workout_history
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.performance.durability_engine import (
+    calculate_durability_index,
+    calculate_np_drift,
+    generate_hourly_decay_curve,
+)
+from engines.performance.interval_detector import classify_session
+from engines.performance.mader_durability import compute_session_durability
+from engines.performance.mmp_aggregator import curve_to_mmp, update_power_curve
+from engines.performance.training_variability_engine import calculate_acwr, calculate_monotony_strain
+from engines.performance.w_prime_balance_engine import analyze_w_prime_usage, calculate_w_prime_balance
+from engines.recovery.explainability_engine import generate_acwr_narrative
+from engines.recovery.hrv_engine import analyze_rr_stream
+from engines.recovery.pedaling_balance import analyze_pedaling_balance
+from engines.recovery.thermal_engine import analyze_heat_acclimation, analyze_thermal_session
 from engines.recovery.cardiac_engine import ActivitySample, CardiacResponseAnalyzer
 from engines.recovery.explainability_engine import calculate_vo2max_confidence, generate_workout_summary_narrative
 from engines.io.chart_builder import chart_power_duration_curve, chart_training_load
