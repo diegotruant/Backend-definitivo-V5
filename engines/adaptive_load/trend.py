@@ -128,7 +128,7 @@ def calculate_load_trend(
     # ------------------------------------------------------------------
     # 'tsb' qui sopra è calcolato sul session_load COMBINATO (esterno+interno):
     # è la freschezza "reale". Tracciamo in parallelo un CTL/ATL/TSB sul SOLO
-    # TSS esterno (la freschezza "nominale", quella che vedrebbe TrainingPeaks).
+    # TSS esterno (la freschezza "nominale", quella che vedrebbe coaching platform).
     # La differenza tra i due TSB è il segnale: quando l'esterno dice "fresco"
     # ma l'interno dice "affaticato", è il pre-allarme di overreaching che il
     # carico esterno da solo non vede.
