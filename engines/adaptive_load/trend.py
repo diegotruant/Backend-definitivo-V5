@@ -6,6 +6,7 @@ from typing import Any, Dict, Iterable, Optional
 
 import numpy as np
 
+from engines.core.model_safety import finalize_model_metadata
 from engines.performance.training_variability_engine import calculate_acwr, calculate_monotony_strain
 
 
@@ -109,6 +110,12 @@ def calculate_load_trend(
             "monotony": None,
             "strain": None,
             "message": "Need at least 7 daily/session load values for trend metrics.",
+            "model_metadata": finalize_model_metadata(
+                assumptions=["acute_chronic_model_requires_minimum_7_loads"],
+                missing_inputs=["history_loads"],
+                quality_flags=["cold_start"],
+                confidence=0.35,
+            ),
         }
 
     atl = ewma(loads[-14:], span=7)
@@ -173,6 +180,12 @@ def calculate_load_trend(
             "divergence_status": divergence_status,
         }
 
+    model_metadata = finalize_model_metadata(
+        assumptions=[],
+        missing_inputs=[],
+        quality_flags=["short_chronic_window"] if len(loads) < 42 else [],
+        confidence=0.82 if len(loads) >= 42 else 0.62,
+    )
     return {
         "status": "success",
         "days_available": len(loads),
@@ -185,4 +198,5 @@ def calculate_load_trend(
         "strain": monotony.get("strain") if isinstance(monotony, dict) else None,
         "monotony_status": monotony.get("monotony_status") if isinstance(monotony, dict) else None,
         "external_internal_divergence": divergence_block,
+        "model_metadata": model_metadata,
     }
