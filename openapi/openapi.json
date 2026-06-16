@@ -710,6 +710,178 @@
         }
       }
     },
+    "/ride/intelligence": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Activity intelligence envelope",
+        "description": "Best efforts, zones, intervals, chart series and data-quality report from FIT or power_json.",
+        "operationId": "rideIntelligence",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideIntelligence"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ride/data-quality": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Activity data-quality report",
+        "description": "Signal coverage, dropouts, quality flags and sensor availability.",
+        "operationId": "rideDataQuality",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideDataQuality"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/profile/snapshot": {
       "post": {
         "tags": [
@@ -1097,6 +1269,270 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CalendarTransitionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workouts/recommend": {
+      "post": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Recommend next workout",
+        "operationId": "workoutsRecommend",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkoutRecommendationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workouts/progression-levels": {
+      "post": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Compute progression levels",
+        "operationId": "workoutsProgressionLevels",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgressionLevelsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workouts/adapt-plan": {
+      "post": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Adapt a planned workout list",
+        "operationId": "workoutsAdaptPlan",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdaptPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workouts/export": {
+      "post": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Export workout text format",
+        "operationId": "workoutsExport",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkoutExportRequest"
               }
             }
           },
@@ -1637,6 +2073,140 @@
         }
       }
     },
+    "/performance/ability-profile": {
+      "post": {
+        "tags": [
+          "performance"
+        ],
+        "summary": "Ability profile levels",
+        "description": "Zone-specific performance levels from power curve, durability and compliance history.",
+        "operationId": "performanceAbilityProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AbilityProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/performance/breakthroughs": {
+      "post": {
+        "tags": [
+          "performance"
+        ],
+        "summary": "Detect performance breakthroughs",
+        "description": "Compare a new activity power curve against the persisted baseline curve.",
+        "operationId": "performanceBreakthroughs",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BreakthroughRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/load/manual": {
       "post": {
         "tags": [
@@ -1837,10 +2407,790 @@
           }
         }
       }
+    },
+    "/history/summary": {
+      "post": {
+        "tags": [
+          "history"
+        ],
+        "summary": "Athlete history summary",
+        "operationId": "historySummary",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HistorySummaryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/history/power-curve": {
+      "post": {
+        "tags": [
+          "history"
+        ],
+        "summary": "Power curve by period",
+        "operationId": "historyPowerCurve",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HistorySummaryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/history/records": {
+      "post": {
+        "tags": [
+          "history"
+        ],
+        "summary": "Personal records from history",
+        "operationId": "historyRecords",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HistorySummaryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/history/load": {
+      "post": {
+        "tags": [
+          "history"
+        ],
+        "summary": "Historical load trends",
+        "operationId": "historyLoad",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HistorySummaryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readiness/today": {
+      "post": {
+        "tags": [
+          "readiness"
+        ],
+        "summary": "Daily readiness score",
+        "operationId": "readinessToday",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadinessTodayRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/load/state/update": {
+      "post": {
+        "tags": [
+          "readiness"
+        ],
+        "summary": "Update load state",
+        "operationId": "loadStateUpdate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoadStateUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/load/risk": {
+      "post": {
+        "tags": [
+          "readiness"
+        ],
+        "summary": "Check load risk",
+        "operationId": "loadRisk",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoadRiskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planning/create-season-plan": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Create season plan",
+        "operationId": "planningCreateSeasonPlan",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSeasonPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planning/adapt-week": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Adapt week plan",
+        "operationId": "planningAdaptWeek",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdaptWeekRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planning/check-load-risk": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Check planned load risk",
+        "operationId": "planningCheckLoadRisk",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckLoadRiskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AbilityProfileRequest": {
+        "properties": {
+          "athlete_profile": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Athlete Profile"
+          },
+          "weight_kg": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMaximum": 200.0,
+                "exclusiveMinimum": 30.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Kg"
+          },
+          "durability": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Durability"
+          },
+          "compliance_history": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Compliance History"
+          }
+        },
+        "type": "object",
+        "title": "AbilityProfileRequest"
+      },
+      "AdaptPlanRequest": {
+        "properties": {
+          "plan": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Plan"
+          },
+          "readiness": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readiness"
+          },
+          "last_compliance": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Compliance"
+          }
+        },
+        "type": "object",
+        "title": "AdaptPlanRequest"
+      },
+      "AdaptWeekRequest": {
+        "properties": {
+          "week_plan": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Week Plan"
+          },
+          "readiness": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readiness"
+          },
+          "compliance": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compliance"
+          }
+        },
+        "type": "object",
+        "title": "AdaptWeekRequest"
+      },
       "AthleteParams": {
         "properties": {
           "weight_kg": {
@@ -2041,7 +3391,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "contentMediaType": "application/octet-stream"
+                "format": "binary"
               },
               {
                 "type": "null"
@@ -2064,6 +3414,35 @@
         "type": "object",
         "title": "Body_performanceNeuromuscularProfile"
       },
+      "Body_rideDataQuality": {
+        "properties": {
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "binary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_rideDataQuality"
+      },
       "Body_rideDurability": {
         "properties": {
           "weight_kg": {
@@ -2079,7 +3458,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "contentMediaType": "application/octet-stream"
+                "format": "binary"
               },
               {
                 "type": "null"
@@ -2110,7 +3489,7 @@
         "properties": {
           "file": {
             "type": "string",
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File",
             "description": "Ride FIT file."
           },
@@ -2144,6 +3523,73 @@
           "ride_date"
         ],
         "title": "Body_rideIngest"
+      },
+      "Body_rideIntelligence": {
+        "properties": {
+          "weight_kg": {
+            "type": "number",
+            "title": "Weight Kg",
+            "default": 70.0
+          },
+          "ftp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp"
+          },
+          "cp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cp"
+          },
+          "lthr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lthr"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "binary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_rideIntelligence"
       },
       "Body_rideSummary": {
         "properties": {
@@ -2223,7 +3669,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "contentMediaType": "application/octet-stream"
+                "format": "binary"
               },
               {
                 "type": "null"
@@ -2256,7 +3702,7 @@
           "files": {
             "items": {
               "type": "string",
-              "contentMediaType": "application/octet-stream"
+              "format": "binary"
             },
             "type": "array",
             "title": "Files",
@@ -2302,7 +3748,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "contentMediaType": "application/octet-stream"
+                "format": "binary"
               },
               {
                 "type": "null"
@@ -2327,6 +3773,28 @@
           "workout_json"
         ],
         "title": "Body_workoutsCompare"
+      },
+      "BreakthroughRequest": {
+        "properties": {
+          "baseline_curve": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Baseline Curve"
+          },
+          "activity_curve": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Activity Curve"
+          },
+          "min_gain_pct": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Min Gain Pct",
+            "default": 1.5
+          }
+        },
+        "type": "object",
+        "title": "BreakthroughRequest"
       },
       "CalendarPlanEvent": {
         "properties": {
@@ -2410,6 +3878,26 @@
           "desired_status"
         ],
         "title": "CalendarTransitionRequest"
+      },
+      "CheckLoadRiskRequest": {
+        "properties": {
+          "plan": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Plan"
+          },
+          "chronic_load": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Chronic Load",
+            "default": 50.0
+          }
+        },
+        "type": "object",
+        "title": "CheckLoadRiskRequest"
       },
       "ComplianceResult": {
         "properties": {
@@ -2496,6 +3984,53 @@
         ],
         "title": "ConfirmRequest"
       },
+      "CreateSeasonPlanRequest": {
+        "properties": {
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "target_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Date"
+          },
+          "weekly_hours": {
+            "type": "number",
+            "maximum": 40.0,
+            "minimum": 1.0,
+            "title": "Weekly Hours",
+            "default": 8.0
+          },
+          "goal": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal"
+          }
+        },
+        "type": "object",
+        "title": "CreateSeasonPlanRequest"
+      },
       "EnginePayload": {
         "properties": {},
         "additionalProperties": true,
@@ -2550,6 +4085,44 @@
           "version"
         ],
         "title": "HealthResponse"
+      },
+      "HistorySummaryRequest": {
+        "properties": {
+          "activities": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Activities"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "weight_kg": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMaximum": 200.0,
+                "exclusiveMinimum": 30.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Kg"
+          }
+        },
+        "type": "object",
+        "title": "HistorySummaryRequest"
       },
       "InPersonAthlete": {
         "properties": {
@@ -2880,6 +4453,47 @@
         "title": "InPersonTestRequest",
         "description": "Tablet envelope — see CONTRATTO_JSON_test.md."
       },
+      "LoadRiskRequest": {
+        "properties": {
+          "load_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Load State"
+          },
+          "planned_load": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Planned Load",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "title": "LoadRiskRequest"
+      },
+      "LoadStateUpdateRequest": {
+        "properties": {
+          "previous_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous State"
+          },
+          "session_load": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Session Load",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "title": "LoadStateUpdateRequest"
+      },
       "ManualLoadRequest": {
         "properties": {
           "duration_min": {
@@ -3178,6 +4792,86 @@
         },
         "type": "object",
         "title": "PowerSourceNormalizationRequest"
+      },
+      "ProgressionLevelsRequest": {
+        "properties": {
+          "athlete_profile": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Athlete Profile"
+          },
+          "workout_history": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Workout History"
+          }
+        },
+        "type": "object",
+        "title": "ProgressionLevelsRequest"
+      },
+      "ReadinessTodayRequest": {
+        "properties": {
+          "load_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load State"
+          },
+          "hrv_status": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hrv Status"
+          },
+          "sleep_status": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sleep Status"
+          },
+          "subjective": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subjective"
+          },
+          "recent_warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recent Warnings"
+          }
+        },
+        "type": "object",
+        "title": "ReadinessTodayRequest"
       },
       "RideIngestResponse": {
         "properties": {
@@ -3979,6 +5673,23 @@
         "title": "WorkoutDefinitionInput",
         "description": "Coach workout template or draft."
       },
+      "WorkoutExportRequest": {
+        "properties": {
+          "workout": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Workout"
+          },
+          "format": {
+            "type": "string",
+            "title": "Format",
+            "description": "erg, mrc or zwo",
+            "default": "erg"
+          }
+        },
+        "type": "object",
+        "title": "WorkoutExportRequest"
+      },
       "WorkoutFeasibilityContext": {
         "properties": {
           "w_prime_j": {
@@ -4097,6 +5808,49 @@
           "athlete_profile_used"
         ],
         "title": "WorkoutPrescribeResponse"
+      },
+      "WorkoutRecommendationRequest": {
+        "properties": {
+          "athlete_profile": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Athlete Profile"
+          },
+          "readiness": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readiness"
+          },
+          "goal": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal"
+          },
+          "recent_workouts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Recent Workouts"
+          }
+        },
+        "type": "object",
+        "title": "WorkoutRecommendationRequest"
       },
       "WorkoutStepInput": {
         "properties": {
@@ -4417,6 +6171,18 @@
     {
       "name": "team",
       "description": "Team learning calibration."
+    },
+    {
+      "name": "history",
+      "description": "Athlete history, power-curve records and load trends."
+    },
+    {
+      "name": "readiness",
+      "description": "Daily readiness and load-risk estimates."
+    },
+    {
+      "name": "planning",
+      "description": "Season plans and adaptive weekly planning."
     }
   ],
   "servers": [
