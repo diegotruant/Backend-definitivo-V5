@@ -20,7 +20,10 @@ def check(name, ok, detail=""):
 
 
 print("\n[1] W' recovery uses remaining deficit")
-from engines import calculate_w_prime_balance, analyze_w_prime_usage
+from engines.performance.w_prime_balance_engine import (
+    analyze_w_prime_usage,
+    calculate_w_prime_balance,
+)
 
 w_prime = 1000.0
 tau = 10.0
@@ -37,7 +40,7 @@ check("fully_depleted uses relative threshold", usage["fully_depleted"] is False
 
 
 print("\n[2] Kalman passes profiler into automatic test-anchor update")
-from engines import DailyInput, process_workout_history
+from engines.metabolic.metabolic_kalman import DailyInput, process_workout_history
 
 
 class _FakeContext:
@@ -82,7 +85,8 @@ check("trajectory recorded a test update", traj.n_update_steps == 1)
 
 
 print("\n[3] Masked metabolic fields do not crash or silently default")
-from engines import apply_detraining_model, enhance_metabolic_snapshot_with_phenotype
+from engines.metabolic.detraining_engine import apply_detraining_model
+from engines.metabolic.metabolic_profiler_phenotype import enhance_metabolic_snapshot_with_phenotype
 from engines.recovery.cardiac_engine import ActivitySample, CardiacResponseAnalyzer
 
 masked_snapshot = {
@@ -139,7 +143,7 @@ check("threshold power interpolated on explicit power timestamps",
 
 
 print("\n[5] Durability preserves elapsed-time zeros")
-from engines import calculate_durability_index
+from engines.performance.durability_engine import calculate_durability_index
 
 power_stream = [0.0] * 1800 + [200.0] * 1800 + [200.0] * 3600 + [100.0] * 3600
 durability = calculate_durability_index(power_stream, duration_seconds=len(power_stream))
@@ -154,7 +158,9 @@ check("last hour uses real final hour",
 
 print("\n[6] Phase 1 weak-code fixes")
 from engines.performance.power_engine import normalized_power
-from engines import calculate_np_drift, calculate_monotony_strain, estimate_fat_oxidation_rate
+from engines.metabolic.metabolic_flexibility_engine import estimate_fat_oxidation_rate
+from engines.performance.durability_engine import calculate_np_drift
+from engines.performance.training_variability_engine import calculate_monotony_strain
 
 rng = np.random.default_rng(42)
 power_45m = np.clip(180 + 40 * rng.standard_normal(2700), 0, None)

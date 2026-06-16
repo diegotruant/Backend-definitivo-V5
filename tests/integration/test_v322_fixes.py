@@ -24,7 +24,9 @@ def check(name, ok, detail=""):
 # =============================================================================
 # Setup: generate a real snapshot for testing
 # =============================================================================
-from engines import MetabolicProfiler, AthleteContext, enhance_metabolic_snapshot_with_phenotype
+from engines.core.athlete_context import AthleteContext
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.metabolic.metabolic_profiler_phenotype import enhance_metabolic_snapshot_with_phenotype
 
 ctx = AthleteContext(gender="MALE", training_years=5, body_fat_pct=12.0)
 profiler = MetabolicProfiler(weight=72.0, context=ctx)
@@ -106,7 +108,7 @@ print(f"    High-power sprint:    PCr={sprint_p['pcr_fraction']:.0%}, "
 # =============================================================================
 print("\n[Fix #2] workout_history with ISO string dates handled")
 
-from engines import get_current_metabolic_status
+from engines.metabolic.metabolic_current import get_current_metabolic_status
 
 today = date.today()
 

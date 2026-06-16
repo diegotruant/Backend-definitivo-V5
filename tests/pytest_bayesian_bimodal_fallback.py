@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from engines import AthleteContext, MetabolicProfiler, bayesian_metabolic_snapshot
+from engines.core.athlete_context import AthleteContext
+from engines.metabolic.bayesian_profiler import bayesian_metabolic_snapshot
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
 
 
 def test_bayesian_bimodal_profile_falls_back_to_segmented_reference() -> None:

@@ -19,10 +19,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import json
 import numpy as np
 
-from engines import (
-    MetabolicProfiler, AthleteContext, MaderConstants,
-    bayesian_metabolic_snapshot,
-)
+from engines.core.athlete_context import AthleteContext
+from engines.metabolic.bayesian_profiler import bayesian_metabolic_snapshot
+from engines.metabolic.mader_constants import MaderConstants
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
 
 
 results = []

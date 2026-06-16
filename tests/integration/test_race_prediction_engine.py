@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from engines import (
+from engines.performance.race_prediction_engine import (
     AthleteRaceProfile,
     analyze_course,
     parse_gpx_course,
