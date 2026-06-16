@@ -11,9 +11,9 @@ import numpy as np
 import pytest
 
 import engines
+from engines.adaptive_load.trend import calculate_load_trend
 from engines.core.athlete_context import AthleteContext
 from engines.core.model_safety import finalize_model_metadata
-from engines.history.load_trends import calculate_load_trend
 from engines.io.data_quality_report import build_data_quality_report
 from engines.metabolic.metabolic_profiler import MetabolicProfiler
 from engines.performance.ability_profile import build_ability_profile
@@ -181,7 +181,8 @@ def test_ability_profile_hides_wkg_without_body_mass() -> None:
 
 
 def test_history_load_trend_short_history_is_cold_start_metadata() -> None:
-    out = calculate_load_trend([40, 50, 60])
+    short_history = [{"load": 40.0}, {"load": 50.0}, {"load": 60.0}]
+    out = calculate_load_trend(short_history, current_session_load=None)
     assert out["status"] in {"insufficient_data", "error"}
     _assert_model_metadata(out)
     assert "cold_start" in out["model_metadata"]["quality_flags"]
