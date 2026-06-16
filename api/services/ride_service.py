@@ -18,7 +18,7 @@ class RideService:
     def ingest(
         self,
         *,
-        power: list,
+        power: list[float],
         ride_date: date,
         file_id: str,
         weight_kg: float,

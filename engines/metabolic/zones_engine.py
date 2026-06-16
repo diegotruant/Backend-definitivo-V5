@@ -254,16 +254,18 @@ def seiler_polarization(
         }
 
     if use_power:
+        if vt1_w is None or vt2_w is None:
+            raise ValueError("vt1_w and vt2_w are required for power-based Seiler zones")
         values = arrs["power"]
         valid = values > 0
-        assert vt1_w is not None and vt2_w is not None  # guaranteed by use_power branch
         thr_lo, thr_hi = float(vt1_w), float(vt2_w)
         anchor_label = "power"
         anchor_units = "W"
     else:
+        if vt1_bpm is None or vt2_bpm is None:
+            raise ValueError("vt1_bpm and vt2_bpm are required for HR-based Seiler zones")
         values = arrs["hr"]
         valid = ~np.isnan(values)
-        assert vt1_bpm is not None and vt2_bpm is not None  # guaranteed by use_hr branch
         thr_lo, thr_hi = float(vt1_bpm), float(vt2_bpm)
         anchor_label = "hr"
         anchor_units = "bpm"

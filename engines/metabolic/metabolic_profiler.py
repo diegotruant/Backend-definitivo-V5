@@ -263,7 +263,7 @@ class MetabolicProfiler:
         
         if clean_mmp_first:
             # Local import to avoid hard dependency if user never enables this
-            from mmp_quality import analyze_mmp_quality, clean_mmp
+            from engines.performance.mmp_quality import analyze_mmp_quality, clean_mmp
             cleaned_dict, mmp_quality_audit = clean_mmp(mmp_raw, mmp_samples)
             mmp = cleaned_dict
             # Add the full report (quality_score, classification, issues)

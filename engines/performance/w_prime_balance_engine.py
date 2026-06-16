@@ -12,7 +12,9 @@ MODEL:
 - Tau (τ) = 546s (Skiba default) or athlete-specific
 """
 
-from typing import List, Dict, Any
+import warnings
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 
 from engines.core.metric_contracts import metric_envelope
@@ -23,16 +25,37 @@ def calculate_w_prime_balance(
     cp: float,
     w_prime: float,
     tau: float = 546,
+    dt_s: float = 1.0,
+    duration_s: Optional[float] = None,
 ) -> List[float]:
     """
     Real-time W' balance tracking.
+
+    Args:
+        dt_s: Seconds represented by each power sample (default 1 Hz streams).
+        duration_s: Optional ride duration; when set, warns if sample rate
+            disagrees with ``dt_s`` by more than 15%.
     
     Returns: List of W' balance values (same length as power_stream)
     """
+    if dt_s <= 0:
+        raise ValueError("dt_s must be positive")
+    if duration_s is not None and duration_s > 0 and len(power_stream) > 1:
+        implied_hz = (len(power_stream) - 1) / duration_s
+        expected_hz = 1.0 / dt_s
+        if abs(implied_hz - expected_hz) > 0.15 * expected_hz:
+            warnings.warn(
+                (
+                    f"Power stream sampling rate ({implied_hz:.3f} Hz) "
+                    f"does not match dt_s={dt_s} ({expected_hz:.3f} Hz expected)"
+                ),
+                stacklevel=2,
+            )
+
     balance = [w_prime]
     
     for p in power_stream[1:]:
-        dt = 1  # 1 second
+        dt = dt_s
         
         if p > cp:
             # Depletion

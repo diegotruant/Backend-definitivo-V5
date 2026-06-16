@@ -223,11 +223,14 @@ def apply_detraining_model(
     vlamax_baseline = required_fields["estimated_vlamax_mmol_L_s"]
     mlss_baseline = required_fields["mlss_power_watts"]
     map_baseline = required_fields["map_aerobic_watts"]
-    # mypy can't narrow dict values through the `unavailable` check above.
-    assert vo2max_baseline is not None
-    assert vlamax_baseline is not None
-    assert mlss_baseline is not None
-    assert map_baseline is not None
+    if vo2max_baseline is None:
+        raise ValueError("estimated_vo2max baseline is required")
+    if vlamax_baseline is None:
+        raise ValueError("estimated_vlamax_mmol_L_s baseline is required")
+    if mlss_baseline is None:
+        raise ValueError("mlss_power_watts baseline is required")
+    if map_baseline is None:
+        raise ValueError("map_aerobic_watts baseline is required")
     
     vo2max_decay = calculate_decay_factor(tl["days_since_last"], tl["ctl"], "vo2max")
     vlamax_decay = calculate_decay_factor(tl["days_since_last"], tl["ctl"], "vlamax")
