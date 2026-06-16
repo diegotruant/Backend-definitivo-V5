@@ -1,15 +1,15 @@
-# Contratto JSON — App tablet ↔ Backend test
+# JSON Contract — Tablet App ↔ Test Backend
 
-Questo documento definisce **esattamente** cosa l'app manda al backend per ogni
-tipo di test, e cosa il backend restituisce. È il riferimento per costruire
-l'app: se l'app rispetta questo contratto, `test_protocols.py` la capisce.
+This document defines **exactly** what the app sends to the backend for each
+test type, and what the backend returns. It is the reference for building
+the app: if the app follows this contract, `test_protocols.py` will understand it.
 
-Tutti i test condividono una **busta comune** (envelope) e differiscono solo
-nel blocco `test_data`.
+All tests share a **common envelope** and differ only
+in the `test_data` block.
 
 ---
 
-## Busta comune (uguale per tutti i test)
+## Common envelope (same for all tests)
 
 ```json
 {
@@ -31,23 +31,23 @@ nel blocco `test_data`.
     "power_source": "trainer | power_meter",
     "control_mode": "erg | manual"
   },
-  "test_data": { ... }      // dipende da test_type, vedi sotto
+  "test_data": { ... }      // depends on test_type, see below
 }
 ```
 
-**Note sull'atleta:**
-- `type: registered` → `id` è l'uuid Supabase; gli altri campi arrivano dal db.
-- `type: guest` → `id` è `null`; i campi sono inseriti a mano dal coach.
+**Athlete notes:**
+- `type: registered` → `id` is the Supabase UUID; the other fields come from the database.
+- `type: guest` → `id` is `null`; the fields are entered manually by the coach.
 
 ---
 
-## 1. Mader (test del lattato) — il più importante
+## 1. Mader (lactate test) — the most important
 
-L'app raccoglie gli step con lattato misurato a fine di ognuno. Serve anche la
-**MMP dell'atleta** (presa dallo storico o da uno sforzo), perché il backend
-confronta il lattato reale con la predizione del modello non invasivo.
+The app collects the steps with measured lactate at the end of each one. It also needs the
+**athlete's MMP** (from history or from an effort), because the backend
+compares the actual lactate with the prediction from the non-invasive model.
 
-### L'app manda:
+### The app sends:
 
 ```json
 "test_data": {
@@ -63,16 +63,16 @@ confronta il lattato reale con la predizione del modello non invasivo.
 }
 ```
 
-**Requisito:** almeno **5 step** (vincolo del D-max). Con meno, il backend
-rifiuta e spiega perché.
+**Requirement:** at least **5 steps** (D-max constraint). With fewer, the backend
+rejects the payload and explains why.
 
-### Il backend restituisce:
+### The backend returns:
 
 ```json
 {
   "status": "success",
   "validated": true,
-  "verdict": "Modello VALIDATO per questo atleta...",
+  "verdict": "Model VALIDATED for this athlete...",
   "mlss_true_watts": 260.0,
   "mlss_model_watts": 258.0,
   "error_watts": -2.0,
@@ -82,18 +82,18 @@ rifiuta e spiega perché.
     "obla_4mmol_watts": 258.0,
     "aerobic_2mmol_watts": 207.5
   },
-  "model_snapshot": { ... }      // profilo completo dal MetabolicProfiler
+  "model_snapshot": { ... }      // complete profile from MetabolicProfiler
 }
 ```
 
 ---
 
-## 2. Incrementale
+## 2. Incremental
 
-Step a potenza crescente. Niente lattato. Serve a stimare la soglia dalla
-risposta FC/potenza e a costruire la MMP per gli altri calcoli.
+Steps with increasing power. No lactate. Used to estimate the threshold from
+HR/power response and to build the MMP for the other calculations.
 
-### L'app manda:
+### The app sends:
 
 ```json
 "test_data": {
@@ -101,12 +101,12 @@ risposta FC/potenza e a costruire la MMP per gli altri calcoli.
   "steps": [
     {"step": 1, "power_w": 200, "hr_mean": 130, "cadence_mean": 90, "duration_s": 180},
     {"step": 2, "power_w": 210, "hr_mean": 138, "cadence_mean": 91, "duration_s": 60}
-    // ... fino all'esaurimento
+    // ... until exhaustion
   ]
 }
 ```
 
-### Il backend restituisce:
+### The backend returns:
 
 ```json
 {
@@ -114,18 +114,18 @@ risposta FC/potenza e a costruire la MMP per gli altri calcoli.
   "max_power_w": 380,
   "hr_max_observed": 189,
   "steps_completed": 19,
-  "vo2max_estimate": null,        // valorizzato se la MMP lo consente
+  "vo2max_estimate": null,        // populated if the MMP allows it
   "notes": "..."
 }
 ```
 
 ---
 
-## 3. Curva Potenza/Cadenza
+## 3. Power/Cadence Curve
 
-4-5 sprint massimali a RPM diverse. Misura la potenza di picco per cadenza.
+4-5 maximal sprints at different RPMs. Measures peak power for each cadence.
 
-### L'app manda:
+### The app sends:
 
 ```json
 "test_data": {
@@ -138,7 +138,7 @@ risposta FC/potenza e a costruire la MMP per gli altri calcoli.
 }
 ```
 
-### Il backend restituisce:
+### The backend returns:
 
 ```json
 {
@@ -153,10 +153,10 @@ risposta FC/potenza e a costruire la MMP per gli altri calcoli.
 
 ## 4. Critical Power
 
-Una o più prove massimali nella finestra **2-15 minuti**. Stima CP e W'.
-Usa il fit già esistente nel backend (`power_engine.fit_critical_power`).
+One or more maximal efforts within the **2–15 minute** window. Estimates CP and W'.
+Uses the fit already implemented in the backend (`power_engine.fit_critical_power`).
 
-### L'app manda:
+### The app sends:
 
 ```json
 "test_data": {
@@ -168,9 +168,9 @@ Usa il fit già esistente nel backend (`power_engine.fit_critical_power`).
 }
 ```
 
-**Requisito:** almeno **3 prove** nella finestra 120-900s.
+**Requirement:** at least **3 efforts** within the 120–900s window.
 
-### Il backend restituisce:
+### The backend returns:
 
 ```json
 {
@@ -186,20 +186,20 @@ Usa il fit già esistente nel backend (`power_engine.fit_critical_power`).
 
 ## 5. Wingate
 
-Sprint massimale cronometrato (classico 30s). Misura picco, media, minimo e
-indice di affaticamento.
+Timed maximal sprint (classic 30s). Measures peak, mean, minimum, and
+fatigue index.
 
-### L'app manda:
+### The app sends:
 
 ```json
 "test_data": {
   "duration_s": 30,
-  "power_stream": [980, 960, 940, ...],   // un valore al secondo
+  "power_stream": [980, 960, 940, ...],   // one value per second
   "body_weight_kg": 72.0
 }
 ```
 
-### Il backend restituisce:
+### The backend returns:
 
 ```json
 {
@@ -214,10 +214,10 @@ indice di affaticamento.
 
 ---
 
-## Output: campi comuni a tutte le risposte
+## Output: fields common to all responses
 
-Ogni risposta porta anche, in coda, i campi del contratto del backend
-(aggiunti automaticamente da `annotate_payload`):
+Each response also includes, at the end, the backend contract fields
+(automatically added by `annotate_payload`):
 
 ```json
 {

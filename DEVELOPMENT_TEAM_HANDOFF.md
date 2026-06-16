@@ -1,84 +1,84 @@
-# Handoff per team di sviluppo — Digital Twin Fisiologico Cycling Backend V5
+# Development handoff — Physiological Digital Twin Cycling Backend V5
 
-## Obiettivo di questa consegna
+## Goal of this handoff
 
-Questo repository contiene il backend per una piattaforma di performance intelligence per ciclismo elite. Il team frontend non deve conoscere il ciclismo: deve costruire un'interfaccia che visualizza correttamente i dati, rispetta la confidenza dei modelli e guida coach e performance scientist nelle decisioni.
+This repository contains the backend for a performance intelligence platform for elite cycling. The frontend team should not need to know cycling: it must build an interface that correctly displays data, respects model confidence, and guides coaches and performance scientists in decision-making.
 
-Il prodotto non deve apparire come un clone di social activity platform, consumer platform o coaching platform. Deve apparire come un **digital twin fisiologico**: un sistema che combina dati reali, modelli metabolici, test validati e apprendimento atleta/team.
+The product must not look like a clone of a social activity platform, consumer platform, or coaching platform. It must look like a **physiological digital twin**: a system that combines real data, metabolic models, validated tests, and athlete/team learning.
 
-## Cosa è già pronto nel backend
+## What is already ready in the backend
 
-- API FastAPI stateless in `api_app.py`.
-- Parsing FIT e ingestione attività.
+- Stateless FastAPI API in `api_app.py`.
+- FIT parsing and activity ingestion.
 - Power curve / MMP.
-- Profilo metabolico da MMP.
-- Stima VO2max, VLamax, MLSS, FatMax, MAP.
-- Expressiveness gate: il sistema sa quando i dati non bastano.
+- Metabolic profile from MMP.
+- Estimation of VO2max, VLamax, MLSS, FatMax, MAP.
+- Expressiveness gate: the system knows when data is insufficient.
 - Workout summary.
-- Durability meccanicistica.
-- HRV / cardiac response quando i dati sono presenti.
-- Test in presenza via envelope JSON.
-- Validazione lattato / Mader.
-- Anchor fisiologico confermato dal coach.
-- Team Learning Engine: apprendimento residuo da test validati.
+- Mechanistic durability.
+- HRV / cardiac response when data is present.
+- In-person tests via JSON envelope.
+- Lactate / Mader validation.
+- Physiological anchor confirmed by the coach.
+- Team Learning Engine: residual learning from validated tests.
 
-## File fondamentali per il frontend
+## Key files for the frontend
 
-| File | Scopo |
+| File | Purpose |
 |---|---|
-| `api_app.py` | Contratti API disponibili oggi |
-| `docs/FRONTEND_IMPLEMENTATION_BLUEPRINT.md` | Specifica frontend principale |
-| `docs/API_PAYLOAD_EXAMPLES.md` | Esempi payload/response per ogni endpoint |
-| `docs/COACH_UX_COPYBOOK.md` | Testi, badge e semafori da mostrare ai coach |
-| `docs/TEAM_LEARNING_ENGINE.md` | Spiegazione del motore di auto-apprendimento |
-| `docs/FRONTEND_DEVELOPER_GUIDE.md` | Guida tecnica esistente estesa |
-| `frontend/src/contracts.ts` | TypeScript interfaces base per iniziare |
-| `frontend/src/metricDictionary.ts` | Dizionario metriche per UI |
-| `frontend/src/api.ts` | Client API minimale |
-| `frontend/src/mockData.ts` | Mock data per prototipare pagine senza backend live |
+| `api_app.py` | API contracts currently available |
+| `docs/FRONTEND_IMPLEMENTATION_BLUEPRINT.md` | Main frontend specification |
+| `docs/API_PAYLOAD_EXAMPLES.md` | Payload/response examples for each endpoint |
+| `docs/COACH_UX_COPYBOOK.md` | Texts, badges, and traffic lights to show coaches |
+| `docs/TEAM_LEARNING_ENGINE.md` | Explanation of the self-learning engine |
+| `docs/FRONTEND_DEVELOPER_GUIDE.md` | Existing extended technical guide |
+| `frontend/src/contracts.ts` | Base TypeScript interfaces to start from |
+| `frontend/src/metricDictionary.ts` | UI metric dictionary |
+| `frontend/src/api.ts` | Minimal API client |
+| `frontend/src/mockData.ts` | Mock data to prototype pages without a live backend |
 
-## Principio UI non negoziabile
+## Non-negotiable UI principle
 
-Ogni numero deve dire all'utente se è:
+Every number must tell the user whether it is:
 
-1. misurato direttamente;
-2. calcolato con formula standard;
-3. stimato da modello fisiologico;
-4. appreso/corretto da test validati;
-5. non affidabile o non disponibile.
+1. measured directly;
+2. calculated with a standard formula;
+3. estimated by a physiological model;
+4. learned/corrected by validated tests;
+5. unreliable or unavailable.
 
-Non mostrare mai un valore `null`, `skipped` o mascherato come fosse un valore certo.
+Never show a `null`, `skipped`, or masked value as if it were a certain value.
 
-## Le 7 pagine da costruire
+## The 7 pages to build
 
-1. **Team Command Center** — vista team, accuratezza modello, stato atleti.
-2. **Athlete Digital Twin** — profilo metabolico completo del singolo atleta.
-3. **Activity Analysis** — analisi singola uscita/allenamento.
-4. **Testing Lab** — caricamento test FIT/tablet/lattato e conferma coach.
-5. **Model Accuracy & Learning** — dashboard di auto-apprendimento team.
-6. **Coach Planner** — target operativi, zone, raccomandazioni.
-7. **Data Quality Center** — completezza dati, warning, sensori mancanti.
+1. **Team Command Center** — team view, model accuracy, athlete status.
+2. **Athlete Digital Twin** — complete metabolic profile of the single athlete.
+3. **Activity Analysis** — single ride/workout analysis.
+4. **Testing Lab** — FIT/tablet/lactate test upload and coach confirmation.
+5. **Model Accuracy & Learning** — team self-learning dashboard.
+6. **Coach Planner** — operational targets, zones, recommendations.
+7. **Data Quality Center** — data completeness, warnings, missing sensors.
 
-## Cosa deve essere memorabile per un team WT
+## What must be memorable for a WT team
 
-La piattaforma deve comunicare tre messaggi:
+The platform must communicate three messages:
 
-1. **Non guarda solo quanto forte va l'atleta fresco, ma quanto resta forte dopo ore di fatica.**
-2. **Non dà numeri magici: misura il proprio errore rispetto a test Mader/lattato/lab.**
-3. **Più il team la usa e valida, più il modello si calibra sulla coorte del team.**
+1. **It does not only look at how strong the athlete is when fresh, but how strong they remain after hours of fatigue.**
+2. **It does not provide magic numbers: it measures its own error against Mader/lactate/lab tests.**
+3. **The more the team uses and validates it, the more the model calibrates on the team cohort.**
 
-## Regola di implementazione
+## Implementation rule
 
-Il backend è stateless. Il frontend/database deve salvare e rimandare:
+The backend is stateless. The frontend/database must save and send back:
 
-- `curve` per atleta;
-- `anchor` per atleta;
-- `metabolic_snapshot` più recente;
-- `calibration_model` per team;
-- `ValidationEvent` per ogni test validato;
-- `model_version` associato a ogni previsione.
+- `curve` for each athlete;
+- `anchor` for each athlete;
+- latest `metabolic_snapshot`;
+- `calibration_model` for the team;
+- `ValidationEvent` for each validated test;
+- `model_version` associated with each prediction.
 
-## Comando rapido backend
+## Quick backend command
 
 ```bash
 pip install -r requirements-dev.txt
@@ -91,7 +91,7 @@ Health check:
 curl http://localhost:8000/health
 ```
 
-## Test rapidi
+## Quick tests
 
 ```bash
 PYTHONPATH=. pytest -q tests/pytest_smoke.py tests/test_team_learning_engine.py

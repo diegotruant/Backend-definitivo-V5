@@ -1,38 +1,38 @@
 # Backend-definitivo-V5
 
-Backend Python per analisi fisiologica e performance cycling (Digital Twin).
+Python backend for physiological analysis and cycling performance (Digital Twin).
 
-Versione attuale: **5.1.1** — stabilizzazione integrazione frontend (test + docs). Baseline architetturale: **v5.1.0**.
+Current version: **5.1.1** — frontend integration stabilization (tests + docs). Architectural baseline: **v5.1.0**.
 
-## Panoramica
+## Overview
 
-| Layer | Path | Ruolo |
+| Layer | Path | Role |
 |-------|------|--------|
-| **Entrypoint HTTP** | `api_app.py` | Shim compatibile per `uvicorn api_app:app` |
-| **API package** | `api/` | Router, service, schemi, upload, serializzazione |
-| **Motori fisiologici** | `engines/` | Algoritmi, tier, contratti metrica |
-| **Contratto OpenAPI** | `openapi/openapi.json` | 24 endpoint documentati |
-| **Frontend client** | `frontend/src/api/` | Tipi TS generati + client `api.*` |
-| **Test** | `tests/` | pytest smoke/hardening + `tests/integration/` |
+| **HTTP Entrypoint** | `api_app.py` | Compatible shim for `uvicorn api_app:app` |
+| **API package** | `api/` | Router, service, schemas, upload, serialization |
+| **Physiological engines** | `engines/` | Algorithms, tier, metric contracts |
+| **OpenAPI Contract** | `openapi/openapi.json` | 24 documented endpoints |
+| **Frontend client** | `frontend/src/api/` | Generated TS types + `api.*` client |
+| **Tests** | `tests/` | pytest smoke/hardening + `tests/integration/` |
 
-## Architettura API (`api/`)
+## API Architecture (`api/`)
 
 ```text
 api/
 ├── app.py                 # FastAPI factory, middleware, exception handlers
 ├── deps.py                # Dependency injection (Depends → services)
 ├── errors.py              # ServiceError → HTTP 4xx
-├── schemas.py             # Request DTO Pydantic (API boundary)
-├── domain_schemas.py      # Payload tipizzati: TwinState, Workout, InPersonTest, …
+├── schemas.py             # Pydantic request DTOs (API boundary)
+├── domain_schemas.py      # Typed payloads: TwinState, Workout, InPersonTest, …
 ├── serialization.py       # JSON safety (NaN/Inf → null)
 ├── upload.py              # FIT multipart parsing
 ├── parsing.py             # Date, snapshot, curve coercion, AthleteContext
-├── activity_streams.py    # FIT o power_json → ActivityStream
-├── helpers.py             # Re-export legacy (prefer moduli sopra)
-├── openapi.py             # Metadata OpenAPI (servers, codegen hints)
-├── responses.py           # Response models per Swagger
+├── activity_streams.py    # FIT or power_json → ActivityStream
+├── helpers.py             # Legacy re-export (prefer modules above)
+├── openapi.py             # OpenAPI metadata (servers, codegen hints)
+├── responses.py           # Response models for Swagger
 ├── route_docs.py          # OpenAPI response templates
-├── routers/               # HTTP thin — un file per dominio
+├── routers/               # Thin HTTP layer — one file per domain
 │   ├── health.py
 │   ├── test_routes.py
 │   ├── ride.py
@@ -42,7 +42,7 @@ api/
 │   ├── performance.py
 │   ├── load.py
 │   └── team.py
-└── services/              # Orchestrazione use-case (no FastAPI)
+└── services/              # Use-case orchestration (no FastAPI)
     ├── test_service.py
     ├── ride_service.py
     ├── profile_service.py
@@ -53,11 +53,11 @@ api/
     └── load_service.py
 ```
 
-Flusso: **router → service → engines**. Dettagli in `docs/ARCHITECTURE.md`.
+Flow: **router → service → engines**. Details in `docs/ARCHITECTURE.md`.
 
-## Setup locale
+## Local setup
 
-Prerequisiti: Python 3.10+, pip.
+Prerequisites: Python 3.10+, pip.
 
 ```bash
 make install
@@ -67,99 +67,99 @@ make run               # http://127.0.0.1:8000
 
 Swagger UI: `http://localhost:8000/docs`
 
-## Comandi sviluppo
+## Development commands
 
 ```bash
 make run              # uvicorn api_app:app
-make test             # smoke pytest (veloce, CI default)
-make test-all         # pytest completo + integration scripts
-make hardening-test   # robustezza input malformati
-make stress-test      # subset stress bounded
+make test             # smoke pytest (fast, CI default)
+make test-all         # full pytest + integration scripts
+make hardening-test   # malformed input robustness
+make stress-test      # bounded stress subset
 make check            # lint + mypy + test-all + hardening (release gate)
-make openapi-frontend # export openapi.json + rigenera tipi TS
+make openapi-frontend # export openapi.json + regenerate TS types
 make lint | format | typecheck
 ```
 
-## Test
+## Tests
 
 | Suite | Comando |
 |-------|---------|
-| Smoke (CI rapida) | `make test` |
-| Completa | `make test-all` |
+| Smoke (fast CI) | `make test` |
+| Full | `make test-all` |
 | Integration scripts | `tests/integration/test_*.py` via `pytest_script_suite.py` |
 | Release gate | `make check` |
 
-## Struttura repository
+## Repository structure
 
 ```text
 .
 ├── api/                      # HTTP layer (router + service + schemas)
-├── api_app.py                # entrypoint uvicorn
-├── engines/                  # motori fisiologici
+├── api_app.py                # uvicorn entrypoint
+├── engines/                  # physiological engines
 │   ├── core/                 # tier, security, athlete_context
 │   ├── metabolic/            # profiler, team learning, zones
 │   ├── performance/          # power, MMP, durability, protocols
 │   ├── recovery/             # HRV, cardiac, thermal
 │   ├── io/                   # FIT parser, workout_summary, charts
-│   ├── twin_state/           # TwinState v1 canonico
+│   ├── twin_state/           # canonical TwinState v1
 │   ├── workouts/             # prescription, compliance, calendar
 │   ├── projection/           # season what-if
 │   └── load/                 # manual non-cycling load
-├── openapi/                  # openapi.json committato
+├── openapi/                  # committed openapi.json
 ├── frontend/                   # client Vite/React + api/client.ts
 ├── tests/
 │   ├── pytest_*.py           # smoke, hardening, security
-│   └── integration/          # regression script eseguibili
+│   └── integration/          # executable regression scripts
 ├── docs/                     # ARCHITECTURE, FRONTEND_DEVELOPER_GUIDE, OPENAPI_FRONTEND
 ├── scripts/export_openapi.py
 ├── tools/stress/             # multitenant + deep bottleneck harness
 └── Makefile
 ```
 
-## Documentazione
+## Documentation
 
-| Documento | Contenuto |
+| Document | Content |
 |-----------|-----------|
 | `docs/ARCHITECTURE.md` | Layering router/service/engines |
-| `docs/FRONTEND_DEVELOPER_GUIDE.md` | Integrazione frontend, TwinState, endpoint map |
+| `docs/FRONTEND_DEVELOPER_GUIDE.md` | Frontend integration, TwinState, endpoint map |
 | `docs/FRONTEND_CONNECT_NEXT_VERCEL.md` | **Next/Vercel/v0** — env, CORS, FormData, offline |
-| `docs/DEPLOY_BACKEND.md` | Deploy produzione uvicorn |
-| `docs/API_EXAMPLES.md` | Payload JSON minimi copy-paste |
+| `docs/DEPLOY_BACKEND.md` | Production uvicorn deployment |
+| `docs/API_EXAMPLES.md` | Minimal copy-paste JSON payloads |
 | `docs/TROUBLESHOOTING.md` | CORS, upload, CI, TwinState |
-| `docs/RELEASE_NOTES_v5.1.0.md` | Baseline architetturale (tag v5.1.0) |
-| `docs/RELEASE_NOTES_v5.1.1.md` | Stabilizzazione test + docs frontend |
+| `docs/RELEASE_NOTES_v5.1.0.md` | Architectural baseline (tag v5.1.0) |
+| `docs/RELEASE_NOTES_v5.1.1.md` | Test + frontend docs stabilization |
 
-## Politica V5.1.x
+## V5.1.x Policy
 
-Nessuna nuova feature grossa. Solo bugfix (con test), test su contratti critici, docs prodotto/deploy. Gate release: `make check`.
+No major new features. Only bug fixes (with tests), tests on critical contracts, product/deployment docs. Release gate: `make check`.
 
 ## CI
 
 | Workflow | Trigger | Gate |
 |----------|---------|------|
-| `.github/workflows/ci.yml` | push/PR | `make lint` + `make test` (smoke veloce) |
+| `.github/workflows/ci.yml` | push/PR | `make lint` + `make test` (fast smoke) |
 | `.github/workflows/full-check.yml` | push main, PR, weekly | `make check` (release gate) |
 | `.github/workflows/hardening.yml` | manual | hardening + stress subset |
 
 ## Frontend API base URL
 
-Il backend è agnostico. Il client supporta entrambe le convenzioni:
+The backend is agnostic. The client supports both conventions:
 
 | Stack | Variabile |
 |-------|-----------|
 | **Vite** (MVP in `frontend/`) | `VITE_API_BASE_URL` |
 | **Next.js / Vercel / v0** | `NEXT_PUBLIC_API_BASE_URL` |
 
-## Cosa include V5.1
+## What V5.1 includes
 
-- TwinState canonico (`twin_state.v1`) + projection stagionale
+- Canonical TwinState (`twin_state.v1`) + seasonal projection
 - Workout system (validate → prescribe → feasibility → compare)
 - Team learning calibration
 - mader_durability, neuromuscular profile, manual load
 - Security hardening (upload limits, JSON depth, CORS)
-- OpenAPI 3.1 con 24 endpoint + client TypeScript generato
+- OpenAPI 3.1 with 24 endpoints + generated TypeScript client
 
 ## Branch
 
-- `main` — backend attuale
-- `old/main` — snapshot pre-refactor architetturale
+- `main` — current backend
+- `old/main` — pre-architectural-refactor snapshot
