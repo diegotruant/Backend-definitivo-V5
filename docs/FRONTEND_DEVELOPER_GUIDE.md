@@ -36,7 +36,7 @@ Documento unificato per uno **sviluppatore software** che deve costruire il fron
 
 Il backend trasforma **file FIT** (uscite dal ciclocomputer), **test in presenza** (sprint, CP 3/6/12 min, lattato), **allenamenti prescritti** e **dati fisici dell'atleta** in un **profilo fisiologico personalizzato**, in **analisi per ogni allenamento** e in un **gemello digitale** (`TwinState`) che il frontend persiste e aggiorna nel tempo.
 
-Non è un "Garmin clone": molti numeri sono **stime modellate**, non misure dirette. Il backend è **onesto** quando mancano dati o la confidenza è bassa (`status: skipped`, campi `null`, `warnings`, `tier`).
+Non è un "consumer platform clone": molti numeri sono **stime modellate**, non misure dirette. Il backend è **onesto** quando mancano dati o la confidenza è bassa (`status: skipped`, campi `null`, `warnings`, `tier`).
 
 ---
 

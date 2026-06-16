@@ -222,10 +222,10 @@ Response is a full `twin_state.v1` document — persist it client-side or in you
 ```json
 {
   "activities": [
-    { "power_source_id": "assioma", "mmp": { "60": 500, "300": 330, "1200": 270 } },
-    { "power_source_id": "kickr", "mmp": { "60": 535, "300": 353, "1200": 289 } }
+    { "power_source_id": "outdoor_meter_a", "mmp": { "60": 500, "300": 330, "1200": 270 } },
+    { "power_source_id": "indoor_trainer_a", "mmp": { "60": 535, "300": 353, "1200": 289 } }
   ],
-  "baseline_source_id": "assioma"
+  "baseline_source_id": "outdoor_meter_a"
 }
 ```
 

@@ -1,4 +1,4 @@
--- DDTraining Workout System V1 schema draft for PostgreSQL / Supabase.
+-- Digital Twin Workout System V1 schema draft for PostgreSQL / Supabase.
 -- Use UUID generation according to your Supabase setup, e.g. gen_random_uuid().
 
 create table if not exists workout_templates (

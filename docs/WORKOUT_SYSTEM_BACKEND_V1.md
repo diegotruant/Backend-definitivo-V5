@@ -1,6 +1,6 @@
 # Workout System Backend V1
 
-This V1 turns DDTraining from a FIT analyser into a prescription-to-execution system.
+This V1 turns Digital Twin from a FIT analyser into a prescription-to-execution system.
 
 ## Backend responsibilities
 
