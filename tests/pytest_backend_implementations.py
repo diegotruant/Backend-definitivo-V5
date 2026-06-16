@@ -104,11 +104,11 @@ def test_neuromuscular_profile_detects_sprints_and_balance():
 
 
 def test_power_source_normalizer_flags_offset():
-    outdoor = {"power_source_id": "assioma", "device_name": "Assioma Duo", "mmp": {"60": 500, "300": 330, "1200": 270}}
-    indoor = {"power_source_id": "kickr", "device_name": "Kickr trainer", "mmp": {"60": 535, "300": 353, "1200": 289}}
-    out = analyze_power_source_offsets([outdoor, indoor], baseline_source_id="assioma")
+    outdoor = {"power_source_id": "outdoor_meter_a", "device_name": "Outdoor meter A", "mmp": {"60": 500, "300": 330, "1200": 270}}
+    indoor = {"power_source_id": "indoor_trainer_a", "device_name": "Indoor trainer A", "mmp": {"60": 535, "300": 353, "1200": 289}}
+    out = analyze_power_source_offsets([outdoor, indoor], baseline_source_id="outdoor_meter_a")
     assert out["status"] == "success"
-    assert out["normalization_recommendations"]["kickr"]["action"] == "normalize_before_profile"
+    assert out["normalization_recommendations"]["indoor_trainer_a"]["action"] == "normalize_before_profile"
     assert out["warnings"]
 
 

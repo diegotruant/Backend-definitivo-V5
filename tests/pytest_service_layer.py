@@ -68,7 +68,7 @@ def test_in_person_envelope_rejects_unknown_test_type() -> None:
 
 def test_power_source_activity_accepts_mmp_aliases() -> None:
     act = PowerSourceActivity.model_validate(
-        {"power_source_id": "kickr", "mmp_curve": {"60": 500, "300": 330}}
+        {"power_source_id": "indoor_trainer_a", "mmp_curve": {"60": 500, "300": 330}}
     )
     merged = act.merged_mmp_dict()
     assert merged["60"] == 500

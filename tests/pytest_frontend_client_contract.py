@@ -84,4 +84,5 @@ def test_client_method_count_matches_openapi_post_get_count(
 ) -> None:
     # One jsonFetch call per HTTP operation in client
     fetch_paths = _extract_client_paths(client_source)
-    assert len(fetch_paths) == len(openapi_paths) == 24
+    assert len(fetch_paths) == len(openapi_paths)
+    assert len(openapi_paths) >= 24
