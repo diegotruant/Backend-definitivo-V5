@@ -205,9 +205,9 @@ def analyze_neuromuscular_profile(
     }
 
 
-def _recommendations(pmax_wkg: float, repeatability: Optional[float], cadence_peak: Optional[float]) -> List[Dict[str, Any]]:
+def _recommendations(pmax_wkg: Optional[float], repeatability: Optional[float], cadence_peak: Optional[float]) -> List[Dict[str, Any]]:
     recs: List[Dict[str, Any]] = []
-    if pmax_wkg >= 12 and (repeatability is None or repeatability < 82):
+    if pmax_wkg is not None and pmax_wkg >= 12 and (repeatability is None or repeatability < 82):
         recs.append({"type": "repeat_sprint_capacity", "message": "Pmax is strong but repeatability is limited: add full-recovery repeat sprint work."})
     if cadence_peak is not None and cadence_peak < 85:
         recs.append({"type": "cadence_velocity", "message": "Peak power occurs at low cadence: include high-cadence accelerations to improve velocity side."})

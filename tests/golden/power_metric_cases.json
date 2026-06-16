@@ -1,0 +1,28 @@
+[
+  {
+    "id": "steady_200w_60s",
+    "description": "60s at 200W, 1Hz sampling -> work_kj=12",
+    "ftp": 250.0,
+    "weight_kg": 70.0,
+    "power": 200,
+    "duration_s": 60,
+    "expected": {
+      "work_kj": 12.0,
+      "work_kj_tolerance": 0.2,
+      "avg_power_w": 200.0,
+      "np_w_tolerance_pct": 0.02
+    }
+  },
+  {
+    "id": "synthetic_fit_endurance",
+    "description": "Synthetic FIT endurance block statistics sanity",
+    "weight_kg": 72.0,
+    "ftp": 280.0,
+    "fixture": "synthetic_ride",
+    "expected": {
+      "avg_power_w_min": 200.0,
+      "work_kj_min": 100.0,
+      "max_hr_bpm_min": 130.0
+    }
+  }
+]

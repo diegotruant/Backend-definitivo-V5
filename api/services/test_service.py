@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 from api.errors import ServiceError
 from api.schemas import AthleteParams, ConfirmRequest, InPersonTestRequest
 from engines.core.athlete_context import AthleteContext
+from engines.core.athlete_weight import require_weight_kg
 from engines.io.profile_anchor_flow import build_anchor_from_proposal
 from engines.metabolic.metabolic_profiler import MetabolicProfiler
 from engines.performance.effort_extractor import extract_test_proposal
@@ -41,7 +42,14 @@ class TestService:
     def run_in_person(self, req: InPersonTestRequest) -> Dict[str, Any]:
         envelope = req.to_engine_dict()
         athlete = envelope.get("athlete") or {}
-        weight = float(athlete.get("weight_kg") or 70.0)
+        try:
+            weight = require_weight_kg(athlete.get("weight_kg"))
+        except ValueError as exc:
+            raise ServiceError(
+                str(exc),
+                status_code=422,
+                code="WEIGHT_REQUIRED",
+            ) from exc
         ctx = AthleteContext(
             gender=str(athlete.get("sex") or athlete.get("gender") or "MALE"),
             training_years=float(athlete.get("training_years") or 10),

@@ -1,0 +1,82 @@
+[
+  {
+    "id": "trained_cyclist_full_mmp",
+    "description": "Representative trained cyclist curve with full expressiveness windows",
+    "weight_kg": 72.0,
+    "mmp": {
+      "5": 1100,
+      "15": 900,
+      "30": 700,
+      "60": 520,
+      "180": 380,
+      "300": 340,
+      "600": 310,
+      "1200": 295,
+      "1800": 285,
+      "3600": 270
+    },
+    "expected": {
+      "status": "success",
+      "vo2max_range": [48.0, 72.0],
+      "vlamax_range": [0.25, 0.95],
+      "mlss_w_range": [250.0, 320.0],
+      "mlss_gt_fatmax": true,
+      "map_gt_mlss": true,
+      "confidence_min": 0.35
+    }
+  },
+  {
+    "id": "endurance_only_flat_mmp",
+    "description": "Z2-only curve: glycolytic parameters must be masked",
+    "weight_kg": 70.0,
+    "mmp": {
+      "300": 340,
+      "600": 300,
+      "1200": 290,
+      "1800": 285,
+      "3600": 270
+    },
+    "expected": {
+      "status": "success",
+      "vlamax_is_null": true,
+      "mlss_is_present": true,
+      "confidence_max": 0.45,
+      "ui_display_masked": true
+    }
+  },
+  {
+    "id": "wingate_lab_case",
+    "description": "Direct Wingate protocol: W/kg only when body mass is explicit",
+    "envelope": {
+      "test_type": "wingate",
+      "athlete": {"weight_kg": 72.0},
+      "test_data": {
+        "duration_s": 30,
+        "power_stream": [900, 880, 860, 840, 820, 800, 780, 760, 740, 720, 700, 680, 660, 640, 620, 600, 580, 560, 540, 520, 500, 480, 460, 440, 420, 400, 380, 360, 340, 320]
+      }
+    },
+    "expected": {
+      "status": "success",
+      "peak_power_w_range": [850.0, 920.0],
+      "peak_power_wkg_range": [11.5, 13.0],
+      "assumptions_empty": true
+    }
+  },
+  {
+    "id": "wingate_missing_weight",
+    "description": "Wingate without body mass must not fabricate W/kg",
+    "envelope": {
+      "test_type": "wingate",
+      "athlete": {},
+      "test_data": {
+        "duration_s": 30,
+        "power_stream": [900, 880, 860, 840, 820, 800, 780, 760, 740, 720, 700, 680, 660, 640, 620, 600, 580, 560, 540, 520, 500, 480, 460, 440, 420, 400, 380, 360, 340, 320]
+      }
+    },
+    "expected": {
+      "status": "success",
+      "peak_power_wkg_is_null": true,
+      "has_weight_assumption": true
+    }
+  }
+]

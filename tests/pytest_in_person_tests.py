@@ -49,6 +49,14 @@ def test_in_person_wingate_peak_power() -> None:
     assert float(body.get("peak_power_w", 0)) == 900
 
 
+def test_in_person_missing_weight_rejected() -> None:
+    payload = wingate_in_person_payload()
+    payload["athlete"] = {}
+    resp = client.post("/test/in-person", json=payload)
+    assert resp.status_code == 422
+    assert "WEIGHT_REQUIRED" in resp.text or "weight_kg" in resp.text.lower()
+
+
 def test_in_person_unknown_type_returns_error_not_500() -> None:
     resp = client.post(
         "/test/in-person",

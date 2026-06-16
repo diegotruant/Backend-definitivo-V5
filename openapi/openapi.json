@@ -4186,11 +4186,17 @@
             "title": "Dob"
           },
           "weight_kg": {
-            "type": "number",
-            "exclusiveMaximum": 200.0,
-            "exclusiveMinimum": 30.0,
-            "title": "Weight Kg",
-            "default": 70.0
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMaximum": 200.0,
+                "exclusiveMinimum": 30.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Kg"
           },
           "height_cm": {
             "anyOf": [

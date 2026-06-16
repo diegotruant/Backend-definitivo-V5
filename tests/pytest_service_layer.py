@@ -22,6 +22,7 @@ from api.schemas import (
     WorkoutFeasibilityRequest,
     WorkoutValidateRequest,
 )
+from api.errors import ServiceError
 from api.services.performance_service import PerformanceService
 from api.services.test_service import TestService
 from api.services.twin_service import TwinService
@@ -31,6 +32,7 @@ from tests._fixtures import (
     critical_power_in_person_payload,
     mader_in_person_payload,
     twin_build_payload,
+    wingate_in_person_payload,
     workout_pct_cp,
 )
 
@@ -99,6 +101,16 @@ def test_workout_service_feasibility_with_minimal_profile() -> None:
     )
     out = svc.analyze_feasibility(req)
     assert out["status"] in ("success", "warning", "insufficient_profile")
+
+
+def test_test_service_in_person_requires_weight() -> None:
+    svc = TestService()
+    payload = wingate_in_person_payload()
+    payload["athlete"] = {}
+    req = InPersonTestRequest.model_validate(payload)
+    with pytest.raises(ServiceError) as exc:
+        svc.run_in_person(req)
+    assert exc.value.code == "WEIGHT_REQUIRED"
 
 
 def test_test_service_in_person_mader_via_service() -> None:

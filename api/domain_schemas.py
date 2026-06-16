@@ -113,7 +113,7 @@ class InPersonAthlete(BaseModel):
     name: Optional[str] = None
     surname: Optional[str] = None
     dob: Optional[str] = None
-    weight_kg: float = Field(default=70.0, gt=30, lt=200)
+    weight_kg: Optional[float] = Field(default=None, gt=30, lt=200)
     height_cm: Optional[float] = Field(default=None, gt=100, lt=250)
     sex: Optional[str] = None
     gender: Optional[str] = None

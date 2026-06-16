@@ -1233,11 +1233,8 @@ export interface components {
             surname?: string | null;
             /** Dob */
             dob?: string | null;
-            /**
-             * Weight Kg
-             * @default 70
-             */
-            weight_kg: number;
+            /** Weight Kg */
+            weight_kg?: number | null;
             /** Height Cm */
             height_cm?: number | null;
             /** Sex */

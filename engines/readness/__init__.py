@@ -1,5 +1,11 @@
-"""Readiness and recovery-risk engines."""
+"""Deprecated compatibility package. Use engines.readiness instead."""
 
-from .readiness_engine import compute_readiness_today, update_load_state, compute_load_risk
+import warnings
 
-__all__ = ["compute_readiness_today", "update_load_state", "compute_load_risk"]
+warnings.warn(
+    "engines.readness is deprecated; import from engines.readiness",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+from engines.readiness import *  # noqa: F403,F401
