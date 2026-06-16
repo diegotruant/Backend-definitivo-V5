@@ -409,7 +409,7 @@ def from_metabolic_snapshot(
     unmasked = snapshot.get("unmasked_estimates") or {}
     vo2max = unmasked.get("estimated_vo2max") or snapshot.get("estimated_vo2max")
     vlamax = unmasked.get("estimated_vlamax_mmol_L_s") or snapshot.get("estimated_vlamax_mmol_L_s")
-    mlss_w = snapshot.get("mlss_power_watts")
+    mlss_w = unmasked.get("mlss_power_watts") or snapshot.get("mlss_power_watts")
 
     if any(v is None for v in [vo2max, vlamax, mlss_w]):
         return None

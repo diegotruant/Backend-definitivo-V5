@@ -231,7 +231,8 @@ def detect_sprints(
         while i < n and above[i]:
             i += 1
         end = i  # exclusive
-        duration = float(t[end - 1] - t[start])
+        dt = safe_dt(t)
+        duration = float((t[end - 1] - t[start]) + dt)
         if duration >= _SPRINT_MIN_DURATION_S:
             seg_power = power[start:end]
             sprints.append({
@@ -412,7 +413,8 @@ class PowerEngine:
         if_val = np_val / self.ftp
         tss = training_stress_score(np_val, self.ftp, total_s)
         vi = variability_index(np_val, avg_p)
-        work_kj = float(np.sum(p)) / 1000.0  # \u03a3(W\u00b7s) \u2192 kJ since dt=1s
+        dt = safe_dt(t)
+        work_kj = float(np.sum(p) * dt) / 1000.0  # \u03a3(W\u00b7s) \u2192 kJ
 
         # MMP curve
         mmp = mean_maximal_power(p)

@@ -344,7 +344,11 @@ class MetabolicProfiler:
 
         def cost_fn(x: np.ndarray) -> np.ndarray:
             vo2, vla = map(float, x)
-            la_cap = float(np.clip(10.0 + (vla - 0.2) * 15.0, 8.0, 30.0)) if measured_lacap is None else measured_lacap
+            la_cap = (
+                float(np.clip(10.0 + (vla - 0.2) * 15.0, 8.0, 30.0))
+                if measured_lacap is None
+                else float(np.clip(measured_lacap, 8.0, 30.0))
+            )
 
             tau, map_est, vo2_act, net = self._compute_grid_state(vo2, vla, fixed_eta, w_grid)
             preds = np.array([
@@ -472,7 +476,11 @@ class MetabolicProfiler:
             res = best_res
             vo2, vla = map(float, res.x)
 
-            final_lacap = float(np.clip(10.0 + (vla - 0.2) * 15.0, 8.0, 30.0)) if measured_lacap is None else measured_lacap
+            final_lacap = (
+                float(np.clip(10.0 + (vla - 0.2) * 15.0, 8.0, 30.0))
+                if measured_lacap is None
+                else float(np.clip(measured_lacap, 8.0, 30.0))
+            )
             w_mlss, w_fat, w_plot, fat_gh, cho_gh = self._calculate_curves(vo2, vla, fixed_eta)
             map_w = self._map_estimate(vo2, fixed_eta)
 
@@ -677,8 +685,10 @@ class MetabolicProfiler:
             }
 
         amm = active_muscle_mass_kg if active_muscle_mass_kg is not None else self.active_muscle_mass
-        vo2_power = vo2max_power_w if vo2max_power_w is not None else self._map_estimate(
-            self.context.vlamax_initial_guess() and 50.0 or 50.0, self.context.expected_eta()
+        vo2_power = (
+            float(vo2max_power_w)
+            if vo2max_power_w is not None
+            else self._map_estimate(50.0, self.context.expected_eta())
         )
         eta = self.context.expected_eta()
         J_PER_MMOL_LACTATE_PER_KG = 63.0  # Mader-consistent energetic equivalent
