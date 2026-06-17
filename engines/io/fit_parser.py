@@ -402,7 +402,7 @@ def _extract_messages_with_fitdecode(
         for frame in reader:
             if not isinstance(frame, fitdecode.records.FitDataMessage):
                 continue
-            values = frame.get_values()
+            values = {field.name: field.value for field in frame.fields}
             if frame.name == "record":
                 records.append(values)
             elif frame.name == "session":
@@ -420,6 +420,8 @@ def _extract_messages_with_fitparse(
     check_crc: bool,
 ) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
     """Decode FIT payload with fitparse into plain dict rows."""
+    if not FITPARSE_AVAILABLE:
+        raise RuntimeError("fitparse backend is not available")
     fitfile = fitparse.FitFile(BytesIO(payload), check_crc=check_crc)
     records: list[Dict[str, Any]] = []
     sessions: list[Dict[str, Any]] = []
@@ -448,7 +450,7 @@ def _extract_messages(
     if FITDECODE_AVAILABLE:
         try:
             return _extract_messages_with_fitdecode(payload, check_crc=check_crc)
-        except Exception:
+        except (FitError, FitParseError, FitEOFError, FitHeaderError, FitCRCError):
             if FITPARSE_AVAILABLE:
                 return _extract_messages_with_fitparse(payload, check_crc=check_crc)
             raise
@@ -484,7 +486,6 @@ def parse_fit_file_enhanced(
         raise RuntimeError("No FIT parser backend available — install fitdecode (preferred) or fitparse")
     
     raw = None
-    has_bad_synthetic_header = False
     if repair_synthetic_header:
         raw = bytearray(_read_file_with_retry(fit_path))
         # NOTE: we no longer pre-classify a file as "bad" from the 0x40 bit,
@@ -514,6 +515,7 @@ def parse_fit_file_enhanced(
     _device_info_msgs: list[Dict[str, Any]] = []
     _hrv_msgs: list[Dict[str, Any]] = []
 
+    had_crc_or_eof_error = False
     try:
         records, _session_msgs, _device_info_msgs, _hrv_msgs = _extract_messages(
             payload,
@@ -525,8 +527,9 @@ def parse_fit_file_enhanced(
         # Partial-truncation recovery path below retries without CRC.
         if "not a FIT file" in str(e):
             raise FitFileError("INVALID_HEADER", str(e)) from e
+        had_crc_or_eof_error = True
     except (FitParseCRCError, FitCRCError):
-        pass
+        had_crc_or_eof_error = True
     except (FitParseLibError, FitParseError) as e:
         if "not a FIT file" in str(e):
             raise FitFileError("INVALID_HEADER", str(e)) from e
@@ -534,7 +537,7 @@ def parse_fit_file_enhanced(
         if "not a FIT file" in str(e):
             raise FitFileError("INVALID_HEADER", str(e)) from e
 
-    if not records:
+    if not records or had_crc_or_eof_error:
         # Recovery attempt: if the only problem was CRC/truncation, payload may
         # still contain readable leading records.
         try:
@@ -651,16 +654,16 @@ def parse_fit_file_enhanced(
     if _hrv_msgs and not stream.has_rr:
         rr_seq_s: List[float] = []
         for hmsg in _hrv_msgs:
-            for field in hmsg.fields:
-                if field.name == "time":
-                    val = field.value
-                    if isinstance(val, (list, tuple)):
-                        rr_seq_s.extend(
-                            float(v) for v in val
-                            if v is not None and float(v) > 0.0
-                        )
-                    elif val is not None and float(val) > 0.0:
-                        rr_seq_s.append(float(val))
+            for field_name, val in hmsg.items():
+                if field_name != "time":
+                    continue
+                if isinstance(val, (list, tuple)):
+                    rr_seq_s.extend(
+                        float(v) for v in val
+                        if v is not None and float(v) > 0.0
+                    )
+                elif val is not None and float(val) > 0.0:
+                    rr_seq_s.append(float(val))
 
         if rr_seq_s:
             n_samples = len(stream.elapsed_s)

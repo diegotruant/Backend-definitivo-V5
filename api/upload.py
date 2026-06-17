@@ -19,12 +19,22 @@ logger = logging.getLogger("digital_twin.api")
 
 async def parse_upload(file: UploadFile) -> Dict[str, Any]:
     """Read an uploaded FIT into the {file_id, power, laps, _stream} dict engines use."""
-    data = await file.read()
-    try:
-        enforce_upload_size(len(data))
-    except PayloadTooLarge as exc:
-        logger.warning("Rejected oversized upload %r: %s", file.filename, exc)
-        raise HTTPException(status_code=413, detail=safe_error_detail("FILE_TOO_LARGE")) from exc
+    # Read upload incrementally so oversized payloads are rejected before
+    # materializing the full body in memory.
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        try:
+            enforce_upload_size(total)
+        except PayloadTooLarge as exc:
+            logger.warning("Rejected oversized upload %r: %s", file.filename, exc)
+            raise HTTPException(status_code=413, detail=safe_error_detail("FILE_TOO_LARGE")) from exc
+        chunks.append(chunk)
+    data = b"".join(chunks)
     with tempfile.NamedTemporaryFile(suffix=".fit", delete=True) as tmp:
         tmp.write(data)
         tmp.flush()

@@ -47,7 +47,7 @@ app: FastAPI
 
 
 class _InMemoryRateLimiter:
-    """Simple sliding-window limiter (per IP+path)."""
+    """Simple sliding-window limiter (per IP+path, single-process only)."""
 
     def __init__(self, max_requests: int, window_seconds: float) -> None:
         self.max_requests = max(1, int(max_requests))
