@@ -39,6 +39,10 @@ curl -s http://localhost:8000/openapi.json | head
 | `MAX_JSON_DEPTH` | No | 64 | TwinState / calendar nesting |
 | `MAX_PROJECTION_DAYS` | No | 400 | Season projection bound |
 | `MAX_CALENDAR_EVENTS` | No | 1000 | Calendar plan bound |
+| `DIGITAL_TWIN_RATE_LIMIT_ENABLED` | No | `true` | Enable in-memory rate limiting middleware |
+| `DIGITAL_TWIN_RATE_LIMIT_MAX_REQUESTS` | No | `120` | Max requests per `(IP, method, path)` window |
+| `DIGITAL_TWIN_RATE_LIMIT_WINDOW_S` | No | `60` | Sliding-window size in seconds |
+| `DIGITAL_TWIN_REQUIRE_ATHLETE_ID` | No | `false` | Enforce `X-Athlete-Id` on athlete-scoped routes |
 
 Copy from `.env.example` and set at least **CORS** when a frontend calls the API from the browser.
 
@@ -91,6 +95,8 @@ Use for load balancer probes. Do not use `/docs` for probes (heavier).
 - [ ] TLS terminated at reverse proxy
 - [ ] CORS allowlist set (not `*` in production unless intentional)
 - [ ] Upload limits left at defaults or tuned for your FIT sizes
+- [ ] Rate limiting configured for expected traffic profile
+- [ ] Decide tenant policy: set `DIGITAL_TWIN_REQUIRE_ATHLETE_ID=true` when clients are ready
 - [ ] No secrets in repo — env only
 - [ ] Log aggregation for 5xx (FastAPI logs exceptions server-side)
 

@@ -15,7 +15,7 @@ Fast daily check:
 make test
 ```
 
-Runs only the lightweight smoke suite.
+Runs only the lightweight smoke suite (fast local sanity check).
 
 ### Hardening
 
@@ -63,7 +63,8 @@ make test-all
   strict wall-clock deadline.
 - Workout compliance with large power streams, NaN sections, missing sensors,
   and empty activities.
-- FastAPI endpoints return structured 4xx errors for invalid input instead of
+- FastAPI endpoints return structured 4xx/429 errors for invalid input or abuse
+  scenarios instead of
   uncaught 500s.
 - Large `/workouts/compare` payloads complete within a bounded deadline.
 - Every returned payload is checked recursively for JSON safety and finite

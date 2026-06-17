@@ -4,7 +4,7 @@ This folder contains the **canonical HTTP contract** for frontend and external i
 
 | File | Purpose |
 |------|---------|
-| `openapi.json` | Full OpenAPI 3.1 document (24 endpoints) |
+| `openapi.json` | Full OpenAPI 3.1 document (42 endpoints) |
 
 ## Live spec (running server)
 

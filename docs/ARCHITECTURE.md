@@ -50,7 +50,7 @@ engines/
   load/               # Manual non-cycling load
 
 tests/
-  pytest_*.py         # Fast pytest suite (CI smoke + hardening)
+  pytest_*.py         # Fast pytest suite (smoke + hardening + contracts)
   integration/        # Executable regression scripts
 ```
 
@@ -59,9 +59,10 @@ tests/
 | Command | Purpose |
 |---------|---------|
 | `uvicorn api_app:app` | Production/dev API (shim → `api.app`) |
-| `make test` | Smoke |
+| `make test` | Smoke (local fast check) |
 | `make test-all` | Full pytest + integration scripts |
 | `make check` | lint + typecheck + test-all + hardening |
+| `make typecheck-metabolic` | mypy on `engines/metabolic` |
 
 ## OpenAPI contract
 
@@ -72,7 +73,7 @@ FastAPI exposes the contract at:
 
 Committed artifacts:
 
-- `openapi/openapi.json` — canonical spec (24 paths)
+- `openapi/openapi.json` — canonical spec (42 paths)
 - `frontend/src/api/generated/schema.ts` — TypeScript types (`make openapi-frontend`)
 - `frontend/src/api/client.ts` — typed client for all endpoints
 
@@ -83,6 +84,19 @@ See `docs/OPENAPI_FRONTEND.md` for integration details.
 - Routers and services raise `api.errors.ServiceError` for predictable 4xx cases.
 - `api.app` registers a global handler → `{"detail": ...}` (same shape as `HTTPException`).
 - Unexpected exceptions remain 500; log server-side only.
+
+## API safeguards in `api/app.py`
+
+- **Body-size guard** (upload safety) via `MAX_UPLOAD_BYTES`/`MAX_UPLOAD_FILES`.
+- **Rate limiting** (in-memory sliding window):
+  - `DIGITAL_TWIN_RATE_LIMIT_ENABLED` (default `true`)
+  - `DIGITAL_TWIN_RATE_LIMIT_MAX_REQUESTS` (default `120`)
+  - `DIGITAL_TWIN_RATE_LIMIT_WINDOW_S` (default `60`)
+- **Optional tenant gating**:
+  - `DIGITAL_TWIN_REQUIRE_ATHLETE_ID=true` enforces header `X-Athlete-Id`
+    on athlete-scoped endpoints (`/ride`, `/profile`, `/workouts`, `/twin`,
+    `/projection`, `/performance`, `/load`, `/team`, `/history`, `/readiness`,
+    `/planning`).
 
 ## State
 

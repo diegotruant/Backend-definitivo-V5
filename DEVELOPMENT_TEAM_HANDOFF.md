@@ -94,5 +94,8 @@ curl http://localhost:8000/health
 ## Quick tests
 
 ```bash
-PYTHONPATH=. pytest -q tests/pytest_smoke.py tests/test_team_learning_engine.py
+make test
+make test-all
+make check
+make typecheck-metabolic
 ```

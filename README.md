@@ -11,7 +11,7 @@ Current version: **5.1.1** — frontend integration stabilization (tests + docs)
 | **HTTP Entrypoint** | `api_app.py` | Compatible shim for `uvicorn api_app:app` |
 | **API package** | `api/` | Router, service, schemas, upload, serialization |
 | **Physiological engines** | `engines/` | Algorithms, tier, metric contracts |
-| **OpenAPI Contract** | `openapi/openapi.json` | 24 documented endpoints |
+| **OpenAPI Contract** | `openapi/openapi.json` | 42 documented endpoints |
 | **Frontend client** | `frontend/src/api/` | Generated TS types + `api.*` client |
 | **Tests** | `tests/` | pytest smoke/hardening + `tests/integration/` |
 
@@ -71,11 +71,12 @@ Swagger UI: `http://localhost:8000/docs`
 
 ```bash
 make run              # uvicorn api_app:app
-make test             # smoke pytest (fast, CI default)
+make test             # smoke pytest (fast local check)
 make test-all         # full pytest + integration scripts
 make hardening-test   # malformed input robustness
 make stress-test      # bounded stress subset
 make check            # lint + mypy + test-all + hardening (release gate)
+make typecheck-metabolic # mypy on engines/metabolic
 make openapi-frontend # export openapi.json + regenerate TS types
 make lint | format | typecheck
 ```
@@ -84,10 +85,11 @@ make lint | format | typecheck
 
 | Suite | Comando |
 |-------|---------|
-| Smoke (fast CI) | `make test` |
+| Smoke (fast local) | `make test` |
 | Full | `make test-all` |
 | Integration scripts | `tests/integration/test_*.py` via `pytest_script_suite.py` |
 | Release gate | `make check` |
+| Metabolic typing | `make typecheck-metabolic` |
 
 ## Repository structure
 
@@ -137,7 +139,7 @@ No major new features. Only bug fixes (with tests), tests on critical contracts,
 
 | Workflow | Trigger | Gate |
 |----------|---------|------|
-| `.github/workflows/ci.yml` | push/PR | `make lint` + `make test` (fast smoke) |
+| `.github/workflows/ci.yml` | push/PR | `make lint` + `make test-all` |
 | `.github/workflows/full-check.yml` | push main, PR, weekly | `make check` (release gate) |
 | `.github/workflows/hardening.yml` | manual | hardening + stress subset |
 
@@ -156,8 +158,9 @@ The backend is agnostic. The client supports both conventions:
 - Workout system (validate → prescribe → feasibility → compare)
 - Team learning calibration
 - mader_durability, neuromuscular profile, manual load
-- Security hardening (upload limits, JSON depth, CORS)
-- OpenAPI 3.1 with 24 endpoints + generated TypeScript client
+- Security hardening (upload limits, JSON depth, CORS, rate limiting)
+- Optional tenant gating via `X-Athlete-Id` (feature flag)
+- OpenAPI 3.1 with 42 endpoints + generated TypeScript client
 
 ## Branch
 

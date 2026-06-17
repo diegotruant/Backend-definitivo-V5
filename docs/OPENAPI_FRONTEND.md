@@ -6,7 +6,7 @@
 |---------|------------|-----|
 | **Committed spec** | `openapi/openapi.json` | Codegen, PR review, offline |
 | **TypeScript types** | `frontend/src/api/generated/schema.ts` | Autocomplete request/response |
-| **Typed client** | `frontend/src/api/client.ts` | All 24 APIs, ready to use |
+| **Typed client** | `frontend/src/api/client.ts` | All 42 APIs, ready to use |
 | **Swagger UI** | `GET /docs` (server running) | Interactive exploration |
 | **Live OpenAPI** | `GET /openapi.json` | Sync with running server |
 
@@ -99,10 +99,14 @@ Each endpoint has a stable `operationId` (e.g. `profileSnapshot`, `rideIngest`) 
 | Status | Meaning |
 |--------|-------------|
 | 400 | Invalid input / ServiceError |
+| 429 | Rate limit exceeded (`RATE_LIMITED`) |
 | 413 | Upload or power_json too large |
 | 422 | Unparseable FIT or activity without power |
 
 The body is always `{"detail": ...}`.
+
+If backend env `DIGITAL_TWIN_REQUIRE_ATHLETE_ID=true` is enabled, athlete-scoped
+endpoints also require header `X-Athlete-Id`.
 
 ## CI
 
