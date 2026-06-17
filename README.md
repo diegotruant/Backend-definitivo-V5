@@ -11,7 +11,7 @@ Current version: **5.1.1** — frontend integration stabilization (tests + docs)
 | **HTTP Entrypoint** | `api_app.py` | Compatible shim for `uvicorn api_app:app` |
 | **API package** | `api/` | Router, service, schemas, upload, serialization |
 | **Physiological engines** | `engines/` | Algorithms, tier, metric contracts |
-| **OpenAPI Contract** | `openapi/openapi.json` | 42 documented endpoints |
+| **OpenAPI Contract** | `openapi/openapi.json` | 43 documented endpoints |
 | **Frontend client** | `frontend/src/api/` | Generated TS types + `api.*` client |
 | **Tests** | `tests/` | pytest smoke/hardening + `tests/integration/` |
 
@@ -160,7 +160,9 @@ The backend is agnostic. The client supports both conventions:
 - mader_durability, neuromuscular profile, manual load
 - Security hardening (upload limits, JSON depth, CORS, rate limiting)
 - Optional tenant gating via `X-Athlete-Id` (feature flag)
-- OpenAPI 3.1 with 42 endpoints + generated TypeScript client
+- OpenAPI 3.1 with 43 endpoints + generated TypeScript client
+- JWT/OAuth auth (`DIGITAL_TWIN_AUTH_MODE=jwt`) with roles and athlete scope
+- Golden FIT regression suite (`tests/assets/fit/`)
 
 ## Branch
 

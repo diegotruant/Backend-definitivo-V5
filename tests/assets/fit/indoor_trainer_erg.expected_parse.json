@@ -1,0 +1,14 @@
+{
+  "file": "indoor_trainer_erg.fit",
+  "parser_version": "2.0.1-gapaware",
+  "duration_s": 301,
+  "available_signals": [
+    "power",
+    "speed"
+  ],
+  "lap_count": 0,
+  "has_power_stream": true,
+  "has_hr_stream": true,
+  "has_cadence_stream": true,
+  "warnings": []
+}

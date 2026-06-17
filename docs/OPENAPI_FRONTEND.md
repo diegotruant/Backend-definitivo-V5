@@ -6,7 +6,7 @@
 |---------|------------|-----|
 | **Committed spec** | `openapi/openapi.json` | Codegen, PR review, offline |
 | **TypeScript types** | `frontend/src/api/generated/schema.ts` | Autocomplete request/response |
-| **Typed client** | `frontend/src/api/client.ts` | All 42 APIs, ready to use |
+| **Typed client** | `frontend/src/api/client.ts` | All 43 APIs, ready to use |
 | **Swagger UI** | `GET /docs` (server running) | Interactive exploration |
 | **Live OpenAPI** | `GET /openapi.json` | Sync with running server |
 
@@ -56,13 +56,55 @@ try {
 |--------|----------------|
 | Health | `health()` |
 | Test | `proposeTest`, `confirmTest`, `inPersonTest` |
-| Ride | `ingestRide`, `updateProfile`, `rideSummary`, `rideDurability` |
+| Ride | `ingestRide`, `rideParse`, `updateProfile`, `rideSummary`, `rideDurability`, `rideIntelligence`, `rideDataQuality` |
 | Profile | `profileSnapshot` |
 | Workouts | `validateWorkout`, `prescribeWorkout`, `workoutFeasibility`, `compareWorkout`, `calendarTransition` |
 | Twin | `twinStateBuild`, `twinStateUpdateFromRide`, `twinStateUpdateFromWorkout`, `twinStateProject`, `projectionSeason` |
 | Performance | `neuromuscularProfile`, `powerSourceNormalize` |
 | Load | `manualLoad` |
+| History | `historySummary`, `historyPowerCurve`, `historyRecords`, `historyLoad` |
+| Readiness | `readinessToday`, `loadStateUpdate`, `loadRisk` |
+| Planning | `planningCreateSeasonPlan`, `planningAdaptWeek`, `planningCheckLoadRisk` |
 | Team | `updateTeamCalibration`, `applyTeamCalibration` |
+
+## Authentication
+
+Set backend `DIGITAL_TWIN_AUTH_MODE`:
+
+| Mode | Client headers |
+|------|----------------|
+| `none` | Optional `X-Athlete-Id` if `DIGITAL_TWIN_REQUIRE_ATHLETE_ID=true` |
+| `api_key` | `Authorization: Bearer <key>` |
+| `jwt` | `Authorization: Bearer <jwt>` + `X-Athlete-Id` on athlete-scoped routes |
+
+JWT claims (minimum):
+
+```json
+{
+  "sub": "user-uuid",
+  "roles": ["coach"],
+  "team_id": "team-uuid",
+  "athlete_ids": ["ath-a-001", "ath-b-002"]
+}
+```
+
+Athlete tokens use `"roles": ["athlete"]` and `"athlete_id": "ath-a-001"` (header optional).
+
+## `power_json` and `hr_json`
+
+Ride endpoints accept either a FIT upload or inline JSON streams:
+
+- `power_json` — required for JSON-only mode; **never** synthesizes heart rate
+- `hr_json` — optional measured HR stream; omit when unavailable
+
+Check `data_provenance.measured_signals` / `synthetic_signals` in responses.
+
+## `POST /ride/parse`
+
+Full FIT extraction contract for persistence and coach UI:
+
+- `available_signals`, `streams`, `quality`, `laps`, `warnings`, `file_hash`, `parser_version`
+- Use before ingest when you need explicit sensor coverage and provenance
 
 ## Regenerate after backend changes
 

@@ -1,6 +1,6 @@
 # Frontend Developer Guide — Digital Twin Backend V5.1
 
-Unified document for a **software developer** who needs to build the frontend connected to this backend, **with no background in endurance cycling**. It explains what the backend (v **5.1.0**) produces, how to interpret the metrics, how to draw them, how to design the main pages, and how to use **TwinState** as the central persistence model.
+Unified document for a **software developer** who needs to build the frontend connected to this backend, **with no background in endurance cycling**. It explains what the backend (v **5.1.1**) produces, how to interpret the metrics, how to draw them, how to design the main pages, and how to use **TwinState** as the central persistence model.
 
 **Related documents (read in this order)**
 
@@ -10,7 +10,7 @@ Unified document for a **software developer** who needs to build the frontend co
 | 2 | `docs/FRONTEND_IMPLEMENTATION_BLUEPRINT.md` | Detailed layout per page, design system, DoD |
 | 3 | `docs/API_PAYLOAD_EXAMPLES.md` | curl / TypeScript examples for each endpoint |
 | 3b | `docs/OPENAPI_FRONTEND.md` | OpenAPI, TS codegen, `api.*` client |
-| 3c | `openapi/openapi.json` | HTTP contract committed (42 endpoints) |
+| 3c | `openapi/openapi.json` | HTTP contract committed (43 endpoints) |
 | 4 | `docs/WORKOUT_SYSTEM_BACKEND_V1.md` | Prescription flow → compliance |
 | 5 | `docs/BACKEND_IMPLEMENTATIONS_V2.md` | TwinState, projection, neuromuscular |
 | 6 | `docs/COACH_UX_COPYBOOK.md` | Copy coach facing |
@@ -207,8 +207,11 @@ Base URL example: `http://localhost:8000` (`make run` or `uvicorn api_app:app`).
 
 | Method | Path | Scope |
 |--------|------|--------|
-| POST | `/ride/ingest` | 1 FIT → update power curve |
-| POST | `/ride/summary` | FIT or `power_json` → `workout_summary` complete |
+| POST | `/ride/parse` | 1 FIT → full extraction contract (streams, quality, laps, provenance) |
+| POST | `/ride/ingest` | 1 FIT → update power curve (passes HR/cadence/quality to MMP) |
+| POST | `/ride/summary` | FIT or `power_json` (+ optional `hr_json`) → `workout_summary` |
+| POST | `/ride/intelligence` | Extended stats, zones, decoupling, chart series |
+| POST | `/ride/data-quality` | Sensor coverage, gaps, quality flags |
 | POST | `/ride/durability` | FIT + snapshot → residual CP + sustainable powers |
 | POST | `/performance/neuromuscular-profile` | Sprint profile from FIT |
 | POST | `/power-source/normalize` | Offset trainer vs power meter |
@@ -328,10 +331,18 @@ Operational table derived from `FRONTEND_IMPLEMENTATION_BLUEPRINT.md`. Each line
 
 ### 8.2 Flow B — Output monitoring
 
-1. `POST /ride/ingest` — form: `file`, `ride_date`, `weight_kg`, `stored_curve_json` (optional).
-2. `POST /ride/summary` with same FIT + opt. `metabolic_snapshot_json`.
-3. `POST /twin/state/update-from-ride` with `ingest_result` + `ride_summary`.
-4. If `profile_should_refresh`: `POST /ride/update-profile` → update snapshot in TwinState.
+1. `POST /ride/data-quality` — show sensor coverage and warnings to coach.
+2. `POST /ride/parse` — persist full parse report (`activity_parse_reports` table).
+3. `POST /ride/intelligence` or `/ride/summary` for coach-facing analysis.
+4. `POST /ride/ingest` — form: `file`, `ride_date`, `weight_kg`, `stored_curve_json` (optional).
+5. `POST /twin/state/update-from-ride` with `ingest_result` + `ride_summary`.
+6. If `profile_should_refresh`: `POST /ride/update-profile` → update snapshot in TwinState.
+
+**Data provenance UI (mandatory):** every coach card shows one of:
+`Misurato FIT` | `Calcolo standard` | `Modello fisiologico` | `Euristico` | `Non disponibile`,
+plus `confidence_score`, `tier`, `warnings` when present. Never show model VO₂max as a direct measurement.
+
+**JSON-only uploads:** pass `hr_json` explicitly; the backend never synthesizes HR from `power_json`.
 
 ### 8.3 Flow C — Workout prescription
 

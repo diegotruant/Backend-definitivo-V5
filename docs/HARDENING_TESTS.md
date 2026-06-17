@@ -5,6 +5,17 @@ catch crashes, runaway loops, non-JSON payloads, NaN/Inf leakage, malformed inpu
 handling regressions, and workload sizes that are realistic for a training
 product.
 
+## Golden FIT assets
+
+Committed binaries under `tests/assets/fit/` with `*.expected_parse.json` snapshots.
+Regenerate after parser changes:
+
+```bash
+python3 tools/generate_golden_fit_assets.py
+```
+
+Includes Garmin/Wahoo/Zwift/trainer variants, HR-only, truncated and bad-CRC edge cases.
+
 ## Test levels
 
 ### Smoke

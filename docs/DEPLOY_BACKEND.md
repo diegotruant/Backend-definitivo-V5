@@ -43,9 +43,15 @@ curl -s http://localhost:8000/openapi.json | head
 | `DIGITAL_TWIN_RATE_LIMIT_MAX_REQUESTS` | No | `120` | Max requests per `(IP, method, path)` window |
 | `DIGITAL_TWIN_RATE_LIMIT_WINDOW_S` | No | `60` | Sliding-window size in seconds |
 | `DIGITAL_TWIN_REQUIRE_ATHLETE_ID` | No | `false` | Enforce `X-Athlete-Id` on athlete-scoped routes |
-| `DIGITAL_TWIN_API_KEY_AUTH_ENABLED` | No | `false` | Require API key auth on athlete-scoped routes |
-| `DIGITAL_TWIN_API_KEYS` | If auth enabled | empty | Comma-separated valid API keys |
+| `DIGITAL_TWIN_AUTH_MODE` | No | `none` | `none`, `api_key`, or `jwt` |
+| `DIGITAL_TWIN_API_KEY_AUTH_ENABLED` | No | `false` | Legacy flag; sets `api_key` mode when `AUTH_MODE` unset |
+| `DIGITAL_TWIN_API_KEYS` | If api_key mode | empty | Comma-separated valid API keys |
 | `DIGITAL_TWIN_API_KEY_ATHLETE_PREFIXES` | No | empty | Optional per-key athlete prefix allowlist (`key:prefix1|prefix2,...`) |
+| `DIGITAL_TWIN_JWT_SECRET` | jwt + HS256 | empty | Shared secret for dev/staging JWT validation |
+| `DIGITAL_TWIN_JWT_JWKS_URL` | jwt + RS256 | empty | OIDC JWKS URL (Auth0, Cognito, Keycloak, Supabase) |
+| `DIGITAL_TWIN_JWT_AUDIENCE` | No | empty | Expected JWT `aud` claim |
+| `DIGITAL_TWIN_JWT_ISSUER` | No | empty | Expected JWT `iss` claim |
+| `DIGITAL_TWIN_JWT_ALGORITHMS` | No | `HS256` | Comma-separated allowed algorithms |
 
 Copy from `.env.example` and set at least **CORS** when a frontend calls the API from the browser.
 
@@ -100,7 +106,9 @@ Use for load balancer probes. Do not use `/docs` for probes (heavier).
 - [ ] Upload limits left at defaults or tuned for your FIT sizes
 - [ ] Rate limiting configured for expected traffic profile
 - [ ] Decide tenant policy: set `DIGITAL_TWIN_REQUIRE_ATHLETE_ID=true` when clients are ready
-- [ ] If exposing externally, enable API key auth (`DIGITAL_TWIN_API_KEY_AUTH_ENABLED=true`) at minimum
+- [ ] Production auth: set `DIGITAL_TWIN_AUTH_MODE=jwt` with OIDC JWKS (or `api_key` for integrations)
+- [ ] JWT claims must include `roles` and `athlete_ids` (or `athlete_id` for athlete role)
+- [ ] Roles: `admin`, `owner`, `coach`, `assistant_coach`, `athlete`
 - [ ] No secrets in repo — env only
 - [ ] Log aggregation for 5xx (FastAPI logs exceptions server-side)
 

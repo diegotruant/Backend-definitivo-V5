@@ -1,0 +1,20 @@
+{
+  "file": "minimal_power_hr_lap_hrv.fit",
+  "parser_version": "2.0.1-gapaware",
+  "duration_s": 121,
+  "available_signals": [
+    "cadence",
+    "heart_rate",
+    "power",
+    "speed"
+  ],
+  "lap_count": 1,
+  "has_power_stream": true,
+  "has_hr_stream": true,
+  "has_cadence_stream": true,
+  "warnings": [],
+  "first_lap": {
+    "duration_s": 120,
+    "avg_power_w": 226.0
+  }
+}

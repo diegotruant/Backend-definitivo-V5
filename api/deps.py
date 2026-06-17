@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from functools import lru_cache
+
+from fastapi import Request
+
+from api.auth.principal import Principal
 from api.services import (
     LoadService,
     HistoryService,
@@ -71,3 +75,11 @@ def get_readiness_service() -> ReadinessService:
 @lru_cache
 def get_planning_service() -> PlanningService:
     return PlanningService()
+
+
+def get_request_principal(request: Request) -> Principal | None:
+    return getattr(request.state, "principal", None)
+
+
+def get_request_athlete_id(request: Request) -> str | None:
+    return getattr(request.state, "athlete_id", None)

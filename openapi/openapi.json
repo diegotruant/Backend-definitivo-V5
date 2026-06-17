@@ -223,7 +223,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/test/confirm": {
@@ -290,7 +298,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/test/in-person": {
@@ -357,7 +373,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/ride/parse": {
@@ -454,7 +478,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/ride/ingest": {
@@ -573,7 +605,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/ride/update-profile": {
@@ -640,7 +680,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/ride/summary": {
@@ -727,7 +775,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/ride/durability": {
@@ -804,7 +860,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/ride/intelligence": {
@@ -890,7 +954,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/ride/data-quality": {
@@ -976,7 +1048,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/profile/snapshot": {
@@ -1043,7 +1123,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/workouts/validate": {
@@ -1109,7 +1197,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/workouts/prescribe": {
@@ -1197,7 +1293,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/workouts/feasibility": {
@@ -1264,7 +1368,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/workouts/compare": {
@@ -1351,7 +1463,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/workouts/calendar/transition": {
@@ -1417,7 +1537,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/workouts/recommend": {
@@ -1483,7 +1611,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/workouts/progression-levels": {
@@ -1549,7 +1685,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/workouts/adapt-plan": {
@@ -1615,7 +1759,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/workouts/export": {
@@ -1681,7 +1833,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/twin/state/build": {
@@ -1748,7 +1908,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/twin/state/update-from-ride": {
@@ -1814,7 +1982,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/twin/state/update-from-workout-result": {
@@ -1880,7 +2056,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/twin/state/project": {
@@ -1947,7 +2131,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/projection/season": {
@@ -2014,7 +2206,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/performance/neuromuscular-profile": {
@@ -2100,7 +2300,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/power-source/normalize": {
@@ -2234,7 +2442,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/performance/breakthroughs": {
@@ -2301,7 +2517,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/load/manual": {
@@ -2368,7 +2592,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/team/calibration/update": {
@@ -2435,7 +2667,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/team/calibration/apply": {
@@ -2502,7 +2742,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/history/summary": {
@@ -2568,7 +2816,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/history/power-curve": {
@@ -2634,7 +2890,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/history/records": {
@@ -2700,7 +2964,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/history/load": {
@@ -2766,7 +3038,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/readiness/today": {
@@ -2832,7 +3112,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/load/state/update": {
@@ -2898,7 +3186,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/load/risk": {
@@ -2964,7 +3260,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/planning/create-season-plan": {
@@ -3030,7 +3334,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/planning/adapt-week": {
@@ -3096,7 +3408,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     },
     "/planning/check-load-risk": {
@@ -3162,7 +3482,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
       }
     }
   },
@@ -6295,6 +6623,20 @@
           "workout"
         ],
         "title": "WorkoutValidateRequest"
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT or API key",
+        "description": "JWT from your OIDC provider (DIGITAL_TWIN_AUTH_MODE=jwt) or static API key (DIGITAL_TWIN_AUTH_MODE=api_key). Athlete-scoped routes also require X-Athlete-Id."
+      },
+      "AthleteIdHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Athlete-Id",
+        "description": "Target athlete identifier for coach/admin scoped requests."
       }
     }
   },

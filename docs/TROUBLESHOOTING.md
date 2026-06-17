@@ -34,6 +34,8 @@ Common issues when running or integrating the Digital Twin API.
 | 413 Payload Too Large | FIT > `MAX_UPLOAD_BYTES` | Increase env or compress; default 40 MB |
 | 429 RATE_LIMITED | Request burst exceeded rate limiter | Tune `DIGITAL_TWIN_RATE_LIMIT_*` env vars |
 | 400 MISSING_ATHLETE_ID | Tenant gating enabled but header missing | Send `X-Athlete-Id` or disable `DIGITAL_TWIN_REQUIRE_ATHLETE_ID` |
+| 401 UNAUTHORIZED | Auth enabled but missing/invalid Bearer token | Set `Authorization: Bearer <jwt-or-api-key>` |
+| 403 FORBIDDEN | Token valid but athlete out of scope or role denied | Check JWT `athlete_ids` / `roles` claims |
 | 400 INVALID_FIT_FILE | Corrupt or non-cycling FIT | Re-export from device; try another file |
 | 400 on `power_json` | Invalid JSON string in form field | Pass valid JSON array string |
 | 400 empty power | `power_json: "[]"` | Need non-empty power stream for compare/summary |

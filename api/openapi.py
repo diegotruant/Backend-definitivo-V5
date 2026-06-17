@@ -7,6 +7,44 @@ from typing import Any, Dict
 
 def enrich_openapi_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
     """Add deployment metadata used by frontend codegen and docs."""
+    components = schema.setdefault("components", {})
+    components["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT or API key",
+            "description": (
+                "JWT from your OIDC provider (DIGITAL_TWIN_AUTH_MODE=jwt) or static API key "
+                "(DIGITAL_TWIN_AUTH_MODE=api_key). Athlete-scoped routes also require X-Athlete-Id."
+            ),
+        },
+        "AthleteIdHeader": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "X-Athlete-Id",
+            "description": "Target athlete identifier for coach/admin scoped requests.",
+        },
+    }
+    athlete_prefixes = (
+        "/ride",
+        "/profile",
+        "/workouts",
+        "/twin",
+        "/projection",
+        "/performance",
+        "/load",
+        "/team",
+        "/history",
+        "/readiness",
+        "/planning",
+        "/test",
+    )
+    for route_path, path_item in schema.get("paths", {}).items():
+        for operation in path_item.values():
+            if not isinstance(operation, dict) or "operationId" not in operation:
+                continue
+            if route_path.startswith(athlete_prefixes):
+                operation["security"] = [{"BearerAuth": []}, {"AthleteIdHeader": []}]
     schema["servers"] = [
         {"url": "http://localhost:8000", "description": "Local development"},
         {

@@ -23,6 +23,7 @@ except ImportError as e:  # pragma: no cover
         "FastAPI is required for the API layer: pip install fastapi uvicorn"
     ) from e
 
+from api.auth import authenticate_request, load_auth_config
 from api.errors import ServiceError
 from api.openapi import enrich_openapi_schema
 from api.routers import health, history, load, performance, planning, profile, readiness, ride, team, test_routes, twin, workouts
@@ -44,26 +45,6 @@ OPENAPI_TAGS = [
 ]
 
 app: FastAPI
-
-
-def _parse_csv_set(raw: str) -> set[str]:
-    return {item.strip() for item in raw.split(",") if item.strip()}
-
-
-def _parse_key_prefix_map(raw: str) -> dict[str, list[str]]:
-    """
-    Parse `key:prefix1|prefix2,key2:prefix3` into a dict.
-    """
-    mapping: dict[str, list[str]] = {}
-    for chunk in (part.strip() for part in raw.split(",") if part.strip()):
-        if ":" not in chunk:
-            continue
-        key, prefixes = chunk.split(":", 1)
-        key = key.strip()
-        pref_list = [p.strip() for p in prefixes.split("|") if p.strip()]
-        if key and pref_list:
-            mapping[key] = pref_list
-    return mapping
 
 
 class _InMemoryRateLimiter:
@@ -110,29 +91,11 @@ def create_app() -> FastAPI:
     )
 
     _register_exception_handlers(application)
+    auth_config = load_auth_config()
     rate_limit_enabled = os.getenv("DIGITAL_TWIN_RATE_LIMIT_ENABLED", "true").lower() != "false"
-    require_athlete_id = os.getenv("DIGITAL_TWIN_REQUIRE_ATHLETE_ID", "false").lower() == "true"
-    api_key_auth_enabled = os.getenv("DIGITAL_TWIN_API_KEY_AUTH_ENABLED", "false").lower() == "true"
-    valid_api_keys = _parse_csv_set(os.getenv("DIGITAL_TWIN_API_KEYS", ""))
-    api_key_athlete_prefixes = _parse_key_prefix_map(
-        os.getenv("DIGITAL_TWIN_API_KEY_ATHLETE_PREFIXES", "")
-    )
     limiter = _InMemoryRateLimiter(
         max_requests=int(os.getenv("DIGITAL_TWIN_RATE_LIMIT_MAX_REQUESTS", "120")),
         window_seconds=float(os.getenv("DIGITAL_TWIN_RATE_LIMIT_WINDOW_S", "60")),
-    )
-    athlete_scoped_prefixes = (
-        "/ride",
-        "/profile",
-        "/workouts",
-        "/twin",
-        "/projection",
-        "/performance",
-        "/load",
-        "/team",
-        "/history",
-        "/readiness",
-        "/planning",
     )
 
     def custom_openapi() -> dict[str, Any]:
@@ -167,33 +130,20 @@ def create_app() -> FastAPI:
     @application.middleware("http")
     async def limit_request_body(request: Request, call_next):
         path = request.url.path
-        athlete_scoped = path.startswith(athlete_scoped_prefixes)
-        if api_key_auth_enabled and athlete_scoped:
-            auth_header = (request.headers.get("Authorization") or "").strip()
-            token = ""
-            if auth_header.lower().startswith("bearer "):
-                token = auth_header[7:].strip()
-            if not token or token not in valid_api_keys:
-                return JSONResponse(status_code=401, content=safe_error_detail("UNAUTHORIZED"))
-            request.state.api_key = token
-
-        if require_athlete_id and path.startswith(athlete_scoped_prefixes):
-            athlete_id = (request.headers.get("X-Athlete-Id") or "").strip()
-            if not athlete_id:
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "detail": {
-                            "error": "MISSING_ATHLETE_ID",
-                            "message": "Missing required X-Athlete-Id header for athlete-scoped endpoint.",
-                        }
-                    },
-                )
-            request.state.athlete_id = athlete_id
-            if api_key_auth_enabled:
-                allowed_prefixes = api_key_athlete_prefixes.get(getattr(request.state, "api_key", ""), [])
-                if allowed_prefixes and not any(athlete_id.startswith(prefix) for prefix in allowed_prefixes):
-                    return JSONResponse(status_code=403, content=safe_error_detail("FORBIDDEN"))
+        auth_result = authenticate_request(
+            path=path,
+            authorization=request.headers.get("Authorization"),
+            athlete_header=request.headers.get("X-Athlete-Id"),
+            config=auth_config,
+        )
+        if not auth_result.ok:
+            return JSONResponse(status_code=auth_result.status_code, content=auth_result.body)
+        if auth_result.principal is not None:
+            request.state.principal = auth_result.principal
+        if auth_result.api_key is not None:
+            request.state.api_key = auth_result.api_key
+        if auth_result.athlete_id is not None:
+            request.state.athlete_id = auth_result.athlete_id
         if rate_limit_enabled:
             if path not in {"/health"} and not path.startswith(("/docs", "/redoc", "/openapi")):
                 client_ip = request.client.host if request.client else "unknown"

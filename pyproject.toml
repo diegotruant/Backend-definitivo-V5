@@ -19,6 +19,7 @@ dependencies = [
     "python-multipart>=0.0.9",
     "pydantic>=2.0",
     "defusedxml>=0.7.1",
+    "PyJWT>=2.8",
 ]
 
 [project.optional-dependencies]

@@ -26,6 +26,7 @@ It is the reference for new contributors.
 ```text
 api/
   app.py              # FastAPI factory, middleware, exception handlers
+  auth/               # JWT/OAuth + API-key auth, roles, athlete scope
   deps.py             # Service singletons (Depends)
   errors.py           # ServiceError → HTTP mapping
   schemas.py          # Pydantic request DTOs (HTTP envelope)
@@ -73,7 +74,7 @@ FastAPI exposes the contract at:
 
 Committed artifacts:
 
-- `openapi/openapi.json` — canonical spec (42 paths)
+- `openapi/openapi.json` — canonical spec (43 paths)
 - `frontend/src/api/generated/schema.ts` — TypeScript types (`make openapi-frontend`)
 - `frontend/src/api/client.ts` — typed client for all endpoints
 
@@ -97,6 +98,13 @@ See `docs/OPENAPI_FRONTEND.md` for integration details.
     on athlete-scoped endpoints (`/ride`, `/profile`, `/workouts`, `/twin`,
     `/projection`, `/performance`, `/load`, `/team`, `/history`, `/readiness`,
     `/planning`).
+- **Authentication** (`api/auth/`):
+  - `DIGITAL_TWIN_AUTH_MODE=none|api_key|jwt` (default `none`)
+  - **api_key**: static Bearer keys + optional per-key athlete prefix allowlist
+  - **jwt**: OIDC/OAuth bearer tokens with claims `sub`, `roles`, `team_id`, `athlete_ids`
+  - Roles: `admin`, `owner`, `coach`, `assistant_coach`, `athlete`
+  - Coach/admin must send `X-Athlete-Id`; athlete role is bound to token `athlete_id`
+  - `/test/*` and `/team/*` enforce role matrix when auth is enabled
 
 ## State
 
