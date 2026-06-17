@@ -360,6 +360,103 @@
         }
       }
     },
+    "/ride/parse": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Full FIT parse report",
+        "description": "Parse a FIT file and return the canonical extraction contract: available signals, time-series streams, quality flags, laps and provenance metadata.",
+        "operationId": "rideParse",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideParse"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable FIT or activity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ride/ingest": {
       "post": {
         "tags": [
@@ -3438,6 +3535,17 @@
               }
             ],
             "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
           }
         },
         "type": "object",
@@ -3476,6 +3584,17 @@
               }
             ],
             "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
           }
         },
         "type": "object",
@@ -3586,10 +3705,36 @@
               }
             ],
             "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
           }
         },
         "type": "object",
         "title": "Body_rideIntelligence"
+      },
+      "Body_rideParse": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "description": "Ride FIT file."
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_rideParse"
       },
       "Body_rideSummary": {
         "properties": {
@@ -3689,6 +3834,18 @@
             ],
             "title": "Power Json",
             "description": "Alternative: 1 Hz power JSON array."
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json",
+            "description": "Optional 1 Hz heart-rate JSON array."
           }
         },
         "type": "object",

@@ -3,10 +3,14 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Dict, Optional
 
+import numpy as np
+
 from api.errors import ServiceError
 from api.schemas import AthleteParams, UpdateProfileRequest
 from engines.core.athlete_context import AthleteContext
 from engines.core.athlete_physiological_prior import MeasuredProfile
+from engines.io.fit_parse_report import build_fit_parse_report
+from engines.io.fit_parser import FIT_PARSER_VERSION
 from engines.io.workout_summary import build_workout_summary
 from engines.io.activity_intelligence import build_activity_intelligence
 from engines.io.data_quality_report import build_data_quality_report
@@ -18,18 +22,35 @@ class RideService:
     def ingest(
         self,
         *,
-        power: list[float],
+        stream: Any,
         ride_date: date,
         file_id: str,
         weight_kg: float,
         stored_curve: Optional[Dict[str, Any]],
+        file_hash: Optional[str] = None,
     ) -> Dict[str, Any]:
+        n_samples = int(getattr(stream, "n_samples", 0) or len(getattr(stream, "power", [])))
+        power = [float(p or 0.0) for p in stream.power[:n_samples]]
+        hr_stream = None
+        if getattr(stream, "has_heart_rate", False):
+            hr_stream = [float(h or 0.0) for h in stream.heart_rate[:n_samples]]
+        cadence_stream = None
+        cadence = getattr(stream, "cadence", None)
+        if cadence is not None and bool(np.any(cadence[:n_samples] > 0)):
+            cadence_stream = [float(c or 0.0) for c in cadence[:n_samples]]
+
+        quality = build_data_quality_report(stream)
+        reliability = float(quality.get("overall_score", 1.0))
+
         result = update_power_curve(
             power,
             ride_date,
             stored_curve=stored_curve,
             ride_id=file_id,
             weight_kg=weight_kg,
+            hr_stream=hr_stream,
+            cadence_stream=cadence_stream,
+            reliability=reliability,
         )
         return {
             "curve": result.curve,
@@ -38,7 +59,22 @@ class RideService:
             "ride_usable": result.ride_usable,
             "profile_should_refresh": result.profile_should_refresh,
             "notes": result.notes,
+            "file_hash": file_hash,
+            "parser_version": FIT_PARSER_VERSION,
+            "data_quality_score": round(reliability, 3),
+            "available_signals": quality.get("available_signals", []),
+            "laps": list(getattr(stream, "laps", []) or []),
         }
+
+    def build_parse_report(self, parsed_upload: Dict[str, Any]) -> Dict[str, Any]:
+        stream = parsed_upload.get("_stream")
+        if stream is None:
+            raise ServiceError("Parsed upload is missing activity stream.", status_code=400, code="INVALID_UPLOAD")
+        return build_fit_parse_report(
+            stream=stream,
+            file_id=str(parsed_upload.get("file_id") or "upload.fit"),
+            file_hash=parsed_upload.get("file_hash"),
+        )
 
     def update_profile(self, req: UpdateProfileRequest) -> Dict[str, Any]:
         from engines.io.profile_anchor_flow import update_profile_from_ride

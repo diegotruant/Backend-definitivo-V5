@@ -106,6 +106,13 @@ export const api = {
     return jsonFetch<RideIngestResponse>('/ride/ingest', { method: 'POST', body: form });
   },
 
+  /** POST /ride/parse */
+  rideParse: (args: { file: File }) => {
+    const form = new FormData();
+    form.append('file', args.file);
+    return jsonFetch<EnginePayload>('/ride/parse', { method: 'POST', body: form });
+  },
+
   /** POST /ride/update-profile */
   updateProfile: (payload: UpdateProfileRequest) =>
     jsonFetch<EnginePayload>('/ride/update-profile', { method: 'POST', body: JSON.stringify(payload) }),
@@ -118,6 +125,7 @@ export const api = {
   rideSummary: (args: {
     file?: File;
     power_json?: number[];
+    hr_json?: number[];
     weight_kg: number;
     ftp?: number;
     lthr?: number;
@@ -131,6 +139,7 @@ export const api = {
     const form = new FormData();
     if (args.file) form.append('file', args.file);
     if (args.power_json) form.append('power_json', JSON.stringify(args.power_json));
+    if (args.hr_json) form.append('hr_json', JSON.stringify(args.hr_json));
     form.append('weight_kg', String(args.weight_kg));
     if (args.ftp != null) form.append('ftp', String(args.ftp));
     if (args.lthr != null) form.append('lthr', String(args.lthr));
@@ -149,12 +158,14 @@ export const api = {
   rideDurability: (args: {
     file?: File;
     power_json?: number[];
+    hr_json?: number[];
     weight_kg: number;
     metabolic_snapshot: MetabolicSnapshot;
   }) => {
     const form = new FormData();
     if (args.file) form.append('file', args.file);
     if (args.power_json) form.append('power_json', JSON.stringify(args.power_json));
+    if (args.hr_json) form.append('hr_json', JSON.stringify(args.hr_json));
     form.append('weight_kg', String(args.weight_kg));
     form.append('metabolic_snapshot_json', JSON.stringify(args.metabolic_snapshot));
     return jsonFetch<EnginePayload>('/ride/durability', { method: 'POST', body: form });
@@ -166,6 +177,7 @@ export const api = {
   rideIntelligence: (args: {
     file?: File;
     power_json?: number[];
+    hr_json?: number[];
     weight_kg?: number;
     ftp?: number;
     cp?: number;
@@ -178,14 +190,16 @@ export const api = {
     if (args.lthr != null) form.append('lthr', String(args.lthr));
     if (args.file) form.append('file', args.file);
     if (args.power_json) form.append('power_json', JSON.stringify(args.power_json));
+    if (args.hr_json) form.append('hr_json', JSON.stringify(args.hr_json));
     return jsonFetch<EnginePayload>('/ride/intelligence', { method: 'POST', body: form });
   },
 
   /** POST /ride/data-quality */
-  rideDataQuality: (args: { file?: File; power_json?: number[] }) => {
+  rideDataQuality: (args: { file?: File; power_json?: number[]; hr_json?: number[] }) => {
     const form = new FormData();
     if (args.file) form.append('file', args.file);
     if (args.power_json) form.append('power_json', JSON.stringify(args.power_json));
+    if (args.hr_json) form.append('hr_json', JSON.stringify(args.hr_json));
     return jsonFetch<EnginePayload>('/ride/data-quality', { method: 'POST', body: form });
   },
 

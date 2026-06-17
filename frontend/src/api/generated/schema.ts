@@ -84,6 +84,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ride/parse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Full FIT parse report
+         * @description Parse a FIT file and return the canonical extraction contract: available signals, time-series streams, quality flags, laps and provenance metadata.
+         */
+        post: operations["rideParse"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ride/ingest": {
         parameters: {
             query?: never;
@@ -928,6 +948,8 @@ export interface components {
             file?: string | null;
             /** Power Json */
             power_json?: string | null;
+            /** Hr Json */
+            hr_json?: string | null;
         };
         /** Body_rideDurability */
         Body_rideDurability: {
@@ -942,6 +964,8 @@ export interface components {
             file?: string | null;
             /** Power Json */
             power_json?: string | null;
+            /** Hr Json */
+            hr_json?: string | null;
         };
         /** Body_rideIngest */
         Body_rideIngest: {
@@ -984,6 +1008,16 @@ export interface components {
             file?: string | null;
             /** Power Json */
             power_json?: string | null;
+            /** Hr Json */
+            hr_json?: string | null;
+        };
+        /** Body_rideParse */
+        Body_rideParse: {
+            /**
+             * File
+             * @description Ride FIT file.
+             */
+            file: string;
         };
         /** Body_rideSummary */
         Body_rideSummary: {
@@ -1039,6 +1073,11 @@ export interface components {
              * @description Alternative: 1 Hz power JSON array.
              */
             power_json?: string | null;
+            /**
+             * Hr Json
+             * @description Optional 1 Hz heart-rate JSON array.
+             */
+            hr_json?: string | null;
         };
         /** Body_testPropose */
         Body_testPropose: {
@@ -2189,6 +2228,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rideParse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_rideParse"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Payload too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
+                };
+            };
+            /** @description Unprocessable FIT or activity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
                 };
             };
         };

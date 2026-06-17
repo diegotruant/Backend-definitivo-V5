@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import tempfile
 from typing import Any, Dict
@@ -35,6 +36,7 @@ async def parse_upload(file: UploadFile) -> Dict[str, Any]:
             raise HTTPException(status_code=413, detail=safe_error_detail("FILE_TOO_LARGE")) from exc
         chunks.append(chunk)
     data = b"".join(chunks)
+    file_hash = hashlib.sha256(data).hexdigest()
     with tempfile.NamedTemporaryFile(suffix=".fit", delete=True) as tmp:
         tmp.write(data)
         tmp.flush()
@@ -54,7 +56,8 @@ async def parse_upload(file: UploadFile) -> Dict[str, Any]:
             ) from exc
     return {
         "file_id": file.filename or "upload.fit",
+        "file_hash": file_hash,
         "power": stream.power.tolist(),
-        "laps": None,
+        "laps": list(getattr(stream, "laps", []) or []),
         "_stream": stream,
     }

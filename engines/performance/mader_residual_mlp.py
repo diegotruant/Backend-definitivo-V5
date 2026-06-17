@@ -309,9 +309,11 @@ class NeuralPowerDuration:
         mse_after = float(np.mean((observed_powers - final_preds) ** 2))
         
         improvement = max(0, (1 - mse_after / max(mse_before, 1e-6)) * 100)
+        # scipy may report success=False when maxiter is hit despite real loss reduction
+        training_success = bool(result.success) or mse_after < mse_before
         
         return NeuralPDTrainingResult(
-            success=result.success,
+            success=training_success,
             n_iterations=result.nit,
             final_loss=float(result.fun),
             mse_before=mse_before,

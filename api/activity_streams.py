@@ -17,23 +17,45 @@ except ImportError:  # pragma: no cover
     raise ImportError("FastAPI is required for the API layer: pip install fastapi uvicorn")
 
 
-def stream_from_power(power: List[float], *, start: Optional[datetime] = None) -> Any:
-    """Build an ActivityStream-like object from a 1 Hz power list (tests / JSON API)."""
+def stream_from_power(
+    power: List[float],
+    *,
+    start: Optional[datetime] = None,
+    heart_rate: Optional[List[float]] = None,
+) -> Any:
+    """Build an ActivityStream-like object from a 1 Hz power list (tests / JSON API).
+
+    Heart rate is never synthesized. Pass ``heart_rate`` explicitly when the client
+    has a real HR stream; otherwise HR remains unavailable in the resulting stream.
+    """
     base = start or datetime(2026, 1, 1, 8, 0, 0)
-    records = [
-        {
+    records = []
+    measured_signals = ["power"]
+    synthetic_signals: list[str] = []
+    for i, p in enumerate(power):
+        rec: dict[str, Any] = {
             "timestamp": base + timedelta(seconds=i),
             "power": int(max(0, float(p))),
-            "heart_rate": int(140 + (i % 120) * 0.05),
         }
-        for i, p in enumerate(power)
-    ]
-    return parse_fit_records_enhanced(records, session_dict={"sport": "cycling", "start_time": base})
+        if heart_rate is not None and i < len(heart_rate):
+            rec["heart_rate"] = int(max(0, float(heart_rate[i])))
+        records.append(rec)
+    if heart_rate is not None:
+        measured_signals.append("heart_rate")
+
+    stream = parse_fit_records_enhanced(records, session_dict={"sport": "cycling", "start_time": base})
+    stream.data_provenance = {
+        "source": "power_json",
+        "synthetic_signals": synthetic_signals,
+        "measured_signals": measured_signals,
+    }
+    return stream
 
 
 async def load_activity_stream(
     file: Optional[UploadFile],
     power_json: Optional[str],
+    hr_json: Optional[str] = None,
 ) -> Any:
     if file is not None:
         parsed = await parse_upload(file)
@@ -53,5 +75,22 @@ async def load_activity_stream(
                     "message": f"power_json exceeds {MAX_POWER_SAMPLES} samples.",
                 },
             )
-        return stream_from_power([float(p) for p in power])
+        hr_values: Optional[List[float]] = None
+        if hr_json:
+            try:
+                parsed_hr = json.loads(hr_json)
+            except json.JSONDecodeError as exc:
+                raise HTTPException(status_code=400, detail=safe_error_detail("INVALID_JSON")) from exc
+            if not isinstance(parsed_hr, list) or not parsed_hr:
+                raise HTTPException(status_code=400, detail="hr_json must be a non-empty JSON array.")
+            if len(parsed_hr) > MAX_POWER_SAMPLES:
+                raise HTTPException(
+                    status_code=413,
+                    detail={
+                        "error": "HR_JSON_TOO_LONG",
+                        "message": f"hr_json exceeds {MAX_POWER_SAMPLES} samples.",
+                    },
+                )
+            hr_values = [float(v) for v in parsed_hr]
+        return stream_from_power([float(p) for p in power], heart_rate=hr_values)
     raise HTTPException(status_code=400, detail="Provide either a FIT file or power_json.")

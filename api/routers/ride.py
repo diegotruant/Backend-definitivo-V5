@@ -25,6 +25,31 @@ router = APIRouter(prefix="/ride", tags=["ride"])
 
 
 @router.post(
+    "/parse",
+    summary="Full FIT parse report",
+    description=(
+        "Parse a FIT file and return the canonical extraction contract: available signals, "
+        "time-series streams, quality flags, laps and provenance metadata."
+    ),
+    operation_id="rideParse",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400], 413: ERRORS[413], 422: ERRORS[422]},
+)
+async def parse_ride(
+    file: UploadFile = File(..., description="Ride FIT file."),
+    service: RideService = Depends(get_ride_service),
+):
+    try:
+        parsed = await parse_upload(file)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.info("Cannot parse ride upload %r: %s", file.filename, exc)
+        raise HTTPException(status_code=422, detail=safe_error_detail("FIT_PARSE_FAILED"))
+    return json_response(service.build_parse_report(parsed))
+
+
+@router.post(
     "/ingest",
     summary="Ingest ride FIT and update power curve",
     description="Parse one ride FIT, merge into the rolling MMP curve and return persistable state.",
@@ -53,11 +78,12 @@ async def ingest_ride(
     stored = json.loads(stored_curve_json) if stored_curve_json else None
     return json_response(
         service.ingest(
-            power=parsed["power"],
+            stream=parsed["_stream"],
             ride_date=ride_day,
             file_id=parsed["file_id"],
             weight_kg=weight_kg,
             stored_curve=coerce_stored_curve(stored),
+            file_hash=parsed.get("file_hash"),
         )
     )
 
@@ -100,9 +126,10 @@ async def ride_summary(
     hrv_max_windows: int = Form(500),
     file: Optional[UploadFile] = File(None, description="Ride FIT file."),
     power_json: Optional[str] = Form(None, description="Alternative: 1 Hz power JSON array."),
+    hr_json: Optional[str] = Form(None, description="Optional 1 Hz heart-rate JSON array."),
     service: RideService = Depends(get_ride_service),
 ):
-    stream = await load_activity_stream(file, power_json)
+    stream = await load_activity_stream(file, power_json, hr_json)
     athlete = AthleteParams(
         weight_kg=weight_kg,
         gender=gender,
@@ -136,9 +163,10 @@ async def ride_durability(
     metabolic_snapshot_json: str = Form(..., description="Required successful metabolic snapshot."),
     file: Optional[UploadFile] = File(None),
     power_json: Optional[str] = Form(None),
+    hr_json: Optional[str] = Form(None),
     service: RideService = Depends(get_ride_service),
 ):
-    stream = await load_activity_stream(file, power_json)
+    stream = await load_activity_stream(file, power_json, hr_json)
     snap = parse_metabolic_snapshot(metabolic_snapshot_json)
     return json_response(
         service.compute_durability(stream, weight_kg=weight_kg, metabolic_snapshot=snap or {})
@@ -160,9 +188,10 @@ async def ride_intelligence(
     lthr: Optional[float] = Form(None),
     file: Optional[UploadFile] = File(None),
     power_json: Optional[str] = Form(None),
+    hr_json: Optional[str] = Form(None),
     service: RideService = Depends(get_ride_service),
 ):
-    stream = await load_activity_stream(file, power_json)
+    stream = await load_activity_stream(file, power_json, hr_json)
     return json_response(service.build_intelligence(stream, weight_kg=weight_kg, ftp=ftp, cp=cp, lthr=lthr))
 
 
@@ -177,7 +206,8 @@ async def ride_intelligence(
 async def ride_data_quality(
     file: Optional[UploadFile] = File(None),
     power_json: Optional[str] = Form(None),
+    hr_json: Optional[str] = Form(None),
     service: RideService = Depends(get_ride_service),
 ):
-    stream = await load_activity_stream(file, power_json)
+    stream = await load_activity_stream(file, power_json, hr_json)
     return json_response(service.build_data_quality(stream))

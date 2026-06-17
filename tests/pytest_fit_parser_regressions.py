@@ -33,7 +33,7 @@ def test_fitdecode_field_extraction_uses_frame_fields(monkeypatch: pytest.Monkey
     )
     monkeypatch.setattr(fp, "fitdecode", fake_fitdecode)
 
-    records, sessions, device_infos, hrv_msgs = fp._extract_messages_with_fitdecode(
+    records, sessions, device_infos, hrv_msgs, lap_msgs = fp._extract_messages_with_fitdecode(
         b"ignored",
         check_crc=True,
     )
@@ -42,6 +42,7 @@ def test_fitdecode_field_extraction_uses_frame_fields(monkeypatch: pytest.Monkey
     assert sessions == [{"sport": "cycling"}]
     assert device_infos == []
     assert hrv_msgs == []
+    assert lap_msgs == []
 
 
 def test_hrv_dict_messages_are_consumed_without_fields_attribute(
@@ -56,7 +57,8 @@ def test_hrv_dict_messages_are_consumed_without_fields_attribute(
             [{"timestamp": start, "power": 220, "heart_rate": 145}],
             [{"start_time": start, "total_elapsed_time": 1.0, "sport": "cycling"}],
             [],
-                [{"time": [0.2, 0.2, 0.2]}],
+            [{"time": [0.2, 0.2, 0.2]}],
+            [],
         ),
     )
 

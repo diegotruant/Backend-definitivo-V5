@@ -18,6 +18,10 @@ def nan_to_none(obj: Any) -> Any:
         return {k: nan_to_none(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
         return [nan_to_none(v) for v in obj]
+    if isinstance(obj, np.ndarray):
+        return [nan_to_none(v) for v in obj.tolist()]
+    if isinstance(obj, np.generic):
+        obj = obj.item()
     if isinstance(obj, float):
         return None if (np.isnan(obj) or np.isinf(obj)) else obj
     return obj

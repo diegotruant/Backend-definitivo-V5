@@ -51,6 +51,7 @@ except ImportError:
 # is available in the environment.
 FIT_BACKEND_AVAILABLE = FITDECODE_AVAILABLE or FITPARSE_AVAILABLE
 FITPARSE_AVAILABLE = FIT_BACKEND_AVAILABLE
+FIT_PARSER_VERSION = "2.0.1-gapaware"
 
 
 class FitFileError(Exception):
@@ -203,6 +204,10 @@ class ActivityStreamEnhanced:
         
         # Gap summary (populated by parser)
         self.gap_summary: Dict[str, Any] = {}
+        # Lap markers extracted from FIT lap messages (empty for JSON-only streams).
+        self.laps: List[Dict[str, Any]] = []
+        # Provenance metadata for API consumers (FIT vs power_json, synthetic flags).
+        self.data_provenance: Dict[str, Any] = {}
     
     # =========================================================================
     # Computed properties (lightweight — recomputed on access)
@@ -386,17 +391,79 @@ def detect_and_fill_gaps(
     return filled, quality, gap_stats
 
 
+def _available_measured_signals(stream: ActivityStreamEnhanced) -> list[str]:
+    signals: list[str] = []
+    if stream.has_power:
+        signals.append("power")
+    if stream.has_heart_rate:
+        signals.append("heart_rate")
+    if bool(np.any(stream.cadence > 0)):
+        signals.append("cadence")
+    if bool(np.any(stream.speed_mps > 0)):
+        signals.append("speed")
+    if bool(np.any(~np.isnan(stream.altitude_m))):
+        signals.append("altitude")
+    if bool(np.any(~np.isnan(stream.lat)) and np.any(~np.isnan(stream.lon))):
+        signals.extend(["gps", "latitude", "longitude"])
+    if stream.has_rr:
+        signals.append("rr")
+    if bool(np.any(~np.isnan(stream.temperature_c))):
+        signals.append("temperature")
+    if stream.has_cycling_dynamics:
+        signals.append("cycling_dynamics")
+    if stream.has_respiration:
+        signals.append("respiration")
+    return signals
+
+
+def normalize_lap_messages(lap_msgs: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
+    """Normalize FIT lap messages into the effort-extractor contract."""
+    laps: list[Dict[str, Any]] = []
+    for idx, lap in enumerate(lap_msgs):
+        duration_raw = lap.get("total_timer_time")
+        if duration_raw is None:
+            duration_raw = lap.get("total_elapsed_time")
+        if duration_raw is None:
+            continue
+        try:
+            duration_s = int(round(float(duration_raw)))
+        except (TypeError, ValueError):
+            continue
+        if duration_s <= 0:
+            continue
+        avg_power = lap.get("avg_power")
+        max_power = lap.get("max_power")
+        avg_hr = lap.get("avg_heart_rate")
+        start_time = lap.get("start_time")
+        laps.append(
+            {
+                "lap_index": int(lap.get("message_index", idx)),
+                "start_time": (
+                    start_time.isoformat()
+                    if hasattr(start_time, "isoformat")
+                    else start_time
+                ),
+                "duration_s": duration_s,
+                "avg_power_w": float(avg_power) if avg_power is not None else None,
+                "max_power_w": float(max_power) if max_power is not None else None,
+                "avg_hr": int(avg_hr) if avg_hr is not None else None,
+            }
+        )
+    return laps
+
+
 def _extract_messages_with_fitdecode(
     payload: bytes,
     *,
     check_crc: bool,
-) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
+) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
     """Decode FIT payload with fitdecode into plain dict rows."""
     crc_mode = fitdecode.CrcCheck.RAISE if check_crc else fitdecode.CrcCheck.DISABLED
     records: list[Dict[str, Any]] = []
     sessions: list[Dict[str, Any]] = []
     device_infos: list[Dict[str, Any]] = []
     hrv_msgs: list[Dict[str, Any]] = []
+    lap_msgs: list[Dict[str, Any]] = []
 
     with fitdecode.FitReader(BytesIO(payload), check_crc=crc_mode) as reader:
         for frame in reader:
@@ -411,14 +478,16 @@ def _extract_messages_with_fitdecode(
                 device_infos.append(values)
             elif frame.name == "hrv":
                 hrv_msgs.append(values)
-    return records, sessions, device_infos, hrv_msgs
+            elif frame.name == "lap":
+                lap_msgs.append(values)
+    return records, sessions, device_infos, hrv_msgs, lap_msgs
 
 
 def _extract_messages_with_fitparse(
     payload: bytes,
     *,
     check_crc: bool,
-) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
+) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
     """Decode FIT payload with fitparse into plain dict rows."""
     if not FITPARSE_AVAILABLE:
         raise RuntimeError("fitparse backend is not available")
@@ -427,6 +496,7 @@ def _extract_messages_with_fitparse(
     sessions: list[Dict[str, Any]] = []
     device_infos: list[Dict[str, Any]] = []
     hrv_msgs: list[Dict[str, Any]] = []
+    lap_msgs: list[Dict[str, Any]] = []
 
     for msg in fitfile.get_messages():
         row = {field.name: field.value for field in msg.fields}
@@ -438,14 +508,16 @@ def _extract_messages_with_fitparse(
             device_infos.append(row)
         elif msg.name == "hrv":
             hrv_msgs.append(row)
-    return records, sessions, device_infos, hrv_msgs
+        elif msg.name == "lap":
+            lap_msgs.append(row)
+    return records, sessions, device_infos, hrv_msgs, lap_msgs
 
 
 def _extract_messages(
     payload: bytes,
     *,
     check_crc: bool,
-) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
+) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
     """Decode FIT payload using fitdecode first, then fitparse fallback."""
     if FITDECODE_AVAILABLE:
         try:
@@ -514,10 +586,11 @@ def parse_fit_file_enhanced(
     _session_msgs: list[Dict[str, Any]] = []
     _device_info_msgs: list[Dict[str, Any]] = []
     _hrv_msgs: list[Dict[str, Any]] = []
+    _lap_msgs: list[Dict[str, Any]] = []
 
     had_crc_or_eof_error = False
     try:
-        records, _session_msgs, _device_info_msgs, _hrv_msgs = _extract_messages(
+        records, _session_msgs, _device_info_msgs, _hrv_msgs, _lap_msgs = _extract_messages(
             payload,
             check_crc=check_crc,
         )
@@ -541,7 +614,7 @@ def parse_fit_file_enhanced(
         # Recovery attempt: if the only problem was CRC/truncation, payload may
         # still contain readable leading records.
         try:
-            records, _session_msgs, _device_info_msgs, _hrv_msgs = _extract_messages(
+            records, _session_msgs, _device_info_msgs, _hrv_msgs, _lap_msgs = _extract_messages(
                 payload,
                 check_crc=False,
             )
@@ -631,6 +704,12 @@ def parse_fit_file_enhanced(
         gap_long_s=gap_long_s,
     )
     stream.pedaling_balance_source = pm_source
+    stream.laps = normalize_lap_messages(_lap_msgs)
+    stream.data_provenance = {
+        "source": "fit_file",
+        "synthetic_signals": [],
+        "measured_signals": _available_measured_signals(stream),
+    }
     
     # Data-driven fallback: if we couldn't identify the power meter from
     # device_info but the FIT contains left_right_balance data that actually
@@ -654,9 +733,20 @@ def parse_fit_file_enhanced(
     if _hrv_msgs and not stream.has_rr:
         rr_seq_s: List[float] = []
         for hmsg in _hrv_msgs:
-            for field_name, val in hmsg.items():
+            val = hmsg.get("time")
+            if val is not None:
+                if isinstance(val, (list, tuple)):
+                    rr_seq_s.extend(
+                        float(v) for v in val
+                        if v is not None and float(v) > 0.0
+                    )
+                elif float(val) > 0.0:
+                    rr_seq_s.append(float(val))
+                continue
+            for field_name, field_val in hmsg.items():
                 if field_name != "time":
                     continue
+                val = field_val
                 if isinstance(val, (list, tuple)):
                     rr_seq_s.extend(
                         float(v) for v in val
