@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
-import fitparse
+from engines.io.fit_parser import parse_fit_file_enhanced
 from engines.performance.interval_detector import classify_session
 
 
@@ -45,28 +45,9 @@ GROUND_TRUTH = {
 
 
 def load_fit(path: Path):
-    ff = fitparse.FitFile(str(path))
-    powers = []
-    for rec in ff.get_messages("record"):
-        for f in rec.fields:
-            if f.name == "power":
-                powers.append(f.value if f.value is not None else 0)
-                break
+    stream = parse_fit_file_enhanced(str(path), check_crc=False)
+    powers = [float(p) for p in stream.power.tolist()]
     laps = []
-    for lap in ff.get_messages("lap"):
-        info = {}
-        for f in lap.fields:
-            if f.value is not None:
-                if f.name == "total_elapsed_time":
-                    info["duration_s"] = float(f.value)
-                elif f.name == "avg_power":
-                    info["avg_power_w"] = float(f.value)
-                elif f.name == "max_power":
-                    info["max_power_w"] = float(f.value)
-                elif f.name == "avg_heart_rate":
-                    info["avg_hr"] = float(f.value)
-        if info:
-            laps.append(info)
     return powers, laps
 
 

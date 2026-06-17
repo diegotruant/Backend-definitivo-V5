@@ -292,41 +292,22 @@ print("\n[10] Real FIT files (Gigi, if available)")
 
 upload_dir = Path("/mnt/user-data/uploads")
 if upload_dir.exists():
-    try:
-        import fitparse
-        fit_files = sorted(upload_dir.glob("*.fit"))
-        
-        for fit in fit_files[:5]:  # cap at 5 for test speed
-            ff = fitparse.FitFile(str(fit))
-            powers = []
-            for rec in ff.get_messages("record"):
-                for f in rec.fields:
-                    if f.name == "power":
-                        powers.append(f.value if f.value is not None else 0)
-                        break
-            laps = []
-            for lap in ff.get_messages("lap"):
-                info = {}
-                for f in lap.fields:
-                    if f.value is not None:
-                        if f.name == "total_elapsed_time":
-                            info["duration_s"] = float(f.value)
-                        elif f.name == "avg_power":
-                            info["avg_power_w"] = float(f.value)
-                if info:
-                    laps.append(info)
-            
-            if powers:
-                r = classify_session(
-                    powers, filename=fit.name, laps=laps, ftp=250
-                )
-                # Real, unstructured long rides legitimately classify as
-                # UNCLASSIFIED with low confidence — that's the detector being
-                # honest, not an error. Accept it alongside the 4 main classes.
-                check(f"{fit.name[:30]}... classified ({r.category}/{r.subtype}, conf {r.confidence:.2f})",
-                      r.category in ("TEST", "HIIT", "STEADY", "FREE", "UNCLASSIFIED"))
-    except ImportError:
-        check("fitparse available", False, "skipped: fitparse not installed")
+    from engines.io.fit_parser import parse_fit_file_enhanced
+
+    fit_files = sorted(upload_dir.glob("*.fit"))
+    for fit in fit_files[:5]:  # cap at 5 for test speed
+        stream = parse_fit_file_enhanced(str(fit), check_crc=False)
+        powers = [float(p) for p in stream.power.tolist()]
+        laps = []
+        if powers:
+            r = classify_session(
+                powers, filename=fit.name, laps=laps, ftp=250
+            )
+            # Real, unstructured long rides legitimately classify as
+            # UNCLASSIFIED with low confidence — that's the detector being
+            # honest, not an error. Accept it alongside the 4 main classes.
+            check(f"{fit.name[:30]}... classified ({r.category}/{r.subtype}, conf {r.confidence:.2f})",
+                    r.category in ("TEST", "HIIT", "STEADY", "FREE", "UNCLASSIFIED"))
 else:
     print("    (uploads directory not present, skipping)")
 

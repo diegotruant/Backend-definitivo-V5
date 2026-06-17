@@ -20,17 +20,37 @@ import time
 import numpy as np
 
 try:
-    import fitparse
-    from fitparse.utils import FitParseError, FitEOFError, FitCRCError, FitHeaderError
-    FITPARSE_AVAILABLE = True
+    import fitdecode
+    from fitdecode import FitCRCError, FitEOFError, FitError, FitHeaderError, FitParseError
+    FITDECODE_AVAILABLE = True
 except ImportError:
-    FITPARSE_AVAILABLE = False
-    # Define placeholders so except-clauses below are always valid even when
-    # fitparse is not installed.
-    class FitParseError(Exception): ...  # type: ignore[no-redef]
+    FITDECODE_AVAILABLE = False
+    class FitError(Exception): ...  # type: ignore[no-redef]
+    class FitParseError(FitError): ...  # type: ignore[no-redef]
     class FitEOFError(FitParseError): ...  # type: ignore[no-redef]
     class FitCRCError(FitParseError): ...  # type: ignore[no-redef]
     class FitHeaderError(FitParseError): ...  # type: ignore[no-redef]
+
+try:
+    import fitparse
+    from fitparse.utils import (
+        FitCRCError as FitParseCRCError,
+        FitEOFError as FitParseEOFError,
+        FitHeaderError as FitParseHeaderError,
+        FitParseError as FitParseLibError,
+    )
+    FITPARSE_AVAILABLE = True
+except ImportError:
+    FITPARSE_AVAILABLE = False
+    class FitParseLibError(Exception): ...  # type: ignore[no-redef]
+    class FitParseEOFError(FitParseLibError): ...  # type: ignore[no-redef]
+    class FitParseCRCError(FitParseLibError): ...  # type: ignore[no-redef]
+    class FitParseHeaderError(FitParseLibError): ...  # type: ignore[no-redef]
+
+# Backward-compat symbol used in tests/docs. True when at least one parser backend
+# is available in the environment.
+FIT_BACKEND_AVAILABLE = FITDECODE_AVAILABLE or FITPARSE_AVAILABLE
+FITPARSE_AVAILABLE = FIT_BACKEND_AVAILABLE
 
 
 class FitFileError(Exception):
@@ -366,6 +386,77 @@ def detect_and_fill_gaps(
     return filled, quality, gap_stats
 
 
+def _extract_messages_with_fitdecode(
+    payload: bytes,
+    *,
+    check_crc: bool,
+) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
+    """Decode FIT payload with fitdecode into plain dict rows."""
+    crc_mode = fitdecode.CrcCheck.RAISE if check_crc else fitdecode.CrcCheck.DISABLED
+    records: list[Dict[str, Any]] = []
+    sessions: list[Dict[str, Any]] = []
+    device_infos: list[Dict[str, Any]] = []
+    hrv_msgs: list[Dict[str, Any]] = []
+
+    with fitdecode.FitReader(BytesIO(payload), check_crc=crc_mode) as reader:
+        for frame in reader:
+            if not isinstance(frame, fitdecode.records.FitDataMessage):
+                continue
+            values = frame.get_values()
+            if frame.name == "record":
+                records.append(values)
+            elif frame.name == "session":
+                sessions.append(values)
+            elif frame.name == "device_info":
+                device_infos.append(values)
+            elif frame.name == "hrv":
+                hrv_msgs.append(values)
+    return records, sessions, device_infos, hrv_msgs
+
+
+def _extract_messages_with_fitparse(
+    payload: bytes,
+    *,
+    check_crc: bool,
+) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
+    """Decode FIT payload with fitparse into plain dict rows."""
+    fitfile = fitparse.FitFile(BytesIO(payload), check_crc=check_crc)
+    records: list[Dict[str, Any]] = []
+    sessions: list[Dict[str, Any]] = []
+    device_infos: list[Dict[str, Any]] = []
+    hrv_msgs: list[Dict[str, Any]] = []
+
+    for msg in fitfile.get_messages():
+        row = {field.name: field.value for field in msg.fields}
+        if msg.name == "record":
+            records.append(row)
+        elif msg.name == "session":
+            sessions.append(row)
+        elif msg.name == "device_info":
+            device_infos.append(row)
+        elif msg.name == "hrv":
+            hrv_msgs.append(row)
+    return records, sessions, device_infos, hrv_msgs
+
+
+def _extract_messages(
+    payload: bytes,
+    *,
+    check_crc: bool,
+) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
+    """Decode FIT payload using fitdecode first, then fitparse fallback."""
+    if FITDECODE_AVAILABLE:
+        try:
+            return _extract_messages_with_fitdecode(payload, check_crc=check_crc)
+        except Exception:
+            if FITPARSE_AVAILABLE:
+                return _extract_messages_with_fitparse(payload, check_crc=check_crc)
+            raise
+    if FITPARSE_AVAILABLE:
+        return _extract_messages_with_fitparse(payload, check_crc=check_crc)
+    raise RuntimeError("No FIT parser backend available. Install fitdecode or fitparse.")
+
+
 def parse_fit_file_enhanced(
     fit_path: str,
     gap_short_s: float = 10.0,
@@ -389,8 +480,8 @@ def parse_fit_file_enhanced(
     Returns:
         ActivityStreamEnhanced with quality flags and gap summary
     """
-    if not FITPARSE_AVAILABLE:
-        raise RuntimeError("fitparse library not available — install with: pip install fitparse")
+    if not FIT_BACKEND_AVAILABLE:
+        raise RuntimeError("No FIT parser backend available — install fitdecode (preferred) or fitparse")
     
     raw = None
     has_bad_synthetic_header = False
@@ -407,118 +498,62 @@ def parse_fit_file_enhanced(
     # record header means "developer data", not "corrupt file". So we try to
     # parse the file as-is first, and only attempt the byte-0 repair if normal
     # parsing actually fails.
-    fitfile = None
-    if not has_bad_synthetic_header:
-        try:
-            if raw is not None:
-                # Parse from the bytes we already read with retry, so fitparse
-                # does not re-open the path (which is where transient network
-                # I/O errors — OSError errno 5 — were occurring).
-                fitfile = fitparse.FitFile(BytesIO(bytes(raw)), check_crc=check_crc)
-            else:
-                fitfile = fitparse.FitFile(fit_path, check_crc=check_crc)
-        except Exception:
-            fitfile = None
-
-    if fitfile is None and repair_synthetic_header and raw is not None:
-        # Attempt the synthetic-header repair as a fallback only.
-        try:
-            repaired = bytearray(raw)
-            repaired[0] = 12
-            fitfile = fitparse.FitFile(BytesIO(repaired), check_crc=False)
-        except Exception:
-            fitfile = None
-
-    if fitfile is None:
-        # Recovery attempt: if the only problem was a CRC mismatch, the payload
-        # itself may still be fully readable. Retry once with CRC disabled
-        # before giving up. This rescues files with a corrupt trailing CRC
-        # (common after an interrupted sync) whose records are otherwise intact.
-        try:
-            payload = _read_file_with_retry(fit_path)
-        except Exception as e:
-            raise FitFileError("EMPTY_FILE", f"could not read file: {e}") from e
-
-        if len(payload) < 14:
-            raise FitFileError(
-                "EMPTY_FILE",
-                f"file is {len(payload)} bytes — too small to be a FIT file",
-            )
-
-        try:
-            fitfile = fitparse.FitFile(BytesIO(payload), check_crc=False)
-            # Force a parse pass now so corruption surfaces here (where we can
-            # classify it) rather than later mid-extraction.
-            _ = list(fitfile.get_messages())
-            fitfile = fitparse.FitFile(BytesIO(payload), check_crc=False)
-        except FitHeaderError as e:
-            raise FitFileError("INVALID_HEADER", str(e)) from e
-        except FitCRCError as e:
-            raise FitFileError("CRC_MISMATCH", str(e)) from e
-        except FitEOFError as e:
-            raise FitFileError("TRUNCATED", str(e)) from e
-        except FitParseError as e:
-            raise FitFileError("MALFORMED_RECORDS", str(e)) from e
-        except Exception as e:
-            raise FitFileError("UNKNOWN", str(e)) from e
-
-    # fitparse's FitFile is a single-consumption stream: calling
-    # get_messages() more than once on the same object re-iterates the
-    # decoded buffer and can raise FitParseError on some real-world files
-    # (observed: "invalid local message type 0"). To be safe we make a
-    # single pass and bucket the messages we care about by name.
-    _session_msgs = []
-    _device_info_msgs = []
-    _record_msgs = []
-    _hrv_msgs = []
     try:
-        for msg in fitfile.get_messages():
-            mname = msg.name
-            if mname == "record":
-                _record_msgs.append(msg)
-            elif mname == "session":
-                _session_msgs.append(msg)
-            elif mname == "device_info":
-                _device_info_msgs.append(msg)
-            elif mname == "hrv":
-                _hrv_msgs.append(msg)
-    except FitCRCError as e:
-        # CRC failed during the read pass. The records themselves are usually
-        # intact — only the trailing checksum is wrong (interrupted sync). Retry
-        # once with CRC disabled before giving up.
-        _recovered = False
-        try:
-            _payload = _read_file_with_retry(fit_path)
-            _ff = fitparse.FitFile(BytesIO(_payload), check_crc=False)
-            _session_msgs, _device_info_msgs, _record_msgs, _hrv_msgs = [], [], [], []
-            for msg in _ff.get_messages():
-                mname = msg.name
-                if mname == "record":
-                    _record_msgs.append(msg)
-                elif mname == "session":
-                    _session_msgs.append(msg)
-                elif mname == "device_info":
-                    _device_info_msgs.append(msg)
-                elif mname == "hrv":
-                    _hrv_msgs.append(msg)
-            _recovered = bool(_record_msgs)
-        except Exception:
-            _recovered = False
-        if not _recovered:
-            raise FitFileError("CRC_MISMATCH", str(e)) from e
-    except FitEOFError as e:
-        # Truncated mid-stream. If we already collected some records, keep
-        # them (partial recovery); otherwise it's unrecoverable.
-        if not _record_msgs:
-            raise FitFileError("TRUNCATED", str(e)) from e
-    except FitParseError as e:
-        if not _record_msgs:
-            raise FitFileError("MALFORMED_RECORDS", str(e)) from e
+        payload = bytes(raw) if raw is not None else _read_file_with_retry(fit_path)
     except Exception as e:
-        if not _record_msgs:
+        raise FitFileError("EMPTY_FILE", f"could not read file: {e}") from e
+
+    if len(payload) < 14:
+        raise FitFileError(
+            "EMPTY_FILE",
+            f"file is {len(payload)} bytes — too small to be a FIT file",
+        )
+
+    records: list[Dict[str, Any]] = []
+    _session_msgs: list[Dict[str, Any]] = []
+    _device_info_msgs: list[Dict[str, Any]] = []
+    _hrv_msgs: list[Dict[str, Any]] = []
+
+    try:
+        records, _session_msgs, _device_info_msgs, _hrv_msgs = _extract_messages(
+            payload,
+            check_crc=check_crc,
+        )
+    except (FitParseHeaderError, FitHeaderError) as e:
+        raise FitFileError("INVALID_HEADER", str(e)) from e
+    except (FitParseEOFError, FitEOFError) as e:
+        # Partial-truncation recovery path below retries without CRC.
+        if "not a FIT file" in str(e):
+            raise FitFileError("INVALID_HEADER", str(e)) from e
+    except (FitParseCRCError, FitCRCError):
+        pass
+    except (FitParseLibError, FitParseError) as e:
+        if "not a FIT file" in str(e):
+            raise FitFileError("INVALID_HEADER", str(e)) from e
+    except Exception as e:
+        if "not a FIT file" in str(e):
+            raise FitFileError("INVALID_HEADER", str(e)) from e
+
+    if not records:
+        # Recovery attempt: if the only problem was CRC/truncation, payload may
+        # still contain readable leading records.
+        try:
+            records, _session_msgs, _device_info_msgs, _hrv_msgs = _extract_messages(
+                payload,
+                check_crc=False,
+            )
+        except (FitParseHeaderError, FitHeaderError) as e:
+            raise FitFileError("INVALID_HEADER", str(e)) from e
+        except (FitParseEOFError, FitEOFError) as e:
+            raise FitFileError("TRUNCATED", str(e)) from e
+        except (FitParseCRCError, FitCRCError) as e:
+            raise FitFileError("CRC_MISMATCH", str(e)) from e
+        except (FitParseLibError, FitParseError) as e:
+            raise FitFileError("MALFORMED_RECORDS", str(e)) from e
+        except Exception as e:
             raise FitFileError("UNKNOWN", str(e)) from e
 
-    if not _record_msgs:
+    if not records:
         raise FitFileError(
             "NO_RECORDS",
             "file parsed but contains no usable data records",
@@ -527,15 +562,14 @@ def parse_fit_file_enhanced(
     # Extract session info
     session_dict = {}
     for rec in _session_msgs:
-        for field in rec.fields:
-            if field.name == "sport":
-                session_dict["sport"] = field.value
-            elif field.name == "sub_sport":
-                session_dict["sub_sport"] = field.value
-            elif field.name == "start_time":
-                session_dict["start_time"] = field.value
-            elif field.name == "total_elapsed_time":
-                session_dict["total_elapsed_time"] = field.value
+        if rec.get("sport") is not None:
+            session_dict["sport"] = rec.get("sport")
+        if rec.get("sub_sport") is not None:
+            session_dict["sub_sport"] = rec.get("sub_sport")
+        if rec.get("start_time") is not None:
+            session_dict["start_time"] = rec.get("start_time")
+        if rec.get("total_elapsed_time") is not None:
+            session_dict["total_elapsed_time"] = rec.get("total_elapsed_time")
     
     # Extract device info: head unit is usually the first device_info message,
     # but power meters appear as separate entries with their own manufacturer/product.
@@ -555,15 +589,9 @@ def parse_fit_file_enhanced(
     )
     
     for rec in _device_info_msgs:
-        manufacturer = product = None
-        ant_dev_type = None
-        for field in rec.fields:
-            if field.name == "manufacturer":
-                manufacturer = field.value
-            elif field.name == "product":
-                product = field.value
-            elif field.name == "antplus_device_type":
-                ant_dev_type = field.value
+        manufacturer = rec.get("manufacturer")
+        product = rec.get("product")
+        ant_dev_type = rec.get("antplus_device_type")
         
         # First non-empty entry -> head unit
         if not head_unit_set and (manufacturer or product):
@@ -591,15 +619,6 @@ def parse_fit_file_enhanced(
             elif any(m in full for m in _SINGLE_MARKERS):
                 pm_source = "single_estimated"
             # else stays "unknown" — we'll let the data itself decide
-    
-    # Extract record messages (already collected in the single pass above)
-    records = []
-    for rec in _record_msgs:
-        data = {field.name: field.value for field in rec.fields}
-        records.append(data)
-    
-    if not records:
-        raise ValueError("No record messages found in FIT file")
     
     # Convert to enhanced stream
     stream = parse_fit_records_enhanced(

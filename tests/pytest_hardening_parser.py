@@ -71,9 +71,9 @@ def test_parser_sparse_sensor_records_cycling_dynamics_and_gaps_do_not_crash() -
 
 
 @pytest.mark.hardening
-def test_parser_returns_typed_error_for_corrupt_fit_bytes_when_fitparse_is_available() -> None:
+def test_parser_returns_typed_error_for_corrupt_fit_bytes_when_backend_is_available() -> None:
     if not FITPARSE_AVAILABLE:
-        pytest.skip("fitparse is not installed in this environment")
+        pytest.skip("no FIT parser backend is installed in this environment")
     with tempfile.NamedTemporaryFile(suffix=".fit") as tmp:
         tmp.write(b"not a fit file" * 100)
         tmp.flush()

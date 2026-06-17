@@ -1,7 +1,7 @@
 """
 Regression tests for graceful handling of malformed / corrupt .FIT binaries.
 
-The parser must never leak fitparse's internal exception hierarchy
+The parser must never leak backend parser exception hierarchies
 (FitEOFError, FitHeaderError, FitCRCError, FitParseError) to callers. Every
 unrecoverable file raises a single typed FitFileError carrying a stable
 `reason` code; recoverable files (corrupt trailing CRC, truncated mid-stream
@@ -21,7 +21,7 @@ import pytest
 
 from engines.io.fit_parser import parse_fit_file_enhanced, FitFileError, FITPARSE_AVAILABLE
 
-pytestmark = pytest.mark.skipif(not FITPARSE_AVAILABLE, reason="fitparse is not installed")
+pytestmark = pytest.mark.skipif(not FITPARSE_AVAILABLE, reason="no FIT parser backend installed")
 
 
 def _sample_fit_bytes() -> bytes:

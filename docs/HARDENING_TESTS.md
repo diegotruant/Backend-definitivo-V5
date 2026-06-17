@@ -58,7 +58,7 @@ make test-all
 
 - Parser robustness on sparse 1 Hz records, gaps, cycling dynamics, respiration,
   enhanced altitude/speed, and chart generation.
-- Corrupt FIT bytes return a typed `FitFileError` when `fitparse` is installed.
+- Corrupt FIT bytes return a typed `FitFileError` when a FIT parser backend is installed.
 - Workout feasibility simulation with more than one thousand steps under a
   strict wall-clock deadline.
 - Workout compliance with large power streams, NaN sections, missing sensors,
@@ -78,8 +78,8 @@ algorithmic complexity without adding external dependencies such as
 
 ## Dependency behavior
 
-FIT binary corruption tests are skipped when `fitparse` is not installed. In a
-normal installed environment, `fitparse` is a runtime dependency and those tests
+FIT binary corruption tests are skipped when no FIT parser backend is installed. In a
+normal installed environment, `fitdecode` is the runtime dependency and those tests
 run.
 
 ## When to run them
