@@ -116,7 +116,7 @@ dual-side power meters (true L/R measurement) are accepted. Single-side
 meters with estimated balance are explicitly refused.
 
 ```python
-from engines import analyze_pedaling_balance, analyze_balance_trend
+from engines.recovery.pedaling_balance import analyze_balance_trend, analyze_pedaling_balance
 
 r = analyze_pedaling_balance(
     balance_stream=stream.left_right_balance.tolist(),
@@ -178,11 +178,11 @@ validate_on_real_fits.py:              ✓ 9/9 classified correctly
 ### Public API additions
 
 ```python
-from engines import (
-    analyze_pedaling_balance,
-    analyze_balance_trend,
-    PedalingBalanceReport,
+from engines.recovery.pedaling_balance import (
     BalanceTrend,
+    PedalingBalanceReport,
+    analyze_balance_trend,
+    analyze_pedaling_balance,
 )
 ```
 
@@ -274,11 +274,8 @@ validate_on_real_fits.py:           ✓ 9/9 classified correctly
 ### Public API additions
 
 ```python
-from engines import (
-    ExpressivenessReport,      # new
-    MetabolicProfiler,
-    MaderConstants,
-)
+from engines.metabolic.mader_constants import ExpressivenessReport, MaderConstants
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
 
 # Method 1: just call the profiler — gate is automatic
 snap = profiler.generate_metabolic_snapshot(mmp)
@@ -376,17 +373,17 @@ changed. The integration is left for v3.5.0:
 ### Public API additions
 
 ```python
-from engines import (
-    classify_session,         # main entry point
-    Category,                  # enum: TEST/HIIT/STEADY/FREE/UNCLASSIFIED
-    ClassifiedSession,         # output dataclass
-    QualifiedAnchor,
-    IntervalBlock,
-    StimulusVector,
-    SUBTYPES_TEST,
+from engines.performance.interval_detector import (
+    SUBTYPES_FREE,
     SUBTYPES_HIIT,
     SUBTYPES_STEADY,
-    SUBTYPES_FREE,
+    SUBTYPES_TEST,
+    Category,
+    ClassifiedSession,
+    IntervalBlock,
+    QualifiedAnchor,
+    StimulusVector,
+    classify_session,
 )
 
 result = classify_session(
@@ -499,11 +496,10 @@ TOTAL:                          ✓ 212/212 PASS
 ### Usage examples
 
 ```python
-from engines import (
-    MetabolicProfiler, AthleteContext,
-    analyze_mmp_quality, clean_mmp, filter_mmp_by_window,
-    mask_low_confidence,
-)
+from engines.core.athlete_context import AthleteContext
+from engines.core.tiers import mask_low_confidence
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.performance.mmp_quality import analyze_mmp_quality, clean_mmp, filter_mmp_by_window
 
 # Snapshot with cleaning enabled
 profiler = MetabolicProfiler(weight=72, context=AthleteContext())

@@ -15,7 +15,9 @@ import json
 import sys
 from pathlib import Path
 
-from engines import AthleteContext, MetabolicProfiler, run_in_person_test
+from engines.core.athlete_context import AthleteContext
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.performance.test_protocols import run_test as run_in_person_test
 
 
 def main() -> int:

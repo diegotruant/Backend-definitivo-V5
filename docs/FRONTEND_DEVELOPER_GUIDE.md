@@ -685,19 +685,16 @@ See `docs/MULTI_TENANT_STRESS_TESTING.md` and `docs/HARDENING_TESTS.md`.
 ## 18. Useful Python imports
 
 ```python
-from engines import (
-    build_workout_summary,
-    MetabolicProfiler,
-    compute_session_durability,
-    get_current_metabolic_status,
-    tier_for,
-    build_twin_state,
-    update_twin_state_from_ride,
-    project_season_from_plan,
-)
+from engines.core.tiers import tier_for
+from engines.io.workout_summary import build_workout_summary
+from engines.metabolic.metabolic_current import get_current_metabolic_status
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
+from engines.performance.mader_durability import compute_session_durability
+from engines.projection.season_projection_engine import project_season_from_plan
+from engines.twin_state.models import TWIN_STATE_SCHEMA_VERSION, build_twin_state
+from engines.twin_state.state_update_engine import update_twin_state_from_ride
 from engines.io.session_router import route_and_run
 from engines.io.chart_builder import chart_power_duration_curve, chart_metabolic_combustion
-from engines.twin_state.models import TWIN_STATE_SCHEMA_VERSION
 ```
 
 ---
