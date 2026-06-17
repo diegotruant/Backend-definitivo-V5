@@ -9,7 +9,7 @@ from api.route_docs import ERRORS, JSON_OBJECT
 from api.schemas import TeamCalibrationApplyRequest, TeamCalibrationUpdateRequest
 from api.services.team_service import TeamService
 
-router = APIRouter(prefix="/team", tags=["team"])
+router = APIRouter(prefix="/team", tags=["team"], )
 
 
 @router.post(

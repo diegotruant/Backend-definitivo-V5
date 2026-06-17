@@ -9,7 +9,7 @@ from api.route_docs import ERRORS, JSON_OBJECT
 from api.schemas import ManualLoadRequest
 from api.services.load_service import LoadService
 
-router = APIRouter(tags=["load"])
+router = APIRouter(tags=["load"], )
 
 
 @router.post(

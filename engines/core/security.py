@@ -99,5 +99,6 @@ _GENERIC_MESSAGES = {
     "TOO_MANY_FILES": "Too many files were uploaded in one request.",
     "INVALID_JSON": "A JSON field in the request was malformed.",
     "PAYLOAD_TOO_DEEP": "A JSON field was nested too deeply.",
+    "RATE_LIMITED": "Too many requests in a short time window. Please retry later.",
     "INVALID_REQUEST": "The request was invalid.",
 }

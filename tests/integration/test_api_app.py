@@ -18,6 +18,7 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 results = []
+ATHLETE_HEADERS = {"X-Athlete-Id": "ath-test-001"}
 
 
 def check(name, ok, detail=""):
@@ -65,7 +66,7 @@ if HAVE_API:
     r = client.post("/profile/snapshot", json={
         "mmp": {"1": 1034, "15": 720, "60": 489, "180": 351, "360": 309, "720": 304, "1200": 280},
         "athlete": {"weight_kg": 90, "training_years": 20, "discipline": "SPRINT"},
-    })
+    }, headers=ATHLETE_HEADERS)
     check("snapshot 200", r.status_code == 200, f"code={r.status_code}")
     snap = r.json()
     check("snapshot has zones", isinstance(snap.get("zones"), list) and len(snap["zones"]) > 0)
@@ -79,7 +80,7 @@ if HAVE_API:
         "ride_mmp": {"1": 444, "5": 413, "60": 284, "300": 239, "1200": 220},
         "athlete": {"weight_kg": 70, "training_years": 15, "discipline": "ENDURANCE"},
         "as_of": "2026-05-09",
-    })
+    }, headers=ATHLETE_HEADERS)
     check("update-profile 200", r.status_code == 200, f"code={r.status_code}")
     upd = r.json()
     check("non-maximal ride -> anchor_held", upd.get("status") == "anchor_held", f"status={upd.get('status')}")
@@ -114,7 +115,7 @@ if HAVE_API:
         "ftp": "280",
         "power_json": json.dumps(power),
         "metabolic_snapshot_json": json.dumps(snap),
-    })
+    }, headers=ATHLETE_HEADERS)
     check("summary 200", r.status_code == 200, f"code={r.status_code}")
     summ = r.json()
     check("summary status success", summ.get("status") == "success")
@@ -127,7 +128,7 @@ if HAVE_API:
         "weight_kg": "72",
         "power_json": json.dumps(power),
         "metabolic_snapshot_json": json.dumps(snap),
-    })
+    }, headers=ATHLETE_HEADERS)
     check("durability 200", r.status_code == 200, f"code={r.status_code}")
     dur = r.json()
     check("durability success", dur.get("status") == "success")
@@ -165,7 +166,8 @@ if HAVE_API:
 
         r = client.post("/ride/ingest",
             files={"file": (fit_name, io.BytesIO(fit_bytes), "application/octet-stream")},
-            data={"ride_date": "2026-05-09", "weight_kg": "70"})
+            data={"ride_date": "2026-05-09", "weight_kg": "70"},
+            headers=ATHLETE_HEADERS)
         check("ingest 200", r.status_code == 200, f"code={r.status_code}")
         ing = r.json()
         check("ingest returns serialisable curve", isinstance(ing.get("curve"), dict))

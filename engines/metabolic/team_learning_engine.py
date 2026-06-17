@@ -172,8 +172,8 @@ class ValidationEvent:
             athlete_id=str(d.get("athlete_id") or ""),
             team_id=str(d.get("team_id") or ""),
             parameter=str(d.get("parameter") or ""),
-            predicted_value=float(d.get("predicted_value")),
-            measured_value=float(d.get("measured_value")),
+            predicted_value=float(d.get("predicted_value", 0.0)),
+            measured_value=float(d.get("measured_value", 0.0)),
             test_date=_as_date(d.get("test_date")),
             model_version=str(d.get("model_version") or "unknown"),
             protocol=str(d.get("protocol") or "unknown"),
@@ -443,7 +443,11 @@ class TeamCalibrationModel:
         corrected = max(0.0, predicted + bounded)
 
         # A simple confidence score for the calibration layer itself.
-        n_eff = sum(c["n"] for c in components)
+        n_eff = 0
+        for component in components:
+            n_value = component.get("n")
+            if isinstance(n_value, (int, float)):
+                n_eff += int(n_value)
         confidence = _clamp(0.25 + 0.08 * n_eff + 0.25 * data_depth, 0.0, 0.95)
 
         return {

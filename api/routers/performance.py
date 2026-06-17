@@ -11,7 +11,7 @@ from api.route_docs import ERRORS, JSON_OBJECT
 from api.schemas import AbilityProfileRequest, BreakthroughRequest, PowerSourceNormalizationRequest
 from api.services.performance_service import PerformanceService
 
-router = APIRouter(tags=["performance"])
+router = APIRouter(tags=["performance"], )
 
 
 @router.post(

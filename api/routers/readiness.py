@@ -9,7 +9,7 @@ from api.route_docs import ERRORS, JSON_OBJECT
 from api.schemas import LoadRiskRequest, LoadStateUpdateRequest, ReadinessTodayRequest
 from api.services.readiness_service import ReadinessService
 
-router = APIRouter(tags=["readiness"])
+router = APIRouter(tags=["readiness"], )
 
 
 @router.post("/readiness/today", summary="Daily readiness score", operation_id="readinessToday", response_model=EnginePayload, responses={200: JSON_OBJECT, 400: ERRORS[400]})

@@ -178,7 +178,7 @@ class LabTestResult:
     power_noise_w: float = 3.0                # lab ergometer: ±3W typical
     
     def to_dict(self) -> Dict[str, Any]:
-        d = {"tier": "REFERENCE"}
+        d: Dict[str, Any] = {"tier": "REFERENCE"}
         for k, v in self.__dict__.items():
             if v is None:
                 continue
@@ -312,7 +312,8 @@ class LabTestResult:
         if self.map_w:
             parts.append(f"MAP: {self.map_w:.0f} W")
         if self.has_lactate_curve:
-            parts.append(f"Lactate curve: {len(self.lactate_curve)} points")
+            curve = self.lactate_curve or []
+            parts.append(f"Lactate curve: {len(curve)} points")
         
         return " | ".join(parts)
 

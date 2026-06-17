@@ -9,7 +9,7 @@ from api.route_docs import ERRORS, JSON_OBJECT
 from api.schemas import HistorySummaryRequest
 from api.services.history_service import HistoryService
 
-router = APIRouter(prefix="/history", tags=["history"])
+router = APIRouter(prefix="/history", tags=["history"], )
 
 
 @router.post("/summary", summary="Athlete history summary", operation_id="historySummary", response_model=EnginePayload, responses={200: JSON_OBJECT, 400: ERRORS[400]})

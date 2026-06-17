@@ -9,7 +9,7 @@ from api.route_docs import ERRORS, JSON_OBJECT
 from api.schemas import SnapshotRequest
 from api.services.profile_service import ProfileService
 
-router = APIRouter(prefix="/profile", tags=["profile"])
+router = APIRouter(prefix="/profile", tags=["profile"], )
 
 
 @router.post(

@@ -176,7 +176,7 @@ class MetabolicProfiler:
         return tau, map_est, vo2_act, net
 
     def _calculate_curves(self, vo2: float, vla: float, eta_base: float):
-        w = np.arange(50.0, max(700.0, self.weight * 12.0) + 10.0, 5.0, dtype=float)
+        w: np.ndarray = np.arange(50.0, max(700.0, self.weight * 12.0) + 10.0, 5.0, dtype=float)
         map_est = self._map_estimate(vo2, eta_base)
         vo2_act, p, e = self._metabolic_rates(w, vo2, vla, eta_base)
 
@@ -321,7 +321,12 @@ class MetabolicProfiler:
         fixed_pcr = self._pcr_prior_watts()
         vla_init = self.context.vlamax_initial_guess()
 
-        w_grid = np.arange(self.const.w_min, max(2000.0, self.weight * 30.0) + self.const.w_step, self.const.w_step, dtype=float)
+        w_grid: np.ndarray = np.arange(
+            self.const.w_min,
+            max(2000.0, self.weight * 30.0) + self.const.w_step,
+            self.const.w_step,
+            dtype=float,
+        )
 
         # Aerobic floor: the long-duration power the athlete actually
         # sustained sets a hard physiological lower bound on VO2max. MLSS

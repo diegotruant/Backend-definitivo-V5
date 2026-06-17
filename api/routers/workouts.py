@@ -22,7 +22,7 @@ from api.schemas import (
 )
 from api.services.workout_service import WorkoutService
 
-router = APIRouter(prefix="/workouts", tags=["workouts"])
+router = APIRouter(prefix="/workouts", tags=["workouts"], )
 
 
 @router.post(

@@ -8,7 +8,10 @@ uvicorn, CI workflows and existing documentation.
 from __future__ import annotations
 
 import os
+import threading
+import time
 from typing import Any
+from collections import deque, defaultdict
 
 try:
     from fastapi import FastAPI, Request
@@ -43,6 +46,31 @@ OPENAPI_TAGS = [
 app: FastAPI
 
 
+class _InMemoryRateLimiter:
+    """Simple sliding-window limiter (per IP+path)."""
+
+    def __init__(self, max_requests: int, window_seconds: float) -> None:
+        self.max_requests = max(1, int(max_requests))
+        self.window_seconds = max(1.0, float(window_seconds))
+        self._buckets: dict[str, deque[float]] = defaultdict(deque)
+        self._lock = threading.Lock()
+
+    def allow(self, key: str, now: float | None = None) -> bool:
+        ts = time.monotonic() if now is None else now
+        cutoff = ts - self.window_seconds
+        with self._lock:
+            q = self._buckets[key]
+            while q and q[0] < cutoff:
+                q.popleft()
+            if len(q) >= self.max_requests:
+                return False
+            q.append(ts)
+            # Prune empty buckets lazily when old keys cool down.
+            if not q:
+                self._buckets.pop(key, None)
+            return True
+
+
 def _register_exception_handlers(application: FastAPI) -> None:
     @application.exception_handler(ServiceError)
     async def handle_service_error(_request: Request, exc: ServiceError) -> JSONResponse:
@@ -62,6 +90,25 @@ def create_app() -> FastAPI:
     )
 
     _register_exception_handlers(application)
+    rate_limit_enabled = os.getenv("DIGITAL_TWIN_RATE_LIMIT_ENABLED", "true").lower() != "false"
+    require_athlete_id = os.getenv("DIGITAL_TWIN_REQUIRE_ATHLETE_ID", "false").lower() == "true"
+    limiter = _InMemoryRateLimiter(
+        max_requests=int(os.getenv("DIGITAL_TWIN_RATE_LIMIT_MAX_REQUESTS", "120")),
+        window_seconds=float(os.getenv("DIGITAL_TWIN_RATE_LIMIT_WINDOW_S", "60")),
+    )
+    athlete_scoped_prefixes = (
+        "/ride",
+        "/profile",
+        "/workouts",
+        "/twin",
+        "/projection",
+        "/performance",
+        "/load",
+        "/team",
+        "/history",
+        "/readiness",
+        "/planning",
+    )
 
     def custom_openapi() -> dict[str, Any]:
         if application.openapi_schema:
@@ -94,6 +141,26 @@ def create_app() -> FastAPI:
 
     @application.middleware("http")
     async def limit_request_body(request: Request, call_next):
+        path = request.url.path
+        if require_athlete_id and path.startswith(athlete_scoped_prefixes):
+            athlete_id = (request.headers.get("X-Athlete-Id") or "").strip()
+            if not athlete_id:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "detail": {
+                            "error": "MISSING_ATHLETE_ID",
+                            "message": "Missing required X-Athlete-Id header for athlete-scoped endpoint.",
+                        }
+                    },
+                )
+            request.state.athlete_id = athlete_id
+        if rate_limit_enabled:
+            if path not in {"/health"} and not path.startswith(("/docs", "/redoc", "/openapi")):
+                client_ip = request.client.host if request.client else "unknown"
+                key = f"{client_ip}:{request.method}:{path}"
+                if not limiter.allow(key):
+                    return JSONResponse(status_code=429, content=safe_error_detail("RATE_LIMITED"))
         content_length = request.headers.get("content-length")
         if content_length is not None:
             try:

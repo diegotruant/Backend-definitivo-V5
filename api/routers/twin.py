@@ -14,7 +14,7 @@ from api.schemas import (
 )
 from api.services.twin_service import TwinService
 
-router = APIRouter(tags=["twin"])
+router = APIRouter(tags=["twin"], )
 
 
 @router.post(

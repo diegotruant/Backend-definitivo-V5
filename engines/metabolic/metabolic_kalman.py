@@ -389,7 +389,9 @@ class MetabolicKalman:
         
         # If the daily input has test anchors, also do an update
         if daily_input.has_test:
-            state = self.update(daily_input.test_anchors, profiler=profiler)
+            updated = self.update(daily_input.test_anchors or [], profiler=profiler)
+            if updated is not None:
+                state = updated
         
         return state
     
@@ -397,7 +399,7 @@ class MetabolicKalman:
         self,
         test_anchors: List[Tuple[int, float]],
         profiler=None,
-    ) -> MetabolicState:
+    ) -> Optional[MetabolicState]:
         """
         Update step: correct state using observed test anchors.
         

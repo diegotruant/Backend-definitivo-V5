@@ -9,7 +9,7 @@ from api.route_docs import ERRORS, JSON_OBJECT
 from api.schemas import AdaptWeekRequest, CheckLoadRiskRequest, CreateSeasonPlanRequest
 from api.services.planning_service import PlanningService
 
-router = APIRouter(prefix="/planning", tags=["planning"])
+router = APIRouter(prefix="/planning", tags=["planning"], )
 
 
 @router.post("/create-season-plan", summary="Create season plan", operation_id="planningCreateSeasonPlan", response_model=EnginePayload, responses={200: JSON_OBJECT, 400: ERRORS[400]})
