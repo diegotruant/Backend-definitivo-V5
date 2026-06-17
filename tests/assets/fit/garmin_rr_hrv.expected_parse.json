@@ -2,13 +2,27 @@
   "file": "garmin_rr_hrv.fit",
   "parser_version": "2.0.1-gapaware",
   "duration_s": 61,
+  "measured_signals": {
+    "power": false,
+    "heart_rate": true,
+    "cadence": false,
+    "speed": false,
+    "distance": false,
+    "altitude": false,
+    "gps": false,
+    "rr": true,
+    "temperature": false,
+    "cycling_dynamics": false,
+    "respiration": false
+  },
   "available_signals": [
     "heart_rate",
-    "speed"
+    "rr"
   ],
   "lap_count": 0,
-  "has_power_stream": true,
+  "has_power_stream": false,
   "has_hr_stream": true,
-  "has_cadence_stream": true,
+  "has_cadence_stream": false,
+  "has_speed_stream": false,
   "warnings": []
 }

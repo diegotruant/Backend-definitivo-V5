@@ -1,0 +1,65 @@
+{
+  "file_hash": "8abe174ed20254c44dad63c8d06cbb0aaa3fa3e1842efeeac072f0dee078a786",
+  "measured_signals": {
+    "power": true,
+    "heart_rate": false,
+    "cadence": true,
+    "speed": false,
+    "distance": false,
+    "altitude": false,
+    "gps": false,
+    "rr": false,
+    "temperature": false,
+    "cycling_dynamics": false,
+    "respiration": false
+  },
+  "quality_flags": {
+    "power": {
+      "available": true,
+      "counts": {
+        "0": 91
+      },
+      "interpolated_pct": 0.0,
+      "forward_filled_pct": 0.0,
+      "unreliable_pct": 0.0,
+      "flags": {
+        "interpolated": 0,
+        "forward_filled": 0,
+        "unreliable": 0
+      }
+    },
+    "heart_rate": {
+      "available": true,
+      "counts": {
+        "3": 91
+      },
+      "interpolated_pct": 0.0,
+      "forward_filled_pct": 0.0,
+      "unreliable_pct": 100.0,
+      "flags": {
+        "interpolated": 0,
+        "forward_filled": 0,
+        "unreliable": 91
+      }
+    }
+  },
+  "rr_interval_count": 0,
+  "laps": [],
+  "power": {
+    "normalized_power": 185.7,
+    "intensity_factor": 0.743,
+    "tss": 1.4,
+    "mmp_w": {
+      "1": 194.0,
+      "5": 192.0,
+      "60": 187.0,
+      "300": null,
+      "1200": null
+    }
+  },
+  "hrv": {
+    "status": "unavailable",
+    "window_count": 0,
+    "dfa_available": false
+  }
+}

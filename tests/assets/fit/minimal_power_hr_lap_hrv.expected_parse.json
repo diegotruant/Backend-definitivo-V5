@@ -2,16 +2,30 @@
   "file": "minimal_power_hr_lap_hrv.fit",
   "parser_version": "2.0.1-gapaware",
   "duration_s": 121,
+  "measured_signals": {
+    "power": true,
+    "heart_rate": true,
+    "cadence": true,
+    "speed": false,
+    "distance": false,
+    "altitude": false,
+    "gps": false,
+    "rr": true,
+    "temperature": false,
+    "cycling_dynamics": false,
+    "respiration": false
+  },
   "available_signals": [
     "cadence",
     "heart_rate",
     "power",
-    "speed"
+    "rr"
   ],
   "lap_count": 1,
   "has_power_stream": true,
   "has_hr_stream": true,
   "has_cadence_stream": true,
+  "has_speed_stream": false,
   "warnings": [],
   "first_lap": {
     "duration_s": 120,

@@ -33,7 +33,8 @@ def _run_builder() -> None:
 def _write_expected_snapshots() -> None:
     sys.path.insert(0, str(REPO))
     from engines.io.fit_parse_report import build_fit_parse_report
-    from engines.io.fit_parser import parse_fit_file_enhanced
+    from engines.io.fit_parser import measured_signal_flags, parse_fit_file_enhanced
+    from tools.golden_fit_coach_snapshot import build_coach_golden_snapshot
 
     for fit_path in sorted(OUT_DIR.glob("*.fit")):
         if fit_path.stem in {"truncated", "bad_crc"}:
@@ -43,16 +44,19 @@ def _write_expected_snapshots() -> None:
         except Exception as exc:
             print(f"skip snapshot for {fit_path.name}: {exc}")
             continue
+        measured = measured_signal_flags(stream)
         report = build_fit_parse_report(stream=stream, file_id=fit_path.stem, file_hash="golden")
         snapshot = {
             "file": fit_path.name,
             "parser_version": report["parser_version"],
             "duration_s": report["duration_s"],
+            "measured_signals": measured,
             "available_signals": sorted(report["available_signals"]),
             "lap_count": len(report.get("laps") or []),
-            "has_power_stream": bool(report["streams"].get("power_w")),
-            "has_hr_stream": bool(report["streams"].get("heart_rate_bpm")),
-            "has_cadence_stream": bool(report["streams"].get("cadence_rpm")),
+            "has_power_stream": measured["power"],
+            "has_hr_stream": measured["heart_rate"],
+            "has_cadence_stream": measured["cadence"],
+            "has_speed_stream": measured["speed"],
             "warnings": report.get("warnings") or [],
         }
         if report.get("laps"):
@@ -63,6 +67,11 @@ def _write_expected_snapshots() -> None:
         out = OUT_DIR / f"{fit_path.stem}.expected_parse.json"
         out.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
         print(f"wrote {out.relative_to(REPO)}")
+
+        coach = build_coach_golden_snapshot(fit_path, stream)
+        coach_out = OUT_DIR / f"{fit_path.stem}.expected_coach.json"
+        coach_out.write_text(json.dumps(coach, indent=2) + "\n", encoding="utf-8")
+        print(f"wrote {coach_out.relative_to(REPO)}")
 
 
 def main() -> None:

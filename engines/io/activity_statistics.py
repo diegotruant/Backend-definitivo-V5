@@ -117,7 +117,7 @@ def compute_activity_statistics(
     cadence = _cadence_array(stream)
     has_cadence = bool(cadence.size and np.isfinite(cadence).any())
     speed = _speed_arrays(stream)
-    has_speed = bool(speed.size and np.isfinite(speed).any())
+    has_speed = bool(getattr(stream, "has_speed", False) and speed.size and np.isfinite(speed).any() and np.nanmax(speed) > 0)
     temperature = _temperature_array(stream)
     has_temperature = bool(temperature.size and np.isfinite(temperature).any())
 

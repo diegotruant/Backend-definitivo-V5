@@ -2,13 +2,28 @@
   "file": "indoor_trainer_erg.fit",
   "parser_version": "2.0.1-gapaware",
   "duration_s": 301,
+  "measured_signals": {
+    "power": true,
+    "heart_rate": false,
+    "cadence": false,
+    "speed": false,
+    "distance": false,
+    "altitude": false,
+    "gps": false,
+    "rr": false,
+    "temperature": false,
+    "cycling_dynamics": false,
+    "respiration": false
+  },
   "available_signals": [
-    "power",
-    "speed"
+    "power"
   ],
   "lap_count": 0,
   "has_power_stream": true,
-  "has_hr_stream": true,
-  "has_cadence_stream": true,
-  "warnings": []
+  "has_hr_stream": false,
+  "has_cadence_stream": false,
+  "has_speed_stream": false,
+  "warnings": [
+    "heart_rate_unreliable"
+  ]
 }
