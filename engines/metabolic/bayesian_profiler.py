@@ -236,7 +236,7 @@ def _adaptive_metropolis(
     rng: Optional[np.random.Generator] = None,
 ) -> Tuple[np.ndarray, float]:
     """
-    Adaptive Metropolis-Hastings with diagonal proposal covariance.
+    Adaptive Metropolis-Hastings with full proposal covariance.
     
     Parameters
     ----------
@@ -262,19 +262,33 @@ def _adaptive_metropolis(
     n_params = len(x0)
     total = n_warmup + n_samples
     
-    # Proposal covariance: start diagonal, adapt during warmup
-    proposal_scale = np.abs(x0) * initial_scale + 1e-6
+    # Proposal covariance: start diagonal, adapt to full covariance during warmup.
+    proposal_std = np.abs(x0) * initial_scale + 1e-6
+    proposal_chol = np.diag(proposal_std)
     
     chain = np.zeros((total, n_params))
     chain[0] = x0
-    current_lp = log_posterior_fn(x0)
+    current_lp = float(log_posterior_fn(x0))
+    if not np.isfinite(current_lp):
+        # Robust start: if warm-start lands out-of-support, probe nearby points.
+        found = False
+        for _ in range(50):
+            candidate = x0 + rng.normal(0.0, np.maximum(np.abs(x0) * 0.15, 1e-3), size=n_params)
+            candidate_lp = float(log_posterior_fn(candidate))
+            if np.isfinite(candidate_lp):
+                chain[0] = candidate
+                current_lp = candidate_lp
+                found = True
+                break
+        if not found:
+            raise ValueError("Could not find a finite initial log-posterior point")
     
     accepted = 0
     
     for i in range(1, total):
         # Propose
-        proposal = chain[i-1] + rng.normal(0, proposal_scale)
-        proposal_lp = log_posterior_fn(proposal)
+        proposal = chain[i-1] + proposal_chol @ rng.standard_normal(n_params)
+        proposal_lp = float(log_posterior_fn(proposal))
         
         # Accept/reject (Metropolis criterion)
         log_alpha = proposal_lp - current_lp
@@ -288,17 +302,25 @@ def _adaptive_metropolis(
         # Adapt proposal scale during warmup
         if i < n_warmup and i > 0 and i % adapt_interval == 0:
             recent = chain[max(0, i - adapt_interval):i]
-            recent_std = recent.std(axis=0)
-            # Optimal scaling: 2.38 / sqrt(d) for d-dimensional target
-            optimal_factor = 2.38 / np.sqrt(n_params)
-            proposal_scale = np.maximum(recent_std * optimal_factor, 1e-6)
+            recent_cov = np.cov(recent.T) + 1e-9 * np.eye(n_params)
+            optimal_scale = (2.38 ** 2) / n_params
+            scaled_cov = optimal_scale * recent_cov
             
             # If acceptance too low, shrink; too high, expand
             recent_accept = accepted / (i + 1)
+            adapt_multiplier = 1.0
             if recent_accept < 0.15:
-                proposal_scale *= 0.5
+                adapt_multiplier = 0.5
             elif recent_accept > 0.50:
-                proposal_scale *= 1.5
+                adapt_multiplier = 1.5
+            scaled_cov *= adapt_multiplier
+
+            try:
+                proposal_chol = np.linalg.cholesky(scaled_cov)
+            except np.linalg.LinAlgError:
+                # Fallback to diagonal when covariance degenerates.
+                fallback_std = np.sqrt(np.maximum(np.diag(scaled_cov), 1e-9))
+                proposal_chol = np.diag(fallback_std)
     
     posterior_samples = chain[n_warmup:]
     acceptance_rate = accepted / total
