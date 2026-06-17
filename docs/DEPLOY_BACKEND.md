@@ -43,6 +43,9 @@ curl -s http://localhost:8000/openapi.json | head
 | `DIGITAL_TWIN_RATE_LIMIT_MAX_REQUESTS` | No | `120` | Max requests per `(IP, method, path)` window |
 | `DIGITAL_TWIN_RATE_LIMIT_WINDOW_S` | No | `60` | Sliding-window size in seconds |
 | `DIGITAL_TWIN_REQUIRE_ATHLETE_ID` | No | `false` | Enforce `X-Athlete-Id` on athlete-scoped routes |
+| `DIGITAL_TWIN_API_KEY_AUTH_ENABLED` | No | `false` | Require API key auth on athlete-scoped routes |
+| `DIGITAL_TWIN_API_KEYS` | If auth enabled | empty | Comma-separated valid API keys |
+| `DIGITAL_TWIN_API_KEY_ATHLETE_PREFIXES` | No | empty | Optional per-key athlete prefix allowlist (`key:prefix1|prefix2,...`) |
 
 Copy from `.env.example` and set at least **CORS** when a frontend calls the API from the browser.
 
@@ -97,6 +100,7 @@ Use for load balancer probes. Do not use `/docs` for probes (heavier).
 - [ ] Upload limits left at defaults or tuned for your FIT sizes
 - [ ] Rate limiting configured for expected traffic profile
 - [ ] Decide tenant policy: set `DIGITAL_TWIN_REQUIRE_ATHLETE_ID=true` when clients are ready
+- [ ] If exposing externally, enable API key auth (`DIGITAL_TWIN_API_KEY_AUTH_ENABLED=true`) at minimum
 - [ ] No secrets in repo — env only
 - [ ] Log aggregation for 5xx (FastAPI logs exceptions server-side)
 

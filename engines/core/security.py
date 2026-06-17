@@ -100,5 +100,7 @@ _GENERIC_MESSAGES = {
     "INVALID_JSON": "A JSON field in the request was malformed.",
     "PAYLOAD_TOO_DEEP": "A JSON field was nested too deeply.",
     "RATE_LIMITED": "Too many requests in a short time window. Please retry later.",
+    "UNAUTHORIZED": "Missing or invalid authentication credentials.",
+    "FORBIDDEN": "You are not allowed to access this resource.",
     "INVALID_REQUEST": "The request was invalid.",
 }
