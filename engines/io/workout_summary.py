@@ -21,19 +21,39 @@ calculations, only delegation. It is the single function that the
 Supabase service layer should call after FIT ingestion.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 # Flat imports — do not import via `engines.*` here; this module is loaded
 # while `engines/__init__.py` may still be initialising.
 from engines.core.athlete_context import AthleteContext
+from engines.core.science_contracts import (
+    cadence_anchor_metadata,
+    derive_effective_cadence_rpm,
+    enrich_metabolic_snapshot_cadence,
+)
 from engines.recovery.cardiac_engine import CardiacResponseAnalyzer, ActivitySample
 from engines.metabolic.coggan_classifier import classify_from_mmp
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
 from engines.performance.power_engine import PowerEngine, estimate_ftp_from_mmp
 from engines.metabolic.zones_engine import ZonesEngine
 # hrv_engine imported lazily inside build_workout_summary() (see section 4).
 from engines.core.metric_contracts import annotate_payload, summarize_section_contracts
 from engines.performance.physiological_resilience import build_physiological_resilience
 from engines.io.activity_statistics import compute_activity_statistics
+
+
+def _mmp_curve_to_dict(mmp_curve: List[Dict[str, Any]]) -> Dict[int, float]:
+    out: Dict[int, float] = {}
+    for row in mmp_curve or []:
+        dur = row.get("duration_s")
+        power = row.get("power_w")
+        if dur is None or power is None:
+            continue
+        try:
+            out[int(dur)] = float(power)
+        except (TypeError, ValueError):
+            continue
+    return out
 
 
 def build_workout_summary(
@@ -153,6 +173,37 @@ def build_workout_summary(
             )
             power_result = engine.analyze(stream)
             out["sections"]["power"] = power_result
+
+    effective_cadence_rpm = derive_effective_cadence_rpm(stream)
+    if metabolic_snapshot is None and power_result and power_result.get("status") == "success":
+        mmp_dict = _mmp_curve_to_dict(power_result.get("mmp_curve") or [])
+        if mmp_dict:
+            profiler = MetabolicProfiler(weight=weight_kg, context=context)
+            metabolic_snapshot = profiler.generate_metabolic_snapshot(
+                mmp_dict,
+                effective_cadence_rpm=effective_cadence_rpm,
+                cadence_anchor_status="measured" if effective_cadence_rpm else "unknown",
+            )
+            if metabolic_snapshot.get("status") == "success":
+                out["sections"]["metabolic_snapshot"] = metabolic_snapshot
+    elif metabolic_snapshot and effective_cadence_rpm is not None:
+        metabolic_snapshot = enrich_metabolic_snapshot_cadence(
+            metabolic_snapshot,
+            effective_cadence_rpm=effective_cadence_rpm,
+        )
+        if metabolic_snapshot.get("status") == "success":
+            out["sections"]["metabolic_snapshot"] = metabolic_snapshot
+
+    if metabolic_snapshot and metabolic_snapshot.get("status") == "success":
+        out["cadence_anchor"] = metabolic_snapshot.get("cadence_anchor") or cadence_anchor_metadata(
+            effective_cadence_rpm=effective_cadence_rpm,
+            cadence_anchor_status="measured" if effective_cadence_rpm else "unknown",
+        )
+    elif effective_cadence_rpm is not None:
+        out["cadence_anchor"] = cadence_anchor_metadata(
+            effective_cadence_rpm=effective_cadence_rpm,
+            cadence_anchor_status="measured",
+        )
 
     # =========================================================================
     # 2. ZONES (Coggan power + Friel HR + Seiler polarization)

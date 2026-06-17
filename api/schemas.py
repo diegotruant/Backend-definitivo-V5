@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -18,6 +18,8 @@ from api.domain_schemas import (
     WorkoutFeasibilityContext,
 )
 from engines.core.security import MAX_CALENDAR_EVENTS, MAX_PROJECTION_DAYS
+
+TauModel = Literal["skiba_default", "bartram_elite", "pugh_level_based", "individualized"]
 
 
 class AthleteParams(BaseModel):
@@ -57,6 +59,16 @@ class UpdateProfileRequest(BaseModel):
 class SnapshotRequest(BaseModel):
     mmp: Dict[str, float] = Field(description="Power-duration anchors {seconds: watts}.")
     athlete: AthleteParams
+    effective_cadence_rpm: Optional[float] = Field(
+        default=None,
+        gt=0,
+        le=220,
+        description="Optional cadence anchor (rpm) for VLamax limitations when stream cadence is unavailable.",
+    )
+    tau_model: Optional[TauModel] = Field(
+        default=None,
+        description="W′ reconstitution model for coach-facing τ metadata on the snapshot.",
+    )
 
 
 class WorkoutValidateRequest(BaseModel):
@@ -77,6 +89,10 @@ class WorkoutFeasibilityRequest(BaseModel):
     context: WorkoutFeasibilityContext = Field(
         default_factory=WorkoutFeasibilityContext,
         description="Optional readiness/fatigue context for W′ simulation.",
+    )
+    tau_model: Optional[TauModel] = Field(
+        default=None,
+        description="W′ reconstitution model selector (skiba_default, bartram_elite, pugh_level_based, individualized).",
     )
 
 

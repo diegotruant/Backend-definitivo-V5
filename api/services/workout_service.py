@@ -48,6 +48,7 @@ class WorkoutService:
                 req.workout.to_engine_dict(),
                 req.athlete_profile.model_dump(exclude_none=True),
                 req.context.model_dump(exclude_none=True),
+                tau_model=req.tau_model,
             )
         except WorkoutValidationError as exc:
             raise workout_validation_error(exc) from exc

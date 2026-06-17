@@ -103,6 +103,19 @@ def test_workout_service_feasibility_with_minimal_profile() -> None:
     assert out["status"] in ("success", "warning", "insufficient_profile")
 
 
+def test_workout_service_feasibility_passes_tau_model() -> None:
+    svc = WorkoutService()
+    req = WorkoutFeasibilityRequest(
+        workout=WorkoutDefinitionInput.model_validate(workout_pct_cp()),
+        athlete_profile={"cp_w": 260, "w_prime_j": 19000, "weight_kg": 72},
+        tau_model="bartram_elite",
+    )
+    out = svc.analyze_feasibility(req)
+    assert out["status"] == "success"
+    assert out["summary"]["tau_model"] == "bartram_elite"
+    assert out["summary"]["w_prime_tau_s"] == 417.0
+
+
 def test_test_service_in_person_requires_weight() -> None:
     svc = TestService()
     payload = wingate_in_person_payload()
@@ -173,3 +186,19 @@ def test_profile_snapshot_rejects_invalid_athlete_weight() -> None:
         json={"mmp": {"60": 300}, "athlete": {"weight_kg": 10}},
     )
     assert resp.status_code == 422
+
+
+def test_profile_snapshot_accepts_tau_model_and_cadence() -> None:
+    resp = client.post(
+        "/profile/snapshot",
+        json={
+            "mmp": {"5": 800, "60": 500, "300": 340, "1200": 285},
+            "athlete": {"weight_kg": 72},
+            "effective_cadence_rpm": 95.0,
+            "tau_model": "pugh_level_based",
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["cadence_anchor"]["effective_cadence_rpm"] == 95.0
+    assert body["w_prime_tau"]["tau_model"] == "pugh_level_based"

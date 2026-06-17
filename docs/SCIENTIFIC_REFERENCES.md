@@ -468,17 +468,43 @@ Meta-analysis on polarized vs pyramidal training distribution.
 - Main modules:
   - `engines/metabolic/zones_engine.py`
 
-### Jones et al. (2024)
+### Jones, A. M. (2024)
 
-W′ reconstitution and individualized τ models.
+The fourth dimension of the power–duration relationship.
 
-- Status: **Emerging**
+- Status: **Validated** (review context for W′ reconstitution)
+- Citation: Jones, A. M. (2024). *J Physiol* **602**:4113–4128. doi:[10.1113/JP284205](https://doi.org/10.1113/JP284205)
 - Used for:
-  - `tau_model` scaffold in `w_prime_balance_engine.py` (`skiba_default`,
+  - Background for W′ reconstitution τ models (`tau_model` scaffold: `skiba_default`,
     `bartram_elite`, `pugh_level_based`, `individualized`).
+  - Distinct from the EJAP 2025 review that cites Jones as a contributor.
 - Main modules:
   - `engines/performance/w_prime_balance_engine.py`
   - `engines/core/science_contracts.py`
+  - `api/schemas.py` (`tau_model` on snapshot and feasibility requests)
+
+### Wackerhage et al. (2025)
+
+Systematic review on VLamax estimation and interpretation in cycling.
+
+- Status: **Validated** (interpretation / wording)
+- Used for:
+  - Coach-facing VLamax semantics: **estimated lactate accumulation rate**, not direct
+    glycolytic flux; conservative limitations without automatic cadence correction.
+- Main modules:
+  - `engines/metabolic/metabolic_profiler.py`
+  - `engines/core/science_contracts.py`
+
+### Spragg et al. (2023)
+
+Empirical predictors of durability / critical-power decline (DCP).
+
+- Status: **Emerging** (empirical basis for resilience envelope)
+- Used for:
+  - Top-level `physiological_resilience` contract mapping Mader DCP outputs for coaches.
+- Main modules:
+  - `engines/performance/physiological_resilience.py`
+  - `engines/io/workout_summary.py`
 
 ### EJAP cadence / Mader review (2025)
 

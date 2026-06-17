@@ -4,6 +4,7 @@ from typing import Any, Dict
 
 from api.schemas import AthleteParams, SnapshotRequest
 from engines.core.athlete_context import AthleteContext
+from engines.core.science_contracts import resolve_w_prime_tau
 from engines.metabolic.metabolic_profiler import MetabolicProfiler
 
 
@@ -16,4 +17,16 @@ class ProfileService:
         )
         profiler = MetabolicProfiler(weight=req.athlete.weight_kg, context=ctx)
         mmp = {int(k): float(v) for k, v in req.mmp.items()}
-        return profiler.generate_metabolic_snapshot(mmp)
+        cadence_status = "measured" if req.effective_cadence_rpm else "unknown"
+        snap = profiler.generate_metabolic_snapshot(
+            mmp,
+            effective_cadence_rpm=req.effective_cadence_rpm,
+            cadence_anchor_status=cadence_status,
+        )
+        if req.tau_model:
+            tau_s, model_used = resolve_w_prime_tau(req.tau_model)
+            snap["w_prime_tau"] = {
+                "tau_s": round(tau_s, 1),
+                "tau_model": model_used,
+            }
+        return snap

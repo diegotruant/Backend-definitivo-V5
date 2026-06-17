@@ -1,5 +1,30 @@
 # Changelog
 
+## [5.1.2] — 2026-06-17
+
+End-to-end API wiring for science-contract parameters introduced in 5.1.x.
+
+### Added
+
+- `derive_effective_cadence_rpm()` and `enrich_metabolic_snapshot_cadence()` in
+  `engines/core/science_contracts.py` (median cadence above 40 rpm, excluding coasting).
+- `build_workout_summary()` auto-generates a metabolic snapshot from ride MMP when none
+  is supplied, passing stream-derived cadence to `generate_metabolic_snapshot()`.
+- Top-level `cadence_anchor` on workout summary responses.
+- `effective_cadence_rpm` and `tau_model` on `SnapshotRequest` (`POST /profile/snapshot`).
+- `tau_model` on `WorkoutFeasibilityRequest` (`POST /workouts/feasibility`), wired through
+  `WorkoutService` → `analyze_workout_feasibility()` via `resolve_w_prime_tau()`.
+- `w_prime_tau` metadata on profile snapshots when `tau_model` is requested.
+
+### Fixed
+
+- VERSION file aligned with `pyproject.toml` (5.1.2).
+
+### Documentation
+
+- `SCIENTIFIC_REFERENCES.md` §12: corrected Jones AM (2024) citation; added Wackerhage
+  (2025) and Spragg (2023) references for VLamax wording and physiological resilience.
+
 ## [5.0.0] — 2026-05-26
 
 Major release: closes the full analysis loop from FIT ingestion through

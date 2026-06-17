@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from engines.core.science_contracts import (
     cp_anchor_warnings,
+    derive_effective_cadence_rpm,
     resolve_w_prime_tau,
     vlamax_contract_fields,
 )
@@ -116,3 +117,47 @@ def test_workout_summary_exposes_physiological_resilience() -> None:
     stream = parse_synthetic_fit(raw)
     summary = build_workout_summary(stream, weight_kg=75.0, ftp=250.0)
     assert "physiological_resilience" in summary
+
+
+def test_derive_effective_cadence_rpm_excludes_coasting() -> None:
+    raw = build_synthetic_fit_bytes(
+        [
+            (1_735_689_600 + i * 60, 220, 140, 0 if i < 5 else 95)
+            for i in range(20)
+        ]
+    )
+    stream = parse_synthetic_fit(raw)
+    cadence = derive_effective_cadence_rpm(stream)
+    assert cadence == 95.0
+
+
+def test_workout_summary_includes_cadence_anchor_from_stream() -> None:
+    raw = build_synthetic_fit_bytes(
+        [
+            (1_735_689_600 + i * 60, 220 + (i % 5) * 5, 140 + i % 3, 120)
+            for i in range(30)
+        ]
+    )
+    stream = parse_synthetic_fit(raw)
+    summary = build_workout_summary(stream, weight_kg=75.0, ftp=250.0)
+    assert "cadence_anchor" in summary
+    assert summary["cadence_anchor"]["effective_cadence_rpm"] == 120.0
+    assert summary["cadence_anchor"]["cadence_anchor_status"] == "measured"
+    metabolic = summary.get("sections", {}).get("metabolic_snapshot") or {}
+    if metabolic.get("status") == "success":
+        assert metabolic["cadence_anchor"]["effective_cadence_rpm"] == 120.0
+
+
+def test_workout_summary_cadence_warning_below_130_rpm() -> None:
+    raw = build_synthetic_fit_bytes(
+        [
+            (1_735_689_600 + i * 60, 220, 140, 110)
+            for i in range(30)
+        ]
+    )
+    stream = parse_synthetic_fit(raw)
+    summary = build_workout_summary(stream, weight_kg=75.0, ftp=250.0)
+    metabolic = summary.get("sections", {}).get("metabolic_snapshot") or {}
+    if metabolic.get("status") == "success":
+        limits = metabolic.get("limitations") or []
+        assert any("below typical" in str(lim).lower() for lim in limits)

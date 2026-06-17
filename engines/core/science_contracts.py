@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
 
+import numpy as np
+
 TauModel = Literal["skiba_default", "bartram_elite", "pugh_level_based", "individualized"]
+
+_CADENCE_COASTING_MIN_RPM = 40.0
 
 _TAU_SECONDS: dict[TauModel, float] = {
     "skiba_default": 546.0,
@@ -44,6 +48,61 @@ def vlamax_limitations(*, effective_cadence_rpm: Optional[float] = None) -> List
             "maximal-test protocols; true lactate accumulation potential may be higher."
         )
     return limits
+
+
+def derive_effective_cadence_rpm(
+    stream: Any,
+    *,
+    min_rpm: float = _CADENCE_COASTING_MIN_RPM,
+) -> Optional[float]:
+    """Median cadence above ``min_rpm`` to exclude coasting and stale zeros."""
+    raw = getattr(stream, "cadence", None)
+    if raw is None:
+        return None
+    n = int(getattr(stream, "n_samples", 0) or len(raw))
+    values: List[float] = []
+    for i in range(n):
+        c = raw[i]
+        if c is None:
+            continue
+        try:
+            fv = float(c)
+        except (TypeError, ValueError):
+            continue
+        if np.isfinite(fv) and fv > min_rpm:
+            values.append(fv)
+    if not values:
+        return None
+    return float(np.median(values))
+
+
+def enrich_metabolic_snapshot_cadence(
+    snapshot: Dict[str, Any],
+    *,
+    effective_cadence_rpm: Optional[float],
+    cadence_anchor_status: str = "measured",
+) -> Dict[str, Any]:
+    """Attach cadence anchor metadata and VLamax limitations when missing."""
+    if snapshot.get("status") != "success" or effective_cadence_rpm is None:
+        return snapshot
+    existing = (snapshot.get("cadence_anchor") or {}).get("effective_cadence_rpm")
+    if existing is not None and float(existing) > 0:
+        return snapshot
+    snapshot["cadence_anchor"] = cadence_anchor_metadata(
+        effective_cadence_rpm=effective_cadence_rpm,
+        cadence_anchor_status=cadence_anchor_status,
+    )
+    extra_limits = vlamax_limitations(effective_cadence_rpm=effective_cadence_rpm)
+    limits = list(snapshot.get("limitations") or [])
+    unc = snapshot.get("uncertainty") or {}
+    if not limits and unc.get("limitations"):
+        limits = list(unc.get("limitations") or [])
+    merged = list(dict.fromkeys(limits + extra_limits))
+    snapshot["limitations"] = merged
+    if unc:
+        unc["limitations"] = merged
+        snapshot["uncertainty"] = unc
+    return snapshot
 
 
 def cadence_anchor_metadata(

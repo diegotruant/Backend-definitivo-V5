@@ -10,6 +10,7 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Optional
 
+from engines.core.science_contracts import TauModel, resolve_w_prime_tau
 from .models import WorkoutDefinition, normalize_workout
 
 
@@ -44,10 +45,21 @@ def analyze_workout_feasibility(
     workout_payload: Dict[str, Any],
     athlete_profile: Dict[str, Any],
     context: Optional[Dict[str, Any]] = None,
+    *,
+    tau_model: Optional[TauModel] = None,
 ) -> Dict[str, Any]:
     """Simulate planned workout against athlete CP/W′ and return feasibility."""
     workout: WorkoutDefinition = normalize_workout(workout_payload)
     context = context or {}
+
+    resolved_tau_s: Optional[float] = None
+    resolved_tau_model: Optional[TauModel] = None
+    if tau_model:
+        resolved_tau_s, resolved_tau_model = resolve_w_prime_tau(
+            tau_model,
+            athlete_profile=athlete_profile,
+            athlete_level=athlete_profile.get("level") or athlete_profile.get("athlete_level"),
+        )
 
     cp_w = _num(athlete_profile.get("cp_w") or athlete_profile.get("critical_power_w"))
     w_prime_j = _num(athlete_profile.get("w_prime_j") or athlete_profile.get("wprime_j") or athlete_profile.get("w_prime"))
@@ -143,7 +155,10 @@ def analyze_workout_feasibility(
                 step_cost += drain
                 total_above_cp_j += drain
             else:
-                tau = _recovery_tau_s(cp_w, p)
+                if resolved_tau_s is not None:
+                    tau = resolved_tau_s
+                else:
+                    tau = _recovery_tau_s(cp_w, p)
                 wbal += (float(w_prime_j) - wbal) * (1.0 - math.exp(-1.0 / tau))
             wbal = max(0.0, min(float(w_prime_j), wbal))
             step_min = min(step_min, wbal)
@@ -259,6 +274,8 @@ def analyze_workout_feasibility(
             "seconds_below_10pct_w_prime": int(seconds_below_10pct),
             "seconds_depleted": int(seconds_depleted),
             "hardest_step_id": hardest_step_id,
+            "w_prime_tau_s": round(resolved_tau_s, 1) if resolved_tau_s is not None else None,
+            "tau_model": resolved_tau_model,
         },
         "warnings": warnings,
         "recommendations": recommendations,

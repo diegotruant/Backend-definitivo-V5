@@ -5477,6 +5477,38 @@
           },
           "athlete": {
             "$ref": "#/components/schemas/AthleteParams"
+          },
+          "effective_cadence_rpm": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 220.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Cadence Rpm",
+            "description": "Optional cadence anchor (rpm) for VLamax limitations when stream cadence is unavailable."
+          },
+          "tau_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "skiba_default",
+                  "bartram_elite",
+                  "pugh_level_based",
+                  "individualized"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tau Model",
+            "description": "W′ reconstitution model for coach-facing τ metadata on the snapshot."
           }
         },
         "type": "object",
@@ -6248,6 +6280,24 @@
           },
           "context": {
             "$ref": "#/components/schemas/WorkoutFeasibilityContext"
+          },
+          "tau_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "skiba_default",
+                  "bartram_elite",
+                  "pugh_level_based",
+                  "individualized"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tau Model",
+            "description": "W′ reconstitution model selector (skiba_default, bartram_elite, pugh_level_based, individualized)."
           }
         },
         "type": "object",
