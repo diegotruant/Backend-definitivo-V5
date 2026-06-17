@@ -13,31 +13,46 @@ MODEL:
 """
 
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import numpy as np
 
 from engines.core.metric_contracts import metric_envelope
+from engines.core.science_contracts import TauModel, resolve_w_prime_tau
 
 
 def calculate_w_prime_balance(
     power_stream: List[float],
     cp: float,
     w_prime: float,
-    tau: float = 546,
+    tau: Optional[float] = None,
     dt_s: float = 1.0,
     duration_s: Optional[float] = None,
+    *,
+    tau_model: TauModel = "skiba_default",
+    athlete_profile: Optional[Dict[str, Any]] = None,
+    athlete_level: Optional[str] = None,
 ) -> List[float]:
     """
     Real-time W' balance tracking.
 
     Args:
+        tau: Explicit τ override in seconds. When omitted, resolved from ``tau_model``.
         dt_s: Seconds represented by each power sample (default 1 Hz streams).
         duration_s: Optional ride duration; when set, warns if sample rate
             disagrees with ``dt_s`` by more than 15%.
+        tau_model: W′ reconstitution model selector (see resolve_w_prime_tau).
+        athlete_profile: Optional dict with ``w_prime_tau_s`` for individualized τ.
+        athlete_level: Optional level hint (e.g. elite/pro) for model selection.
     
     Returns: List of W' balance values (same length as power_stream)
     """
+    if tau is None:
+        tau, _ = resolve_w_prime_tau(
+            tau_model,
+            athlete_profile=athlete_profile,
+            athlete_level=athlete_level,
+        )
     if dt_s <= 0:
         raise ValueError("dt_s must be positive")
     if duration_s is not None and duration_s > 0 and len(power_stream) > 1:
@@ -104,7 +119,7 @@ if __name__ == "__main__":
     # Simulate interval workout
     power = [100]*600 + [400]*300 + [150]*300 + [380]*300 + [100]*600  # Warm-up, 2 intervals, cool
     
-    balance = calculate_w_prime_balance(power, cp=275, w_prime=18000, tau=546)
+    balance = calculate_w_prime_balance(power, cp=275, w_prime=18000)
     analysis = analyze_w_prime_usage(power, balance, w_prime=18000)
     
     print("W' Balance Analysis:")

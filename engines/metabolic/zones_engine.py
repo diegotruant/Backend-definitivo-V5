@@ -292,10 +292,17 @@ def seiler_polarization(
     distribution = _classify_distribution(z1_pct, z2_pct, z3_pct)
 
     interpretations = {
-        "POLARIZED":  "Polarized session: high volume of easy work + targeted high-intensity (Seiler model).",
-        "PYRAMIDAL":  "Pyramidal session: progressively less time in higher zones — typical base-period structure.",
-        "THRESHOLD":  "Threshold-dominant session: bulk of time at sweet-spot/lactate-threshold intensity.",
-        "MIXED":      "Mixed distribution that doesn't fit a single classification.",
+        "POLARIZED": (
+            "Valid distribution pattern (Seiler 3-zone): high easy volume plus targeted "
+            "high intensity. May be useful in specific blocks and athlete levels; "
+            "not universally superior to other structures."
+        ),
+        "PYRAMIDAL": (
+            "Valid and common endurance distribution, especially in base or recreational "
+            "contexts: progressively less time in higher zones."
+        ),
+        "THRESHOLD": "Threshold-dominant session: bulk of time at sweet-spot/lactate-threshold intensity.",
+        "MIXED": "Mixed distribution that doesn't fit a single classification.",
     }
 
     return {

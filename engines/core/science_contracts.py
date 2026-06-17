@@ -1,0 +1,110 @@
+"""Conservative science-facing contracts, warnings, and naming helpers."""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List, Literal, Optional
+
+TauModel = Literal["skiba_default", "bartram_elite", "pugh_level_based", "individualized"]
+
+_TAU_SECONDS: dict[TauModel, float] = {
+    "skiba_default": 546.0,
+    "bartram_elite": 417.0,
+    "pugh_level_based": 587.0,
+}
+
+_VLAMAX_LIMITATION = (
+    "VLamax estimate may be cadence/protocol dependent. Sprint cadence below "
+    "130 rpm can underestimate true maximal lactate accumulation potential."
+)
+
+_CADENCE_MODELING_WARNING = (
+    "Metabolic snapshot is cadence-anchored; comparisons across very different "
+    "cadences may be biased."
+)
+
+
+def vlamax_contract_fields() -> Dict[str, Any]:
+    """Coach-facing VLamax semantics — model estimate, not direct glycolytic rate."""
+    return {
+        "vlamax_label": "estimated_lactate_accumulation_rate",
+        "vlamax_not_direct_glycolytic_rate": True,
+        "vlamax_unit": "mmol/L/s",
+        "vlamax_interpretation": (
+            "Estimated maximal lactate accumulation rate from the Mader model fit; "
+            "not a direct measurement of glycolytic flux."
+        ),
+    }
+
+
+def vlamax_limitations(*, effective_cadence_rpm: Optional[float] = None) -> List[str]:
+    limits = [_VLAMAX_LIMITATION]
+    if effective_cadence_rpm is not None and effective_cadence_rpm < 130:
+        limits.append(
+            f"Sprint/profile cadence ({effective_cadence_rpm:.0f} rpm) is below typical "
+            "maximal-test protocols; true lactate accumulation potential may be higher."
+        )
+    return limits
+
+
+def cadence_anchor_metadata(
+    *,
+    effective_cadence_rpm: Optional[float],
+    cadence_anchor_status: str = "unknown",
+) -> Dict[str, Any]:
+    """Step-1 cadence metadata for metabolic snapshots (no metabolic correction)."""
+    measured = effective_cadence_rpm is not None and effective_cadence_rpm > 0
+    payload: Dict[str, Any] = {
+        "effective_cadence_rpm": round(float(effective_cadence_rpm), 1) if measured else None,
+        "cadence_anchor_status": "measured" if measured else cadence_anchor_status,
+    }
+    if measured:
+        payload["cadence_modeling_warning"] = _CADENCE_MODELING_WARNING
+        payload["cadence_anchor_confidence"] = "medium"
+    return payload
+
+
+def cp_anchor_warnings(mmp: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Warn when CP fit lacks a ≥20 min anchor in the MMP curve."""
+    has_long_anchor = any(int(m.get("duration_s", 0) or 0) >= 1200 for m in mmp)
+    if has_long_anchor:
+        return []
+    return [
+        {
+            "code": "CP_NO_20MIN_ANCHOR",
+            "warning": "CP may be overestimated because no ≥1200s anchor is available.",
+            "severity": "medium",
+            "recommendation": "Add a 20 min / long steady anchor for better CP validation.",
+        }
+    ]
+
+
+def resolve_w_prime_tau(
+    tau_model: TauModel = "skiba_default",
+    *,
+    athlete_profile: Optional[Dict[str, Any]] = None,
+    athlete_level: Optional[str] = None,
+) -> tuple[float, TauModel]:
+    """Resolve W′ reconstitution τ (seconds) from model enum and athlete context."""
+    level = (athlete_level or "").strip().lower()
+    profile = athlete_profile or {}
+
+    if tau_model == "individualized":
+        custom = profile.get("w_prime_tau_s")
+        if custom is not None:
+            try:
+                return float(custom), "individualized"
+            except (TypeError, ValueError):
+                pass
+        tau_model = "skiba_default"
+
+    if tau_model == "skiba_default" and level in {"elite", "pro"}:
+        return _TAU_SECONDS["bartram_elite"], "bartram_elite"
+
+    if tau_model == "pugh_level_based":
+        if level in {"recreational", "novice", "beginner"}:
+            return 620.0, "pugh_level_based"
+        if level in {"trained", "competitive"}:
+            return 520.0, "pugh_level_based"
+        return _TAU_SECONDS["pugh_level_based"], "pugh_level_based"
+
+    return _TAU_SECONDS.get(tau_model, _TAU_SECONDS["skiba_default"]), tau_model

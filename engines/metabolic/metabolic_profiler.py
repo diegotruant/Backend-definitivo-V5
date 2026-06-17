@@ -13,6 +13,11 @@ from typing import Any, Dict, List, Optional, Tuple
 from engines.core.athlete_context import AthleteContext
 from engines.core.metric_contracts import annotate_payload
 from engines.core.model_safety import finalize_model_metadata
+from engines.core.science_contracts import (
+    cadence_anchor_metadata,
+    vlamax_contract_fields,
+    vlamax_limitations,
+)
 from engines.core.tiers import DEFAULT_DISPLAY_THRESHOLD, should_display
 from engines.metabolic.cross_validation_engine import (
     cross_validate_metabolic_profile,
@@ -238,6 +243,8 @@ class MetabolicProfiler:
         measured_lacap: Optional[float] = None,
         mmp_samples: Optional[List[Dict[str, Any]]] = None,
         clean_mmp_first: bool = False,
+        effective_cadence_rpm: Optional[float] = None,
+        cadence_anchor_status: str = "unknown",
     ) -> Dict[str, Any]:
         """
         Generate a metabolic snapshot from a power-duration curve (MMP).
@@ -617,7 +624,7 @@ class MetabolicProfiler:
                 "zones": self._generate_zones(w_mlss, map_w) if expressiveness.mlss_reliable else None,
                 "combustion_curve": combustion_curve if expressiveness.vlamax_reliable else None,
                 "calculated_at": datetime.now().isoformat()
-            }, mmp_quality_audit)
+            }, mmp_quality_audit, effective_cadence_rpm=effective_cadence_rpm, cadence_anchor_status=cadence_anchor_status)
         except Exception as e:
             return self._finalize_snapshot(
                 {"status": "error", "message": str(e)},
@@ -890,9 +897,22 @@ class MetabolicProfiler:
         return snap
 
     @staticmethod
-    def _finalize_snapshot(snap: Dict[str, Any], audit: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    def _finalize_snapshot(
+        snap: Dict[str, Any],
+        audit: Optional[Dict[str, Any]],
+        *,
+        effective_cadence_rpm: Optional[float] = None,
+        cadence_anchor_status: str = "unknown",
+    ) -> Dict[str, Any]:
         """Attach the MMP quality audit if it was produced."""
+        extra_limits: List[str] = []
         if snap.get("status") == "success":
+            snap.update(vlamax_contract_fields())
+            snap["cadence_anchor"] = cadence_anchor_metadata(
+                effective_cadence_rpm=effective_cadence_rpm,
+                cadence_anchor_status=cadence_anchor_status,
+            )
+            extra_limits = vlamax_limitations(effective_cadence_rpm=effective_cadence_rpm)
             expressiveness = snap.get("expressiveness", {}) or {}
             missing_inputs = list(expressiveness.get("missing_windows") or [])
             quality_flags: List[str] = []
@@ -939,15 +959,20 @@ class MetabolicProfiler:
             )
         if audit is not None:
             snap["mmp_quality"] = audit
+        if extra_limits:
+            snap["limitations"] = extra_limits
         annotate_payload(
             snap,
             module_name="metabolic_profiler",
             method="mader_least_squares",
             confidence_field="confidence_score",
             limitations=(
-                ["One or more metabolic outputs were masked by expressiveness gates."]
-                if snap.get("expressiveness", {}).get("fully_expressive") is False
-                else []
+                extra_limits
+                + (
+                    ["One or more metabolic outputs were masked by expressiveness gates."]
+                    if snap.get("expressiveness", {}).get("fully_expressive") is False
+                    else []
+                )
             ),
         )
         return snap

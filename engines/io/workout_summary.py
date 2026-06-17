@@ -32,6 +32,7 @@ from engines.performance.power_engine import PowerEngine, estimate_ftp_from_mmp
 from engines.metabolic.zones_engine import ZonesEngine
 # hrv_engine imported lazily inside build_workout_summary() (see section 4).
 from engines.core.metric_contracts import annotate_payload, summarize_section_contracts
+from engines.performance.physiological_resilience import build_physiological_resilience
 from engines.io.activity_statistics import compute_activity_statistics
 
 
@@ -386,6 +387,11 @@ def build_workout_summary(
         at_10 = (sus.get("sustainable_steady_power_w") or {}).get("at_10pct_cp_loss") or {}
         if at_10.get("3h"):
             headline["mader_sustainable_3h_w"] = at_10["3h"]
+
+    out["physiological_resilience"] = build_physiological_resilience(
+        mader_durability=mader_section if mader_section.get("status") == "success" else None,
+        durability_index=out["sections"].get("durability"),
+    )
 
     out["headline"] = headline
 

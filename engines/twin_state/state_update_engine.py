@@ -52,6 +52,8 @@ def update_twin_state_from_ride(
             sensor_quality["last_power"] = sections["power"]
         if headline:
             sensor_quality["last_headline"] = headline
+        if ride_summary.get("physiological_resilience"):
+            state["physiological_resilience"] = ride_summary["physiological_resilience"]
         state["sensor_quality"] = sensor_quality
         if ride_summary.get("warnings"):
             state.setdefault("warnings", []).extend(ride_summary.get("warnings") or [])

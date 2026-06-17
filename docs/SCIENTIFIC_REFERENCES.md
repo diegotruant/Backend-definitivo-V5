@@ -443,6 +443,66 @@ Fat oxidation, FatMax, and substrate use during exercise.
   - W' balance vs controlled interval tests.
   - Thermal drift vs body-temperature sensor data and controlled heat sessions.
 
+## 12. Recent literature (2024–2025) — implementation notes
+
+### Sempere-Ruiz et al. (2024)
+
+DFA-α₁ thresholds for aerobic (HRVT1) and anaerobic (HRVT2) transitions in
+cycling power output.
+
+- Status: **Validated** (thresholds already implemented)
+- Used for:
+  - Canonical DFA-α₁ cutoffs **0.75** (VT1) and **0.50** (VT2) in `hrv_engine.py`.
+  - No code change required; supports existing HRV threshold policy.
+- Main modules:
+  - `engines/recovery/hrv_engine.py`
+
+### Oliveira et al. (2024)
+
+Meta-analysis on polarized vs pyramidal training distribution.
+
+- Status: **Validated** (interpretation only)
+- Used for:
+  - Coach-facing Seiler distribution text: POL and PYR are valid patterns;
+    POL is not universally superior across all endurance surrogates.
+- Main modules:
+  - `engines/metabolic/zones_engine.py`
+
+### Jones et al. (2024)
+
+W′ reconstitution and individualized τ models.
+
+- Status: **Emerging**
+- Used for:
+  - `tau_model` scaffold in `w_prime_balance_engine.py` (`skiba_default`,
+    `bartram_elite`, `pugh_level_based`, `individualized`).
+- Main modules:
+  - `engines/performance/w_prime_balance_engine.py`
+  - `engines/core/science_contracts.py`
+
+### EJAP cadence / Mader review (2025)
+
+Cadence dependence in Mader-type metabolic modelling.
+
+- Status: **Emerging** (metadata + warnings only; no cadence-dependent VLamax correction)
+- Used for:
+  - VLamax presented as **estimated lactate accumulation rate**, not direct glycolytic flux.
+  - Cadence/protocol warnings on metabolic snapshots.
+  - Explicit non-recommendation of automatic cadence-dependent VLamax correction.
+- Main modules:
+  - `engines/metabolic/metabolic_profiler.py`
+  - `engines/core/science_contracts.py`
+
+### Physiological resilience naming
+
+- Status: **Implementation candidate**
+- Used for:
+  - Top-level `physiological_resilience` contract aggregating existing Mader DCP /
+    durability outputs without changing underlying engines.
+- Main modules:
+  - `engines/performance/physiological_resilience.py`
+  - `engines/io/workout_summary.py`
+
 ## Suggested citation language
 
 The backend implements a scientific analytics stack based on peer-reviewed

@@ -30,6 +30,7 @@ import numpy as np
 
 from engines.core.metric_contracts import annotate_payload
 from engines.core.analysis import safe_dt
+from engines.core.science_contracts import cp_anchor_warnings
 
 
 # =============================================================================
@@ -289,12 +290,15 @@ def fit_critical_power(mmp: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if cp <= 0 or wprime <= 0:
         return None
 
+    warnings = cp_anchor_warnings(mmp)
+
     return {
         "cp_w": round(cp, 1),
         "wprime_kj": round(wprime / 1000.0, 2),
         "r_squared": round(r2, 4) if r2 is not None else None,
         "n_points": len(fit_points),
         "fit_durations_s": [int(d) for d in durs],
+        "warnings": warnings,
         "reference": "Monod & Scherrer 1965; Skiba 2008",
     }
 
