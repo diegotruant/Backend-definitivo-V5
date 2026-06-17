@@ -29,5 +29,5 @@ jobs:
       - name: Lint
         run: make lint
 
-      - name: Smoke tests
-        run: make test
+      - name: Full pytest suite (unit + integration scripts + golden)
+        run: make test-all

@@ -35,6 +35,9 @@ format:
 typecheck:
 	$(PYTHON) -m mypy --explicit-package-bases api api_app.py
 
+typecheck-metabolic:
+	$(PYTHON) -m mypy --explicit-package-bases engines/metabolic
+
 check: lint typecheck test-all hardening-test
 
 openapi:

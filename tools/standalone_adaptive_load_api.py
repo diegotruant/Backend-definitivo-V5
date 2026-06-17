@@ -1,11 +1,9 @@
-"""Standalone FastAPI app exposing the adaptive load endpoint.
+"""Standalone FastAPI app exposing the adaptive load endpoint (dev prototype).
 
-This keeps the first integration isolated from api_app.py while reusing the
-same parser, context helper pattern, workout summary orchestrator, and new
-adaptive_load engine.
+Not the production entry point — use ``uvicorn api_app:app`` for the main API.
 
 Run locally:
-    uvicorn api_adaptive_load:app --reload
+    uvicorn tools.standalone_adaptive_load_api:app --reload
 """
 
 from __future__ import annotations

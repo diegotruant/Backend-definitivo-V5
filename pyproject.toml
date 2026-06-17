@@ -43,9 +43,9 @@ include = ["engines*", "api*"]
 # Make local package imports stable when running pytest from the repository root
 # without requiring PYTHONPATH=. or an editable install.
 pythonpath = ["."]
-# pytest collects pytest_*.py under tests/.  Executable integration scripts live
-# in tests/integration/test_*.py and are run via pytest_script_suite.py (or
-# directly with PYTHONPATH=. python tests/integration/test_e2e.py).
+# pytest collects pytest_*.py under tests/.  Integration coverage: the 25
+# executable scripts in tests/integration/test_*.py are executed by
+# pytest_script_suite.py (included in ``make test-all`` and CI).
 testpaths = ["tests"]
 python_files = ["pytest_*.py"]
 python_functions = ["test_*"]

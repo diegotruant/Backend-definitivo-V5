@@ -16,12 +16,13 @@ installable CLI entry points (`pip install -e .`):
 
 | Suite | How to run | Purpose |
 |---|---|---|
-| `tests/pytest_smoke.py` | `make test` / `pytest` | CI smoke — verifies package imports correctly |
-| `pytest_script_suite.py` | `python pytest_script_suite.py` | Full legacy integration suite (20+ `test_*.py` scripts) |
+| `tests/pytest_smoke.py` | `make test` | Quick smoke — package imports only |
+| `make test-all` | `pytest tests/pytest_*.py pytest_script_suite.py` | Unit tests + 25 integration scripts + golden regression |
+| `pytest_script_suite.py` | (included in `make test-all`) | Runs every `tests/integration/test_*.py` as a subprocess |
 
-The `test_*.py` scripts in the root are **not** collected by pytest (by design — see
-`[tool.pytest.ini_options]` in `pyproject.toml`).  Run them via `pytest_script_suite.py`
-or individually with `python test_<name>.py` (requires `pip install -e ".[dev]"` first).
+Integration scripts under `tests/integration/` are **not** plain `def test_*` functions;
+they are executable regression scripts collected by `pytest_script_suite.py`.
+CI runs `make test-all` on every push.
 
 ## Analysis / stress scripts (under `tools/`)
 
@@ -32,6 +33,7 @@ or individually with `python test_<name>.py` (requires `pip install -e ".[dev]"`
 | `analyze_uploaded_fit_full_engine_audit.py` | `tools/analysis/` | Full per-engine FIT audit |
 | `comprehensive_stress_test.py` | `tools/stress/` | Engine regression stress suite |
 | `validate_on_real_fits.py` | `tools/stress/` | Real FIT classification checks |
+| `standalone_adaptive_load_api.py` | `tools/` | Dev-only adaptive-load API prototype (not production entry point) |
 
 ## Generated data / reports
 

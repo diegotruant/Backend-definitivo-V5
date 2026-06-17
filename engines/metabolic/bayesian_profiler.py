@@ -114,7 +114,7 @@ class BayesianMetabolicSnapshot:
     fallback_reason: str = ""
     
     def to_dict(self) -> Dict[str, Any]:
-        d = {
+        d: Dict[str, Any] = {
             "status": self.status,
             "method": "bayesian_mcmc",
             "tier": "MODEL",
