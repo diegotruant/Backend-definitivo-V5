@@ -1,7 +1,12 @@
 # Supabase Schema — Roadmap passo passo
 
+**Progetto esistente:** https://xdqvjqqwywuguuhsehxm.supabase.co  
+**Audit schema attuale:** `supabase/scripts/audit_existing_schema.sql`  
+**Guida revisione V5:** `supabase/REVIEW_EXISTING_PROJECT.md`
+
 Questo documento guida la costruzione dello schema insieme al team.
 Ogni step va rivisto e approvato prima di passare al successivo.
+Prima di applicare le migration, eseguire l'audit sul progetto già creato.
 
 ## Principi guida
 

@@ -1,0 +1,19 @@
+# Supabase local CLI config — project ref from existing dashboard project
+# Link: supabase link --project-ref xdqvjqqwywuguuhsehxm
+
+project_id = "xdqvjqqwywuguuhsehxm"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
