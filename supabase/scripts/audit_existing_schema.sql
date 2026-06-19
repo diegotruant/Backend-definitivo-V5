@@ -103,21 +103,27 @@ from storage.buckets
 order by name;
 
 -- 10) Checklist rapida — tabelle attese da Backend V5
-select unnest(array[
-  'profiles',
-  'coaches',
-  'teams',
-  'athletes',
-  'twin_states',
-  'activities',
-  'validation_events',
-  'workout_templates',
-  'workout_assignments',
-  'processing_jobs'
-]) as expected_table,
-exists (
-  select 1
-  from information_schema.tables t
-  where t.table_schema = 'public'
-    and t.table_name = expected_table
-) as exists_in_db;
+with expected(expected_table) as (
+  select unnest(array[
+    'profiles',
+    'coaches',
+    'teams',
+    'athletes',
+    'twin_states',
+    'activities',
+    'validation_events',
+    'workout_templates',
+    'workout_assignments',
+    'processing_jobs'
+  ]::text[])
+)
+select
+  e.expected_table,
+  exists (
+    select 1
+    from information_schema.tables t
+    where t.table_schema = 'public'
+      and t.table_name = e.expected_table
+  ) as exists_in_db
+from expected e
+order by e.expected_table;
