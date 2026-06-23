@@ -3,7 +3,7 @@ UVICORN_HOST ?= 127.0.0.1
 UVICORN_PORT ?= 8000
 UVICORN_RELOAD ?= true
 
-.PHONY: install run test test-all hardening-test stress-test multitenant-stress lint format typecheck check precommit openapi openapi-frontend
+.PHONY: install run test test-all hardening-test stress-test multitenant-stress lint format typecheck check precommit openapi openapi-frontend demo-wt
 
 install:
 	$(PYTHON) -m pip install -r requirements-dev.txt
@@ -39,6 +39,12 @@ typecheck-metabolic:
 	$(PYTHON) -m mypy --explicit-package-bases engines/metabolic
 
 check: lint typecheck test-all hardening-test
+
+demo-wt:
+	$(PYTHON) tools/demo/wt_coach_demo.py
+
+demo-wt-paper:
+	$(PYTHON) tools/generate_demo_wt_paper_pdf.py
 
 openapi:
 	$(PYTHON) scripts/export_openapi.py
