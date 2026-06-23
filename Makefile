@@ -40,6 +40,12 @@ typecheck-metabolic:
 
 check: lint typecheck test-all hardening-test
 
+demo-wt:
+	$(PYTHON) tools/demo/wt_coach_demo.py
+
+demo-wt-paper:
+	$(PYTHON) tools/generate_demo_wt_paper_pdf.py
+
 openapi:
 	$(PYTHON) scripts/export_openapi.py
 

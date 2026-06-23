@@ -1,6 +1,10 @@
 # Demo coach World Tour — 5 minuti
 
-Script presentazione + comando live per mostrare il **wow factor** del backend:
+> **Paper illustrativo (consigliato per presentazioni):** [`docs/DEMO_WT_COACH_PAPER.pdf`](../docs/DEMO_WT_COACH_PAPER.pdf)  
+> Sorgente Markdown: [`docs/DEMO_WT_COACH_PAPER.md`](../docs/DEMO_WT_COACH_PAPER.md)  
+> Rigenera con: `make demo-wt-paper`
+
+Script presentazione live + comando terminale per mostrare il **wow factor** del backend:
 validazione Mader al lattato + Team Learning con audit.
 
 ## Comando
