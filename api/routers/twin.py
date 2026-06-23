@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from api.deps import get_twin_service
+from api.engine_schemas import TwinValidateRequest
 from api.helpers import json_response
 from api.responses import EnginePayload
 from api.route_docs import ERRORS, JSON_OBJECT
@@ -15,6 +16,21 @@ from api.schemas import (
 from api.services.twin_service import TwinService
 
 router = APIRouter(tags=["twin"], )
+
+
+@router.post(
+    "/twin/state/validate",
+    summary="Validate TwinState v1",
+    description="Validate and JSON-clean a twin_state payload without persisting.",
+    operation_id="twinStateValidate",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400]},
+)
+def twin_state_validate(
+    req: TwinValidateRequest,
+    service: TwinService = Depends(get_twin_service),
+):
+    return json_response(service.validate(req.twin_state))
 
 
 @router.post(

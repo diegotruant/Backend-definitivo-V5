@@ -26,18 +26,44 @@ except ImportError as e:  # pragma: no cover
 from api.auth import authenticate_request, load_auth_config
 from api.errors import ServiceError
 from api.openapi import enrich_openapi_schema
-from api.routers import health, history, load, performance, planning, profile, readiness, ride, team, test_routes, twin, workouts
+from api.routers import (
+    explainability,
+    health,
+    history,
+    integrations,
+    lab,
+    load,
+    load_extended,
+    meta,
+    performance,
+    planning,
+    profile,
+    profile_extended,
+    race,
+    readiness,
+    ride,
+    ride_analytics,
+    team,
+    test_routes,
+    twin,
+    workouts,
+)
 from engines.core.security import MAX_UPLOAD_BYTES, MAX_UPLOAD_FILES, safe_error_detail
 
 OPENAPI_TAGS = [
     {"name": "health", "description": "Liveness and version."},
     {"name": "test", "description": "Field test onboarding (propose → confirm)."},
-    {"name": "ride", "description": "FIT ingestion, activity analysis, durability."},
-    {"name": "profile", "description": "Metabolic snapshot read model."},
+    {"name": "ride", "description": "FIT ingestion, activity analysis, durability, extended analytics."},
+    {"name": "profile", "description": "Metabolic snapshot, Kalman, glycolytic profile, MMP quality."},
+    {"name": "lab", "description": "Lab PDF/text parsing, lactate validation, vLaPeak."},
     {"name": "workouts", "description": "Prescription, feasibility, compliance."},
     {"name": "twin", "description": "Canonical TwinState and season projection."},
     {"name": "performance", "description": "Neuromuscular profile and power-source QA."},
-    {"name": "load", "description": "Non-cycling manual load injection."},
+    {"name": "load", "description": "Manual load, ACWR, monotony/strain, adaptive trends."},
+    {"name": "explainability", "description": "Confidence scores and coach narratives."},
+    {"name": "race", "description": "GPX course analysis and race simulation."},
+    {"name": "integrations", "description": "External activity normalization and deduplication."},
+    {"name": "meta", "description": "Engine tiers and chart configuration."},
     {"name": "team", "description": "Team learning calibration."},
     {"name": "history", "description": "Athlete history, power-curve records and load trends."},
     {"name": "readiness", "description": "Daily readiness and load-risk estimates."},
@@ -82,7 +108,7 @@ def _register_exception_handlers(application: FastAPI) -> None:
 def create_app() -> FastAPI:
     application = FastAPI(
         title=os.getenv("DIGITAL_TWIN_API_TITLE", "Digital Twin Fisiologico API"),
-        version=os.getenv("DIGITAL_TWIN_API_VERSION", "5.1.1"),
+        version=os.getenv("DIGITAL_TWIN_API_VERSION", "5.2.0"),
         description=(
             "Stateless physiology analytics API. HTTP routers are thin; "
             "application services orchestrate engines under `engines/`."
@@ -166,11 +192,19 @@ def create_app() -> FastAPI:
         health.router,
         test_routes.router,
         ride.router,
+        ride_analytics.router,
         profile.router,
+        profile_extended.router,
+        lab.router,
         workouts.router,
         twin.router,
         performance.router,
         load.router,
+        load_extended.router,
+        explainability.router,
+        race.router,
+        integrations.router,
+        meta.router,
         team.router,
         history.router,
         readiness.router,

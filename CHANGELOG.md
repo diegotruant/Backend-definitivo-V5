@@ -1,5 +1,27 @@
 # Changelog
 
+## [5.2.0] — 2026-06-17
+
+Full HTTP coverage for engine-only capabilities (profile, lab, ride analytics, load,
+explainability, race, integrations, meta).
+
+### Added
+
+- **Profile extended** (`/profile/*`): segmented/auto/bayesian snapshot, Kalman trajectory,
+  metabolic current, detraining, CTL/ATL/TSB, cross-validation, MMP quality, phenotype,
+  glycolytic profile, vLaMax-from-sprint, W′ τ resolver.
+- **Lab** (`/lab/*`): text parse, result validate/create, lactate thresholds and model
+  validation, vLaPeak observed/validate.
+- **Ride analytics** (`/ride/analytics/*`): zones, statistics, power, CP fit, W′ balance,
+  durability suite, cardiac, HRV, thermal, pedaling, efforts, session routing, resilience,
+  metabolic flexibility, segments, adaptive load.
+- **Load extended** (`/load/acwr`, `/load/monotony-strain`, adaptive trend/recommendation).
+- **Explainability** (`/explainability/*`): confidence scores and narratives.
+- **Race** (`/race/gpx/*`): GPX analyze and simulate.
+- **Integrations** (`/integrations/*`): activity normalize and deduplicate.
+- **Meta** (`/meta/engine-tiers`, `/meta/chart-config`).
+- **Twin** (`/twin/state/validate`).
+
 ## [5.1.3] — 2026-06-17
 
 Glycolytic validation per Wackerhage et al. (2025): vLaPeak (observed) vs VLamax (modelled).

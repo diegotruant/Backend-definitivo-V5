@@ -11,7 +11,7 @@ from api.schemas import (
 )
 from engines.core.security import PayloadTooDeep, assert_json_depth, safe_error_detail
 from engines.projection.season_projection_engine import project_season_from_plan
-from engines.twin_state.models import build_twin_state
+from engines.twin_state.models import build_twin_state, validate_twin_state
 from engines.twin_state.state_update_engine import (
     update_twin_state_from_ride,
     update_twin_state_from_workout_result,
@@ -20,6 +20,12 @@ from engines.workouts.models import WorkoutValidationError
 
 
 class TwinService:
+    def validate(self, twin_state: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            return validate_twin_state(twin_state)
+        except ValueError as exc:
+            raise ServiceError(str(exc), status_code=400, code="TWIN_VALIDATE") from exc
+
     def build(self, req: TwinStateBuildRequest) -> Dict[str, Any]:
         try:
             return build_twin_state(req.payload.to_engine_dict())
