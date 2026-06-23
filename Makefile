@@ -3,7 +3,7 @@ UVICORN_HOST ?= 127.0.0.1
 UVICORN_PORT ?= 8000
 UVICORN_RELOAD ?= true
 
-.PHONY: install run test test-all hardening-test stress-test multitenant-stress lint format typecheck check precommit openapi openapi-frontend
+.PHONY: install run test test-all hardening-test stress-test multitenant-stress lint format typecheck check precommit openapi openapi-frontend demo-wt
 
 install:
 	$(PYTHON) -m pip install -r requirements-dev.txt
