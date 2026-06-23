@@ -6,7 +6,7 @@
 |---------|------------|-----|
 | **Committed spec** | `openapi/openapi.json` | Codegen, PR review, offline |
 | **TypeScript types** | `frontend/src/api/generated/schema.ts` | Autocomplete request/response |
-| **Typed client** | `frontend/src/api/client.ts` | All 43 APIs, ready to use |
+| **Typed client** | `frontend/src/api/client.ts` | All **105** API paths, ready to use |
 | **Swagger UI** | `GET /docs` (server running) | Interactive exploration |
 | **Live OpenAPI** | `GET /openapi.json` | Sync with running server |
 
@@ -52,20 +52,30 @@ try {
 
 ## All endpoints in the client
 
-| Group | `api.*` methods |
-|--------|----------------|
-| Health | `health()` |
-| Test | `proposeTest`, `confirmTest`, `inPersonTest` |
-| Ride | `ingestRide`, `rideParse`, `updateProfile`, `rideSummary`, `rideDurability`, `rideIntelligence`, `rideDataQuality` |
-| Profile | `profileSnapshot` |
-| Workouts | `validateWorkout`, `prescribeWorkout`, `workoutFeasibility`, `compareWorkout`, `calendarTransition` |
-| Twin | `twinStateBuild`, `twinStateUpdateFromRide`, `twinStateUpdateFromWorkout`, `twinStateProject`, `projectionSeason` |
-| Performance | `neuromuscularProfile`, `powerSourceNormalize` |
-| Load | `manualLoad` |
-| History | `historySummary`, `historyPowerCurve`, `historyRecords`, `historyLoad` |
-| Readiness | `readinessToday`, `loadStateUpdate`, `loadRisk` |
-| Planning | `planningCreateSeasonPlan`, `planningAdaptWeek`, `planningCheckLoadRisk` |
-| Team | `updateTeamCalibration`, `applyTeamCalibration` |
+The typed client (`frontend/src/api/client.ts`) exposes **all 105 OpenAPI paths** — one `jsonFetch` call per route.
+
+| Tag | Paths | Highlights |
+|-----|------:|------------|
+| ride | 32 | `rideSummary`, `rideAnalyticsZones`, `rideAnalyticsWPrimeBalance`, … |
+| profile | 14 | `profileSnapshot`, `profileKalmanTrajectory`, `profileGlycolyticProfile`, … |
+| workouts | 9 | `validateWorkout`, `prescribeWorkout`, `compareWorkout`, … |
+| lab | 7 | lactate + vLaPeak validation |
+| explainability | 6 | confidence scores + coach narratives |
+| twin | 6 | `twinStateBuild`, `twinStateValidate`, `twinStateProject`, … |
+| load | 5 | `manualLoad`, `loadAcwr`, adaptive trend |
+| history / performance / planning / readiness / test | 13 | unchanged core flows |
+| integrations / meta / race / team / health | 7 | normalize, chart-config, GPX, calibration |
+
+**Canonical list:** `docs/API_ENDPOINT_INDEX.md` (method, path, `operationId` per row).
+
+### Zones on activities
+
+`POST /ride/summary` and `POST /ride/analytics/zones` return **both**:
+
+- `metabolic_power` — MLSS/MAP 5-zone time-in-zone (needs metabolic snapshot)
+- `coggan_power` — FTP 7-zone time-in-zone
+
+Pass `metabolic_snapshot_json` or rely on auto-snapshot from ride MMP.
 
 ## Authentication
 

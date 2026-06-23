@@ -1,4 +1,6 @@
-# Backend Completeness Report — V5 Team Learning
+# Backend Completeness Report — V5.2
+
+**OpenAPI:** 105 paths (see `docs/API_ENDPOINT_INDEX.md`). **Version:** 5.2.1.
 
 ## General status
 
@@ -20,7 +22,8 @@ This delivery does not include a database, authentication, or a job queue: those
 | In-person testing | Ready | tablet envelope |
 | Lab/lactate validation | Present | to use in validated tests |
 | Anchor profile flow | Ready | proposal → coach confirmation → anchor |
-| Kalman / Bayesian / Neural | Present | advanced engines already in the repo |
+| Kalman / Bayesian / lab / explainability / race APIs | Ready (HTTP) | V5.2.0 engine coverage |
+| Dual metabolic + Coggan zones on rides | Ready | V5.2.1 — coach chooses system |
 | Team Learning Engine | Added | residual learning team/athlete/phenotype |
 | Frontend MVP | Present but not final | needs rebuild according to the blueprint |
 

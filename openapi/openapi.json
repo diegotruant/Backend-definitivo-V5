@@ -51,7 +51,7 @@
                       "title": "Version",
                       "description": "API semver.",
                       "examples": [
-                        "5.1.0"
+                        "5.2.1"
                       ]
                     }
                   },
@@ -9979,7 +9979,7 @@
             "title": "Version",
             "description": "API semver.",
             "examples": [
-              "5.1.0"
+              "5.2.1"
             ]
           }
         },

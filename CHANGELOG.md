@@ -12,6 +12,12 @@ Dual zone systems: metabolic (MLSS) and Coggan (FTP) exposed together for coach 
 - `build_workout_summary()` passes auto-generated or supplied snapshot into zones.
 - `/ride/analytics/zones` accepts optional `metabolic_snapshot_json`.
 
+### Documentation
+
+- README, ARCHITECTURE, OPENAPI_FRONTEND, FRONTEND_DEVELOPER_GUIDE updated for **105 OpenAPI paths**
+- New `docs/API_ENDPOINT_INDEX.md` and `docs/RELEASE_NOTES_v5.2.1.md`
+- `pyproject.toml`, `.env.example`, deploy docs aligned to 5.2.1
+
 ## [5.2.0] — 2026-06-17
 
 Full HTTP coverage for engine-only capabilities (profile, lab, ride analytics, load,

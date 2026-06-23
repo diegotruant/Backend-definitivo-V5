@@ -13,7 +13,7 @@ GET /health
 ```
 
 ```json
-{ "status": "ok", "version": "5.1.1" }
+{ "status": "ok", "version": "5.2.1" }
 ```
 
 ---

@@ -8,34 +8,26 @@ The product must not look like a clone of a social activity platform, consumer p
 
 ## What is already ready in the backend
 
-- Stateless FastAPI API in `api_app.py`.
+- Stateless FastAPI API — **105 OpenAPI paths** (`docs/API_ENDPOINT_INDEX.md`).
 - FIT parsing and activity ingestion.
-- Power curve / MMP.
-- Metabolic profile from MMP.
-- Estimation of VO2max, VLamax, MLSS, FatMax, MAP.
-- Expressiveness gate: the system knows when data is insufficient.
-- Workout summary.
-- Mechanistic durability.
-- HRV / cardiac response when data is present.
-- In-person tests via JSON envelope.
-- Lactate / Mader validation.
-- Physiological anchor confirmed by the coach.
-- Team Learning Engine: residual learning from validated tests.
+- Metabolic profile from MMP (snapshot + extended profile/lab/kalman HTTP APIs).
+- Dual zone systems on activities: **metabolic MLSS** + **Coggan FTP** (coach choice).
+- Workout summary, mechanistic durability, HRV / cardiac / thermal when data present.
+- In-person tests, lactate/Mader validation, glycolytic vLaPeak validation.
+- Team Learning Engine, TwinState, season projection, explainability narratives.
 
 ## Key files for the frontend
 
 | File | Purpose |
 |---|---|
-| `api_app.py` | API contracts currently available |
+| `openapi/openapi.json` | Committed HTTP contract (105 paths) |
+| `docs/API_ENDPOINT_INDEX.md` | Endpoint inventory by tag |
+| `docs/FRONTEND_DEVELOPER_GUIDE.md` | Extended technical guide (v5.2.1) |
+| `frontend/src/api/client.ts` | Typed client for all endpoints |
 | `docs/FRONTEND_IMPLEMENTATION_BLUEPRINT.md` | Main frontend specification |
-| `docs/API_PAYLOAD_EXAMPLES.md` | Payload/response examples for each endpoint |
-| `docs/COACH_UX_COPYBOOK.md` | Texts, badges, and traffic lights to show coaches |
-| `docs/TEAM_LEARNING_ENGINE.md` | Explanation of the self-learning engine |
-| `docs/FRONTEND_DEVELOPER_GUIDE.md` | Existing extended technical guide |
-| `frontend/src/contracts.ts` | Base TypeScript interfaces to start from |
-| `frontend/src/metricDictionary.ts` | UI metric dictionary |
-| `frontend/src/api.ts` | Minimal API client |
-| `frontend/src/mockData.ts` | Mock data to prototype pages without a live backend |
+| `docs/API_PAYLOAD_EXAMPLES.md` | Payload/response examples |
+| `docs/COACH_UX_COPYBOOK.md` | Coach-facing copy and badges |
+| `frontend/src/contracts.ts` | Domain TypeScript interfaces |
 
 ## Non-negotiable UI principle
 
