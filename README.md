@@ -2,7 +2,7 @@
 
 Python backend for physiological analysis and cycling performance (Digital Twin).
 
-Current version: **5.2.1** — full engine HTTP coverage (105 OpenAPI paths) + dual metabolic/Coggan zones.
+Current version: **5.2.2** — power-series VLamax proxy + dual metabolic/Coggan zones (106 OpenAPI paths).
 
 ## Overview
 
@@ -11,7 +11,7 @@ Current version: **5.2.1** — full engine HTTP coverage (105 OpenAPI paths) + d
 | **HTTP Entrypoint** | `api_app.py` | Compatible shim for `uvicorn api_app:app` |
 | **API package** | `api/` | Routers, services, schemas, upload, serialization |
 | **Physiological engines** | `engines/` | Algorithms, tiers, metric contracts |
-| **OpenAPI contract** | `openapi/openapi.json` | **105 documented endpoints** |
+| **OpenAPI contract** | `openapi/openapi.json` | **106 documented endpoints** |
 | **Frontend client** | `frontend/src/api/` | Generated TS types + `api.*` client (all paths) |
 | **Tests** | `tests/` | pytest smoke/hardening + `tests/integration/` |
 

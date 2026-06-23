@@ -3,7 +3,7 @@
   "info": {
     "title": "Digital Twin Fisiologico API",
     "description": "Stateless physiology analytics API. HTTP routers are thin; application services orchestrate engines under `engines/`.",
-    "version": "5.2.1",
+    "version": "5.2.2",
     "x-codegen": {
       "typescript_output": "frontend/src/api/generated/schema.ts",
       "regenerate": "make openapi-frontend",
@@ -3221,6 +3221,80 @@
                   "type": "object",
                   "title": "EnginePayload",
                   "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/profile/vlamax-from-power-series": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Vlamax From Power Series",
+        "operationId": "profileVlamaxFromPowerSeries",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VlamaxPowerSeriesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
                 }
               }
             }
@@ -9934,6 +10008,77 @@
             "type": "boolean",
             "title": "Clean Mmp First",
             "default": false
+          },
+          "sprint_power": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array",
+                "minItems": 8
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sprint Power",
+            "description": "Optional maximal sprint power trace (Hz) for power-derived VLamax proxy."
+          },
+          "sprint_dt_s": {
+            "type": "number",
+            "maximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Sprint Dt S",
+            "default": 1.0
+          },
+          "cp_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cp W"
+          },
+          "vo2max_power_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vo2Max Power W"
+          },
+          "lactate_pre_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lactate Pre Mmol L"
+          },
+          "lactate_peak_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lactate Peak Mmol L"
           }
         },
         "type": "object",
@@ -12292,6 +12437,82 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VlamaxPowerSeriesRequest": {
+        "properties": {
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          },
+          "power": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "minItems": 8,
+            "title": "Power"
+          },
+          "dt_s": {
+            "type": "number",
+            "maximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Dt S",
+            "default": 1.0
+          },
+          "vo2max_power_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vo2Max Power W"
+          },
+          "cp_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cp W"
+          },
+          "lactate_pre_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lactate Pre Mmol L"
+          },
+          "lactate_peak_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lactate Peak Mmol L"
+          }
+        },
+        "type": "object",
+        "required": [
+          "athlete",
+          "power"
+        ],
+        "title": "VlamaxPowerSeriesRequest"
       },
       "VlamaxSprintRequest": {
         "properties": {

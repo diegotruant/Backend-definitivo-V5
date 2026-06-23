@@ -1,5 +1,22 @@
 # Changelog
 
+## [5.2.2] — 2026-06-17
+
+Power-series VLamax proxy (cLaMax_P) for metabolic profile.
+
+### Added
+
+- `engines/metabolic/power_vlamax_estimator.py`: sprint power trace → VLamax proxy
+  (Yang-style t_Ppeak, oxidative fraction, FFM-normalized work features).
+- `POST /profile/vlamax-from-power-series` — standalone estimator endpoint.
+- `glycolytic_profile.power_derived_vlamax` and `vlamax_derivation.agreement`
+  when `sprint_power` is supplied on `/profile/glycolytic-profile`.
+
+### Semantics
+
+- `estimated_vlamax_mmol_L_s` (Mader/MMP) remains the primary model parameter.
+- `power_derived_vlamax` is an explicit power proxy, distinct from blood vLaPeak.
+
 ## [5.2.1] — 2026-06-17
 
 Dual zone systems: metabolic (MLSS) and Coggan (FTP) exposed together for coach choice.

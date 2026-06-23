@@ -37,6 +37,16 @@ class VlamaxSprintRequest(BaseModel):
     vo2max_power_w: Optional[float] = Field(default=None, gt=0)
 
 
+class VlamaxPowerSeriesRequest(BaseModel):
+    athlete: AthleteParams
+    power: List[float] = Field(..., min_length=8)
+    dt_s: float = Field(default=1.0, gt=0, le=1.0)
+    vo2max_power_w: Optional[float] = Field(default=None, gt=0)
+    cp_w: Optional[float] = Field(default=None, gt=0)
+    lactate_pre_mmol_l: Optional[float] = Field(default=None, ge=0)
+    lactate_peak_mmol_l: Optional[float] = Field(default=None, ge=0)
+
+
 class KalmanDailyInputModel(BaseModel):
     date: str
     vo2max_stimulus_min: float = 0.0
@@ -118,7 +128,16 @@ class VlapeakValidateRequest(BaseModel):
 
 
 class GlycolyticProfileRequest(MmpAthleteRequest):
-    pass
+    sprint_power: Optional[List[float]] = Field(
+        default=None,
+        min_length=8,
+        description="Optional maximal sprint power trace (Hz) for power-derived VLamax proxy.",
+    )
+    sprint_dt_s: float = Field(default=1.0, gt=0, le=1.0)
+    cp_w: Optional[float] = Field(default=None, gt=0)
+    vo2max_power_w: Optional[float] = Field(default=None, gt=0)
+    lactate_pre_mmol_l: Optional[float] = Field(default=None, ge=0)
+    lactate_peak_mmol_l: Optional[float] = Field(default=None, ge=0)
 
 
 class LabTextParseRequest(BaseModel):

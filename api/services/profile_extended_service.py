@@ -13,6 +13,7 @@ from api.engine_schemas import (
     MmpAthleteRequest,
     MmpQualityRequest,
     SegmentedSnapshotRequest,
+    VlamaxPowerSeriesRequest,
     VlamaxSprintRequest,
 )
 from api.schemas import SnapshotRequest
@@ -26,6 +27,7 @@ from engines.metabolic.glycolytic_validation_engine import build_glycolytic_prof
 from engines.metabolic.metabolic_current import get_current_metabolic_status
 from engines.metabolic.metabolic_kalman import DailyInput, process_workout_history
 from engines.metabolic.metabolic_profiler_phenotype import enhance_metabolic_snapshot_with_phenotype
+from engines.metabolic.power_vlamax_estimator import estimate_vlamax_from_power_series
 from engines.performance.mmp_quality import analyze_mmp_quality, clean_mmp
 
 
@@ -77,6 +79,20 @@ class ProfileExtendedService:
             req.p_mean_sprint,
             sprint_duration_s=req.sprint_duration_s,
             vo2max_power_w=req.vo2max_power_w,
+        )
+
+    def vlamax_from_power_series(self, req: VlamaxPowerSeriesRequest) -> Dict[str, Any]:
+        profiler = profiler_from_athlete(req.athlete)
+        return estimate_vlamax_from_power_series(
+            req.power,
+            dt_s=req.dt_s,
+            weight_kg=req.athlete.weight_kg,
+            eta=profiler.context.expected_eta(),
+            active_muscle_mass_kg=profiler.active_muscle_mass,
+            vo2max_power_w=req.vo2max_power_w,
+            cp_w=req.cp_w,
+            lactate_pre_mmol_l=req.lactate_pre_mmol_l,
+            lactate_peak_mmol_l=req.lactate_peak_mmol_l,
         )
 
     def kalman_trajectory(self, req: KalmanTrajectoryRequest) -> Dict[str, Any]:
@@ -181,6 +197,12 @@ class ProfileExtendedService:
             mmp=mmp_dict(req.mmp),
             endurance_max=end_max,
             allrounder_max=all_max,
+            sprint_power=req.sprint_power,
+            sprint_dt_s=req.sprint_dt_s,
+            cp_w=req.cp_w,
+            vo2max_power_w=req.vo2max_power_w,
+            lactate_pre_mmol_l=req.lactate_pre_mmol_l,
+            lactate_peak_mmol_l=req.lactate_peak_mmol_l,
         )
 
     def w_prime_tau(self, tau_model: str, athlete_profile: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:

@@ -16,6 +16,7 @@ from api.engine_schemas import (
     MmpAthleteRequest,
     MmpQualityRequest,
     SegmentedSnapshotRequest,
+    VlamaxPowerSeriesRequest,
     VlamaxSprintRequest,
     WPrimeTauRequest,
 )
@@ -45,6 +46,19 @@ def snapshot_bayesian(req: BayesianSnapshotRequest, service: ProfileExtendedServ
 @router.post("/vlamax-from-sprint", operation_id="profileVlamaxFromSprint", response_model=EnginePayload, responses={200: JSON_OBJECT})
 def vlamax_from_sprint(req: VlamaxSprintRequest, service: ProfileExtendedService = Depends(get_profile_extended_service)):
     return json_response(service.vlamax_from_sprint(req))
+
+
+@router.post(
+    "/vlamax-from-power-series",
+    operation_id="profileVlamaxFromPowerSeries",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400]},
+)
+def vlamax_from_power_series(
+    req: VlamaxPowerSeriesRequest,
+    service: ProfileExtendedService = Depends(get_profile_extended_service),
+):
+    return json_response(service.vlamax_from_power_series(req))
 
 
 @router.post("/kalman/trajectory", operation_id="profileKalmanTrajectory", response_model=EnginePayload, responses={200: JSON_OBJECT})

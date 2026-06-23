@@ -1,12 +1,13 @@
-# API endpoint index — Digital Twin API 5.2.1
+106
+I endpoint index — Digital Twin API 5.2.2
 
-Canonical inventory of **105 HTTP paths** from `openapi/openapi.json`.
+Canonical inventory of **106 HTTP paths** from `openapi/openapi.json`.
 Regenerate after API changes: `make openapi-frontend`.
 
 | Tag | Paths |
 |-----|------:|
 | ride | 32 |
-| profile | 14 |
+| profile | 15 |
 | workouts | 9 |
 | lab | 7 |
 | explainability | 6 |
@@ -62,7 +63,7 @@ Regenerate after API changes: `make openapi-frontend`.
 | POST | `/ride/summary` | `rideSummary` |
 | POST | `/ride/update-profile` | `rideUpdateProfile` |
 
-### profile (14)
+### profile (15)
 
 | Method | Path | operationId |
 |--------|------|-------------|
@@ -78,6 +79,7 @@ Regenerate after API changes: `make openapi-frontend`.
 | POST | `/profile/snapshot/phenotype` | `profileSnapshotPhenotype` |
 | POST | `/profile/snapshot/segmented` | `profileSnapshotSegmented` |
 | POST | `/profile/training-load/ctl-atl-tsb` | `profileCtlAtlTsb` |
+| POST | `/profile/vlamax-from-power-series` | `profileVlamaxFromPowerSeries` |
 | POST | `/profile/vlamax-from-sprint` | `profileVlamaxFromSprint` |
 | POST | `/profile/w-prime/tau` | `profileWPrimeTau` |
 
@@ -214,4 +216,3 @@ Regenerate after API changes: `make openapi-frontend`.
 | Method | Path | operationId |
 |--------|------|-------------|
 | GET | `/health` | `healthCheck` |
-

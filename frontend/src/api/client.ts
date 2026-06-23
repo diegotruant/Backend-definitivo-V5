@@ -617,6 +617,11 @@ export const api = {
   twinStateValidate: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/twin/state/validate', { method: 'POST', body: JSON.stringify(payload) }),
 
+
+  /** POST /profile/vlamax-from-power-series */
+  profileVlamaxFromPowerSeries: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/vlamax-from-power-series', { method: 'POST', body: JSON.stringify(payload) }),
+
 } as const;
 
 /** OpenAPI operation ids for cross-reference with Swagger UI */

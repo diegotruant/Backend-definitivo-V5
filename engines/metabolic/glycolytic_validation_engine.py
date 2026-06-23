@@ -169,6 +169,12 @@ def build_glycolytic_profile(
     mmp: Optional[Dict[int, float]] = None,
     endurance_max: float = 0.35,
     allrounder_max: float = 0.55,
+    sprint_power: Optional[List[float]] = None,
+    sprint_dt_s: float = 1.0,
+    cp_w: Optional[float] = None,
+    vo2max_power_w: Optional[float] = None,
+    lactate_pre_mmol_l: Optional[float] = None,
+    lactate_peak_mmol_l: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Coach-facing glycolytic contract block for metabolic snapshots."""
     if snapshot.get("status") != "success":
@@ -195,6 +201,52 @@ def build_glycolytic_profile(
             "Use capillary vLaPeak from a structured sprint test as an external validation anchor.",
         ],
     }
+
+    if sprint_power and profiler is not None:
+        from engines.metabolic.power_vlamax_estimator import estimate_vlamax_from_power_series
+
+        map_w = vo2max_power_w or snapshot.get("map_aerobic_watts")
+        power_proxy = estimate_vlamax_from_power_series(
+            sprint_power,
+            dt_s=sprint_dt_s,
+            weight_kg=profiler.weight,
+            eta=profiler.context.expected_eta(),
+            active_muscle_mass_kg=profiler.active_muscle_mass,
+            vo2max_power_w=float(map_w) if map_w else None,
+            cp_w=cp_w,
+            lactate_pre_mmol_l=lactate_pre_mmol_l,
+            lactate_peak_mmol_l=lactate_peak_mmol_l,
+        )
+        if power_proxy.get("status") == "success":
+            profile["power_derived_vlamax"] = {
+                "estimated_vlamax_mmol_l_s": power_proxy["estimated_vlamax_mmol_l_s"],
+                "confidence": power_proxy.get("confidence"),
+                "method": power_proxy.get("method"),
+                "features": power_proxy.get("features"),
+                "quality_flags": power_proxy.get("quality_flags"),
+                "semantics": power_proxy.get("semantics"),
+            }
+            if power_proxy.get("observed_vlapeak_mmol_l_s") is not None:
+                profile["power_derived_vlamax"]["observed_vlapeak_mmol_l_s"] = power_proxy[
+                    "observed_vlapeak_mmol_l_s"
+                ]
+                profile["power_derived_vlamax"]["lactate_calibration"] = power_proxy.get(
+                    "lactate_calibration"
+                )
+            delta = abs(float(power_proxy["estimated_vlamax_mmol_l_s"]) - vla)
+            delta_pct = 100.0 * delta / max(vla, 1e-9)
+            profile["vlamax_derivation"] = {
+                "primary_source": "mader_mmp_fit",
+                "secondary_source": "power_series_proxy",
+                "agreement": {
+                    "power_proxy_mmol_l_s": power_proxy["estimated_vlamax_mmol_l_s"],
+                    "model_vlamax_mmol_l_s": round(vla, 4),
+                    "delta": round(delta, 4),
+                    "delta_pct": round(delta_pct, 1),
+                    "verdict": "coherent" if delta_pct <= 20.0 else "divergent",
+                },
+            }
+
     if prediction.get("predicted_glycogen_cost_g_per_h_at_mlss") is not None:
         profile["predicted_glycogen_cost"] = {
             "at_power_w": snapshot.get("mlss_power_watts"),

@@ -500,6 +500,21 @@ Systematic review on VLamax estimation and interpretation in cycling.
   - `engines/core/science_contracts.py`
   - `engines/performance/test_protocols.py` (Wingate lactate validation)
 
+### Power-series VLamax proxy (Yang 2023; Haase 2025; Meixner 2024; Clark & Macdermid 2025)
+
+Sprint power trace decomposition for glycolytic proxy (cLaMax_P).
+
+- Status: **Emerging** (power-derived proxy; not blood lactate; not Mader fit replacement)
+- Used for:
+  - `t_Ppeak` as alactic window boundary (Yang et al. 2023) instead of fixed -3.5% peak drop.
+  - Relative power / FFM-normalized work features (Haase 2025; Meixner et al. 2024).
+  - Separate `power_derived_vlamax` block vs `estimated_vlamax_mmol_L_s` (Mader parameter).
+  - Optional lactate pre/post calibration → observed vLaPeak over glycolytic window.
+- Main modules:
+  - `engines/metabolic/power_vlamax_estimator.py`
+  - `engines/metabolic/glycolytic_validation_engine.py` (`power_derived_vlamax`, `vlamax_derivation`)
+  - `POST /profile/vlamax-from-power-series`
+
 ### Spragg et al. (2023)
 
 Empirical predictors of durability / critical-power decline (DCP).
