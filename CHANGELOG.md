@@ -1,5 +1,22 @@
 # Changelog
 
+## [5.1.3] — 2026-06-17
+
+Glycolytic validation per Wackerhage et al. (2025): vLaPeak (observed) vs VLamax (modelled).
+
+### Added
+
+- `engines/metabolic/glycolytic_validation_engine.py`: vLaPeak computation, glycolytic flux
+  index, predicted vLaPeak/glycogen cost, Wingate+lactate validation verdict.
+- `glycolytic_profile` block on metabolic snapshots (`/profile/snapshot`).
+- Wingate in-person test accepts `lactate_pre_mmol` / `lactate_post_mmol` (+ optional `mmp`)
+  and returns `glycolytic_validation` with model vs observed comparison.
+
+### Documentation
+
+- `SCIENTIFIC_REFERENCES.md` and `science_contracts` VLamax wording updated for
+  vLamax_muscle vs vLaPeak distinction.
+
 ## [5.1.2] — 2026-06-17
 
 End-to-end API wiring for science-contract parameters introduced in 5.1.x.

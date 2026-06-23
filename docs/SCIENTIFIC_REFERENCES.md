@@ -491,9 +491,14 @@ Systematic review on VLamax estimation and interpretation in cycling.
 - Used for:
   - Coach-facing VLamax semantics: **estimated lactate accumulation rate**, not direct
     glycolytic flux; conservative limitations without automatic cadence correction.
+  - Distinction **vLamax_muscle** (model parameter) vs **vLaPeak** (observed blood
+    Δlactate/duration after brief all-out test).
+  - `glycolytic_validation_engine.py`: Wingate + lactate benchmark vs model prediction.
 - Main modules:
-  - `engines/metabolic/metabolic_profiler.py`
+  - `engines/metabolic/metabolic_profiler.py` (`glycolytic_profile` on snapshots)
+  - `engines/metabolic/glycolytic_validation_engine.py`
   - `engines/core/science_contracts.py`
+  - `engines/performance/test_protocols.py` (Wingate lactate validation)
 
 ### Spragg et al. (2023)
 

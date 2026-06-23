@@ -34,8 +34,9 @@ def vlamax_contract_fields() -> Dict[str, Any]:
         "vlamax_not_direct_glycolytic_rate": True,
         "vlamax_unit": "mmol/L/s",
         "vlamax_interpretation": (
-            "Estimated maximal lactate accumulation rate from the Mader model fit; "
-            "not a direct measurement of glycolytic flux."
+            "Estimated maximal lactate accumulation rate from the Mader model fit "
+            "(vLamax_muscle); not a direct blood measurement. Compare to capillary "
+            "vLaPeak (Wackerhage et al. 2025) only as an external validation benchmark."
         ),
     }
 

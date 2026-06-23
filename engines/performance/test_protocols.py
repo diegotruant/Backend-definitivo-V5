@@ -266,7 +266,10 @@ def run_critical_power_test(envelope: Dict[str, Any]) -> Dict[str, Any]:
 # 5. WINGATE
 # =============================================================================
 
-def run_wingate_test(envelope: Dict[str, Any]) -> Dict[str, Any]:
+def run_wingate_test(
+    envelope: Dict[str, Any],
+    profiler: Optional[Any] = None,
+) -> Dict[str, Any]:
     """
     Wingate test: timed maximal sprint (classic 30s).
 
@@ -313,6 +316,34 @@ def run_wingate_test(envelope: Dict[str, Any]) -> Dict[str, Any]:
         "duration_s": int(td.get("duration_s", p.size)),
         "assumptions": assumptions,
     }
+
+    lactate_pre = td.get("lactate_pre_mmol")
+    lactate_post = td.get("lactate_post_mmol")
+    if lactate_pre is not None and lactate_post is not None:
+        if profiler is None:
+            payload["glycolytic_validation"] = {
+                "status": "error",
+                "reason": "profiler_required",
+                "message": "Wingate lactate validation requires a MetabolicProfiler instance.",
+            }
+        else:
+            from engines.metabolic.glycolytic_validation_engine import validate_wingate_glycolytic
+
+            mmp_raw = envelope.get("mmp") or td.get("mmp")
+            mmp = None
+            if mmp_raw:
+                mmp = {int(k): float(v) for k, v in mmp_raw.items()}
+            payload["glycolytic_validation"] = validate_wingate_glycolytic(
+                lactate_pre_mmol=float(lactate_pre),
+                lactate_post_mmol=float(lactate_post),
+                duration_s=float(td.get("duration_s", p.size)),
+                peak_power_w=peak,
+                mean_power_w=mean,
+                profiler=profiler,
+                mmp=mmp,
+                snapshot=td.get("metabolic_snapshot"),
+            )
+
     return annotate_payload(
         payload,
         module_name="test_protocols",
@@ -345,7 +376,7 @@ def run_test(envelope: Dict[str, Any], profiler=None) -> Dict[str, Any]:
     if test_type == "critical_power":
         return run_critical_power_test(envelope)
     if test_type == "wingate":
-        return run_wingate_test(envelope)
+        return run_wingate_test(envelope, profiler=profiler)
 
     return _err("unknown_test_type",
                 f"Unknown test type: {test_type!r}.",
