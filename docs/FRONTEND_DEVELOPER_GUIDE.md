@@ -1,6 +1,6 @@
 # Frontend Developer Guide — Digital Twin Backend V5.2
 
-Unified document for a **software developer** who needs to build the frontend connected to this backend, **with no background in endurance cycling**. It explains what the backend (v **5.2.1**) produces, how to interpret the metrics, how to draw them, how to design the main pages, and how to use **TwinState** as the central persistence model.
+Unified document for a **software developer** who needs to build the frontend connected to this backend, **with no background in endurance cycling**. It explains what the backend (v **5.2.2**) produces, how to interpret the metrics, how to draw them, how to design the main pages, and how to use **TwinState** as the central persistence model.
 
 **Related documents (read in this order)**
 
@@ -10,7 +10,7 @@ Unified document for a **software developer** who needs to build the frontend co
 | 2 | `docs/FRONTEND_IMPLEMENTATION_BLUEPRINT.md` | Detailed layout per page, design system, DoD |
 | 3 | `docs/API_PAYLOAD_EXAMPLES.md` | curl / TypeScript examples for each endpoint |
 | 3b | `docs/OPENAPI_FRONTEND.md` | OpenAPI, TS codegen, `api.*` client |
-| 3c | `openapi/openapi.json` | HTTP contract committed (**105 endpoints**) |
+| 3c | `openapi/openapi.json` | HTTP contract committed (**106 endpoints**) |
 | 3d | `docs/API_ENDPOINT_INDEX.md` | Full endpoint inventory by tag |
 | 4 | `docs/WORKOUT_SYSTEM_BACKEND_V1.md` | Prescription flow → compliance |
 | 5 | `docs/BACKEND_IMPLEMENTATIONS_V2.md` | TwinState, projection, neuromuscular |
@@ -143,7 +143,7 @@ flowchart TB
   end
 ```
 
-**Principle V5.2:** Use `TwinState` as the **canonical read model** for the Digital Twin page, Command Center, and seasonal projections. The API now exposes **105 paths** — use `docs/API_ENDPOINT_INDEX.md` for the full map; core coach flows remain in §6–7 below.
+**Principle V5.2:** Use `TwinState` as the **canonical read model** for the Digital Twin page, Command Center, and seasonal projections. The API now exposes **106 paths** — use `docs/API_ENDPOINT_INDEX.md` for the full map; core coach flows remain in §6–7 below.
 
 ---
 
@@ -245,13 +245,13 @@ Base URL example: `http://localhost:8000` (`make run` or `uvicorn api_app:app`).
 | POST | `/team/calibration/update` | Adds validated events to the team model |
 | POST | `/team/calibration/apply` | Apply fix to snapshot or single parameter |
 
-### 6.6 Extended engine API (V5.2 — 105 paths total)
+### 6.6 Extended engine API (V5.2 — 106 paths total)
 
 See `docs/API_ENDPOINT_INDEX.md` for every path. Summary by tag:
 
 | Tag | Paths | Coach / UI use |
 |-----|------:|----------------|
-| profile (extended) | +13 beyond `/profile/snapshot` | Kalman, bayesian snapshot, glycolytic profile, MMP quality, detraining |
+| profile (extended) | +14 beyond `/profile/snapshot` | Kalman, bayesian snapshot, glycolytic profile, **power VLamax proxy**, MMP quality, detraining |
 | lab | 7 | Lactate steps, vLaPeak observed vs model, lab text parse |
 | ride/analytics | 24 | W′ balance, durability suite, cardiac, HRV, session routing, **dual zones** |
 | load (extended) | +4 beyond `/load/manual` | ACWR, monotony/strain, adaptive trend |
@@ -275,6 +275,22 @@ Activity endpoints return **both** power zone systems in `sections.zones`:
 UI pattern: toggle or side-by-side bars; read `systems_available` and `coach_note`. Profile snapshot `zones` are **definitions only**; ride summary adds **time-in-zone** for the session.
 
 Payload details: `docs/API_PAYLOAD_EXAMPLES.md`.
+
+### 6.8 Power-derived VLamax (V5.2.2)
+
+Three distinct VLamax-related values — never conflate them in the UI:
+
+| Field | Source | Badge |
+|-------|--------|-------|
+| `estimated_vlamax_mmol_L_s` | Mader/MMP model (snapshot) | Model estimate |
+| `power_derived_vlamax` | Sprint power trace proxy | Power proxy |
+| `observed_vlapeak_mmol_l_s` | Lactate pre/post on sprint | Lab observed |
+
+**Standalone:** `POST /profile/vlamax-from-power-series` — pass `power` (≥8 Hz samples), `dt_s`, optional `cp_w`, `vo2max_power_w`, lactate fields.
+
+**Integrated:** `POST /profile/glycolytic-profile` — add optional `sprint_power`, `sprint_dt_s`, lactate fields; response includes `power_derived_vlamax` and `vlamax_derivation.agreement` when sprint data is supplied.
+
+Client: `api.profileVlamaxFromPowerSeries()`, `api.profileGlycolyticProfile()`.
 
 ---
 
@@ -636,7 +652,7 @@ Reference SQL schema: `docs/workout_db_schema_v1.sql`.
 
 ## 16. Hardening and stress testing — been verified
 
-Run on **Backend V5.2.1** (2026-06-17).
+Run on **Backend V5.2.2** (2026-06-17).
 
 ### 16.1 Commands
 
@@ -749,4 +765,4 @@ from engines.io.chart_builder import chart_power_duration_curve, chart_metabolic
 
 ---
 
-*Unified documentation for Backend-definitivo-V5 **5.2.1** (105 OpenAPI paths). See `docs/API_ENDPOINT_INDEX.md` when adding new routes.*
+*Unified documentation for Backend-definitivo-V5 **5.2.2** (106 OpenAPI paths). See `docs/API_ENDPOINT_INDEX.md` when adding new routes.*

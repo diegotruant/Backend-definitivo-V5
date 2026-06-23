@@ -32,7 +32,7 @@ curl -s http://localhost:8000/openapi.json | head
 |----------|----------|---------|---------|
 | `DIGITAL_TWIN_CORS_ORIGINS` | For browser clients | empty | Comma-separated origins, e.g. `https://app.vercel.app` |
 | `DIGITAL_TWIN_API_TITLE` | No | Digital Twin Fisiologico API | OpenAPI title |
-| `DIGITAL_TWIN_API_VERSION` | No | 5.2.1 | OpenAPI version string |
+| `DIGITAL_TWIN_API_VERSION` | No | 5.2.2 | OpenAPI version string |
 | `MAX_UPLOAD_BYTES` | No | 41943040 (40 MB) | Per-file upload cap |
 | `MAX_UPLOAD_FILES` | No | 25 | Multi-file propose limit |
 | `MAX_POWER_SAMPLES` | No | 200000 | Inline `power_json` cap |

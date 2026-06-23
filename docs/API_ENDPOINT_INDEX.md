@@ -1,5 +1,4 @@
-106
-I endpoint index — Digital Twin API 5.2.2
+# API endpoint index — Digital Twin API 5.2.2
 
 Canonical inventory of **106 HTTP paths** from `openapi/openapi.json`.
 Regenerate after API changes: `make openapi-frontend`.

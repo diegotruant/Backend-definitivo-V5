@@ -6,7 +6,7 @@
 |---------|------------|-----|
 | **Committed spec** | `openapi/openapi.json` | Codegen, PR review, offline |
 | **TypeScript types** | `frontend/src/api/generated/schema.ts` | Autocomplete request/response |
-| **Typed client** | `frontend/src/api/client.ts` | All **105** API paths, ready to use |
+| **Typed client** | `frontend/src/api/client.ts` | All **106** API paths, ready to use |
 | **Swagger UI** | `GET /docs` (server running) | Interactive exploration |
 | **Live OpenAPI** | `GET /openapi.json` | Sync with running server |
 
@@ -52,12 +52,12 @@ try {
 
 ## All endpoints in the client
 
-The typed client (`frontend/src/api/client.ts`) exposes **all 105 OpenAPI paths** — one `jsonFetch` call per route.
+The typed client (`frontend/src/api/client.ts`) exposes **all 106 OpenAPI paths** — one `jsonFetch` call per route.
 
 | Tag | Paths | Highlights |
 |-----|------:|------------|
 | ride | 32 | `rideSummary`, `rideAnalyticsZones`, `rideAnalyticsWPrimeBalance`, … |
-| profile | 14 | `profileSnapshot`, `profileKalmanTrajectory`, `profileGlycolyticProfile`, … |
+| profile | 15 | `profileSnapshot`, `profileVlamaxFromPowerSeries`, `profileGlycolyticProfile`, … |
 | workouts | 9 | `validateWorkout`, `prescribeWorkout`, `compareWorkout`, … |
 | lab | 7 | lactate + vLaPeak validation |
 | explainability | 6 | confidence scores + coach narratives |

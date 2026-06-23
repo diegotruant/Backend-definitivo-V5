@@ -17,6 +17,13 @@ Power-series VLamax proxy (cLaMax_P) for metabolic profile.
 - `estimated_vlamax_mmol_L_s` (Mader/MMP) remains the primary model parameter.
 - `power_derived_vlamax` is an explicit power proxy, distinct from blood vLaPeak.
 
+### Documentation
+
+- All docs aligned to **5.2.2** / **106 OpenAPI paths**
+- New `docs/RELEASE_NOTES_v5.2.2.md`
+- `docs/FRONTEND_DEVELOPER_GUIDE.md` §6.8 power-derived VLamax
+- `docs/API_PAYLOAD_EXAMPLES.md` — `/profile/vlamax-from-power-series` examples
+
 ## [5.2.1] — 2026-06-17
 
 Dual zone systems: metabolic (MLSS) and Coggan (FTP) exposed together for coach choice.

@@ -1,6 +1,6 @@
-# Backend Completeness Report — V5.2
+# Backend Completeness Report — V5.2.2
 
-**OpenAPI:** 105 paths (see `docs/API_ENDPOINT_INDEX.md`). **Version:** 5.2.1.
+**OpenAPI:** 106 paths (see `docs/API_ENDPOINT_INDEX.md`). **Version:** 5.2.2.
 
 ## General status
 
@@ -24,6 +24,7 @@ This delivery does not include a database, authentication, or a job queue: those
 | Anchor profile flow | Ready | proposal → coach confirmation → anchor |
 | Kalman / Bayesian / lab / explainability / race APIs | Ready (HTTP) | V5.2.0 engine coverage |
 | Dual metabolic + Coggan zones on rides | Ready | V5.2.1 — coach chooses system |
+| Power-series VLamax proxy | Ready | V5.2.2 — `/profile/vlamax-from-power-series` |
 | Team Learning Engine | Added | residual learning team/athlete/phenotype |
 | Frontend MVP | Present but not final | needs rebuild according to the blueprint |
 

@@ -1,11 +1,11 @@
 # OpenAPI contract — Digital Twin API
 
-**Version:** 5.2.1  
-**Paths:** 105
+**Version:** 5.2.2  
+**Paths:** 106
 
 | File | Description |
 |------|-------------|
-| `openapi.json` | Full OpenAPI 3.1 document (105 HTTP paths) |
+| `openapi.json` | Full OpenAPI 3.1 document (106 HTTP paths) |
 | `../docs/API_ENDPOINT_INDEX.md` | Human-readable index by tag |
 | `../docs/OPENAPI_FRONTEND.md` | Frontend integration guide |
 

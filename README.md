@@ -20,7 +20,7 @@ Current version: **5.2.2** — power-series VLamax proxy + dual metabolic/Coggan
 | Tag | Paths | Examples |
 |-----|------:|----------|
 | ride | 32 | `/ride/summary`, `/ride/analytics/*`, `/ride/durability` |
-| profile | 14 | `/profile/snapshot`, `/profile/kalman/trajectory`, `/profile/glycolytic-profile` |
+| profile | 15 | `/profile/snapshot`, `/profile/vlamax-from-power-series`, `/profile/glycolytic-profile` |
 | workouts | 9 | `/workouts/prescribe`, `/workouts/compare` |
 | lab | 7 | `/lab/lactate/validate-model`, `/lab/vlapeak/observed` |
 | explainability | 6 | `/explainability/vo2max-confidence` |
@@ -64,7 +64,7 @@ Flow: **router → service → engines**. Details in `docs/ARCHITECTURE.md`.
 - **`metabolic_power`** — 5 zones anchored on MLSS/MAP from the metabolic snapshot
 - **`coggan_power`** — 7 zones anchored on FTP (industry standard)
 
-Use `sections.zones.systems_available` and `coach_note` in the UI. See `docs/RELEASE_NOTES_v5.2.1.md`.
+Use `sections.zones.systems_available` and `coach_note` in the UI. See `docs/RELEASE_NOTES_v5.2.1.md` and `docs/RELEASE_NOTES_v5.2.2.md`.
 
 ## Local setup
 
@@ -120,7 +120,7 @@ make lint | format | typecheck
 │   ├── workouts/             # prescription, compliance, calendar
 │   ├── projection/           # season what-if
 │   └── integrations/         # external activity normalize/dedupe
-├── openapi/openapi.json      # committed OpenAPI 3.1 (105 paths)
+├── openapi/openapi.json      # committed OpenAPI 3.1 (106 paths)
 ├── frontend/                 # Vite/React + api/client.ts
 ├── tests/
 ├── docs/                     # architecture, frontend guide, API index
@@ -132,7 +132,8 @@ make lint | format | typecheck
 
 | Document | Content |
 |----------|---------|
-| [`docs/API_ENDPOINT_INDEX.md`](docs/API_ENDPOINT_INDEX.md) | **All 105 endpoints** by tag |
+| [`docs/API_ENDPOINT_INDEX.md`](docs/API_ENDPOINT_INDEX.md) | **All 106 endpoints** by tag |
+| [`docs/RELEASE_NOTES_v5.2.2.md`](docs/RELEASE_NOTES_v5.2.2.md) | V5.2.2 — power-series VLamax proxy |
 | [`docs/RELEASE_NOTES_v5.2.1.md`](docs/RELEASE_NOTES_v5.2.1.md) | V5.2.0 + V5.2.1 release notes |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Layering router/service/engines |
 | [`docs/FRONTEND_DEVELOPER_GUIDE.md`](docs/FRONTEND_DEVELOPER_GUIDE.md) | Frontend integration, TwinState, zones |
@@ -163,8 +164,9 @@ Bug fixes and API additions require tests + `make check`. After router/schema ch
 
 ## What V5.2 includes
 
-- **105 OpenAPI endpoints** — full engine coverage over HTTP
+- **106 OpenAPI endpoints** — full engine coverage over HTTP
 - Metabolic snapshot, Kalman, bayesian profile, glycolytic/vLaPeak validation
+- Power-series VLamax proxy (`/profile/vlamax-from-power-series`)
 - Ride analytics (W′, durability, cardiac, HRV, session routing, …)
 - Lab parse/validate, explainability narratives, GPX race simulation
 - Dual **metabolic + Coggan** zone systems on activity reports
@@ -175,5 +177,5 @@ Bug fixes and API additions require tests + `make check`. After router/schema ch
 
 ## Branch
 
-- `main` — current backend (5.2.1)
+- `main` — current backend (5.2.2)
 - `old/main` — pre-architectural-refactor snapshot

@@ -8,11 +8,12 @@ The product must not look like a clone of a social activity platform, consumer p
 
 ## What is already ready in the backend
 
-- Stateless FastAPI API — **105 OpenAPI paths** (`docs/API_ENDPOINT_INDEX.md`).
+- Stateless FastAPI API — **106 OpenAPI paths** (`docs/API_ENDPOINT_INDEX.md`).
 - FIT parsing and activity ingestion.
 - Metabolic profile from MMP (snapshot + extended profile/lab/kalman HTTP APIs).
 - Dual zone systems on activities: **metabolic MLSS** + **Coggan FTP** (coach choice).
 - Workout summary, mechanistic durability, HRV / cardiac / thermal when data present.
+- Power-series VLamax proxy from sprint power traces (`/profile/vlamax-from-power-series`).
 - In-person tests, lactate/Mader validation, glycolytic vLaPeak validation.
 - Team Learning Engine, TwinState, season projection, explainability narratives.
 
@@ -20,9 +21,9 @@ The product must not look like a clone of a social activity platform, consumer p
 
 | File | Purpose |
 |---|---|
-| `openapi/openapi.json` | Committed HTTP contract (105 paths) |
+| `openapi/openapi.json` | Committed HTTP contract (106 paths) |
 | `docs/API_ENDPOINT_INDEX.md` | Endpoint inventory by tag |
-| `docs/FRONTEND_DEVELOPER_GUIDE.md` | Extended technical guide (v5.2.1) |
+| `docs/FRONTEND_DEVELOPER_GUIDE.md` | Extended technical guide (v5.2.2) |
 | `frontend/src/api/client.ts` | Typed client for all endpoints |
 | `docs/FRONTEND_IMPLEMENTATION_BLUEPRINT.md` | Main frontend specification |
 | `docs/API_PAYLOAD_EXAMPLES.md` | Payload/response examples |

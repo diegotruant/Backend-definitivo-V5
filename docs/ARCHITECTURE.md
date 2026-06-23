@@ -74,7 +74,7 @@ FastAPI exposes the contract at:
 
 Committed artifacts:
 
-- `openapi/openapi.json` — canonical spec (**105 paths**, v5.2.1)
+- `openapi/openapi.json` — canonical spec (**106 paths**, v5.2.2)
 - `frontend/src/api/generated/schema.ts` — TypeScript types (`make openapi-frontend`)
 - `frontend/src/api/client.ts` — typed client for all endpoints
 
