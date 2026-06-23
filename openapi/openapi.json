@@ -3,7 +3,7 @@
   "info": {
     "title": "Digital Twin Fisiologico API",
     "description": "Stateless physiology analytics API. HTTP routers are thin; application services orchestrate engines under `engines/`.",
-    "version": "5.2.0",
+    "version": "5.2.1",
     "x-codegen": {
       "typescript_output": "frontend/src/api/generated/schema.ts",
       "regenerate": "make openapi-frontend",
@@ -8763,6 +8763,18 @@
             "type": "string",
             "title": "Discipline",
             "default": "ENDURANCE"
+          },
+          "metabolic_snapshot_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot Json",
+            "description": "Successful /profile/snapshot JSON — enables MLSS-based metabolic zones alongside Coggan."
           },
           "file": {
             "anyOf": [

@@ -8,9 +8,10 @@ provide an existing metabolic snapshot or HRV timeline, and get back a
 complete summary covering:
 
   - Power metrics (FTP/NP/IF/TSS/VI/MMP, sprints, CP+W')
+  - Metabolic MLSS power zones (time-in-zone, 5 buckets from snapshot)
   - Coggan power zones (time-in-zone, 7 buckets)
   - Friel HR zones (time-in-zone, 7 buckets)
-  - Seiler 3-zone polarization (with classification)
+  - Seiler 3-zone polarization (VT1/VT2 default from MLSS when snapshot present)
   - Coggan rider phenotype classification
   - DFA-α₁ analysis (if RR data present)
   - Cardiac response analysis (drift, decoupling, recovery, kinetics, ...)
@@ -206,11 +207,12 @@ def build_workout_summary(
         )
 
     # =========================================================================
-    # 2. ZONES (Coggan power + Friel HR + Seiler polarization)
+    # 2. ZONES (metabolic MLSS + Coggan power + Friel HR + Seiler polarization)
     # =========================================================================
     zones_engine = ZonesEngine(ftp=ftp_used, lthr=lthr)
     out["sections"]["zones"] = zones_engine.analyze(
         stream,
+        metabolic_snapshot=metabolic_snapshot if metabolic_snapshot and metabolic_snapshot.get("status") == "success" else None,
         vt1_w=vt1_w, vt2_w=vt2_w,
         vt1_bpm=vt1_bpm, vt2_bpm=vt2_bpm,
     )

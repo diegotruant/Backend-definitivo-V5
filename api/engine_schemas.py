@@ -191,6 +191,7 @@ class ZonesAnalyzeRequest(BaseModel):
     vt2_w: Optional[float] = None
     vt1_bpm: Optional[float] = None
     vt2_bpm: Optional[float] = None
+    metabolic_snapshot: Optional[Dict[str, Any]] = None
 
 
 class EffortsAnalyzeRequest(BaseModel):

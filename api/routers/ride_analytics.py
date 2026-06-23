@@ -46,6 +46,10 @@ async def zones(
     gender: str = Form("MALE"),
     training_years: float = Form(10),
     discipline: str = Form("ENDURANCE"),
+    metabolic_snapshot_json: Optional[str] = Form(
+        None,
+        description="Successful /profile/snapshot JSON — enables MLSS-based metabolic zones alongside Coggan.",
+    ),
     file: Optional[UploadFile] = File(None),
     power_json: Optional[str] = Form(None),
     hr_json: Optional[str] = Form(None),
@@ -60,6 +64,7 @@ async def zones(
         vt2_w=vt2_w,
         vt1_bpm=vt1_bpm,
         vt2_bpm=vt2_bpm,
+        metabolic_snapshot=parse_metabolic_snapshot(metabolic_snapshot_json),
     )
     return json_response(service.zones(stream, req))
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.2.1] — 2026-06-17
+
+Dual zone systems: metabolic (MLSS) and Coggan (FTP) exposed together for coach choice.
+
+### Changed
+
+- `zones_engine` v1.1.0: `metabolic_power` time-in-zone from metabolic snapshot
+  (MLSS/MAP 5-zone model) alongside existing `coggan_power`, Friel HR and Seiler.
+- Seiler VT1/VT2 default from MLSS when a metabolic snapshot is supplied.
+- `build_workout_summary()` passes auto-generated or supplied snapshot into zones.
+- `/ride/analytics/zones` accepts optional `metabolic_snapshot_json`.
+
 ## [5.2.0] — 2026-06-17
 
 Full HTTP coverage for engine-only capabilities (profile, lab, ride analytics, load,

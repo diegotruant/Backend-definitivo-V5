@@ -1,19 +1,20 @@
 """
-Zones Engine — Coggan power zones + Friel HR zones + Seiler polarization
-Version: 1.0.0
+Zones Engine — Metabolic MLSS zones + Coggan power zones + Friel HR + Seiler polarization
+Version: 1.1.0
 
-Computes time-in-zone for an activity using three orthogonal zone systems:
+Computes time-in-zone for an activity using four orthogonal zone systems:
 
-  1. Coggan 7-zone power    — anchored at FTP. Industry standard for
-                              power-based prescription.
-  2. Friel 5-zone HR        — anchored at LTHR (lactate-threshold HR).
-                              Used by athletes without power meters.
-  3. Seiler 3-zone           — Z1 (below VT1) / Z2 (VT1–VT2) / Z3 (above VT2).
-                              The polarization model. Used to classify the
-                              session intensity distribution.
+  1. Metabolic 5-zone power   — anchored at MLSS and MAP from the metabolic
+                                 snapshot (Mader / INSCYD-style profile).
+  2. Coggan 7-zone power        — anchored at FTP. Industry standard for
+                                 power-based prescription.
+  3. Friel 5-zone HR            — anchored at LTHR (lactate-threshold HR).
+  4. Seiler 3-zone              — Z1 (below VT1) / Z2 (VT1–VT2) / Z3 (above VT2).
+                                 VT1/VT2 default from MLSS when a metabolic
+                                 snapshot is supplied.
 
-Each system returns time-in-zone (seconds + percent), and the Seiler one
-also classifies the session as polarized / pyramidal / threshold / mixed.
+Each system returns time-in-zone (seconds + percent). Coaches receive both
+metabolic and Coggan breakdowns and choose the model per athlete context.
 
 References:
   - Coggan & Allen 2010, "Training and Racing with a Power Meter"
@@ -119,6 +120,102 @@ def _time_in_bins(
         })
 
     return out
+
+
+def _time_in_absolute_watt_bins(
+    values: np.ndarray,
+    zone_defs: List[Dict[str, Any]],
+    sample_dt_s: float = 1.0,
+    valid_mask: Optional[np.ndarray] = None,
+) -> List[Dict[str, Any]]:
+    """Time-in-zone for absolute-watt metabolic zone definitions from snapshot."""
+    if values.size == 0 or not zone_defs:
+        return []
+
+    if valid_mask is None:
+        valid_mask = values > 0
+    else:
+        valid_mask = valid_mask & (values > 0)
+
+    total_valid_s = float(valid_mask.sum() * sample_dt_s)
+    out: List[Dict[str, Any]] = []
+
+    for idx, zdef in enumerate(zone_defs):
+        lo = float(zdef.get("minWatt", zdef.get("min_watt", 0)))
+        hi_raw = zdef.get("maxWatt", zdef.get("max_watt"))
+        is_last = idx == len(zone_defs) - 1
+        hi = float(hi_raw) if hi_raw is not None else float("inf")
+        name = str(zdef.get("name", zdef.get("label", f"Z{idx + 1}")))
+        code = name.split(" - ")[0].strip() if " - " in name else f"Z{idx + 1}"
+
+        if is_last:
+            in_zone = valid_mask & (values >= lo)
+        else:
+            in_zone = valid_mask & (values >= lo) & (values <= hi)
+
+        time_s = float(in_zone.sum() * sample_dt_s)
+        pct = (time_s / total_valid_s * 100.0) if total_valid_s > 0 else 0.0
+        out.append({
+            "zone": code,
+            "label": name,
+            "min_watt": round(lo, 1),
+            "max_watt": round(hi, 1) if hi != float("inf") else None,
+            "time_s": int(time_s),
+            "time_pct": round(pct, 1),
+        })
+
+    return out
+
+
+def metabolic_threshold_anchors(mlss_w: float) -> Dict[str, float]:
+    """
+    Derive Seiler VT1/VT2 power anchors from MLSS.
+
+    VT1 ≈ top of Z2 (75% MLSS); VT2 ≈ MLSS (onset of threshold band).
+    """
+    return {
+        "vt1_w": round(mlss_w * 0.75, 1),
+        "vt2_w": round(mlss_w, 1),
+    }
+
+
+def metabolic_power_zones(stream, metabolic_snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    """Time-in-zone using MLSS/MAP metabolic zone definitions from a snapshot."""
+    if metabolic_snapshot.get("status") != "success":
+        return {"available": False, "reason": "SNAPSHOT_NOT_SUCCESS"}
+
+    expressiveness = metabolic_snapshot.get("expressiveness") or {}
+    if expressiveness.get("mlss_reliable") is False:
+        return {"available": False, "reason": "MLSS_NOT_RELIABLE"}
+
+    zone_defs = metabolic_snapshot.get("zones")
+    mlss = metabolic_snapshot.get("mlss_power_watts")
+    map_w = metabolic_snapshot.get("map_aerobic_watts")
+
+    if not zone_defs or mlss is None:
+        return {"available": False, "reason": "METABOLIC_ZONES_NOT_IN_SNAPSHOT"}
+
+    arrs = _stream_arrays(stream)
+    p = arrs["power"]
+    t = arrs["t"]
+    if p.size == 0 or not (p > 0).any():
+        return {"available": False, "reason": "NO_POWER_DATA"}
+
+    dt = safe_dt(t)
+    valid_mask = p > 0
+    zones = _time_in_absolute_watt_bins(p, zone_defs, sample_dt_s=dt, valid_mask=valid_mask)
+
+    return {
+        "available": True,
+        "model": "Metabolic MLSS 5-zone",
+        "anchor_mlss_w": round(float(mlss), 1),
+        "anchor_map_w": round(float(map_w), 1) if map_w is not None else None,
+        "zone_definitions": zone_defs,
+        "total_moving_time_s": int(valid_mask.sum() * dt),
+        "zones": zones,
+        "reference": "MetabolicProfiler (MLSS/MAP profile)",
+        "tier": "MODEL",
+    }
 
 
 # =============================================================================
@@ -349,6 +446,7 @@ class ZonesEngine:
     def analyze(
         self,
         stream,
+        metabolic_snapshot: Optional[Dict[str, Any]] = None,
         vt1_w: Optional[float] = None,
         vt2_w: Optional[float] = None,
         vt1_bpm: Optional[float] = None,
@@ -356,8 +454,23 @@ class ZonesEngine:
     ) -> Dict[str, Any]:
         out: Dict[str, Any] = {
             "status": "success",
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
+            "coach_note": (
+                "Both metabolic (MLSS-based) and Coggan (FTP-based) systems are returned; "
+                "the coach chooses which to prescribe."
+            ),
         }
+
+        meta_vt1, meta_vt2 = vt1_w, vt2_w
+        if metabolic_snapshot and metabolic_snapshot.get("status") == "success":
+            mlss = metabolic_snapshot.get("mlss_power_watts")
+            if mlss and meta_vt1 is None:
+                meta_vt1 = metabolic_threshold_anchors(float(mlss))["vt1_w"]
+            if mlss and meta_vt2 is None:
+                meta_vt2 = metabolic_threshold_anchors(float(mlss))["vt2_w"]
+            out["metabolic_power"] = metabolic_power_zones(stream, metabolic_snapshot)
+        else:
+            out["metabolic_power"] = {"available": False, "reason": "METABOLIC_SNAPSHOT_NOT_PROVIDED"}
 
         if self.ftp is not None and self.ftp > 0:
             out["coggan_power"] = coggan_power_zones(stream, self.ftp)
@@ -371,8 +484,15 @@ class ZonesEngine:
 
         out["seiler_polarization"] = seiler_polarization(
             stream,
-            vt1_w=vt1_w, vt2_w=vt2_w,
+            vt1_w=meta_vt1, vt2_w=meta_vt2,
             vt1_bpm=vt1_bpm, vt2_bpm=vt2_bpm,
         )
+
+        out["systems_available"] = {
+            "metabolic_power": bool(out["metabolic_power"].get("available")),
+            "coggan_power": bool(out["coggan_power"].get("available")),
+            "friel_hr": bool(out["friel_hr"].get("available")),
+            "seiler_polarization": bool(out["seiler_polarization"].get("available")),
+        }
 
         return out

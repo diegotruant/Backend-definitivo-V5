@@ -44,6 +44,7 @@ class RideAnalyticsService:
         engine = ZonesEngine(ftp=req.ftp, lthr=req.lthr)
         return engine.analyze(
             stream,
+            metabolic_snapshot=req.metabolic_snapshot,
             vt1_w=req.vt1_w,
             vt2_w=req.vt2_w,
             vt1_bpm=req.vt1_bpm,
