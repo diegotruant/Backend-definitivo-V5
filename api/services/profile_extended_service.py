@@ -148,7 +148,14 @@ class ProfileExtendedService:
         )
 
     def ctl_atl_tsb(self, tss_history: List[Dict[str, Any]]) -> Dict[str, Any]:
-        return calculate_ctl_atl_tsb(tss_history)
+        normalized: List[Dict[str, Any]] = []
+        for row in tss_history:
+            entry = dict(row)
+            raw_date = entry.get("date")
+            if isinstance(raw_date, str):
+                entry["date"] = date.fromisoformat(raw_date.split("T")[0])
+            normalized.append(entry)
+        return calculate_ctl_atl_tsb(normalized, date.today())
 
     def cross_validate(self, req: CrossValidateRequest) -> Dict[str, Any]:
         profiler = profiler_from_athlete(req.athlete)
@@ -161,7 +168,16 @@ class ProfileExtendedService:
         )
         if snap.get("status") != "success":
             return {"status": "error", "snapshot": snap}
-        cv = cross_validate_metabolic_profile(snap, mmp_dict(req.mmp))
+        vo2max = snap.get("estimated_vo2max")
+        vlamax = snap.get("estimated_vlamax_mmol_L_s")
+        if vo2max is None or vlamax is None:
+            return {"status": "partial", "snapshot": snap, "reason": "MISSING_FITTED_PARAMETERS"}
+        cv = cross_validate_metabolic_profile(
+            profiler,
+            mmp_dict(req.mmp),
+            float(vo2max),
+            float(vlamax),
+        )
         return {"status": "success", "snapshot": snap, "cross_validation": cv.to_dict()}
 
     def mmp_quality(self, req: MmpQualityRequest) -> Dict[str, Any]:

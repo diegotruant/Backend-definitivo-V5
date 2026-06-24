@@ -216,6 +216,7 @@ class ZonesAnalyzeRequest(BaseModel):
 class EffortsAnalyzeRequest(BaseModel):
     athlete: AthleteParams
     metabolic_snapshot: Optional[Dict[str, Any]] = None
+    ftp: Optional[float] = None
     cp_w: Optional[float] = None
     w_prime_j: Optional[float] = None
 

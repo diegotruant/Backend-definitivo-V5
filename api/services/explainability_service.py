@@ -21,11 +21,18 @@ from engines.recovery.explainability_engine import (
 )
 
 
-def _confidence_from_dict(raw: Dict[str, Any]) -> ConfidenceScore:
+def _confidence_from_dict(
+    raw: Dict[str, Any],
+    *,
+    metric_name: str,
+    value: float,
+) -> ConfidenceScore:
     level = raw.get("confidence_level", "MODERATE")
     if isinstance(level, str):
         level = ConfidenceLevel[level] if level in ConfidenceLevel.__members__ else ConfidenceLevel.MODERATE
     return ConfidenceScore(
+        metric_name=metric_name,
+        value=value,
         confidence_level=level,
         confidence_pct=float(raw.get("confidence_pct", 50)),
         factors=list(raw.get("factors") or []),
@@ -57,13 +64,30 @@ class ExplainabilityService:
         text = generate_metric_narrative(
             req.metric_name,
             req.value,
-            _confidence_from_dict(req.confidence),
+            _confidence_from_dict(
+                req.confidence,
+                metric_name=req.metric_name,
+                value=req.value,
+            ),
             req.context,
         )
         return {"narrative": text}
 
     def durability_narrative(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        return {"narrative": generate_durability_narrative(payload)}
+        confidence_raw = payload.get("confidence") or {}
+        confidence = _confidence_from_dict(
+            confidence_raw,
+            metric_name="durability",
+            value=float(payload.get("durability_index", 0)),
+        )
+        return {
+            "narrative": generate_durability_narrative(
+                float(payload.get("durability_index", 0)),
+                str(payload.get("classification") or "GOOD"),
+                confidence,
+                payload.get("prescription") or {},
+            )
+        }
 
     def acwr_narrative(self, req: ExplainabilityAcwrNarrativeRequest) -> Dict[str, Any]:
         return {

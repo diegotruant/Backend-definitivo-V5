@@ -25,8 +25,15 @@ class MetaService:
         from engines.io import chart_builder
 
         payload = dict(req.payload)
-        if req.chart_type in {"mmp", "power_duration"} and "mmp" in payload:
-            payload["mmp"] = {int(k): float(v) for k, v in payload["mmp"].items()}
+        if req.chart_type in {"mmp", "power_duration"}:
+            if "mmp" in payload:
+                payload["mmp"] = {int(k): float(v) for k, v in payload["mmp"].items()}
+            else:
+                return {
+                    "status": "partial",
+                    "reason": "MISSING_MMP",
+                    "available": ["mmp", "zones", "hrv", "training_load", "detraining", "power_duration"],
+                }
 
         builders = {
             "mmp": chart_builder.chart_power_duration_curve,

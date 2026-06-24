@@ -25,6 +25,7 @@ pip-wheel-metadata/
 # Coverage and test artifacts
 .coverage
 .coverage.*
+coverage.json
 htmlcov/
 .tox/
 .nox/

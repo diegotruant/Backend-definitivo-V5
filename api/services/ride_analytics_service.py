@@ -79,7 +79,7 @@ class RideAnalyticsService:
 
     def critical_power_fit(self, mmp_curve: List[Dict[str, Any]]) -> Dict[str, Any]:
         result = fit_critical_power(mmp_curve)
-        return result if result else {"status": "error", "reason": "FIT_FAILED"}
+        return result if result else {"status": "partial", "reason": "FIT_FAILED"}
 
     def w_prime_balance(self, req: WPrimeBalanceRequest) -> Dict[str, Any]:
         balance = calculate_w_prime_balance(
@@ -98,16 +98,25 @@ class RideAnalyticsService:
         return calculate_durability_index(req.power, duration_seconds=len(req.power))
 
     def np_drift(self, power: List[float]) -> Dict[str, Any]:
-        return calculate_np_drift(power)
+        return calculate_np_drift(power, len(power))
 
     def tte_sustainability(self, power: List[float], *, cp: float) -> Dict[str, Any]:
-        return calculate_tte_sustainability(power, cp_w=cp)
+        return calculate_tte_sustainability(power, cp)
 
-    def hourly_decay_curve(self, power: List[float], *, ftp: float) -> Dict[str, Any]:
-        return generate_hourly_decay_curve(power, ftp=ftp)
+    def hourly_decay_curve(self, power: List[float], *, ftp: Optional[float] = None) -> Dict[str, Any]:
+        del ftp  # API accepts FTP for future chart overlays; decay uses stream length.
+        return generate_hourly_decay_curve(power, len(power))
 
     def durability_prescription(self, durability_index: float) -> Dict[str, Any]:
-        return generate_durability_prescription(durability_index)
+        if durability_index >= 97:
+            classification = "EXCELLENT"
+        elif durability_index >= 93:
+            classification = "GOOD"
+        elif durability_index >= 88:
+            classification = "FAIR"
+        else:
+            classification = "POOR"
+        return generate_durability_prescription(durability_index, classification)
 
     def cardiac(
         self,
@@ -151,7 +160,7 @@ class RideAnalyticsService:
 
     def thermal_session(self, stream: Any, *, ftp: Optional[float]) -> Dict[str, Any]:
         n = int(getattr(stream, "n_samples", 0))
-        return analyze_thermal_session(
+        report = analyze_thermal_session(
             core_temp_stream=[float(v or 0) for v in getattr(stream, "core_body_temp", [])[:n]],
             power_stream=power_list(stream),
             hr_stream=[float(h or 0) for h in stream.heart_rate[:n]],
@@ -159,15 +168,44 @@ class RideAnalyticsService:
             ambient_temp_stream=[float(v or 0) for v in getattr(stream, "ambient_temp", [])[:n]],
             ftp=ftp,
         )
+        return report.to_dict() if hasattr(report, "to_dict") else dict(report)
 
     def thermal_acclimation(self, sessions: List[Dict[str, Any]]) -> Dict[str, Any]:
-        return analyze_heat_acclimation(sessions)
+        from engines.recovery.thermal_engine import HeatAcclimationTrend, ThermalSessionReport
+
+        reports: List[ThermalSessionReport] = []
+        for session in sessions:
+            if isinstance(session, ThermalSessionReport):
+                reports.append(session)
+            elif isinstance(session, dict):
+                reports.append(
+                    ThermalSessionReport(
+                        data_quality=str(session.get("data_quality") or "partial"),
+                        n_valid_samples=int(session.get("n_valid_samples") or 0),
+                        n_total_samples=int(session.get("n_total_samples") or 0),
+                        thermal_rise_rate=session.get("thermal_rise_rate"),
+                        heat_tolerance_threshold=session.get("heat_tolerance_threshold"),
+                    )
+                )
+        trend = analyze_heat_acclimation(reports)
+        return trend.to_dict() if isinstance(trend, HeatAcclimationTrend) else dict(trend)
 
     def pedaling_balance(self, stream: Any) -> Dict[str, Any]:
-        return analyze_pedaling_balance(stream)
+        n = int(getattr(stream, "n_samples", 0))
+        balance = [
+            float(v) if v is not None and v == v else None
+            for v in getattr(stream, "left_right_balance", [])[:n]
+        ]
+        report = analyze_pedaling_balance(
+            balance,
+            power_list(stream),
+            pedaling_balance_source=getattr(stream, "pedaling_balance_source", "unknown"),
+        )
+        return report.to_dict() if hasattr(report, "to_dict") else dict(report)
 
     def efforts(self, stream: Any, req: EffortsAnalyzeRequest) -> Dict[str, Any]:
-        power = self.power_analyze(stream, weight_kg=req.athlete.weight_kg, ftp=None)
+        ftp = req.ftp or req.cp_w
+        power = self.power_analyze(stream, weight_kg=req.athlete.weight_kg, ftp=ftp)
         if power.get("status") != "success":
             return power
         mmp = power.get("mmp_curve") or []
@@ -181,10 +219,19 @@ class RideAnalyticsService:
         )
 
     def classify_session_ride(self, stream: Any, req: SessionClassifyRequest) -> Dict[str, Any]:
-        return classify_session(stream, ftp=req.ftp, weight_kg=req.athlete.weight_kg)
+        result = classify_session(
+            power_list(stream),
+            filename=getattr(stream, "device_name", None),
+            laps=list(getattr(stream, "laps", []) or []),
+            ftp=req.ftp,
+        )
+        return result.to_dict() if hasattr(result, "to_dict") else dict(result)
 
     def protocol_completeness(self, stream: Any) -> Dict[str, Any]:
-        return protocol_completeness(stream)
+        n = len(power_list(stream))
+        available = [d for d in (5, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600) if n >= d]
+        report = protocol_completeness(available_durations_s=available or [60])
+        return report.to_dict() if hasattr(report, "to_dict") else dict(report)
 
     def session_route_decide(self, stream: Any, *, ftp: Optional[float]) -> Dict[str, Any]:
         power = power_list(stream)
@@ -231,7 +278,19 @@ class RideAnalyticsService:
         return build_physiological_resilience(mader_durability=mader_durability)
 
     def metabolic_flexibility(self, snapshot: Dict[str, Any]) -> Dict[str, Any]:
-        return calculate_metabolic_flexibility_index(snapshot)
+        fatmax = (
+            snapshot.get("fatmax_power_watts")
+            or snapshot.get("fatmax_watts")
+            or snapshot.get("current_fatmax_watts")
+        )
+        vt2 = (
+            snapshot.get("mlss_power_watts")
+            or snapshot.get("vt2_watts")
+            or snapshot.get("threshold_power_w")
+        )
+        if fatmax is None or vt2 is None:
+            return {"status": "partial", "reason": "MISSING_FATMAX_OR_VT2"}
+        return calculate_metabolic_flexibility_index(float(fatmax), float(vt2))
 
     def climb_segments(self, stream: Any) -> Dict[str, Any]:
         return detect_climb_segments(stream)

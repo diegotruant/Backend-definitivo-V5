@@ -8160,6 +8160,17 @@
             "title": "Discipline",
             "default": "ENDURANCE"
           },
+          "ftp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp"
+          },
           "cp_w": {
             "anyOf": [
               {

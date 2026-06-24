@@ -196,6 +196,7 @@ async def efforts(
     gender: str = Form("MALE"),
     training_years: float = Form(10),
     discipline: str = Form("ENDURANCE"),
+    ftp: Optional[float] = Form(None),
     cp_w: Optional[float] = Form(None),
     w_prime_j: Optional[float] = Form(None),
     metabolic_snapshot_json: Optional[str] = Form(None),
@@ -208,6 +209,7 @@ async def efforts(
     req = EffortsAnalyzeRequest(
         athlete=AthleteParams(weight_kg=weight_kg, gender=gender, training_years=training_years, discipline=discipline),
         metabolic_snapshot=parse_metabolic_snapshot(metabolic_snapshot_json),
+        ftp=ftp,
         cp_w=cp_w,
         w_prime_j=w_prime_j,
     )

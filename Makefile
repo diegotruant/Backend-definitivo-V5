@@ -3,7 +3,7 @@ UVICORN_HOST ?= 127.0.0.1
 UVICORN_PORT ?= 8000
 UVICORN_RELOAD ?= true
 
-.PHONY: install run test test-all hardening-test stress-test lockdown-test integrity-test multitenant-stress lint format typecheck check precommit openapi openapi-frontend
+.PHONY: install run test test-all hardening-test stress-test lockdown-test integrity-test coverage-test api-matrix-test multitenant-stress lint format typecheck check precommit openapi openapi-frontend
 
 install:
 	$(PYTHON) -m pip install -r requirements-dev.txt
@@ -29,6 +29,16 @@ lockdown-test:
 integrity-test:
 	$(PYTHON) -m pytest -q tests/pytest_suite_integrity.py --tb=short
 
+api-matrix-test:
+	$(PYTHON) -m pytest -q tests/pytest_openapi_http_matrix.py --tb=short
+
+coverage-test:
+	$(PYTHON) -m pytest -q tests/pytest_*.py \
+		--cov=engines --cov=api --cov-branch \
+		--cov-report=term-missing:skip-covered \
+		--cov-report=json
+	$(PYTHON) scripts/check_coverage_baseline.py
+
 multitenant-stress:
 	$(PYTHON) tools/stress/multitenant_stress.py --base-url http://$(UVICORN_HOST):$(UVICORN_PORT) --profile balanced --duration-s 60 --concurrency 32 --output-dir stress_outputs/balanced
 
@@ -44,7 +54,7 @@ typecheck:
 typecheck-metabolic:
 	$(PYTHON) -m mypy --explicit-package-bases engines/metabolic
 
-check: lint typecheck test-all hardening-test lockdown-test integrity-test
+check: lint typecheck test-all hardening-test lockdown-test integrity-test api-matrix-test coverage-test
 
 openapi:
 	$(PYTHON) scripts/export_openapi.py

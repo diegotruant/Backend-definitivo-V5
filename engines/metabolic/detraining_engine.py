@@ -316,7 +316,8 @@ def _generate_recommendations(tl: Dict[str, float], status: str) -> List[str]:
     recs = []
     
     if status == "DETRAINING":
-        recs.append(f"⚠️ {tl['days_since_last_workout']} days without training — estimated VO2max -5-10%")
+        days_off = tl.get("days_since_last_workout", tl.get("days_since_last", 0))
+        recs.append(f"⚠️ {days_off} days without training — estimated VO2max -5-10%")
         recs.append("Recommendation: 2 Z4-Z5 sessions this week to halt decay")
     elif status == "DECLINING":
         recs.append(f"CTL declining ({tl['ctl']:.0f} TSS/day) — aerobic capacity at risk")

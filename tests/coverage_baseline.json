@@ -1,0 +1,5 @@
+{
+  "line_percent": 66.0,
+  "branch_percent": 50.0,
+  "note": "Ratchet baseline — raise only when coverage improves deliberately. Measured after HTTP matrix + coverage CI: line ~66%, branch ~50%."
+}
