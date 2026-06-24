@@ -103,21 +103,31 @@ def estimate_vlamax_from_power_series(
             },
         }
 
+    # T_PCR: fixed alactic phase duration per Meixner 2024 / Dunst 2023.
+    # Using t_Ppeak as t_PCr is unreliable (ICC 0.79 vs 0.91 for fixed 3.5 s)
+    # and introduces systematic bias when peak is reached late (amateur
+    # athletes, trainer inertia, suboptimal pacing). Glycolytic flux rises
+    # significantly after ~3-4 s regardless of mechanical peak timing.
+    # t_p_peak is retained as a protocol quality indicator only.
+    T_PCR_S = 3.5  # s, fixed (Meixner 2024)
+
     w_total_j = float(np.sum(p) * dt)
-    w_lac_j = float(np.sum(p[i_peak:]) * dt)
-    t_lac_s = max(duration_s - t_p_peak, 1e-9)
+    # Glycolytic work window starts at T_PCR_S, not at t_p_peak
+    i_pcr = min(int(round(T_PCR_S / dt)), p.size - 1)
+    w_lac_j = float(np.sum(p[i_pcr:]) * dt)
+    t_lac_s = max(duration_s - T_PCR_S, 1e-9)
     p_mean_lac = w_lac_j / t_lac_s
 
     if oxi_fraction is None:
         oxi_fraction = 0.03 if duration_s >= 14.0 else 0.02
 
     t_oxi = duration_s * float(oxi_fraction)
-    t_gly = max(duration_s - t_p_peak - t_oxi, 1.0)
+    t_gly = max(duration_s - T_PCR_S - t_oxi, 1.0)
 
-    early_window_s = min(3.0, duration_s * 0.30)
-    early_n = max(1, int(round(early_window_s / dt)))
+    # Alactic contribution: mean power in [0, T_PCR_S] window
+    early_n = max(1, min(int(round(T_PCR_S / dt)), p.size))
     p_early_mean = float(np.mean(p[:early_n]))
-    p_alac_avg = min(p_early_mean, p_peak) * (t_p_peak / duration_s)
+    p_alac_avg = min(p_early_mean, p_peak) * (T_PCR_S / duration_s)
 
     aero_ceiling = vo2max_power_w if vo2max_power_w is not None else cp_w
     if aero_ceiling is not None and float(aero_ceiling) > 0:
@@ -145,25 +155,40 @@ def estimate_vlamax_from_power_series(
     quality_flags: List[str] = []
     if sustain_ratio < min_sustain + 0.05:
         quality_flags.append("borderline_sustain_ratio")
-    if t_p_peak > 4.0:
-        quality_flags.append("late_power_peak")
+    # t_p_peak > 3.5 s means the mechanical peak arrived after the alactic
+    # phase. This is normal in amateurs (technique, pacing, trainer inertia)
+    # and does NOT bias VLamax since we use T_PCR_S=3.5 s fixed. It is
+    # retained as a protocol quality note for the coach UI only.
+    if t_p_peak > 6.0:
+        quality_flags.append("very_late_power_peak_protocol_note")
+    elif t_p_peak > 3.5:
+        quality_flags.append("late_power_peak_protocol_note")
     if fatigue_index < 0.10:
         quality_flags.append("weak_fatigue_signature")
     if vo2max_power_w is None and cp_w is None:
         quality_flags.append("no_aerobic_anchor")
 
-    confidence = 0.85 - 0.12 * len(quality_flags)
+    # late_power_peak flags are protocol notes, not physiological errors —
+    # don't penalize confidence for them since T_PCR_S is fixed regardless.
+    confidence_penalty_flags = [
+        f for f in quality_flags
+        if f not in ("late_power_peak_protocol_note", "very_late_power_peak_protocol_note")
+    ]
+    confidence = 0.85 - 0.12 * len(confidence_penalty_flags)
     if vo2max_power_w is None and cp_w is None:
         confidence -= 0.10
+    if "very_late_power_peak_protocol_note" in quality_flags:
+        confidence -= 0.05  # mild penalty only for very late peak (>6 s)
     confidence = float(np.clip(confidence, 0.05, 0.95))
 
     features: Dict[str, Any] = {
         "duration_s": round(duration_s, 2),
+        "t_pcr_s": T_PCR_S,
+        "t_p_peak_s": round(t_p_peak, 2),
         "p_peak_w": round(p_peak, 1),
         "p_mean_w": round(p_mean, 1),
         "p_peak_wkg": round(p_peak / weight_kg, 2),
         "p_mean_wkg": round(p_mean / weight_kg, 2),
-        "t_p_peak_s": round(t_p_peak, 2),
         "t_oxi_s": round(t_oxi, 2),
         "t_gly_s": round(t_gly, 2),
         "w_total_j": round(w_total_j, 1),
