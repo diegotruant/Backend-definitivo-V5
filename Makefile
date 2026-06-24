@@ -3,7 +3,7 @@ UVICORN_HOST ?= 127.0.0.1
 UVICORN_PORT ?= 8000
 UVICORN_RELOAD ?= true
 
-.PHONY: install run test test-all hardening-test stress-test lockdown-test multitenant-stress lint format typecheck check precommit openapi openapi-frontend
+.PHONY: install run test test-all hardening-test stress-test lockdown-test integrity-test multitenant-stress lint format typecheck check precommit openapi openapi-frontend
 
 install:
 	$(PYTHON) -m pip install -r requirements-dev.txt
@@ -24,7 +24,10 @@ stress-test:
 	$(PYTHON) -m pytest -q -m "hardening and stress" tests/pytest_hardening_*.py
 
 lockdown-test:
-	$(PYTHON) -m pytest -q tests/pytest_engine_lockdown_v1.py --tb=short
+	$(PYTHON) -m pytest -q tests/pytest_engine_lockdown_v1.py tests/pytest_suite_integrity.py --tb=short
+
+integrity-test:
+	$(PYTHON) -m pytest -q tests/pytest_suite_integrity.py --tb=short
 
 multitenant-stress:
 	$(PYTHON) tools/stress/multitenant_stress.py --base-url http://$(UVICORN_HOST):$(UVICORN_PORT) --profile balanced --duration-s 60 --concurrency 32 --output-dir stress_outputs/balanced
@@ -41,7 +44,7 @@ typecheck:
 typecheck-metabolic:
 	$(PYTHON) -m mypy --explicit-package-bases engines/metabolic
 
-check: lint typecheck test-all hardening-test lockdown-test
+check: lint typecheck test-all hardening-test lockdown-test integrity-test
 
 openapi:
 	$(PYTHON) scripts/export_openapi.py

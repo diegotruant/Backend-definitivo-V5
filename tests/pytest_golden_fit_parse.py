@@ -9,7 +9,7 @@ import pytest
 
 from engines.io.data_quality_report import build_data_quality_report
 from engines.io.fit_parse_report import build_fit_parse_report
-from engines.io.fit_parser import measured_signal_flags, parse_fit_file_enhanced
+from engines.io.fit_parser import FitFileError, measured_signal_flags, parse_fit_file_enhanced
 from tools.golden_fit_coach_snapshot import build_coach_golden_snapshot
 
 ASSET_DIR = Path(__file__).resolve().parent / "assets" / "fit"
@@ -98,14 +98,26 @@ def test_golden_fit_matches_expected_coach_snapshot(stem: str) -> None:
         assert "power" not in coach
 
 
-@pytest.mark.parametrize("stem", ["truncated", "bad_crc"])
-def test_corrupt_fit_files_fail_gracefully_or_recover(stem: str) -> None:
+@pytest.mark.parametrize(
+    ("stem", "expected_reason", "recover"),
+    [
+        ("truncated", "TRUNCATED", False),
+        ("bad_crc", None, True),
+    ],
+)
+def test_corrupt_fit_files_have_explicit_outcome(
+    stem: str,
+    expected_reason: str | None,
+    recover: bool,
+) -> None:
     fit_path = ASSET_DIR / f"{stem}.fit"
     if not fit_path.exists():
         pytest.skip(f"missing FIT asset: {fit_path.name}")
-    try:
+    if recover:
         stream = parse_fit_file_enhanced(str(fit_path), repair_synthetic_header=False)
-        assert stream.n_samples >= 0
-    except Exception:
-        # Corrupt files may raise; the contract is no process crash in API layer.
-        pass
+        assert stream.n_samples == 121
+        assert stream.has_power
+        return
+    with pytest.raises(FitFileError) as exc:
+        parse_fit_file_enhanced(str(fit_path), repair_synthetic_header=False)
+    assert exc.value.reason == expected_reason

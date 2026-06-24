@@ -191,13 +191,13 @@ def test_ability_profile_hides_wkg_without_body_mass() -> None:
 def test_history_load_trend_short_history_is_cold_start_metadata() -> None:
     short_history = [{"load": 40.0}, {"load": 50.0}, {"load": 60.0}]
     out = calculate_load_trend(short_history, current_session_load=None)
-    assert out["status"] in {"insufficient_data", "error"}
+    assert out["status"] == "insufficient_data"
     _assert_model_metadata(out)
     assert "cold_start" in out["model_metadata"]["quality_flags"]
 
 
 # -----------------------------------------------------------------------------
-# Hard gates: regression blockers — no xfail masking.
+# Hard gates: regression blockers — failures must break the release gate.
 # -----------------------------------------------------------------------------
 
 

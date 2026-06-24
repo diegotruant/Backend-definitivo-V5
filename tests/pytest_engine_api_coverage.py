@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api_app import app
+from tests.conftest import assert_http_engine_json, assert_http_json, assert_http_ok
 
 client = TestClient(app)
 
@@ -33,45 +34,43 @@ MMP = {"5": 900, "60": 400, "300": 320, "1200": 280}
     ],
 )
 def test_extended_engine_endpoints_return_json(path: str, payload: dict) -> None:
-    response = client.post(path, json=payload)
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert isinstance(body, dict)
+    assert_http_json(client.post(path, json=payload))
 
 
 def test_meta_engine_tiers() -> None:
-    response = client.get("/meta/engine-tiers")
-    assert response.status_code == 200
-    body = response.json()
-    assert "tiers" in body
-    assert "engines" in body
+    body = assert_http_ok(client.get("/meta/engine-tiers"), required_keys=("tiers", "engines"))
 
 
 def test_twin_state_validate_minimal() -> None:
-    build = client.post(
-        "/twin/state/build",
-        json={
-            "payload": {
-                "athlete_id": "api_smoke",
-                "weight_kg": 70,
-                "ftp_w": 250,
-                "cp_w": 270,
-                "w_prime_j": 20000,
-            }
-        },
+    build = assert_http_json(
+        client.post(
+            "/twin/state/build",
+            json={
+                "payload": {
+                    "athlete_id": "api_smoke",
+                    "weight_kg": 70,
+                    "ftp_w": 250,
+                    "cp_w": 270,
+                    "w_prime_j": 20000,
+                }
+            },
+        ),
+        required_keys=("athlete_id", "schema_version"),
     )
-    assert build.status_code == 200, build.text
-    state = build.json()
-    validate = client.post("/twin/state/validate", json={"twin_state": state})
-    assert validate.status_code == 200
-    assert validate.json()["athlete_id"] == "api_smoke"
+    validate = assert_http_json(
+        client.post("/twin/state/validate", json={"twin_state": build}),
+        required_keys=("athlete_id", "schema_version"),
+    )
+    assert validate["athlete_id"] == "api_smoke"
 
 
 def test_ride_analytics_power_json() -> None:
     power = [200 + (i % 60) for i in range(600)]
-    response = client.post(
-        "/ride/analytics/power",
-        data={"weight_kg": "70", "ftp": "250", "power_json": json.dumps(power)},
+    body = assert_http_engine_json(
+        client.post(
+            "/ride/analytics/power",
+            data={"weight_kg": "70", "ftp": "250", "power_json": json.dumps(power)},
+        ),
+        allowed_statuses={"success"},
     )
-    assert response.status_code == 200, response.text
-    assert response.json().get("status") == "success"
+    assert body.get("status") == "success"

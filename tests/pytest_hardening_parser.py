@@ -62,7 +62,7 @@ def test_parser_sparse_sensor_records_cycling_dynamics_and_gaps_do_not_crash() -
     assert np.isfinite(stream.altitude).any()
     assert np.isfinite(stream.left_power_phase).any()
     assert np.isfinite(stream.right_pco).any()
-    assert np.any(stream.quality_hr == QUALITY_FORWARD_FILLED) or stream.gap_summary["heart_rate"]["n_gaps"] >= 0
+    assert np.any(stream.quality_hr == QUALITY_FORWARD_FILLED) or stream.gap_summary["heart_rate"]["n_gaps"] > 0
 
     # Chart builders should never leak NaN/Inf or crash on this mixed stream.
     for chart in (chart_power(stream), chart_elevation(stream), chart_power_phase(stream), chart_platform_offset(stream), chart_respiration(stream)):

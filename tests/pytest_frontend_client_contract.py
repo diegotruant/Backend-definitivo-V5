@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.conftest import EXPECTED_OPENAPI_PATH_COUNT
+
 ROOT = Path(__file__).resolve().parents[1]
 CLIENT_TS = ROOT / "frontend" / "src" / "api" / "client.ts"
 GENERATED_TS = ROOT / "frontend" / "src" / "api" / "generated" / "schema.ts"
@@ -84,5 +86,4 @@ def test_client_method_count_matches_openapi_post_get_count(
 ) -> None:
     # One jsonFetch call per HTTP operation in client
     fetch_paths = _extract_client_paths(client_source)
-    assert len(fetch_paths) == len(openapi_paths)
-    assert len(openapi_paths) >= 100
+    assert len(fetch_paths) == len(openapi_paths) == EXPECTED_OPENAPI_PATH_COUNT
