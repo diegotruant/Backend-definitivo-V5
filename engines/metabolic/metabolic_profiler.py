@@ -722,10 +722,22 @@ class MetabolicProfiler:
         eta = self.context.expected_eta()
         J_PER_MMOL_LACTATE_PER_KG = 63.0  # Mader-consistent energetic equivalent
 
+        # T_PCR: duration of the alactic (PCr-dominant) phase.
+        # Literature consensus (Meixner 2024, Dunst 2023) shows that using
+        # t_Ppeak as t_PCr introduces variability and bias — especially when
+        # the power peak is reached late (amateur athletes, trainer inertia,
+        # suboptimal pacing). A fixed value of 3.5 s yields the best
+        # test-retest reliability (ICC=0.91 vs 0.87 for t_Ppeak).
+        # Glycolytic flux rises significantly after ~3-4 s regardless of when
+        # the mechanical power peak occurs (Dunst et al. 2023a,b).
+        T_PCR_S = 3.5  # fixed alactic phase duration, s (Meixner 2024)
+
         def _vlamax_for_tau(tau_alac: float) -> float:
             t = sprint_duration_s
-            alac_frac_avg = tau_alac / t * (1.0 - np.exp(-t / tau_alac))
-            p_alac_avg = (p_peak_1s * 0.98) * alac_frac_avg
+            # Alactic contribution: PCr decays over T_PCR_S, not over the
+            # full sprint. Time-averaged power from PCr during [0, T_PCR_S]:
+            alac_frac_avg = tau_alac / T_PCR_S * (1.0 - np.exp(-T_PCR_S / tau_alac))
+            p_alac_avg = (p_peak_1s * 0.98) * alac_frac_avg * (T_PCR_S / t)
             aero_frac = 1.0 - tau_aerobic_s / t * (1.0 - np.exp(-t / tau_aerobic_s))
             p_aero_avg = vo2_power * aero_frac * 0.5  # VO2 not at steady state
             p_glyc = max(0.0, p_mean_sprint - p_alac_avg - p_aero_avg)
@@ -761,12 +773,15 @@ class MetabolicProfiler:
                 "sprint_duration_s": sprint_duration_s,
                 "vo2max_power_w": round(vo2_power, 1),
                 "tau_alactic_s": tau_alactic_s,
+                "t_pcr_s": T_PCR_S,
                 "active_muscle_mass_kg": round(amm, 2),
             },
             "note": (
                 "VLamax is sensitive to the alactic time constant; the range "
                 "reflects tau_alactic 12-20 s. A measured/structured sprint "
-                "protocol narrows this."
+                "protocol narrows this. "
+                "t_PCr fixed at 3.5 s per Meixner 2024 / Dunst 2023: more "
+                "reliable than using t_Ppeak (ICC 0.91 vs 0.87)."
             ),
         }
 
