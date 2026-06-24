@@ -27,6 +27,8 @@ from engines.core import security
 from engines.core.data_quality_engine import assess_data_quality, clean_workout_data, detect_pauses
 from engines.io.fit_parser import parse_fit_records_enhanced
 from engines.metabolic.team_learning_engine import TeamCalibrationModel, ValidationEvent
+from types import SimpleNamespace
+
 from engines.core.athlete_context import AthleteContext
 from engines.metabolic.lab_data import (
     LabTestResult,
@@ -49,6 +51,21 @@ from engines.performance.test_protocols import (
     run_test,
     run_wingate_test,
 )
+from engines.performance.race_prediction_engine import AthleteRaceProfile, CourseSegment, parse_gpx_course
+from engines.performance.training_variability_engine import calculate_acwr, calculate_monotony_strain
+from engines.recovery.cardiac_engine import ActivitySample, CardiacResponseAnalyzer, cross_validate_thresholds
+from engines.recovery.explainability_engine import (
+    ConfidenceLevel,
+    calculate_durability_confidence,
+    calculate_vo2max_confidence,
+    generate_acwr_narrative,
+    generate_durability_narrative,
+    generate_metric_narrative,
+    generate_workout_summary_narrative,
+)
+from engines.recovery.pedaling_balance import analyze_balance_trend, analyze_pedaling_balance
+from engines.routes.segment_engine import compare_segments, detect_climb_segments
+from engines.workouts.recommendation_engine import recommend_workout
 from engines.recovery.hrv_engine import analyze_rr_stream, calculate_dfa_alpha1, detect_thresholds_from_activity
 from engines.workouts.progression_levels import compute_progression_levels
 from tests._fixtures import twin_build_payload, workout_pct_cp
@@ -615,3 +632,221 @@ class TestRideAnalyticsServiceBatch2:
         out = self.svc.session_route_run(stream, athlete=self.athlete, ftp=280.0)
         assert isinstance(out, dict)
         assert out.get("status") in {"success", "partial", "error", None} or "route" in out
+
+    def test_climb_segments_and_compare(self) -> None:
+        alt = [100.0] * 50 + list(np.linspace(100, 200, 100)) + [200.0] * 50
+        dist = (np.arange(len(alt)) * 10.0).tolist()
+        stream = SimpleNamespace(altitude_m=alt, distance_m=dist)
+        climbs = self.svc.climb_segments(stream)
+        assert climbs.get("status") in {"success", "skipped"}
+        history = [{"distance_m": 1000, "elevation_gain_m": 80}]
+        new = [{"distance_m": 1050, "elevation_gain_m": 85}]
+        cmp_out = self.svc.compare_segments(history, new)
+        assert cmp_out["comparisons"][0]["matched"] is True
+
+
+def _cardiac_activity(*, steady_s: int = 600, power: float = 220.0) -> List[ActivitySample]:
+    samples: List[ActivitySample] = []
+    for i in range(steady_s):
+        hr = 140.0 + 25.0 * (i / max(steady_s - 1, 1))
+        samples.append(ActivitySample(t=float(i), power=power, hr=hr))
+    hr_drop = 165.0
+    for j in range(120):
+        hr_drop = max(100.0, hr_drop - 1.2)
+        samples.append(ActivitySample(t=float(steady_s + j), power=0.0, hr=hr_drop))
+    return samples
+
+
+class TestCardiacEngineDepth:
+    def test_analyze_empty_and_too_short(self) -> None:
+        analyzer = CardiacResponseAnalyzer(weight=72.0)
+        assert analyzer.analyze([])["status"] == "error"
+        short = [ActivitySample(t=float(i), power=200.0, hr=140.0) for i in range(30)]
+        assert analyzer.analyze(short)["status"] == "error"
+
+    def test_analyze_steady_and_recovery_segments(self) -> None:
+        out = CardiacResponseAnalyzer(weight=72.0).analyze(_cardiac_activity())
+        assert out["status"] == "success"
+        assert out.get("decoupling") or out.get("metrics")
+        assert "steady_segments" in out or "aerobic_decoupling" in str(out)
+
+    def test_cross_validate_thresholds_with_hrv_timeline(self) -> None:
+        samples = _cardiac_activity(steady_s=400)
+        t = np.array([s.t for s in samples])
+        p = np.array([s.power for s in samples])
+        h = np.array([s.hr for s in samples])
+        hrv = [
+            {"timestamp": 50.0, "status": "AEROBIC"},
+            {"timestamp": 150.0, "status": "MIXED"},
+            {"timestamp": 250.0, "status": "ANAEROBIC"},
+        ]
+        out = cross_validate_thresholds(
+            t,
+            p,
+            h,
+            {"status": "success", "mlss_power_watts": 220},
+            hrv,
+        )
+        assert out.get("available") is True or "hr_at_vt1_dfa" in out or "hr_at_vt2_dfa" in out
+
+
+class TestExplainabilityEngineDepth:
+    def test_vo2max_confidence_high_and_low(self) -> None:
+        high = calculate_vo2max_confidence(
+            {30: 850, 60: 720, 180: 520, 300: 420, 1200: 290},
+            efforts_count=6,
+            data_quality_score=0.95,
+        )
+        low = calculate_vo2max_confidence({300: 420}, efforts_count=1, data_quality_score=0.6)
+        assert high.confidence_pct > low.confidence_pct
+        assert high.confidence_level in {ConfidenceLevel.HIGH, ConfidenceLevel.VERY_HIGH}
+
+    def test_durability_confidence_and_narratives(self) -> None:
+        conf = calculate_durability_confidence(duration_hours=4.5, power_data_completeness=0.97)
+        prescription = {
+            "focus": "Maintain aerobic base",
+            "volume": "70-80% Z2",
+            "key_sessions": ["3h endurance ride"],
+        }
+        narrative = generate_durability_narrative(95, "EXCELLENT", conf, prescription)
+        assert "Durability" in narrative or "durability" in narrative.lower()
+        acwr = generate_acwr_narrative(1.6, "HIGH", ctl=60, atl=96, tsb=-36)
+        assert "ACWR" in acwr or "risk" in acwr.lower()
+        low_conf = calculate_vo2max_confidence({300: 420}, 1, 0.6)
+        metric = generate_metric_narrative("VO2max", 67.8, low_conf)
+        assert "VO2max" in metric
+
+    def test_workout_summary_narrative(self) -> None:
+        text = generate_workout_summary_narrative(
+            {
+                "headline": {"workout_type": "Endurance", "tss": 120, "if_value": 0.72},
+                "sections": {
+                    "durability": {
+                        "status": "success",
+                        "metrics": {
+                            "durability_index": {
+                                "classification": "GOOD",
+                                "value": 93.7,
+                                "decay_watts": 16,
+                                "first_hour_avg": 220,
+                                "last_hour_avg": 204,
+                                "interpretation": "Solid aerobic durability",
+                            }
+                        },
+                    },
+                    "power": {
+                        "metabolic_snapshot": {
+                            "vo2max_ml_kg_min": 62,
+                            "vlamax_mmol_l_s": 0.4,
+                            "mlss_power_watts": 280,
+                        }
+                    },
+                    "hrv": {"vt1_detected": True, "vt1_power": 210},
+                },
+            }
+        )
+        assert isinstance(text, str) and len(text) > 20
+
+
+class TestPedalingBalanceDepth:
+    def test_refused_single_estimated(self) -> None:
+        report = analyze_pedaling_balance(
+            [50.0] * 300,
+            [200.0] * 300,
+            pedaling_balance_source="single_estimated",
+        )
+        assert report.data_quality == "refused_single_side"
+
+    def test_insufficient_valid_samples(self) -> None:
+        report = analyze_pedaling_balance([50.0] * 30, [180.0] * 30, pedaling_balance_source="dual")
+        assert report.data_quality == "insufficient_data"
+
+    def test_marked_asymmetry_and_trend(self) -> None:
+        marked = analyze_pedaling_balance([38.0] * 600, [200.0] * 600, ftp=250.0, pedaling_balance_source="dual")
+        assert marked.asymmetry_classification == "marked"
+        symmetric = analyze_pedaling_balance([50.0] * 600, [200.0] * 600, ftp=250.0, pedaling_balance_source="dual")
+        assert symmetric.asymmetry_classification == "symmetric"
+        trend = analyze_balance_trend([symmetric, symmetric, marked, marked, marked, marked])
+        assert trend.trend in {"stable", "worsening", "improving", None} or trend.notes
+
+
+class TestSegmentEngineDepth:
+    def test_detect_climb_skipped_without_altitude(self) -> None:
+        out = detect_climb_segments(SimpleNamespace(altitude_m=[], distance_m=[]))
+        assert out["status"] == "skipped"
+
+    def test_detect_climb_success(self) -> None:
+        alt = [100.0] * 50 + list(np.linspace(100, 200, 100)) + [200.0] * 50
+        dist = np.arange(len(alt)) * 10.0
+        out = detect_climb_segments(SimpleNamespace(altitude_m=alt, distance_m=dist))
+        assert out["status"] == "success"
+        assert out["segments"]
+
+    def test_compare_segments_match_and_miss(self) -> None:
+        history = [{"distance_m": 1000, "elevation_gain_m": 80}]
+        matched = compare_segments(history, [{"distance_m": 1050, "elevation_gain_m": 85}])
+        missed = compare_segments(history, [{"distance_m": 5000, "elevation_gain_m": 200}])
+        assert matched["comparisons"][0]["matched"] is True
+        assert missed["comparisons"][0]["matched"] is False
+
+
+class TestTrainingVariabilityDepth:
+    @pytest.mark.parametrize(
+        "atl,ctl,expected",
+        [
+            (10, 0, "error"),
+            (100, 50, "HIGH"),
+            (70, 50, "MODERATE"),
+            (30, 50, "DETRAINING"),
+            (55, 50, "OPTIMAL"),
+        ],
+    )
+    def test_acwr_risk_bands(self, atl: float, ctl: float, expected: str) -> None:
+        out = calculate_acwr(atl, ctl)
+        if expected == "error":
+            assert out["status"] == "error"
+        else:
+            assert out["risk_level"] == expected
+
+    def test_monotony_strain_branches(self) -> None:
+        assert calculate_monotony_strain([50.0] * 5)["status"] == "insufficient_data"
+        unstable = calculate_monotony_strain([50.0] * 7)
+        assert unstable["status"] == "unstable"
+        varied = calculate_monotony_strain([10, 80, 20, 90, 15, 85, 25])
+        assert varied["monotony_status"] in {"HIGH_RISK", "MODERATE", "OPTIMAL"}
+
+
+class TestRecommendationEngineDepth:
+    def test_readiness_recovery_path(self) -> None:
+        out = recommend_workout({"cp_w": 280, "weight_kg": 72}, readiness={"readiness_score": 40})
+        assert out["recommendation"]["focus"] == "recovery"
+        assert out["recommendation"]["intensity"] == "low"
+
+    def test_readiness_quality_with_goal(self) -> None:
+        out = recommend_workout(
+            {"cp_w": 280, "weight_kg": 72, "mmp": {"5": 1000, "60": 500, "300": 360, "1200": 300}},
+            readiness={"readiness_score": 80},
+            goal={"focus": "vo2"},
+        )
+        assert out["status"] == "success"
+        assert out["recommendation"]["workout"] is not None
+
+
+class TestRacePredictionEdges:
+    def test_course_segment_terrain(self) -> None:
+        assert CourseSegment(0, 100, 100, 10, 5.0).terrain == "climb"
+        assert CourseSegment(0, 100, 100, -5, -4.0).terrain == "descent"
+        assert CourseSegment(0, 100, 100, 0, 1.0).terrain == "rolling"
+
+    def test_parse_gpx_course_too_few_points(self) -> None:
+        with pytest.raises(ValueError, match="at least two"):
+            parse_gpx_course("<gpx xmlns='http://www.topografix.com/GPX/1/1'><trkpt lat='45' lon='9'/></gpx>")
+
+    def test_athlete_profile_from_snapshot(self) -> None:
+        profile = AthleteRaceProfile.from_metabolic_snapshot(
+            weight_kg=72,
+            ftp_w=300,
+            snapshot={"mlss_power_watts": 280, "estimated_vo2max": 62.5},
+        )
+        assert profile.mlss_w == 280
+        assert profile.vo2max == 62.5
