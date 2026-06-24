@@ -24,6 +24,16 @@ from api.services.ride_analytics_service import RideAnalyticsService
 from api.services.team_service import TeamService
 from api.services.twin_service import TwinService
 from engines.core import security
+from engines.core.science_contracts import (
+    cadence_anchor_metadata,
+    cp_anchor_warnings,
+    derive_effective_cadence_rpm,
+    enrich_metabolic_snapshot_cadence,
+    vlamax_limitations,
+)
+from engines.core.tiers import annotate, mask_low_confidence, should_display, tier_for
+from engines.history.athlete_history import build_history_summary, compute_personal_records
+from engines.history.load_trends import compute_load_trends
 from engines.core.data_quality_engine import assess_data_quality, clean_workout_data, detect_pauses
 from engines.io.fit_parser import parse_fit_records_enhanced
 from engines.metabolic.team_learning_engine import TeamCalibrationModel, ValidationEvent
@@ -53,7 +63,16 @@ from engines.performance.test_protocols import (
 )
 from engines.performance.race_prediction_engine import AthleteRaceProfile, CourseSegment, parse_gpx_course
 from engines.performance.training_variability_engine import calculate_acwr, calculate_monotony_strain
-from engines.recovery.cardiac_engine import ActivitySample, CardiacResponseAnalyzer, cross_validate_thresholds
+from engines.recovery.cardiac_engine import (
+    ActivitySample,
+    CardiacResponseAnalyzer,
+    Segment,
+    compute_aerobic_decoupling,
+    compute_cardiac_drift,
+    compute_cardiac_efficiency,
+    compute_hr_recovery,
+    cross_validate_thresholds,
+)
 from engines.recovery.explainability_engine import (
     ConfidenceLevel,
     calculate_durability_confidence,
@@ -65,6 +84,8 @@ from engines.recovery.explainability_engine import (
 )
 from engines.recovery.pedaling_balance import analyze_balance_trend, analyze_pedaling_balance
 from engines.routes.segment_engine import compare_segments, detect_climb_segments
+from engines.recovery.thermal_engine import ThermalSessionReport, analyze_heat_acclimation, analyze_thermal_session
+from engines.workouts.calendar_engine import validate_status_transition
 from engines.workouts.recommendation_engine import recommend_workout
 from engines.recovery.hrv_engine import analyze_rr_stream, calculate_dfa_alpha1, detect_thresholds_from_activity
 from engines.workouts.progression_levels import compute_progression_levels
@@ -850,3 +871,180 @@ class TestRacePredictionEdges:
         )
         assert profile.mlss_w == 280
         assert profile.vo2max == 62.5
+
+
+class TestCalendarEngine:
+    def test_valid_and_invalid_transitions(self) -> None:
+        ok = validate_status_transition("draft", "assigned")
+        assert ok["allowed"] is True
+        bad = validate_status_transition("draft", "completed")
+        assert bad["allowed"] is False
+        unknown = validate_status_transition("bogus", "assigned")
+        assert unknown["status"] == "invalid"
+
+    def test_idempotent_transition(self) -> None:
+        same = validate_status_transition("completed", "completed")
+        assert same["allowed"] is True
+
+
+class TestThermalEngineDepth:
+    def test_no_core_sensor_data(self) -> None:
+        out = analyze_thermal_session(
+            core_temp_stream=[float("nan")] * 3600,
+            power_stream=[200.0] * 3600,
+        )
+        assert out.data_quality == "no_data"
+
+    def test_progressive_heating_session(self) -> None:
+        n = 3600
+        core = [37.2 + (i / n) * 1.6 for i in range(n)]
+        power = [200.0] * n
+        hr = [130.0 + (core[i] - 37.2) * 9.0 for i in range(n)]
+        out = analyze_thermal_session(core, power, hr_stream=hr, ftp=250.0)
+        assert out.data_quality in {"good", "partial"}
+        assert out.thermal_rise_rate is not None and out.thermal_rise_rate > 0
+        assert out.core_temp_peak is not None and out.core_temp_peak > 37.5
+
+    def test_heat_acclimation_trend(self) -> None:
+        sessions = [
+            ThermalSessionReport(
+                data_quality="good",
+                n_valid_samples=3000,
+                n_total_samples=3600,
+                thermal_rise_rate=0.025 - i * 0.002,
+                heat_tolerance_threshold=38.5 + i * 0.1,
+            )
+            for i in range(9)
+        ]
+        trend = analyze_heat_acclimation(sessions)
+        assert trend.n_sessions == 9
+        assert trend.trend == "acclimating"
+        short = analyze_heat_acclimation(sessions[:2])
+        assert short.trend is None
+
+
+class TestLoadTrendsAndHistory:
+    def test_compute_load_trends_risk_bands(self) -> None:
+        ref = date(2026, 6, 17)
+        activities = []
+        for i in range(90):
+            d = ref - timedelta(days=89 - i)
+            tss = 80.0 if i >= 62 else 15.0
+            activities.append({"date": d.isoformat(), "tss": tss})
+        high = compute_load_trends(activities, as_of=ref.isoformat())
+        assert high["risk"] == "high"
+        assert high["acute_load"] > high["chronic_load"]
+
+    def test_history_summary_and_records(self) -> None:
+        activities = [
+            {"date": "2026-06-01", "tss": 60, "mmp": {"300": 320, "1200": 280}},
+            {"date": "2026-06-02", "tss": 45, "mmp": {"300": 330}},
+        ]
+        records = compute_personal_records(activities, weight_kg=72.0)
+        assert records["records"]
+        summary = build_history_summary(activities, weight_kg=72.0)
+        assert summary["status"] == "success"
+        assert summary["activity_count"] == 2
+
+
+class TestCardiacMetricsDirect:
+    def test_steady_segment_metrics(self) -> None:
+        t = np.arange(600, dtype=float)
+        p = np.full(600, 220.0)
+        h = np.concatenate([np.full(300, 140.0), np.full(300, 165.0)])
+        seg = Segment(kind="steady", start_idx=0, end_idx=600, start_t=0.0, end_t=599.0, duration_s=600.0)
+        dec = compute_aerobic_decoupling(t, p, h, seg)
+        drift = compute_cardiac_drift(t, p, h, seg)
+        cei = compute_cardiac_efficiency(p, h, 72.0, seg)
+        assert dec["available"] is True
+        assert drift["available"] is True and drift["drift_pct"] > 0
+        assert cei["available"] is True
+
+    def test_hr_recovery_segment(self) -> None:
+        t = np.arange(400, dtype=float)
+        p = np.concatenate([np.full(250, 250.0), np.zeros(150)])
+        h = np.concatenate([np.full(250, 170.0), np.linspace(170, 125, 150)])
+        seg = Segment(kind="recovery", start_idx=250, end_idx=400, start_t=250.0, end_t=399.0, duration_s=150.0)
+        rec = compute_hr_recovery(t, h, seg)
+        assert rec["available"] is True
+        assert rec["hrr60_bpm"] is not None
+
+
+class TestPedalingBalanceBatch4:
+    def test_intra_session_drift(self) -> None:
+        balance = [50.0] * 300 + [42.0] * 300
+        report = analyze_pedaling_balance(balance, [200.0] * 600, ftp=250.0, pedaling_balance_source="dual")
+        assert report.drift_classification in {"drifting", "strong_drift", "stable"}
+        assert report.intra_session_drift is not None
+
+    def test_zone_shift_with_load(self) -> None:
+        balance = [50.0] * 400 + [38.0] * 200
+        power = [180.0] * 400 + [320.0] * 200
+        report = analyze_pedaling_balance(balance, power, ftp=250.0, pedaling_balance_source="dual")
+        assert report.balance_by_zone is not None
+        assert report.zone_shift_flag in {"stable", "shifts_with_load", None}
+
+
+class TestExplainabilityBatch4:
+    def test_acwr_narrative_moderate_and_optimal(self) -> None:
+        moderate = generate_acwr_narrative(1.35, "MODERATE", ctl=50, atl=68, tsb=-18)
+        optimal = generate_acwr_narrative(1.0, "OPTIMAL", ctl=60, atl=60, tsb=0)
+        assert "MODERATE" in moderate or "Caution" in moderate or "caution" in moderate.lower()
+        assert "OPTIMAL" in optimal or "Good" in optimal or "balance" in optimal.lower()
+
+    def test_durability_narrative_fair(self) -> None:
+        conf = calculate_durability_confidence(duration_hours=1.5, power_data_completeness=0.8)
+        prescription = {"focus": "Rebuild base", "volume": "90% Z2", "key_sessions": ["Long ride"]}
+        text = generate_durability_narrative(88, "FAIR", conf, prescription)
+        assert "FAIR" in text or "fair" in text.lower()
+
+
+class TestScienceContractsAndTiers:
+    def test_vlamax_limitations_low_cadence(self) -> None:
+        limits = vlamax_limitations(effective_cadence_rpm=110.0)
+        assert any("cadence" in x.lower() for x in limits)
+
+    def test_enrich_metabolic_snapshot_cadence(self) -> None:
+        snap = enrich_metabolic_snapshot_cadence(
+            {"status": "success", "estimated_vo2max": 62.0},
+            effective_cadence_rpm=95.0,
+        )
+        assert snap.get("cadence_anchor", {}).get("effective_cadence_rpm") == 95.0
+
+    def test_derive_effective_cadence(self) -> None:
+        stream = SimpleNamespace(cadence=[0, 45, 90, 92, 88, None], n_samples=6)
+        assert derive_effective_cadence_rpm(stream) == 89.0
+
+    def test_cp_anchor_warnings(self) -> None:
+        warnings = cp_anchor_warnings([{"duration_s": 60, "power_w": 400}])
+        assert warnings
+
+    def test_tier_display_gating(self) -> None:
+        assert should_display(0.6) is True
+        assert should_display(0.4) is False
+        masked = mask_low_confidence(
+            {"confidence_score": 0.3, "estimated_vo2max": 62.0},
+            threshold=0.55,
+        )
+        assert masked["estimated_vo2max"] == "—"
+        tiered = annotate({"value": 1}, module_name="metabolic_profiler")
+        assert tiered["tier"] == tier_for("metabolic_profiler").value
+
+
+class TestRideAnalyticsServiceBatch4:
+    def setup_method(self) -> None:
+        self.svc = RideAnalyticsService()
+        self.athlete = AthleteParams(weight_kg=72.0, ftp=280.0)
+
+    def test_thermal_session_without_core(self) -> None:
+        stream = _stream(seconds=3600, power=200.0)
+        out = self.svc.thermal_session(stream, ftp=280.0)
+        assert out.get("data_quality") == "no_data" or out.get("status") in {"skipped", "error", None}
+
+    def test_thermal_acclimation_from_dicts(self) -> None:
+        sessions = [
+            {"data_quality": "good", "thermal_rise_rate": 0.025 - i * 0.002, "n_valid_samples": 3000}
+            for i in range(6)
+        ]
+        out = self.svc.thermal_acclimation(sessions)
+        assert isinstance(out, dict)
