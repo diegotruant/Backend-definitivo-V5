@@ -260,9 +260,9 @@ JSON_PAYLOAD_OVERRIDES: Dict[str, Any] = {
         "mmp": MMP,
     },
     "labVlapeakObserved": {"lactate_pre_mmol": 1.2, "lactate_post_mmol": 8.0, "duration_s": 30},
-    "loadManual": {"date": "2026-01-01", "tss": 50},
-    "historySummary": {"sessions": [{"date": "2026-01-01", "tss": 50}]},
-    "planningSeason": {"start_date": "2026-01-01", "target_date": "2026-03-01", "weekly_hours": 8},
+    "loadManual": {"duration_min": 60, "rpe": 7},
+    "historySummary": {"activities": [{"date": "2026-01-01", "tss": 50}]},
+    "planningCreateSeasonPlan": {"start_date": "2026-01-01", "target_date": "2026-03-01", "weekly_hours": 8},
     "raceGpxAnalyze": {"gpx_xml": "<gpx version=\"1.1\"></gpx>", "athlete_profile": {"weight_kg": 70, "ftp_w": 250}},
     "raceGpxSimulate": {
         "gpx_xml": "<gpx version=\"1.1\"></gpx>",
@@ -397,6 +397,27 @@ def invalid_json_payload(operation: ApiOperation) -> Dict[str, Any]:
         return {"mmp": {}, "athlete": {"weight_kg": 10}}
     if operation.operation_id == "validateWorkout":
         return {"workout": {"steps": []}}
-    if operation.operation_id == "planningSeason":
+    if operation.operation_id == "planningCreateSeasonPlan":
         return {"start_date": "2026-01-01", "target_date": "2026-03-01", "weekly_hours": -1}
     return {}
+
+
+STRICT_INVALID_JSON_4XX: frozenset[str] = frozenset(
+    {
+        "workoutsExport",
+        "performanceAbilityProfile",
+        "performanceBreakthroughs",
+        "planningCreateSeasonPlan",
+        "metaChartConfig",
+    }
+)
+
+NESTED_INVALID_PAYLOADS: Dict[str, Dict[str, Any]] = {
+    "metaChartConfig": {"chart_type": "zones", "payload": {}},
+}
+
+
+def nested_invalid_payload(operation: ApiOperation) -> Dict[str, Any]:
+    if operation.operation_id in NESTED_INVALID_PAYLOADS:
+        return NESTED_INVALID_PAYLOADS[operation.operation_id]
+    return invalid_json_payload(operation)

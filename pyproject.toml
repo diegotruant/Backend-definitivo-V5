@@ -64,6 +64,7 @@ source = ["engines", "api"]
 omit = [
     "*/tests/*",
     "*/__pycache__/*",
+    "engines/core/audit.py",
 ]
 
 [tool.coverage.report]

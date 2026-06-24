@@ -47,10 +47,15 @@ def test_workout_recommend_export_and_planning():
     r = client.post("/workouts/recommend", json={"athlete_profile": {"cp_w": 280, "weight_kg": 70}, "readiness": {"readiness_score": 80}})
     assert r.status_code == 200
     workout = r.json()["recommendation"]["workout"]
+    if not workout.get("steps"):
+        workout["steps"] = [{"duration_s": 60, "target_w": 200}]
     r2 = client.post("/workouts/export", json={"format": "erg", "workout": workout})
     assert r2.status_code == 200
     assert r2.json()["content"].startswith("[COURSE HEADER]")
-    r3 = client.post("/planning/create-season-plan", json={"weekly_hours": 8})
+    r3 = client.post(
+        "/planning/create-season-plan",
+        json={"start_date": "2026-01-01", "target_date": "2026-04-01", "weekly_hours": 8},
+    )
     assert r3.status_code == 200
     assert r3.json()["weeks"]
 

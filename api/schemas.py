@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from api.domain_schemas import (
     AthleteProfileSnippet,
@@ -218,11 +218,31 @@ class AbilityProfileRequest(BaseModel):
     durability: Optional[Dict[str, Any]] = None
     compliance_history: List[Dict[str, Any]] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def profile_must_have_context(self) -> "AbilityProfileRequest":
+        weight = self.weight_kg or self.athlete_profile.get("weight_kg")
+        curve = (
+            self.athlete_profile.get("mmp")
+            or self.athlete_profile.get("power_curve")
+            or self.athlete_profile.get("rolling_power_curve")
+        )
+        if weight is None:
+            raise ValueError("weight_kg or athlete_profile.weight_kg is required")
+        if not curve:
+            raise ValueError("athlete_profile must include mmp or power_curve")
+        return self
+
 
 class BreakthroughRequest(BaseModel):
     baseline_curve: Dict[str, Any] = Field(default_factory=dict)
     activity_curve: Dict[str, Any] = Field(default_factory=dict)
     min_gain_pct: float = Field(default=1.5, ge=0)
+
+    @model_validator(mode="after")
+    def curves_required(self) -> "BreakthroughRequest":
+        if not self.baseline_curve or not self.activity_curve:
+            raise ValueError("baseline_curve and activity_curve are required")
+        return self
 
 
 class WorkoutRecommendationRequest(BaseModel):
@@ -247,12 +267,25 @@ class WorkoutExportRequest(BaseModel):
     workout: Dict[str, Any] = Field(default_factory=dict)
     format: str = Field(default="erg", description="erg, mrc or zwo")
 
+    @model_validator(mode="after")
+    def workout_must_have_steps(self) -> "WorkoutExportRequest":
+        steps = self.workout.get("steps")
+        if not steps:
+            raise ValueError("workout.steps must contain at least one step")
+        return self
+
 
 class CreateSeasonPlanRequest(BaseModel):
     start_date: Optional[str] = None
     target_date: Optional[str] = None
     weekly_hours: float = Field(default=8.0, ge=1, le=40)
     goal: Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="after")
+    def dates_required(self) -> "CreateSeasonPlanRequest":
+        if not self.start_date or not self.target_date:
+            raise ValueError("start_date and target_date are required")
+        return self
 
 
 class AdaptWeekRequest(BaseModel):
