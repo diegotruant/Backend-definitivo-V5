@@ -1,5 +1,5 @@
 {
-  "line_percent": 69.0,
-  "branch_percent": 53.0,
-  "note": "Ratchet baseline — phase 2 contract hardening. Measured: line ~69%, branch ~53%."
+  "line_percent": 72.0,
+  "branch_percent": 57.0,
+  "note": "Ratchet baseline — Phase 4 batch 1. Measured: line 72.6%, branch 58.0%."
 }
