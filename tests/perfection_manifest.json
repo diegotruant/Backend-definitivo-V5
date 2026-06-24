@@ -1,6 +1,6 @@
 {
   "goal": "Release-grade perfection for Backend-definitivo-V5 — measurable, ratcheting, no masked failures.",
-  "current_phase": 3,
+  "current_phase": 4,
   "phases": [
     {
       "id": 0,
@@ -52,7 +52,7 @@
     {
       "id": 3,
       "name": "golden_scientific",
-      "status": "pending",
+      "status": "done",
       "targets": {
         "golden_engine_families": [
           "metabolic_profiler",

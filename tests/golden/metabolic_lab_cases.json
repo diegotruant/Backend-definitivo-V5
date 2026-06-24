@@ -78,5 +78,23 @@
       "peak_power_wkg_is_null": true,
       "has_weight_assumption": true
     }
+  },
+  {
+    "id": "sprinter_anaerobic_mmp",
+    "description": "Short-duration sprinter curve: glycolytic signal without full aerobic anchors",
+    "weight_kg": 68.0,
+    "mmp": {
+      "5": 1200,
+      "15": 1000,
+      "60": 550,
+      "120": 500,
+      "300": 420,
+      "600": 380
+    },
+    "expected": {
+      "status": "success",
+      "vlamax_range": [0.12, 0.35],
+      "confidence_max": 0.55
+    }
   }
 ]

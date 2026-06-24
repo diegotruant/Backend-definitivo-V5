@@ -1,0 +1,81 @@
+[
+  {
+    "id": "perfect_power",
+    "workout": {
+      "title": "matrix",
+      "steps": [
+        {"type": "warmup", "duration_s": 300, "target_w": 150},
+        {"type": "work", "duration_s": 600, "target_w": 280, "is_key_step": true}
+      ]
+    },
+    "power_pattern": {"constant_segments": [[150, 300], [280, 600]]},
+    "athlete_profile": {"cp_w": 270, "weight_kg": 70},
+    "expected": {
+      "status": "success",
+      "compliance_score": 100.0,
+      "classification": "completed_as_prescribed"
+    }
+  },
+  {
+    "id": "under_target",
+    "workout": {
+      "title": "matrix",
+      "steps": [
+        {"type": "warmup", "duration_s": 300, "target_w": 150},
+        {"type": "work", "duration_s": 600, "target_w": 280, "is_key_step": true}
+      ]
+    },
+    "power_pattern": {"constant_segments": [[150, 300], [220, 600]]},
+    "athlete_profile": {"cp_w": 270, "weight_kg": 70},
+    "expected": {
+      "status": "success",
+      "compliance_score": 58.6,
+      "classification": "partially_completed",
+      "compliance_score_max": 65.0
+    }
+  },
+  {
+    "id": "empty_stream",
+    "workout": {
+      "title": "matrix",
+      "steps": [
+        {"type": "warmup", "duration_s": 300, "target_w": 150},
+        {"type": "work", "duration_s": 600, "target_w": 280, "is_key_step": true}
+      ]
+    },
+    "power_pattern": {"constant_segments": []},
+    "athlete_profile": {"cp_w": 270, "weight_kg": 70},
+    "expected": {"status": "failed", "classification": "unknown"}
+  },
+  {
+    "id": "short_activity",
+    "workout": {
+      "title": "short",
+      "steps": [{"type": "work", "duration_s": 60, "target_w": 200, "is_key_step": true}]
+    },
+    "power_pattern": {"constant_segments": [[200, 30]]},
+    "athlete_profile": {"cp_w": 270, "weight_kg": 70},
+    "expected": {
+      "status": "success",
+      "classification": "partially_completed",
+      "compliance_score_max": 64.5
+    }
+  },
+  {
+    "id": "over_target",
+    "workout": {
+      "title": "matrix",
+      "steps": [
+        {"type": "warmup", "duration_s": 300, "target_w": 150},
+        {"type": "work", "duration_s": 600, "target_w": 280, "is_key_step": true}
+      ]
+    },
+    "power_pattern": {"constant_segments": [[150, 300], [330, 600]]},
+    "athlete_profile": {"cp_w": 270, "weight_kg": 70},
+    "expected": {
+      "status": "success",
+      "compliance_score": 58.6,
+      "classification": "partially_completed"
+    }
+  }
+]

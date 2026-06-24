@@ -102,6 +102,30 @@ def main() -> int:
     except Exception as exc:  # pragma: no cover - status helper must not break CI
         print(f"  matrix ratios: unavailable ({exc})")
 
+    if phase_id >= 3:
+        golden_phase = next(p for p in manifest["phases"] if p["id"] == 3)
+        g_targets = golden_phase.get("targets", {})
+        from tests.golden_support import GOLDEN_DIR, load_golden_cases
+        from tests.pytest_golden_fit_parse import GOLDEN_CASES as FIT_CASES
+
+        families = {
+            "metabolic_profiler": "metabolic_lab_cases.json",
+            "lactate_validation": "lactate_lab_cases.json",
+            "durability": "durability_cases.json",
+            "workout_compliance": "workout_compliance_cases.json",
+            "adaptive_load": "adaptive_load_cases.json",
+            "twin_state": "twin_state_cases.json",
+        }
+        min_cases = int(g_targets.get("golden_cases_min_per_family", 5))
+        fit_assets = GOLDEN_DIR.parent / "assets" / "fit"
+        fit_count = sum(1 for stem in FIT_CASES if (fit_assets / f"{stem}.fit").is_file())
+        print(f"  golden families: {len(families) + 1}  (min {min_cases} cases/family)")
+        for name, filename in families.items():
+            count = len(load_golden_cases(filename))
+            mark = "OK" if count >= min_cases else "below target"
+            print(f"    {name}: {count} cases — {mark}")
+        print(f"    fit_parser: {fit_count} FIT assets — {'OK' if fit_count >= min_cases else 'below target'}")
+
     for key, value in targets.items():
         if key.startswith("coverage_") or key.startswith("matrix_"):
             continue

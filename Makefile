@@ -38,6 +38,9 @@ perfection-status:
 perfection-test:
 	$(PYTHON) -m pytest -q tests/pytest_engine_unit_hardening.py tests/pytest_perfection_http_strict.py tests/pytest_openapi_contract_hardening.py --tb=short
 
+golden-test:
+	$(PYTHON) -m pytest -q tests/pytest_golden_regression.py tests/pytest_golden_fit_parse.py tests/pytest_golden_scientific.py --tb=short
+
 coverage-test:
 	$(PYTHON) -m pytest -q tests/pytest_*.py \
 		--cov=engines --cov=api --cov-branch \
@@ -60,7 +63,7 @@ typecheck:
 typecheck-metabolic:
 	$(PYTHON) -m mypy --explicit-package-bases engines/metabolic
 
-check: lint typecheck test-all hardening-test lockdown-test integrity-test api-matrix-test perfection-test coverage-test
+check: lint typecheck test-all hardening-test lockdown-test integrity-test api-matrix-test perfection-test golden-test coverage-test
 
 openapi:
 	$(PYTHON) scripts/export_openapi.py
