@@ -1,6 +1,6 @@
 {
   "goal": "Release-grade perfection for Backend-definitivo-V5 — measurable, ratcheting, no masked failures.",
-  "current_phase": 2,
+  "current_phase": 3,
   "phases": [
     {
       "id": 0,
@@ -34,12 +34,12 @@
     {
       "id": 2,
       "name": "contract_hardening",
-      "status": "in_progress",
+      "status": "done",
       "targets": {
         "matrix_valid_must_success_ratio": 0.85,
         "matrix_invalid_must_4xx_ratio": 0.70,
         "response_required_keys_per_family": true,
-        "strict_success_operations": 27,
+        "strict_success_operations": 47,
         "strict_invalid_4xx_operations": 20
       },
       "deliverables": [

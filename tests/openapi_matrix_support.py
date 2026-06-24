@@ -39,6 +39,19 @@ SIMPLE_WORKOUT = {
         {"type": "work", "duration_s": 120, "target_w": 280, "is_key_step": True},
     ],
 }
+ATHLETE_PROFILE = {
+    "weight_kg": 70,
+    "cp_w": 270,
+    "ftp_w": 250,
+    "w_prime_j": 20000,
+}
+METABOLIC_SNAPSHOT = {
+    "status": "success",
+    "estimated_vo2max": 55,
+    "mlss_power_watts": 280,
+    "vlamax_mmol_L_s": 0.45,
+    "fatmax_power_watts": 200,
+}
 
 
 @dataclass(frozen=True)
@@ -207,19 +220,6 @@ JSON_PAYLOAD_OVERRIDES: Dict[str, Any] = {
             "w_prime_j": 20000,
         }
     },
-    "twinStateValidate": {
-        "twin_state": {
-            "schema_version": "twin_state.v1",
-            "athlete_id": "matrix_athlete",
-            "athlete_profile": {"weight_kg": 70},
-            "metabolic_snapshot": {},
-            "rolling_power_curve": MMP,
-        }
-    },
-    "twinStateUpdateFromRide": {
-        "twin_state": {"schema_version": "twin_state.v1", "athlete_id": "matrix_athlete"},
-        "ride_summary": {"status": "success", "sections": {}},
-    },
     "workoutsValidate": {"workout": SIMPLE_WORKOUT},
     "workoutsPrescribe": {"workout": SIMPLE_WORKOUT, "athlete_profile": {"cp_w": 270, "weight_kg": 70, "w_prime_j": 20000}},
     "workoutsFeasibility": {
@@ -338,10 +338,51 @@ JSON_PAYLOAD_OVERRIDES: Dict[str, Any] = {
         },
     },
     "metaChartConfig": {"chart_type": "mmp", "payload": {"mmp": MMP}},
+    "workoutsRecommend": {
+        "athlete_profile": ATHLETE_PROFILE,
+        "readiness": {"readiness_score": 75},
+        "goal": {"focus": "threshold"},
+    },
+    "workoutsProgressionLevels": {"athlete_profile": ATHLETE_PROFILE},
+    "workoutsExport": {"workout": SIMPLE_WORKOUT, "format": "erg"},
+    "performanceAbilityProfile": {"athlete_profile": {"weight_kg": 70, "mmp": MMP}},
+    "performanceBreakthroughs": {
+        "baseline_curve": MMP,
+        "activity_curve": {"5": 950, "60": 410, "300": 330, "1200": 290},
+    },
+    "loadStateUpdate": {"session_load": 55},
+    "loadRisk": {"planned_load": 80, "load_state": {"ctl": 50, "atl": 60, "tsb": -10}},
+    "teamCalibrationApply": {
+        "calibration_model": {"team_id": "matrix_team", "events": [], "corrections": {}},
+        "parameter": "mlss",
+        "predicted_value": 280,
+    },
 }
 
 
+def minimal_twin_state() -> Dict[str, Any]:
+    from engines.twin_state.models import build_twin_state
+
+    return build_twin_state(
+        {
+            "athlete_id": "matrix_athlete",
+            "weight_kg": ATHLETE["weight_kg"],
+            "ftp_w": 250,
+            "cp_w": 270,
+            "w_prime_j": 20000,
+            "rolling_power_curve": MMP,
+        }
+    )
+
+
 def json_payload_for_operation(operation: ApiOperation, spec: Dict[str, Any]) -> Dict[str, Any]:
+    if operation.operation_id == "twinStateValidate":
+        return {"twin_state": minimal_twin_state()}
+    if operation.operation_id == "twinStateUpdateFromRide":
+        return {
+            "twin_state": minimal_twin_state(),
+            "ride_summary": {"status": "success", "sections": {}},
+        }
     if operation.operation_id in JSON_PAYLOAD_OVERRIDES:
         return JSON_PAYLOAD_OVERRIDES[operation.operation_id]
     components = spec.get("components", {}).get("schemas", {})
@@ -377,6 +418,14 @@ def multipart_request_for_operation(operation: ApiOperation) -> Tuple[Dict[str, 
     if op == "rideIngest":
         files["file"] = ("matrix.fit", fit_bytes, "application/octet-stream")
         return {"ride_date": "2026-01-15", "weight_kg": "70"}, files
+
+    if op == "rideDurability":
+        files["file"] = ("matrix.fit", fit_bytes, "application/octet-stream")
+        return {
+            "weight_kg": "70",
+            "power_json": json.dumps(POWER_JSON),
+            "metabolic_snapshot_json": json.dumps(METABOLIC_SNAPSHOT),
+        }, files
 
     if op == "workoutsCompare":
         return {
@@ -465,6 +514,43 @@ STRICT_SUCCESS_OPERATIONS: frozenset[str] = frozenset(
         "rideUpdateProfile",
         "raceGpxAnalyze",
         "raceGpxSimulate",
+        "workoutsRecommend",
+        "workoutsProgressionLevels",
+        "workoutsExport",
+        "performanceAbilityProfile",
+        "performanceBreakthroughs",
+        "loadStateUpdate",
+        "loadRisk",
+        "profileCtlAtlTsb",
+        "profileKalmanTrajectory",
+        "profileMmpQuality",
+        "labParseText",
+        "labCreateResult",
+        "rideAnalyticsCriticalPowerFit",
+        "rideAnalyticsThermalAcclimation",
+        "explainabilityMetricNarrative",
+        "explainabilityDurabilityNarrative",
+        "twinStateValidate",
+        "twinStateUpdateFromRide",
+        "teamCalibrationApply",
+    }
+)
+
+# Endpoints that return a direct data envelope without a top-level engine ``status``.
+DIRECT_RESPONSE_OPERATIONS: frozenset[str] = frozenset(
+    {
+        "explainabilityDurabilityNarrative",
+        "explainabilityMetricNarrative",
+        "labCreateResult",
+        "labParseText",
+        "profileCtlAtlTsb",
+        "profileKalmanTrajectory",
+        "profileMmpQuality",
+        "rideAnalyticsCriticalPowerFit",
+        "rideAnalyticsThermalAcclimation",
+        "teamCalibrationApply",
+        "twinStateValidate",
+        "twinStateUpdateFromRide",
     }
 )
 
@@ -478,9 +564,26 @@ RESPONSE_CONTRACTS: Dict[str, tuple[str, ...]] = {
     "profileSnapshot": ("estimated_vo2max", "mlss_power_watts"),
     "historySummary": ("activity_count", "personal_records"),
     "labLactateThresholds": ("thresholds",),
+    "labCreateResult": ("vo2max_ml_kg_min", "vlamax_mmol_L_s"),
+    "labParseText": ("vo2max_ml_kg_min",),
     "loadManual": ("load",),
+    "loadStateUpdate": ("acute_load", "chronic_load"),
+    "loadRisk": ("risk",),
     "metaChartConfig": ("config",),
     "workoutsValidate": ("status",),
+    "workoutsExport": ("content", "format"),
+    "workoutsRecommend": ("recommendation",),
+    "performanceAbilityProfile": ("levels", "dominant_ability"),
+    "performanceBreakthroughs": ("breakthrough", "events"),
+    "profileCtlAtlTsb": ("ctl", "atl", "tsb"),
+    "profileKalmanTrajectory": ("final_state", "states"),
+    "profileMmpQuality": ("quality_score", "classification"),
+    "rideAnalyticsCriticalPowerFit": ("cp_w", "wprime_kj"),
+    "rideAnalyticsThermalAcclimation": ("n_sessions", "trend"),
+    "explainabilityMetricNarrative": ("narrative",),
+    "explainabilityDurabilityNarrative": ("narrative",),
+    "twinStateValidate": ("schema_version", "athlete_id"),
+    "teamCalibrationApply": ("parameter", "corrected_value"),
 }
 
 NESTED_INVALID_PAYLOADS: Dict[str, Dict[str, Any]] = {
