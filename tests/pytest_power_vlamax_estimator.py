@@ -30,6 +30,11 @@ def _maximal_sprint_15s() -> list[float]:
     return power
 
 
+def _late_peak_amateur_sprint_15s() -> list[float]:
+    """Amateur-style sprint: mechanical peak reached after 3.5 s but sustained."""
+    return [650, 800, 900, 970, 1020, 1050, 1000, 960, 920, 880, 840, 800, 760, 720, 680]
+
+
 def test_power_series_estimator_success() -> None:
     profiler = MetabolicProfiler(weight=70.0)
     out = estimate_vlamax_from_power_series(
@@ -45,6 +50,26 @@ def test_power_series_estimator_success() -> None:
     assert out["method"] == "power_series_glycolytic_proxy_v1"
     assert out["confidence"] >= 0.5
     assert "t_p_peak_s" in out["features"]
+
+
+def test_power_series_late_peak_amateur_sprint_is_protocol_note_not_bias() -> None:
+    """A late mechanical peak should not move the glycolytic start after 3.5 s."""
+    profiler = MetabolicProfiler(weight=70.0)
+    out = estimate_vlamax_from_power_series(
+        _late_peak_amateur_sprint_15s(),
+        dt_s=1.0,
+        weight_kg=70.0,
+        eta=profiler.context.expected_eta(),
+        active_muscle_mass_kg=profiler.active_muscle_mass,
+        vo2max_power_w=400.0,
+    )
+
+    assert out["status"] == "success"
+    assert out["features"]["t_pcr_s"] == pytest.approx(3.5)
+    assert out["features"]["t_p_peak_s"] == pytest.approx(5.0)
+    assert "late_power_peak_protocol_note" in out["quality_flags"]
+    assert "very_late_power_peak_protocol_note" not in out["quality_flags"]
+    assert out["confidence"] >= 0.8
 
 
 def test_power_series_rejects_spike_only_sprint() -> None:
