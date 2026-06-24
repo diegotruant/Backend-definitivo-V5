@@ -75,7 +75,7 @@
     {
       "id": 4,
       "name": "coverage_depth",
-      "status": "pending",
+      "status": "in_progress",
       "targets": {
         "coverage_line_percent": 85,
         "coverage_branch_percent": 75,
