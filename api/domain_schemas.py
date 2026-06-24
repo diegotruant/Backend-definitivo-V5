@@ -205,7 +205,7 @@ class TwinStateBuildPayload(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    athlete_id: Optional[str] = None
+    athlete_id: str = Field(..., min_length=1)
     athlete_profile: Optional[AthleteProfileSnippet] = None
     athlete: Optional[AthleteProfileSnippet] = None
     measured_anchor: Optional[Dict[str, Any]] = None

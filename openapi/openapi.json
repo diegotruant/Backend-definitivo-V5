@@ -7505,6 +7505,7 @@
               "type": "object"
             },
             "type": "array",
+            "minItems": 1,
             "title": "Plan"
           },
           "readiness": {
@@ -7533,6 +7534,9 @@
           }
         },
         "type": "object",
+        "required": [
+          "plan"
+        ],
         "title": "AdaptPlanRequest"
       },
       "AdaptWeekRequest": {
@@ -7543,6 +7547,7 @@
               "type": "object"
             },
             "type": "array",
+            "minItems": 1,
             "title": "Week Plan"
           },
           "readiness": {
@@ -7571,6 +7576,9 @@
           }
         },
         "type": "object",
+        "required": [
+          "week_plan"
+        ],
         "title": "AdaptWeekRequest"
       },
       "AdaptiveRecommendationRequest": {
@@ -9458,6 +9466,7 @@
               "type": "object"
             },
             "type": "array",
+            "minItems": 1,
             "title": "Plan"
           },
           "chronic_load": {
@@ -9468,6 +9477,9 @@
           }
         },
         "type": "object",
+        "required": [
+          "plan"
+        ],
         "title": "CheckLoadRiskRequest"
       },
       "CompareSegmentsRequest": {
@@ -9730,11 +9742,15 @@
               "type": "object"
             },
             "type": "array",
+            "minItems": 1,
             "title": "Tss History",
             "description": "List of {date, tss} entries."
           }
         },
         "type": "object",
+        "required": [
+          "tss_history"
+        ],
         "title": "CtlAtlTsbRequest"
       },
       "DetrainingApplyRequest": {
@@ -10155,6 +10171,7 @@
               "type": "object"
             },
             "type": "array",
+            "minItems": 1,
             "title": "Activities"
           },
           "as_of": {
@@ -10183,6 +10200,9 @@
           }
         },
         "type": "object",
+        "required": [
+          "activities"
+        ],
         "title": "HistorySummaryRequest"
       },
       "HourlyDecayRequest": {
@@ -11399,6 +11419,7 @@
               "$ref": "#/components/schemas/PowerSourceActivity"
             },
             "type": "array",
+            "minItems": 1,
             "title": "Activities",
             "description": "Activities with source_id and MMP signatures."
           },
@@ -11429,6 +11450,9 @@
           }
         },
         "type": "object",
+        "required": [
+          "activities"
+        ],
         "title": "PowerSourceNormalizationRequest"
       },
       "ProgressionLevelsRequest": {
@@ -11980,14 +12004,8 @@
       "TwinStateBuildPayload": {
         "properties": {
           "athlete_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "minLength": 1,
             "title": "Athlete Id"
           },
           "athlete_profile": {
@@ -12147,6 +12165,9 @@
         },
         "additionalProperties": true,
         "type": "object",
+        "required": [
+          "athlete_id"
+        ],
         "title": "TwinStateBuildPayload",
         "description": "Input fragments accepted by POST /twin/state/build."
       },

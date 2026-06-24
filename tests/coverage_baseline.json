@@ -1,5 +1,5 @@
 {
-  "line_percent": 68.0,
-  "branch_percent": 52.0,
-  "note": "Ratchet baseline — raise only when coverage improves deliberately. Measured after perfection hardening: line ~68%, branch ~53%."
+  "line_percent": 69.0,
+  "branch_percent": 53.0,
+  "note": "Ratchet baseline — phase 2 contract hardening. Measured: line ~69%, branch ~53%."
 }

@@ -18,6 +18,14 @@ ATHLETE: Dict[str, Any] = {
     "discipline": "ENDURANCE",
 }
 MMP: Dict[str, float] = {"5": 900, "60": 400, "300": 320, "1200": 280}
+MINIMAL_GPX = """<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="matrix">
+  <trk><name>matrix</name><trkseg>
+    <trkpt lat="45.0000" lon="7.0000"><ele>300</ele></trkpt>
+    <trkpt lat="45.0100" lon="7.0100"><ele>350</ele></trkpt>
+    <trkpt lat="45.0200" lon="7.0200"><ele>400</ele></trkpt>
+  </trkseg></trk>
+</gpx>"""
 MMP_CURVE_CP = [
     {"duration_s": 120, "power_w": 400},
     {"duration_s": 300, "power_w": 320},
@@ -147,7 +155,7 @@ def minimal_from_schema(
 
 JSON_PAYLOAD_OVERRIDES: Dict[str, Any] = {
     "profileSnapshot": {"mmp": MMP, "athlete": ATHLETE},
-    "profileSnapshotBayesian": {"mmp": MMP, "athlete": ATHLETE, "n_samples": 200, "n_warmup": 50, "seed": 1},
+    "profileSnapshotBayesian": {"mmp": MMP, "athlete": ATHLETE, "n_samples": 500, "n_warmup": 100, "seed": 1},
     "profileSnapshotAuto": {"mmp": MMP, "athlete": ATHLETE},
     "profileSnapshotSegmented": {"mmp": MMP, "athlete": ATHLETE},
     "profileSnapshotPhenotype": {"mmp": MMP, "athlete": ATHLETE},
@@ -212,9 +220,9 @@ JSON_PAYLOAD_OVERRIDES: Dict[str, Any] = {
         "twin_state": {"schema_version": "twin_state.v1", "athlete_id": "matrix_athlete"},
         "ride_summary": {"status": "success", "sections": {}},
     },
-    "validateWorkout": {"workout": SIMPLE_WORKOUT},
-    "prescribeWorkout": {"workout": SIMPLE_WORKOUT, "athlete_profile": {"cp_w": 270, "weight_kg": 70, "w_prime_j": 20000}},
-    "feasibilityWorkout": {
+    "workoutsValidate": {"workout": SIMPLE_WORKOUT},
+    "workoutsPrescribe": {"workout": SIMPLE_WORKOUT, "athlete_profile": {"cp_w": 270, "weight_kg": 70, "w_prime_j": 20000}},
+    "workoutsFeasibility": {
         "workout": SIMPLE_WORKOUT,
         "athlete_profile": {"cp_w": 270, "weight_kg": 70, "w_prime_j": 20000},
     },
@@ -237,9 +245,10 @@ JSON_PAYLOAD_OVERRIDES: Dict[str, Any] = {
         "measured_on": "2026-01-15",
     },
     "rideUpdateProfile": {
+        "anchor": {"status": "success", "estimated_vo2max": 55, "mlss_power_watts": 280},
         "ride_mmp": MMP,
-        "stored_anchor": {"status": "success", "estimated_vo2max": 55},
         "athlete": ATHLETE,
+        "as_of": "2026-01-15",
     },
     "labLactateThresholds": {
         "steps": [
@@ -263,11 +272,8 @@ JSON_PAYLOAD_OVERRIDES: Dict[str, Any] = {
     "loadManual": {"duration_min": 60, "rpe": 7},
     "historySummary": {"activities": [{"date": "2026-01-01", "tss": 50}]},
     "planningCreateSeasonPlan": {"start_date": "2026-01-01", "target_date": "2026-03-01", "weekly_hours": 8},
-    "raceGpxAnalyze": {"gpx_xml": "<gpx version=\"1.1\"></gpx>", "athlete_profile": {"weight_kg": 70, "ftp_w": 250}},
-    "raceGpxSimulate": {
-        "gpx_xml": "<gpx version=\"1.1\"></gpx>",
-        "athlete_profile": {"weight_kg": 70, "ftp_w": 250, "cp_w": 270},
-    },
+    "raceGpxAnalyze": {"gpx_text": MINIMAL_GPX},
+    "raceGpxSimulate": {"gpx_text": MINIMAL_GPX, "weight_kg": 70, "ftp_w": 250},
     "rideAnalyticsCriticalPowerFit": {"mmp_curve": MMP_CURVE_CP},
     "rideAnalyticsMetabolicFlexibility": {
         "snapshot": {"fatmax_power_watts": 200, "mlss_power_watts": 280},
@@ -395,7 +401,7 @@ def invalid_json_payload(operation: ApiOperation) -> Dict[str, Any]:
     """Deliberately incomplete payload for negative-path matrix checks."""
     if operation.operation_id in {"profileSnapshot", "profileGlycolyticProfile"}:
         return {"mmp": {}, "athlete": {"weight_kg": 10}}
-    if operation.operation_id == "validateWorkout":
+    if operation.operation_id == "workoutsValidate":
         return {"workout": {"steps": []}}
     if operation.operation_id == "planningCreateSeasonPlan":
         return {"start_date": "2026-01-01", "target_date": "2026-03-01", "weekly_hours": -1}
@@ -405,12 +411,77 @@ def invalid_json_payload(operation: ApiOperation) -> Dict[str, Any]:
 STRICT_INVALID_JSON_4XX: frozenset[str] = frozenset(
     {
         "workoutsExport",
+        "workoutsRecommend",
+        "workoutsProgressionLevels",
+        "workoutsAdaptPlan",
         "performanceAbilityProfile",
         "performanceBreakthroughs",
         "planningCreateSeasonPlan",
+        "planningAdaptWeek",
+        "planningCheckLoadRisk",
+        "historySummary",
+        "historyPowerCurve",
+        "historyRecords",
+        "historyLoad",
+        "readinessToday",
+        "loadStateUpdate",
+        "loadRisk",
+        "powerSourceNormalize",
+        "profileCtlAtlTsb",
+        "labCreateResult",
+        "twinStateBuild",
         "metaChartConfig",
     }
 )
+
+# Curated matrix payloads that must return an allowed engine status (never error/failed).
+STRICT_SUCCESS_OPERATIONS: frozenset[str] = frozenset(
+    {
+        "historySummary",
+        "labLactateThresholds",
+        "labLactateValidateModel",
+        "labValidateResult",
+        "labVlapeakObserved",
+        "loadAdaptiveTrend",
+        "loadManual",
+        "metaChartConfig",
+        "planningCreateSeasonPlan",
+        "profileCrossValidate",
+        "profileGlycolyticProfile",
+        "profileMetabolicCurrent",
+        "profileSnapshot",
+        "profileSnapshotAuto",
+        "profileSnapshotBayesian",
+        "profileSnapshotPhenotype",
+        "profileSnapshotSegmented",
+        "profileVlamaxFromSprint",
+        "rideAnalyticsMetabolicFlexibility",
+        "testInPerson",
+        "workoutsFeasibility",
+        "workoutsPrescribe",
+        "workoutsValidate",
+        "testConfirm",
+        "loadAdaptiveRecommendation",
+        "rideUpdateProfile",
+        "raceGpxAnalyze",
+        "raceGpxSimulate",
+    }
+)
+
+CURATED_ALLOWED_STATUSES: Dict[str, frozenset[str]] = {
+    "workoutsValidate": frozenset({"valid"}),
+    "testConfirm": frozenset({"anchored", "success"}),
+    "loadAdaptiveRecommendation": frozenset({"green", "yellow", "red", "blue"}),
+}
+
+RESPONSE_CONTRACTS: Dict[str, tuple[str, ...]] = {
+    "profileSnapshot": ("estimated_vo2max", "mlss_power_watts"),
+    "historySummary": ("activity_count", "personal_records"),
+    "labLactateThresholds": ("thresholds",),
+    "loadManual": ("load",),
+    "metaChartConfig": ("config",),
+    "workoutsValidate": ("status",),
+}
 
 NESTED_INVALID_PAYLOADS: Dict[str, Dict[str, Any]] = {
     "metaChartConfig": {"chart_type": "zones", "payload": {}},

@@ -1,6 +1,6 @@
 {
   "goal": "Release-grade perfection for Backend-definitivo-V5 — measurable, ratcheting, no masked failures.",
-  "current_phase": 1,
+  "current_phase": 2,
   "phases": [
     {
       "id": 0,
@@ -16,7 +16,7 @@
     {
       "id": 1,
       "name": "surface_coverage",
-      "status": "in_progress",
+      "status": "done",
       "targets": {
         "openapi_paths_smoke": 106,
         "coverage_line_percent": 68,
@@ -29,16 +29,18 @@
         "strict 422 on critical empty payloads",
         "engine unit tests for weakest modules"
       ],
-      "notes": "Phase 1 is smoke + ratchet — not the destination."
+      "notes": "Phase 1 complete — smoke + ratchet baseline."
     },
     {
       "id": 2,
       "name": "contract_hardening",
-      "status": "pending",
+      "status": "in_progress",
       "targets": {
         "matrix_valid_must_success_ratio": 0.85,
         "matrix_invalid_must_4xx_ratio": 0.70,
-        "response_required_keys_per_family": true
+        "response_required_keys_per_family": true,
+        "strict_success_operations": 27,
+        "strict_invalid_4xx_operations": 20
       },
       "deliverables": [
         "Per-endpoint-family response contracts in tests",

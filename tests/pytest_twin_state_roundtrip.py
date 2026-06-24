@@ -85,7 +85,9 @@ def test_twin_state_full_http_roundtrip() -> None:
 
 def test_twin_build_rejects_invalid_payload_at_boundary() -> None:
     resp = client.post("/twin/state/build", json={"payload": {"athlete_id": ""}})
-    # Empty athlete_id may still build as 'unknown' — test malformed twin update instead
+    assert resp.status_code == 422
+    resp_empty = client.post("/twin/state/build", json={})
+    assert resp_empty.status_code == 422
     state = client.post("/twin/state/build", json={"payload": twin_build_payload()}).json()
     resp = client.post(
         "/twin/state/update-from-ride",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from api.schemas import AthleteParams, TauModel
 
@@ -82,7 +82,8 @@ class DetrainingApplyRequest(BaseModel):
 
 class CtlAtlTsbRequest(BaseModel):
     tss_history: List[Dict[str, Any]] = Field(
-        default_factory=list,
+        ...,
+        min_length=1,
         description="List of {date, tss} entries.",
     )
 
@@ -336,3 +337,9 @@ class LabCreateResultRequest(BaseModel):
     weight_kg: Optional[float] = None
     notes: str = ""
     extra: Dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def require_at_least_one_metric(self) -> "LabCreateResultRequest":
+        if not any(v is not None for v in (self.vo2max, self.vlamax, self.mlss_w, self.ftp_w)):
+            raise ValueError("At least one of vo2max, vlamax, mlss_w, ftp_w is required")
+        return self
