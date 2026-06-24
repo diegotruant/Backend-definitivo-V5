@@ -32,5 +32,23 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
 
+      - name: Engine lockdown diagnostic log
+        shell: bash
+        run: |
+          mkdir -p reports/ci
+          set +e
+          python -m pytest -q tests/pytest_engine_lockdown_v1.py --tb=short | tee reports/ci/engine_lockdown_pytest.log
+          status=${PIPESTATUS[0]}
+          echo "${status}" > reports/ci/engine_lockdown_pytest.exitcode
+          exit 0
+
+      - name: Upload engine lockdown diagnostic log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-lockdown-pytest-log
+          path: reports/ci/engine_lockdown_pytest.*
+          if-no-files-found: warn
+
       - name: Release gate (lint + typecheck + test-all + hardening)
         run: make check

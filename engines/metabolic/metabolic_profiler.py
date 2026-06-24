@@ -23,6 +23,7 @@ from engines.metabolic.cross_validation_engine import (
     cross_validate_metabolic_profile,
     observed_threshold_power,
 )
+from engines.metabolic.glycolytic_validation_engine import build_glycolytic_profile
 from engines.metabolic.mader_constants import (
     ExpressivenessReport,
     MaderConstants,
@@ -585,7 +586,8 @@ class MetabolicProfiler:
                     # driven parameters; cap confidence hard.
                     confidence_effective = min(confidence_effective, 0.15)
 
-            return self._finalize_snapshot({
+            end_max, all_max = self.context.phenotype_thresholds()
+            snap_body: Dict[str, Any] = {
                 "status": "success",
                 "estimated_vo2max": vo2_out,
                 "estimated_vlamax_mmol_L_s": vla_out,
@@ -624,7 +626,20 @@ class MetabolicProfiler:
                 "zones": self._generate_zones(w_mlss, map_w) if expressiveness.mlss_reliable else None,
                 "combustion_curve": combustion_curve if expressiveness.vlamax_reliable else None,
                 "calculated_at": datetime.now().isoformat()
-            }, mmp_quality_audit, effective_cadence_rpm=effective_cadence_rpm, cadence_anchor_status=cadence_anchor_status)
+            }
+            snap_body["glycolytic_profile"] = build_glycolytic_profile(
+                snap_body,
+                profiler=self,
+                mmp={int(k): float(v) for k, v in mmp.items()},
+                endurance_max=end_max,
+                allrounder_max=all_max,
+            )
+            return self._finalize_snapshot(
+                snap_body,
+                mmp_quality_audit,
+                effective_cadence_rpm=effective_cadence_rpm,
+                cadence_anchor_status=cadence_anchor_status,
+            )
         except Exception as e:
             return self._finalize_snapshot(
                 {"status": "error", "message": str(e)},

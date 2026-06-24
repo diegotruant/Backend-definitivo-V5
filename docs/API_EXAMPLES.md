@@ -13,7 +13,7 @@ GET /health
 ```
 
 ```json
-{ "status": "ok", "version": "5.1.1" }
+{ "status": "ok", "version": "5.2.2" }
 ```
 
 ---
@@ -44,6 +44,25 @@ Content-Type: application/json
   }
 }
 ```
+
+---
+
+## Profile — power-series VLamax proxy
+
+```http
+POST /profile/vlamax-from-power-series
+Content-Type: application/json
+```
+
+```json
+{
+  "athlete": { "weight_kg": 70, "gender": "MALE", "training_years": 10, "discipline": "ENDURANCE" },
+  "power": [1099, 1099, 1063, 1045, 1027, 1009, 991, 973, 955, 937, 919, 901, 883, 865, 847],
+  "vo2max_power_w": 400
+}
+```
+
+Response includes `estimated_vlamax_mmol_L_s` (power proxy), `confidence`, and `method`. Label in UI as power-derived, not blood lactate.
 
 ---
 

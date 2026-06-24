@@ -18,7 +18,7 @@ Response:
 {
   "status": "ok",
   "service": "digital-twin-api",
-  "version": "1.0.0"
+  "version": "5.2.2"
 }
 ```
 
@@ -132,6 +132,64 @@ Expected UI fields:
 - `expressiveness`.
 
 The frontend must handle missing/null fields.
+
+---
+
+## POST /profile/vlamax-from-power-series
+
+Standalone power-derived VLamax proxy from a maximal sprint trace (8–30 s at 1 Hz).
+
+Payload:
+
+```json
+{
+  "athlete": {
+    "weight_kg": 70,
+    "gender": "MALE",
+    "training_years": 10,
+    "discipline": "ENDURANCE"
+  },
+  "power": [1099, 1099, 1063, 1045, 1027, 1009, 991, 973, 955, 937, 919, 901, 883, 865, 847],
+  "dt_s": 1.0,
+  "vo2max_power_w": 400,
+  "cp_w": 280,
+  "lactate_pre_mmol_l": 1.2,
+  "lactate_peak_mmol_l": 8.0
+}
+```
+
+Expected UI fields:
+
+- `estimated_vlamax_mmol_L_s` — power proxy (label as **power proxy**, not lab);
+- `confidence`, `method`, `features.t_p_peak_s`;
+- `observed_vlapeak_mmol_l_s` when lactate pre/post supplied;
+- `status` — `insufficient_sprint` if trace is spike-only or too short.
+
+---
+
+## POST /profile/glycolytic-profile (with sprint power)
+
+Same base payload as `/profile/snapshot` plus optional sprint trace:
+
+```json
+{
+  "mmp": { "5": 900, "60": 400, "300": 320, "1200": 280 },
+  "athlete": {
+    "weight_kg": 70,
+    "gender": "MALE",
+    "training_years": 10,
+    "discipline": "ENDURANCE"
+  },
+  "sprint_power": [1099, 1099, 1063, 1045, 1027, 1009, 991, 973, 955, 937, 919, 901, 883, 865, 847],
+  "sprint_dt_s": 1.0,
+  "vo2max_power_w": 400
+}
+```
+
+Additional response fields when `sprint_power` is present:
+
+- `power_derived_vlamax` — nested proxy result;
+- `vlamax_derivation.agreement` — `coherent` / `divergent` vs Mader `estimated_vlamax_mmol_L_s`.
 
 ---
 

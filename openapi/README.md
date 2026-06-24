@@ -1,22 +1,20 @@
 # OpenAPI contract — Digital Twin API
 
-This folder contains the **canonical HTTP contract** for frontend and external integrators.
+**Version:** 5.2.2  
+**Paths:** 106
 
-| File | Purpose |
-|------|---------|
-| `openapi.json` | Full OpenAPI 3.1 document (42 endpoints) |
+| File | Description |
+|------|-------------|
+| `openapi.json` | Full OpenAPI 3.1 document (106 HTTP paths) |
+| `../docs/API_ENDPOINT_INDEX.md` | Human-readable index by tag |
+| `../docs/OPENAPI_FRONTEND.md` | Frontend integration guide |
 
-## Live spec (running server)
-
-When the API is up:
+## Live exploration
 
 - Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
-- ReDoc: [http://localhost:8000/redoc](http://localhost:8000/redoc)
 - Raw JSON: [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json)
 
-## Regenerate after API changes
-
-From repository root:
+## Regenerate
 
 ```bash
 make openapi-frontend
@@ -24,17 +22,11 @@ make openapi-frontend
 
 This will:
 
-1. Export `openapi/openapi.json` from the FastAPI app
-2. Regenerate `frontend/src/api/generated/schema.ts` (TypeScript types)
+1. Export `openapi/openapi.json` from the FastAPI app (`scripts/export_openapi.py`)
+2. Regenerate `frontend/src/api/generated/schema.ts` (requires `npm install` in `frontend/`)
 
-## Frontend usage
+Commit both files (and `frontend/src/api/client.ts` if you added routes manually).
 
-```typescript
-import { api } from './api/client';
-import type { SnapshotRequest, HealthResponse } from './api/client';
+## Drift checks
 
-const health = await api.health();
-const snapshot = await api.profileSnapshot({ mmp: { '300': 340 }, athlete: { ... } });
-```
-
-See `docs/OPENAPI_FRONTEND.md` for the full integration guide.
+CI runs `tests/pytest_openapi_contract.py` — committed spec must match live export.

@@ -3,7 +3,7 @@
   "info": {
     "title": "Digital Twin Fisiologico API",
     "description": "Stateless physiology analytics API. HTTP routers are thin; application services orchestrate engines under `engines/`.",
-    "version": "5.1.1",
+    "version": "5.2.2",
     "x-codegen": {
       "typescript_output": "frontend/src/api/generated/schema.ts",
       "regenerate": "make openapi-frontend",
@@ -51,7 +51,7 @@
                       "title": "Version",
                       "description": "API semver.",
                       "examples": [
-                        "5.1.0"
+                        "5.2.2"
                       ]
                     }
                   },
@@ -1059,6 +1059,1902 @@
         ]
       }
     },
+    "/ride/analytics/zones": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Zones",
+        "operationId": "rideAnalyticsZones",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideAnalyticsZones"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/statistics": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Statistics",
+        "operationId": "rideAnalyticsStatistics",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideAnalyticsStatistics"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/power": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Power Analyze",
+        "operationId": "rideAnalyticsPower",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideAnalyticsPower"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/critical-power/fit": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Critical Power Fit",
+        "operationId": "rideAnalyticsCriticalPowerFit",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriticalPowerFitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/w-prime/balance": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "W Prime Balance",
+        "operationId": "rideAnalyticsWPrimeBalance",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WPrimeBalanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/durability/index": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Durability Index",
+        "operationId": "rideAnalyticsDurabilityIndex",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DurabilityIndexRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/durability/np-drift": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Np Drift",
+        "operationId": "rideAnalyticsNpDrift",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PowerSeriesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/durability/tte-sustainability": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Tte Sustainability",
+        "operationId": "rideAnalyticsTteSustainability",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TteSustainabilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/durability/hourly-decay": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Hourly Decay",
+        "operationId": "rideAnalyticsHourlyDecay",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HourlyDecayRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/durability/prescription": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Durability Prescription",
+        "operationId": "rideAnalyticsDurabilityPrescription",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DurabilityPrescriptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/cardiac": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Cardiac",
+        "operationId": "rideAnalyticsCardiac",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideAnalyticsCardiac"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/hrv": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Hrv",
+        "operationId": "rideAnalyticsHrv",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideAnalyticsHrv"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/thermal/session": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Thermal Session",
+        "operationId": "rideAnalyticsThermalSession",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideAnalyticsThermalSession"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/thermal/acclimation": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Thermal Acclimation",
+        "operationId": "rideAnalyticsThermalAcclimation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThermalAcclimationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/pedaling-balance": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Pedaling Balance",
+        "operationId": "rideAnalyticsPedalingBalance",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideAnalyticsPedalingBalance"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/efforts": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Efforts",
+        "operationId": "rideAnalyticsEfforts",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideAnalyticsEfforts"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/session/classify": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Session Classify",
+        "operationId": "rideAnalyticsSessionClassify",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideAnalyticsSessionClassify"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/session/protocol-completeness": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Protocol Completeness",
+        "operationId": "rideAnalyticsProtocolCompleteness",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideAnalyticsProtocolCompleteness"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/session/route-decide": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Session Route Decide",
+        "operationId": "rideAnalyticsSessionRouteDecide",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideAnalyticsSessionRouteDecide"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/session/route-run": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Session Route Run",
+        "operationId": "rideAnalyticsSessionRouteRun",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideAnalyticsSessionRouteRun"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/resilience": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Resilience",
+        "operationId": "rideAnalyticsResilience",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResilienceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/metabolic-flexibility": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Metabolic Flexibility",
+        "operationId": "rideAnalyticsMetabolicFlexibility",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetabolicFlexibilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/segments/climbs": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Climb Segments",
+        "operationId": "rideAnalyticsClimbSegments",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideAnalyticsClimbSegments"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/segments/compare": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Compare Segments",
+        "operationId": "rideAnalyticsCompareSegments",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompareSegmentsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/ride/analytics/adaptive-load": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Adaptive Load",
+        "operationId": "rideAnalyticsAdaptiveLoad",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideAnalyticsAdaptiveLoad"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
     "/profile/snapshot": {
       "post": {
         "tags": [
@@ -1132,6 +3028,1104 @@
             "AthleteIdHeader": []
           }
         ]
+      }
+    },
+    "/profile/snapshot/segmented": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Snapshot Segmented",
+        "operationId": "profileSnapshotSegmented",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SegmentedSnapshotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/profile/snapshot/auto": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Snapshot Auto",
+        "operationId": "profileSnapshotAuto",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MmpAthleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/profile/snapshot/bayesian": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Snapshot Bayesian",
+        "operationId": "profileSnapshotBayesian",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BayesianSnapshotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/profile/vlamax-from-sprint": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Vlamax From Sprint",
+        "operationId": "profileVlamaxFromSprint",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VlamaxSprintRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/profile/vlamax-from-power-series": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Vlamax From Power Series",
+        "operationId": "profileVlamaxFromPowerSeries",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VlamaxPowerSeriesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/profile/kalman/trajectory": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Kalman Trajectory",
+        "operationId": "profileKalmanTrajectory",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KalmanTrajectoryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/profile/metabolic/current": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Metabolic Current",
+        "operationId": "profileMetabolicCurrent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetabolicCurrentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/profile/detraining/apply": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Detraining Apply",
+        "operationId": "profileDetrainingApply",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DetrainingApplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/profile/training-load/ctl-atl-tsb": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Ctl Atl Tsb",
+        "operationId": "profileCtlAtlTsb",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CtlAtlTsbRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/profile/cross-validate": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Cross Validate",
+        "operationId": "profileCrossValidate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrossValidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/profile/mmp-quality": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Mmp Quality",
+        "operationId": "profileMmpQuality",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MmpQualityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/profile/snapshot/phenotype": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Snapshot Phenotype",
+        "operationId": "profileSnapshotPhenotype",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GlycolyticProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/profile/glycolytic-profile": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Glycolytic Profile",
+        "operationId": "profileGlycolyticProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GlycolyticProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/profile/w-prime/tau": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "W Prime Tau",
+        "operationId": "profileWPrimeTau",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WPrimeTauRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/lab/parse-text": {
+      "post": {
+        "tags": [
+          "lab"
+        ],
+        "summary": "Parse Text",
+        "operationId": "labParseText",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabTextParseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/validate-result": {
+      "post": {
+        "tags": [
+          "lab"
+        ],
+        "summary": "Validate Result",
+        "operationId": "labValidateResult",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabResultValidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/create-result": {
+      "post": {
+        "tags": [
+          "lab"
+        ],
+        "summary": "Create Result",
+        "operationId": "labCreateResult",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabCreateResultRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/lactate/thresholds": {
+      "post": {
+        "tags": [
+          "lab"
+        ],
+        "summary": "Lactate Thresholds",
+        "operationId": "labLactateThresholds",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LactateThresholdsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/lactate/validate-model": {
+      "post": {
+        "tags": [
+          "lab"
+        ],
+        "summary": "Lactate Validate Model",
+        "operationId": "labLactateValidateModel",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LactateValidateModelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/vlapeak/observed": {
+      "post": {
+        "tags": [
+          "lab"
+        ],
+        "summary": "Vlapeak Observed",
+        "operationId": "labVlapeakObserved",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VlapeakObservedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/vlapeak/validate": {
+      "post": {
+        "tags": [
+          "lab"
+        ],
+        "summary": "Vlapeak Validate",
+        "operationId": "labVlapeakValidate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VlapeakValidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/workouts/validate": {
@@ -1782,6 +4776,81 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/WorkoutExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/twin/state/validate": {
+      "post": {
+        "tags": [
+          "twin"
+        ],
+        "summary": "Validate TwinState v1",
+        "description": "Validate and JSON-clean a twin_state payload without persisting.",
+        "operationId": "twinStateValidate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwinValidateRequest"
               }
             }
           },
@@ -2601,6 +5670,874 @@
             "AthleteIdHeader": []
           }
         ]
+      }
+    },
+    "/load/acwr": {
+      "post": {
+        "tags": [
+          "load"
+        ],
+        "summary": "Acwr",
+        "operationId": "loadAcwr",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcwrRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/load/monotony-strain": {
+      "post": {
+        "tags": [
+          "load"
+        ],
+        "summary": "Monotony Strain",
+        "operationId": "loadMonotonyStrain",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MonotonyStrainRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/load/adaptive/trend": {
+      "post": {
+        "tags": [
+          "load"
+        ],
+        "summary": "Adaptive Trend",
+        "operationId": "loadAdaptiveTrend",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdaptiveTrendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/load/adaptive/recommendation": {
+      "post": {
+        "tags": [
+          "load"
+        ],
+        "summary": "Adaptive Recommendation",
+        "operationId": "loadAdaptiveRecommendation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdaptiveRecommendationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/explainability/vo2max-confidence": {
+      "post": {
+        "tags": [
+          "explainability"
+        ],
+        "summary": "Vo2Max Confidence",
+        "operationId": "explainabilityVo2Confidence",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplainabilityVo2ConfidenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/explainability/durability-confidence": {
+      "post": {
+        "tags": [
+          "explainability"
+        ],
+        "summary": "Durability Confidence",
+        "operationId": "explainabilityDurabilityConfidence",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplainabilityDurabilityConfidenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/explainability/metric-narrative": {
+      "post": {
+        "tags": [
+          "explainability"
+        ],
+        "summary": "Metric Narrative",
+        "operationId": "explainabilityMetricNarrative",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplainabilityMetricNarrativeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/explainability/durability-narrative": {
+      "post": {
+        "tags": [
+          "explainability"
+        ],
+        "summary": "Durability Narrative",
+        "operationId": "explainabilityDurabilityNarrative",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DurabilityNarrativeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/explainability/acwr-narrative": {
+      "post": {
+        "tags": [
+          "explainability"
+        ],
+        "summary": "Acwr Narrative",
+        "operationId": "explainabilityAcwrNarrative",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplainabilityAcwrNarrativeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/explainability/workout-summary-narrative": {
+      "post": {
+        "tags": [
+          "explainability"
+        ],
+        "summary": "Workout Summary Narrative",
+        "operationId": "explainabilityWorkoutSummaryNarrative",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplainabilityWorkoutSummaryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/race/gpx/analyze": {
+      "post": {
+        "tags": [
+          "race"
+        ],
+        "summary": "Analyze Gpx",
+        "operationId": "raceGpxAnalyze",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RaceGpxAnalyzeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/race/gpx/simulate": {
+      "post": {
+        "tags": [
+          "race"
+        ],
+        "summary": "Simulate Gpx",
+        "operationId": "raceGpxSimulate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RaceGpxSimulateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integrations/activity/normalize": {
+      "post": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Normalize Activity",
+        "operationId": "integrationsNormalizeActivity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntegrationNormalizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integrations/activities/deduplicate": {
+      "post": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Deduplicate",
+        "operationId": "integrationsDeduplicateActivities",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntegrationDeduplicateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/meta/engine-tiers": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Engine Tiers",
+        "operationId": "metaEngineTiers",
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/meta/chart-config": {
+      "post": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Chart Config",
+        "operationId": "metaChartConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChartConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/team/calibration/update": {
@@ -3540,6 +7477,26 @@
         "type": "object",
         "title": "AbilityProfileRequest"
       },
+      "AcwrRequest": {
+        "properties": {
+          "acute_load": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Acute Load"
+          },
+          "chronic_load": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Chronic Load"
+          }
+        },
+        "type": "object",
+        "required": [
+          "acute_load",
+          "chronic_load"
+        ],
+        "title": "AcwrRequest"
+      },
       "AdaptPlanRequest": {
         "properties": {
           "plan": {
@@ -3615,6 +7572,37 @@
         },
         "type": "object",
         "title": "AdaptWeekRequest"
+      },
+      "AdaptiveRecommendationRequest": {
+        "properties": {
+          "report": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Report"
+          }
+        },
+        "type": "object",
+        "required": [
+          "report"
+        ],
+        "title": "AdaptiveRecommendationRequest"
+      },
+      "AdaptiveTrendRequest": {
+        "properties": {
+          "history": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "History"
+          }
+        },
+        "type": "object",
+        "required": [
+          "history"
+        ],
+        "title": "AdaptiveTrendRequest"
       },
       "AthleteParams": {
         "properties": {
@@ -3794,6 +7782,102 @@
         "title": "AthleteProfileSnippet",
         "description": "Subset of athlete fields commonly embedded in TwinState or workout context."
       },
+      "BayesianSnapshotRequest": {
+        "properties": {
+          "mmp": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Mmp"
+          },
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          },
+          "expected_eta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Eta"
+          },
+          "measured_lacap": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Lacap"
+          },
+          "effective_cadence_rpm": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 220.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Cadence Rpm"
+          },
+          "tau_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "skiba_default",
+                  "bartram_elite",
+                  "pugh_level_based",
+                  "individualized"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tau Model"
+          },
+          "clean_mmp_first": {
+            "type": "boolean",
+            "title": "Clean Mmp First",
+            "default": false
+          },
+          "n_samples": {
+            "type": "integer",
+            "maximum": 20000.0,
+            "minimum": 500.0,
+            "title": "N Samples",
+            "default": 4000
+          },
+          "n_warmup": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 100.0,
+            "title": "N Warmup",
+            "default": 1000
+          },
+          "seed": {
+            "type": "integer",
+            "title": "Seed",
+            "default": 42
+          }
+        },
+        "type": "object",
+        "required": [
+          "mmp",
+          "athlete"
+        ],
+        "title": "BayesianSnapshotRequest"
+      },
       "Body_performanceNeuromuscularProfile": {
         "properties": {
           "weight_kg": {
@@ -3838,6 +7922,971 @@
         },
         "type": "object",
         "title": "Body_performanceNeuromuscularProfile"
+      },
+      "Body_rideAnalyticsAdaptiveLoad": {
+        "properties": {
+          "weight_kg": {
+            "type": "number",
+            "title": "Weight Kg",
+            "default": 70.0
+          },
+          "ftp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp"
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender",
+            "default": "MALE"
+          },
+          "training_years": {
+            "type": "number",
+            "title": "Training Years",
+            "default": 10
+          },
+          "discipline": {
+            "type": "string",
+            "title": "Discipline",
+            "default": "ENDURANCE"
+          },
+          "workout_summary_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workout Summary Json"
+          },
+          "daily_status_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Status Json"
+          },
+          "history_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History Json"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_rideAnalyticsAdaptiveLoad"
+      },
+      "Body_rideAnalyticsCardiac": {
+        "properties": {
+          "weight_kg": {
+            "type": "number",
+            "title": "Weight Kg",
+            "default": 70.0
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender",
+            "default": "MALE"
+          },
+          "training_years": {
+            "type": "number",
+            "title": "Training Years",
+            "default": 10
+          },
+          "discipline": {
+            "type": "string",
+            "title": "Discipline",
+            "default": "ENDURANCE"
+          },
+          "metabolic_snapshot_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot Json"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_rideAnalyticsCardiac"
+      },
+      "Body_rideAnalyticsClimbSegments": {
+        "properties": {
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_rideAnalyticsClimbSegments"
+      },
+      "Body_rideAnalyticsEfforts": {
+        "properties": {
+          "weight_kg": {
+            "type": "number",
+            "title": "Weight Kg",
+            "default": 70.0
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender",
+            "default": "MALE"
+          },
+          "training_years": {
+            "type": "number",
+            "title": "Training Years",
+            "default": 10
+          },
+          "discipline": {
+            "type": "string",
+            "title": "Discipline",
+            "default": "ENDURANCE"
+          },
+          "cp_w": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cp W"
+          },
+          "w_prime_j": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "W Prime J"
+          },
+          "metabolic_snapshot_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot Json"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_rideAnalyticsEfforts"
+      },
+      "Body_rideAnalyticsHrv": {
+        "properties": {
+          "window_seconds": {
+            "type": "integer",
+            "title": "Window Seconds",
+            "default": 120
+          },
+          "step_seconds": {
+            "type": "number",
+            "title": "Step Seconds",
+            "default": 10.0
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_rideAnalyticsHrv"
+      },
+      "Body_rideAnalyticsPedalingBalance": {
+        "properties": {
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_rideAnalyticsPedalingBalance"
+      },
+      "Body_rideAnalyticsPower": {
+        "properties": {
+          "weight_kg": {
+            "type": "number",
+            "title": "Weight Kg",
+            "default": 70.0
+          },
+          "ftp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_rideAnalyticsPower"
+      },
+      "Body_rideAnalyticsProtocolCompleteness": {
+        "properties": {
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_rideAnalyticsProtocolCompleteness"
+      },
+      "Body_rideAnalyticsSessionClassify": {
+        "properties": {
+          "weight_kg": {
+            "type": "number",
+            "title": "Weight Kg",
+            "default": 70.0
+          },
+          "ftp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp"
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender",
+            "default": "MALE"
+          },
+          "training_years": {
+            "type": "number",
+            "title": "Training Years",
+            "default": 10
+          },
+          "discipline": {
+            "type": "string",
+            "title": "Discipline",
+            "default": "ENDURANCE"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_rideAnalyticsSessionClassify"
+      },
+      "Body_rideAnalyticsSessionRouteDecide": {
+        "properties": {
+          "ftp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_rideAnalyticsSessionRouteDecide"
+      },
+      "Body_rideAnalyticsSessionRouteRun": {
+        "properties": {
+          "weight_kg": {
+            "type": "number",
+            "title": "Weight Kg",
+            "default": 70.0
+          },
+          "ftp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp"
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender",
+            "default": "MALE"
+          },
+          "training_years": {
+            "type": "number",
+            "title": "Training Years",
+            "default": 10
+          },
+          "discipline": {
+            "type": "string",
+            "title": "Discipline",
+            "default": "ENDURANCE"
+          },
+          "metabolic_snapshot_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot Json"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_rideAnalyticsSessionRouteRun"
+      },
+      "Body_rideAnalyticsStatistics": {
+        "properties": {
+          "weight_kg": {
+            "type": "number",
+            "title": "Weight Kg",
+            "default": 70.0
+          },
+          "ftp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp"
+          },
+          "lthr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lthr"
+          },
+          "cp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cp"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_rideAnalyticsStatistics"
+      },
+      "Body_rideAnalyticsThermalSession": {
+        "properties": {
+          "ftp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_rideAnalyticsThermalSession"
+      },
+      "Body_rideAnalyticsZones": {
+        "properties": {
+          "weight_kg": {
+            "type": "number",
+            "title": "Weight Kg",
+            "default": 70.0
+          },
+          "ftp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp"
+          },
+          "lthr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lthr"
+          },
+          "vt1_w": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vt1 W"
+          },
+          "vt2_w": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vt2 W"
+          },
+          "vt1_bpm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vt1 Bpm"
+          },
+          "vt2_bpm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vt2 Bpm"
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender",
+            "default": "MALE"
+          },
+          "training_years": {
+            "type": "number",
+            "title": "Training Years",
+            "default": 10
+          },
+          "discipline": {
+            "type": "string",
+            "title": "Discipline",
+            "default": "ENDURANCE"
+          },
+          "metabolic_snapshot_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot Json",
+            "description": "Successful /profile/snapshot JSON — enables MLSS-based metabolic zones alongside Coggan."
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "power_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Json"
+          },
+          "hr_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Json"
+          }
+        },
+        "type": "object",
+        "title": "Body_rideAnalyticsZones"
       },
       "Body_rideDataQuality": {
         "properties": {
@@ -4364,6 +9413,32 @@
         ],
         "title": "CalendarTransitionRequest"
       },
+      "ChartConfigRequest": {
+        "properties": {
+          "chart_type": {
+            "type": "string",
+            "enum": [
+              "mmp",
+              "zones",
+              "hrv",
+              "training_load",
+              "detraining",
+              "power_duration"
+            ],
+            "title": "Chart Type"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chart_type"
+        ],
+        "title": "ChartConfigRequest"
+      },
       "CheckLoadRiskRequest": {
         "properties": {
           "plan": {
@@ -4383,6 +9458,32 @@
         },
         "type": "object",
         "title": "CheckLoadRiskRequest"
+      },
+      "CompareSegmentsRequest": {
+        "properties": {
+          "history": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "History"
+          },
+          "new_segments": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "New Segments"
+          }
+        },
+        "type": "object",
+        "required": [
+          "history",
+          "new_segments"
+        ],
+        "title": "CompareSegmentsRequest"
       },
       "ComplianceResult": {
         "properties": {
@@ -4516,12 +9617,476 @@
         "type": "object",
         "title": "CreateSeasonPlanRequest"
       },
+      "CriticalPowerFitRequest": {
+        "properties": {
+          "mmp_curve": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Mmp Curve"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mmp_curve"
+        ],
+        "title": "CriticalPowerFitRequest"
+      },
+      "CrossValidateRequest": {
+        "properties": {
+          "mmp": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Mmp"
+          },
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          },
+          "expected_eta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Eta"
+          },
+          "measured_lacap": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Lacap"
+          },
+          "effective_cadence_rpm": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 220.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Cadence Rpm"
+          },
+          "tau_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "skiba_default",
+                  "bartram_elite",
+                  "pugh_level_based",
+                  "individualized"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tau Model"
+          },
+          "clean_mmp_first": {
+            "type": "boolean",
+            "title": "Clean Mmp First",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "mmp",
+          "athlete"
+        ],
+        "title": "CrossValidateRequest"
+      },
+      "CtlAtlTsbRequest": {
+        "properties": {
+          "tss_history": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Tss History",
+            "description": "List of {date, tss} entries."
+          }
+        },
+        "type": "object",
+        "title": "CtlAtlTsbRequest"
+      },
+      "DetrainingApplyRequest": {
+        "properties": {
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          },
+          "baseline_snapshot": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Baseline Snapshot"
+          },
+          "workout_history": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Workout History"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          }
+        },
+        "type": "object",
+        "required": [
+          "athlete",
+          "baseline_snapshot"
+        ],
+        "title": "DetrainingApplyRequest"
+      },
+      "DurabilityIndexRequest": {
+        "properties": {
+          "power": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "minItems": 10,
+            "title": "Power"
+          }
+        },
+        "type": "object",
+        "required": [
+          "power"
+        ],
+        "title": "DurabilityIndexRequest"
+      },
+      "DurabilityNarrativeRequest": {
+        "properties": {
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payload"
+        ],
+        "title": "DurabilityNarrativeRequest"
+      },
+      "DurabilityPrescriptionRequest": {
+        "properties": {
+          "durability_index": {
+            "type": "number",
+            "title": "Durability Index"
+          }
+        },
+        "type": "object",
+        "required": [
+          "durability_index"
+        ],
+        "title": "DurabilityPrescriptionRequest"
+      },
       "EnginePayload": {
         "properties": {},
         "additionalProperties": true,
         "type": "object",
         "title": "EnginePayload",
         "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+      },
+      "ExplainabilityAcwrNarrativeRequest": {
+        "properties": {
+          "acwr_value": {
+            "type": "number",
+            "title": "Acwr Value"
+          },
+          "risk_level": {
+            "type": "string",
+            "title": "Risk Level"
+          },
+          "ctl": {
+            "type": "number",
+            "title": "Ctl"
+          },
+          "atl": {
+            "type": "number",
+            "title": "Atl"
+          },
+          "tsb": {
+            "type": "number",
+            "title": "Tsb"
+          }
+        },
+        "type": "object",
+        "required": [
+          "acwr_value",
+          "risk_level",
+          "ctl",
+          "atl",
+          "tsb"
+        ],
+        "title": "ExplainabilityAcwrNarrativeRequest"
+      },
+      "ExplainabilityDurabilityConfidenceRequest": {
+        "properties": {
+          "duration_hours": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Duration Hours"
+          },
+          "power_data_completeness": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Power Data Completeness",
+            "default": 1.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "duration_hours"
+        ],
+        "title": "ExplainabilityDurabilityConfidenceRequest"
+      },
+      "ExplainabilityMetricNarrativeRequest": {
+        "properties": {
+          "metric_name": {
+            "type": "string",
+            "title": "Metric Name"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "confidence": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Confidence"
+          },
+          "context": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metric_name",
+          "value",
+          "confidence"
+        ],
+        "title": "ExplainabilityMetricNarrativeRequest"
+      },
+      "ExplainabilityVo2ConfidenceRequest": {
+        "properties": {
+          "mmp_curve": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Mmp Curve"
+          },
+          "efforts_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Efforts Count"
+          },
+          "data_quality_score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Data Quality Score",
+            "default": 1.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "mmp_curve",
+          "efforts_count"
+        ],
+        "title": "ExplainabilityVo2ConfidenceRequest"
+      },
+      "ExplainabilityWorkoutSummaryRequest": {
+        "properties": {
+          "summary": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary"
+        ],
+        "title": "ExplainabilityWorkoutSummaryRequest"
+      },
+      "GlycolyticProfileRequest": {
+        "properties": {
+          "mmp": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Mmp"
+          },
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          },
+          "expected_eta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Eta"
+          },
+          "measured_lacap": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Lacap"
+          },
+          "effective_cadence_rpm": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 220.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Cadence Rpm"
+          },
+          "tau_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "skiba_default",
+                  "bartram_elite",
+                  "pugh_level_based",
+                  "individualized"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tau Model"
+          },
+          "clean_mmp_first": {
+            "type": "boolean",
+            "title": "Clean Mmp First",
+            "default": false
+          },
+          "sprint_power": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array",
+                "minItems": 8
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sprint Power",
+            "description": "Optional maximal sprint power trace (Hz) for power-derived VLamax proxy."
+          },
+          "sprint_dt_s": {
+            "type": "number",
+            "maximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Sprint Dt S",
+            "default": 1.0
+          },
+          "cp_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cp W"
+          },
+          "vo2max_power_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vo2Max Power W"
+          },
+          "lactate_pre_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lactate Pre Mmol L"
+          },
+          "lactate_peak_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lactate Peak Mmol L"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mmp",
+          "athlete"
+        ],
+        "title": "GlycolyticProfileRequest"
       },
       "HTTPValidationError": {
         "properties": {
@@ -4559,7 +10124,7 @@
             "title": "Version",
             "description": "API semver.",
             "examples": [
-              "5.1.0"
+              "5.2.2"
             ]
           }
         },
@@ -4608,6 +10173,29 @@
         },
         "type": "object",
         "title": "HistorySummaryRequest"
+      },
+      "HourlyDecayRequest": {
+        "properties": {
+          "power": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "minItems": 60,
+            "title": "Power"
+          },
+          "ftp": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Ftp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "power",
+          "ftp"
+        ],
+        "title": "HourlyDecayRequest"
       },
       "InPersonAthlete": {
         "properties": {
@@ -4944,6 +10532,369 @@
         "title": "InPersonTestRequest",
         "description": "Tablet envelope — see TEST_JSON_CONTRACT.md."
       },
+      "IntegrationDeduplicateRequest": {
+        "properties": {
+          "activities": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Activities"
+          }
+        },
+        "type": "object",
+        "required": [
+          "activities"
+        ],
+        "title": "IntegrationDeduplicateRequest"
+      },
+      "IntegrationNormalizeRequest": {
+        "properties": {
+          "activity": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Activity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "activity"
+        ],
+        "title": "IntegrationNormalizeRequest"
+      },
+      "KalmanDailyInputModel": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "vo2max_stimulus_min": {
+            "type": "number",
+            "title": "Vo2Max Stimulus Min",
+            "default": 0.0
+          },
+          "threshold_stimulus_min": {
+            "type": "number",
+            "title": "Threshold Stimulus Min",
+            "default": 0.0
+          },
+          "anaerobic_stimulus_min": {
+            "type": "number",
+            "title": "Anaerobic Stimulus Min",
+            "default": 0.0
+          },
+          "neuromuscular_stimulus_min": {
+            "type": "number",
+            "title": "Neuromuscular Stimulus Min",
+            "default": 0.0
+          },
+          "test_anchors": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Anchors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date"
+        ],
+        "title": "KalmanDailyInputModel"
+      },
+      "KalmanTrajectoryRequest": {
+        "properties": {
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          },
+          "daily_inputs": {
+            "items": {
+              "$ref": "#/components/schemas/KalmanDailyInputModel"
+            },
+            "type": "array",
+            "title": "Daily Inputs"
+          },
+          "initial_vo2": {
+            "type": "number",
+            "exclusiveMaximum": 100.0,
+            "exclusiveMinimum": 20.0,
+            "title": "Initial Vo2"
+          },
+          "initial_vla": {
+            "type": "number",
+            "exclusiveMaximum": 2.0,
+            "exclusiveMinimum": 0.05,
+            "title": "Initial Vla"
+          },
+          "initial_vo2_std": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Initial Vo2 Std",
+            "default": 5.0
+          },
+          "initial_vla_std": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Initial Vla Std",
+            "default": 0.15
+          },
+          "athlete_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "athlete",
+          "daily_inputs",
+          "initial_vo2",
+          "initial_vla"
+        ],
+        "title": "KalmanTrajectoryRequest"
+      },
+      "LabCreateResultRequest": {
+        "properties": {
+          "test_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Date"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": "manual_entry"
+          },
+          "vo2max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vo2Max"
+          },
+          "vlamax": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vlamax"
+          },
+          "mlss_w": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mlss W"
+          },
+          "ftp_w": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp W"
+          },
+          "weight_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Kg"
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes",
+            "default": ""
+          },
+          "extra": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Extra"
+          }
+        },
+        "type": "object",
+        "title": "LabCreateResultRequest"
+      },
+      "LabResultValidateRequest": {
+        "properties": {
+          "lab_result": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Lab Result"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lab_result"
+        ],
+        "title": "LabResultValidateRequest"
+      },
+      "LabTextParseRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": "unknown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "LabTextParseRequest"
+      },
+      "LactateStepModel": {
+        "properties": {
+          "power_w": {
+            "type": "number",
+            "title": "Power W"
+          },
+          "lactate_mmol": {
+            "type": "number",
+            "title": "Lactate Mmol"
+          },
+          "hr_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Mean"
+          },
+          "cadence_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cadence Mean"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          }
+        },
+        "type": "object",
+        "required": [
+          "power_w",
+          "lactate_mmol"
+        ],
+        "title": "LactateStepModel"
+      },
+      "LactateThresholdsRequest": {
+        "properties": {
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/LactateStepModel"
+            },
+            "type": "array",
+            "title": "Steps"
+          }
+        },
+        "type": "object",
+        "required": [
+          "steps"
+        ],
+        "title": "LactateThresholdsRequest"
+      },
+      "LactateValidateModelRequest": {
+        "properties": {
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/LactateStepModel"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "mmp": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Mmp"
+          },
+          "expected_eta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Eta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "athlete",
+          "steps",
+          "mmp"
+        ],
+        "title": "LactateValidateModelRequest"
+      },
       "LoadRiskRequest": {
         "properties": {
           "load_state": {
@@ -5039,6 +10990,174 @@
         ],
         "title": "ManualLoadRequest"
       },
+      "MetabolicCurrentRequest": {
+        "properties": {
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          },
+          "historical_mmp": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Historical Mmp"
+          },
+          "workout_history": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Workout History"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          }
+        },
+        "type": "object",
+        "required": [
+          "athlete",
+          "historical_mmp"
+        ],
+        "title": "MetabolicCurrentRequest"
+      },
+      "MetabolicFlexibilityRequest": {
+        "properties": {
+          "snapshot": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Snapshot"
+          }
+        },
+        "type": "object",
+        "required": [
+          "snapshot"
+        ],
+        "title": "MetabolicFlexibilityRequest"
+      },
+      "MmpAthleteRequest": {
+        "properties": {
+          "mmp": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Mmp"
+          },
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          },
+          "expected_eta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Eta"
+          },
+          "measured_lacap": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Lacap"
+          },
+          "effective_cadence_rpm": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 220.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Cadence Rpm"
+          },
+          "tau_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "skiba_default",
+                  "bartram_elite",
+                  "pugh_level_based",
+                  "individualized"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tau Model"
+          },
+          "clean_mmp_first": {
+            "type": "boolean",
+            "title": "Clean Mmp First",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "mmp",
+          "athlete"
+        ],
+        "title": "MmpAthleteRequest"
+      },
+      "MmpQualityRequest": {
+        "properties": {
+          "mmp": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Mmp"
+          },
+          "clean": {
+            "type": "boolean",
+            "title": "Clean",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "mmp"
+        ],
+        "title": "MmpQualityRequest"
+      },
+      "MonotonyStrainRequest": {
+        "properties": {
+          "daily_tss": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Daily Tss"
+          }
+        },
+        "type": "object",
+        "required": [
+          "daily_tss"
+        ],
+        "title": "MonotonyStrainRequest"
+      },
       "PowerDurationPoint": {
         "properties": {
           "power_w": {
@@ -5069,6 +11188,23 @@
         "type": "object",
         "title": "PowerDurationPoint",
         "description": "MMP value for a single duration."
+      },
+      "PowerSeriesRequest": {
+        "properties": {
+          "power": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "minItems": 2,
+            "title": "Power"
+          }
+        },
+        "type": "object",
+        "required": [
+          "power"
+        ],
+        "title": "PowerSeriesRequest"
       },
       "PowerSourceActivity": {
         "properties": {
@@ -5303,6 +11439,63 @@
         "type": "object",
         "title": "ProgressionLevelsRequest"
       },
+      "RaceGpxAnalyzeRequest": {
+        "properties": {
+          "gpx_text": {
+            "type": "string",
+            "title": "Gpx Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gpx_text"
+        ],
+        "title": "RaceGpxAnalyzeRequest"
+      },
+      "RaceGpxSimulateRequest": {
+        "properties": {
+          "gpx_text": {
+            "type": "string",
+            "title": "Gpx Text"
+          },
+          "weight_kg": {
+            "type": "number",
+            "exclusiveMaximum": 200.0,
+            "exclusiveMinimum": 30.0,
+            "title": "Weight Kg",
+            "default": 70.0
+          },
+          "ftp_w": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Ftp W",
+            "default": 250.0
+          },
+          "metabolic_snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot"
+          },
+          "bike_weight_kg": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Bike Weight Kg",
+            "default": 8.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "gpx_text"
+        ],
+        "title": "RaceGpxSimulateRequest"
+      },
       "ReadinessTodayRequest": {
         "properties": {
           "load_state": {
@@ -5363,6 +11556,24 @@
         },
         "type": "object",
         "title": "ReadinessTodayRequest"
+      },
+      "ResilienceRequest": {
+        "properties": {
+          "mader_durability": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mader Durability"
+          }
+        },
+        "type": "object",
+        "title": "ResilienceRequest"
       },
       "RideIngestResponse": {
         "properties": {
@@ -5464,6 +11675,89 @@
           "twin_state"
         ],
         "title": "SeasonProjectionRequest"
+      },
+      "SegmentedSnapshotRequest": {
+        "properties": {
+          "mmp": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Mmp"
+          },
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          },
+          "expected_eta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Eta"
+          },
+          "measured_lacap": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Lacap"
+          },
+          "effective_cadence_rpm": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 220.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Cadence Rpm"
+          },
+          "tau_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "skiba_default",
+                  "bartram_elite",
+                  "pugh_level_based",
+                  "individualized"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tau Model"
+          },
+          "clean_mmp_first": {
+            "type": "boolean",
+            "title": "Clean Mmp First",
+            "default": false
+          },
+          "aerobic_min_duration_s": {
+            "type": "number",
+            "minimum": 30.0,
+            "title": "Aerobic Min Duration S",
+            "default": 120.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "mmp",
+          "athlete"
+        ],
+        "title": "SegmentedSnapshotRequest"
       },
       "SnapshotRequest": {
         "properties": {
@@ -5631,6 +11925,46 @@
           "team_id"
         ],
         "title": "TeamCalibrationUpdateRequest"
+      },
+      "ThermalAcclimationRequest": {
+        "properties": {
+          "sessions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Sessions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sessions"
+        ],
+        "title": "ThermalAcclimationRequest"
+      },
+      "TteSustainabilityRequest": {
+        "properties": {
+          "power": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "minItems": 10,
+            "title": "Power"
+          },
+          "cp": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Cp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "power",
+          "cp"
+        ],
+        "title": "TteSustainabilityRequest"
       },
       "TwinStateBuildPayload": {
         "properties": {
@@ -6010,6 +12344,20 @@
         ],
         "title": "TwinStateUpdateWorkoutRequest"
       },
+      "TwinValidateRequest": {
+        "properties": {
+          "twin_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Twin State"
+          }
+        },
+        "type": "object",
+        "required": [
+          "twin_state"
+        ],
+        "title": "TwinValidateRequest"
+      },
       "UpdateProfileRequest": {
         "properties": {
           "anchor": {
@@ -6089,6 +12437,274 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VlamaxPowerSeriesRequest": {
+        "properties": {
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          },
+          "power": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "minItems": 8,
+            "title": "Power"
+          },
+          "dt_s": {
+            "type": "number",
+            "maximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Dt S",
+            "default": 1.0
+          },
+          "vo2max_power_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vo2Max Power W"
+          },
+          "cp_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cp W"
+          },
+          "lactate_pre_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lactate Pre Mmol L"
+          },
+          "lactate_peak_mmol_l": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lactate Peak Mmol L"
+          }
+        },
+        "type": "object",
+        "required": [
+          "athlete",
+          "power"
+        ],
+        "title": "VlamaxPowerSeriesRequest"
+      },
+      "VlamaxSprintRequest": {
+        "properties": {
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          },
+          "p_peak_1s": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "P Peak 1S"
+          },
+          "p_mean_sprint": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "P Mean Sprint"
+          },
+          "sprint_duration_s": {
+            "type": "number",
+            "maximum": 60.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Sprint Duration S",
+            "default": 15.0
+          },
+          "vo2max_power_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vo2Max Power W"
+          }
+        },
+        "type": "object",
+        "required": [
+          "athlete",
+          "p_peak_1s",
+          "p_mean_sprint"
+        ],
+        "title": "VlamaxSprintRequest"
+      },
+      "VlapeakObservedRequest": {
+        "properties": {
+          "lactate_pre_mmol": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Lactate Pre Mmol"
+          },
+          "lactate_post_mmol": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Lactate Post Mmol"
+          },
+          "duration_s": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Duration S"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lactate_pre_mmol",
+          "lactate_post_mmol",
+          "duration_s"
+        ],
+        "title": "VlapeakObservedRequest"
+      },
+      "VlapeakValidateRequest": {
+        "properties": {
+          "vlapeak_observed_mmol_l_s": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Vlapeak Observed Mmol L S"
+          },
+          "predicted_vlapeak_mmol_l_s": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Predicted Vlapeak Mmol L S"
+          },
+          "model_vlamax_mmol_l_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Vlamax Mmol L S"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vlapeak_observed_mmol_l_s",
+          "predicted_vlapeak_mmol_l_s"
+        ],
+        "title": "VlapeakValidateRequest"
+      },
+      "WPrimeBalanceRequest": {
+        "properties": {
+          "power": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "minItems": 2,
+            "title": "Power"
+          },
+          "cp": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Cp"
+          },
+          "w_prime": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "W Prime"
+          },
+          "dt_s": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Dt S",
+            "default": 1.0
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "tau_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "skiba_default",
+                  "bartram_elite",
+                  "pugh_level_based",
+                  "individualized"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tau Model"
+          },
+          "athlete_profile": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Athlete Profile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "power",
+          "cp",
+          "w_prime"
+        ],
+        "title": "WPrimeBalanceRequest"
+      },
+      "WPrimeTauRequest": {
+        "properties": {
+          "tau_model": {
+            "type": "string",
+            "enum": [
+              "skiba_default",
+              "bartram_elite",
+              "pugh_level_based",
+              "individualized"
+            ],
+            "title": "Tau Model"
+          },
+          "athlete_profile": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Athlete Profile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tau_model"
+        ],
+        "title": "WPrimeTauRequest"
       },
       "WorkoutDefinitionInput": {
         "properties": {
@@ -6701,11 +13317,15 @@
     },
     {
       "name": "ride",
-      "description": "FIT ingestion, activity analysis, durability."
+      "description": "FIT ingestion, activity analysis, durability, extended analytics."
     },
     {
       "name": "profile",
-      "description": "Metabolic snapshot read model."
+      "description": "Metabolic snapshot, Kalman, glycolytic profile, MMP quality."
+    },
+    {
+      "name": "lab",
+      "description": "Lab PDF/text parsing, lactate validation, vLaPeak."
     },
     {
       "name": "workouts",
@@ -6721,7 +13341,23 @@
     },
     {
       "name": "load",
-      "description": "Non-cycling manual load injection."
+      "description": "Manual load, ACWR, monotony/strain, adaptive trends."
+    },
+    {
+      "name": "explainability",
+      "description": "Confidence scores and coach narratives."
+    },
+    {
+      "name": "race",
+      "description": "GPX course analysis and race simulation."
+    },
+    {
+      "name": "integrations",
+      "description": "External activity normalization and deduplication."
+    },
+    {
+      "name": "meta",
+      "description": "Engine tiers and chart configuration."
     },
     {
       "name": "team",

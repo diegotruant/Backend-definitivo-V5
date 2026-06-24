@@ -1,4 +1,4 @@
-# Architecture — Backend Digital Twin V5.1
+# Architecture — Backend Digital Twin V5.2
 
 This document describes the **intended layering** after the professional refactor.
 It is the reference for new contributors.
@@ -74,7 +74,7 @@ FastAPI exposes the contract at:
 
 Committed artifacts:
 
-- `openapi/openapi.json` — canonical spec (43 paths)
+- `openapi/openapi.json` — canonical spec (**106 paths**, v5.2.2)
 - `frontend/src/api/generated/schema.ts` — TypeScript types (`make openapi-frontend`)
 - `frontend/src/api/client.ts` — typed client for all endpoints
 
@@ -97,7 +97,7 @@ See `docs/OPENAPI_FRONTEND.md` for integration details.
   - `DIGITAL_TWIN_REQUIRE_ATHLETE_ID=true` enforces header `X-Athlete-Id`
     on athlete-scoped endpoints (`/ride`, `/profile`, `/workouts`, `/twin`,
     `/projection`, `/performance`, `/load`, `/team`, `/history`, `/readiness`,
-    `/planning`).
+    `/planning`, `/lab`, `/explainability`, `/race`, `/integrations`, `/meta`).
 - **Authentication** (`api/auth/`):
   - `DIGITAL_TWIN_AUTH_MODE=none|api_key|jwt` (default `none`)
   - **api_key**: static Bearer keys + optional per-key athlete prefix allowlist

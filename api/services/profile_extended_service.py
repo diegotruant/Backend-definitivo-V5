@@ -1,0 +1,210 @@
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional
+
+from api.engine_schemas import (
+    BayesianSnapshotRequest,
+    CrossValidateRequest,
+    DetrainingApplyRequest,
+    GlycolyticProfileRequest,
+    KalmanTrajectoryRequest,
+    MetabolicCurrentRequest,
+    MmpAthleteRequest,
+    MmpQualityRequest,
+    SegmentedSnapshotRequest,
+    VlamaxPowerSeriesRequest,
+    VlamaxSprintRequest,
+)
+from api.schemas import SnapshotRequest
+from api.services.engine_context import athlete_context_from_params, mmp_dict, profiler_from_athlete
+from api.services.profile_service import ProfileService
+from engines.core.science_contracts import resolve_w_prime_tau
+from engines.metabolic.bayesian_profiler import bayesian_metabolic_snapshot
+from engines.metabolic.cross_validation_engine import cross_validate_metabolic_profile
+from engines.metabolic.detraining_engine import apply_detraining_model, calculate_ctl_atl_tsb
+from engines.metabolic.glycolytic_validation_engine import build_glycolytic_profile
+from engines.metabolic.metabolic_current import get_current_metabolic_status
+from engines.metabolic.metabolic_kalman import DailyInput, process_workout_history
+from engines.metabolic.metabolic_profiler_phenotype import enhance_metabolic_snapshot_with_phenotype
+from engines.metabolic.power_vlamax_estimator import estimate_vlamax_from_power_series
+from engines.performance.mmp_quality import analyze_mmp_quality, clean_mmp
+
+
+class ProfileExtendedService:
+    def __init__(self) -> None:
+        self._base = ProfileService()
+
+    def build_snapshot(self, req: SnapshotRequest) -> Dict[str, Any]:
+        return self._base.build_snapshot(req)
+
+    def segmented_snapshot(self, req: SegmentedSnapshotRequest) -> Dict[str, Any]:
+        profiler = profiler_from_athlete(req.athlete)
+        return profiler.generate_metabolic_snapshot_segmented(
+            mmp_dict(req.mmp),
+            aerobic_min_duration_s=req.aerobic_min_duration_s,
+            expected_eta=req.expected_eta,
+            measured_lacap=req.measured_lacap,
+            effective_cadence_rpm=req.effective_cadence_rpm,
+            clean_mmp_first=req.clean_mmp_first,
+        )
+
+    def auto_snapshot(self, req: MmpAthleteRequest) -> Dict[str, Any]:
+        profiler = profiler_from_athlete(req.athlete)
+        return profiler.generate_metabolic_snapshot_auto(
+            mmp_dict(req.mmp),
+            expected_eta=req.expected_eta,
+            measured_lacap=req.measured_lacap,
+            effective_cadence_rpm=req.effective_cadence_rpm,
+            clean_mmp_first=req.clean_mmp_first,
+        )
+
+    def bayesian_snapshot(self, req: BayesianSnapshotRequest) -> Dict[str, Any]:
+        profiler = profiler_from_athlete(req.athlete)
+        result = bayesian_metabolic_snapshot(
+            profiler,
+            mmp_dict(req.mmp),
+            expected_eta=req.expected_eta,
+            measured_lacap=req.measured_lacap,
+            n_samples=req.n_samples,
+            n_warmup=req.n_warmup,
+            seed=req.seed,
+        )
+        return result.to_dict()
+
+    def vlamax_from_sprint(self, req: VlamaxSprintRequest) -> Dict[str, Any]:
+        profiler = profiler_from_athlete(req.athlete)
+        return profiler.vlamax_from_sprint(
+            req.p_peak_1s,
+            req.p_mean_sprint,
+            sprint_duration_s=req.sprint_duration_s,
+            vo2max_power_w=req.vo2max_power_w,
+        )
+
+    def vlamax_from_power_series(self, req: VlamaxPowerSeriesRequest) -> Dict[str, Any]:
+        profiler = profiler_from_athlete(req.athlete)
+        return estimate_vlamax_from_power_series(
+            req.power,
+            dt_s=req.dt_s,
+            weight_kg=req.athlete.weight_kg,
+            eta=profiler.context.expected_eta(),
+            active_muscle_mass_kg=profiler.active_muscle_mass,
+            vo2max_power_w=req.vo2max_power_w,
+            cp_w=req.cp_w,
+            lactate_pre_mmol_l=req.lactate_pre_mmol_l,
+            lactate_peak_mmol_l=req.lactate_peak_mmol_l,
+        )
+
+    def kalman_trajectory(self, req: KalmanTrajectoryRequest) -> Dict[str, Any]:
+        profiler = profiler_from_athlete(req.athlete)
+        daily: List[DailyInput] = []
+        for row in req.daily_inputs:
+            anchors = None
+            if row.test_anchors:
+                anchors = [(int(a[0]), float(a[1])) for a in row.test_anchors if len(a) >= 2]
+            daily.append(
+                DailyInput(
+                    date=date.fromisoformat(row.date.split("T")[0]),
+                    vo2max_stimulus_min=row.vo2max_stimulus_min,
+                    threshold_stimulus_min=row.threshold_stimulus_min,
+                    anaerobic_stimulus_min=row.anaerobic_stimulus_min,
+                    neuromuscular_stimulus_min=row.neuromuscular_stimulus_min,
+                    test_anchors=anchors,
+                )
+            )
+        traj = process_workout_history(
+            daily,
+            initial_vo2=req.initial_vo2,
+            initial_vla=req.initial_vla,
+            weight=req.athlete.weight_kg,
+            initial_vo2_std=req.initial_vo2_std,
+            initial_vla_std=req.initial_vla_std,
+            athlete_id=req.athlete_id,
+            profiler=profiler,
+        )
+        return traj.to_dict()
+
+    def metabolic_current(self, req: MetabolicCurrentRequest) -> Dict[str, Any]:
+        ctx = athlete_context_from_params(req.athlete)
+        return get_current_metabolic_status(
+            historical_mmp=mmp_dict(req.historical_mmp),
+            workout_history=req.workout_history,
+            athlete_weight_kg=req.athlete.weight_kg,
+            athlete_context={
+                "gender": ctx.effective_gender(),
+                "training_years": ctx.effective_training_years(),
+                "discipline": ctx.effective_discipline(),
+            },
+            today=req.as_of,
+        )
+
+    def apply_detraining(self, req: DetrainingApplyRequest) -> Dict[str, Any]:
+        ref = req.as_of or date.today().isoformat()
+        ref_date = datetime.fromisoformat(ref.split("T")[0]).date()
+        return apply_detraining_model(
+            baseline_snapshot=req.baseline_snapshot,
+            workout_history=req.workout_history,
+            today=ref_date,
+        )
+
+    def ctl_atl_tsb(self, tss_history: List[Dict[str, Any]]) -> Dict[str, Any]:
+        return calculate_ctl_atl_tsb(tss_history)
+
+    def cross_validate(self, req: CrossValidateRequest) -> Dict[str, Any]:
+        profiler = profiler_from_athlete(req.athlete)
+        snap = profiler.generate_metabolic_snapshot(
+            mmp_dict(req.mmp),
+            expected_eta=req.expected_eta,
+            measured_lacap=req.measured_lacap,
+            effective_cadence_rpm=req.effective_cadence_rpm,
+            clean_mmp_first=req.clean_mmp_first,
+        )
+        if snap.get("status") != "success":
+            return {"status": "error", "snapshot": snap}
+        cv = cross_validate_metabolic_profile(snap, mmp_dict(req.mmp))
+        return {"status": "success", "snapshot": snap, "cross_validation": cv.to_dict()}
+
+    def mmp_quality(self, req: MmpQualityRequest) -> Dict[str, Any]:
+        mmp = mmp_dict(req.mmp)
+        if req.clean:
+            cleaned, audit = clean_mmp(mmp)
+            return {"status": "success", "mmp": cleaned, "audit": audit}
+        report = analyze_mmp_quality(mmp)
+        return report.to_dict() if hasattr(report, "to_dict") else dict(report)
+
+    def phenotype_enhance(self, req: GlycolyticProfileRequest) -> Dict[str, Any]:
+        profiler = profiler_from_athlete(req.athlete)
+        snap = profiler.generate_metabolic_snapshot(
+            mmp_dict(req.mmp),
+            expected_eta=req.expected_eta,
+            measured_lacap=req.measured_lacap,
+            effective_cadence_rpm=req.effective_cadence_rpm,
+        )
+        return enhance_metabolic_snapshot_with_phenotype(snap)
+
+    def glycolytic_profile(self, req: GlycolyticProfileRequest) -> Dict[str, Any]:
+        profiler = profiler_from_athlete(req.athlete)
+        snap = profiler.generate_metabolic_snapshot(
+            mmp_dict(req.mmp),
+            expected_eta=req.expected_eta,
+            measured_lacap=req.measured_lacap,
+            effective_cadence_rpm=req.effective_cadence_rpm,
+        )
+        end_max, all_max = profiler.context.phenotype_thresholds()
+        return build_glycolytic_profile(
+            snap,
+            profiler=profiler,
+            mmp=mmp_dict(req.mmp),
+            endurance_max=end_max,
+            allrounder_max=all_max,
+            sprint_power=req.sprint_power,
+            sprint_dt_s=req.sprint_dt_s,
+            cp_w=req.cp_w,
+            vo2max_power_w=req.vo2max_power_w,
+            lactate_pre_mmol_l=req.lactate_pre_mmol_l,
+            lactate_peak_mmol_l=req.lactate_peak_mmol_l,
+        )
+
+    def w_prime_tau(self, tau_model: str, athlete_profile: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        tau_s, model = resolve_w_prime_tau(tau_model, athlete_profile=athlete_profile or {})  # type: ignore[arg-type]
+        return {"tau_s": round(tau_s, 1), "tau_model": model}

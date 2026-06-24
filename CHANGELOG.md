@@ -1,5 +1,86 @@
 # Changelog
 
+## [5.2.2] — 2026-06-17
+
+Power-series VLamax proxy (cLaMax_P) for metabolic profile.
+
+### Added
+
+- `engines/metabolic/power_vlamax_estimator.py`: sprint power trace → VLamax proxy
+  (Yang-style t_Ppeak, oxidative fraction, FFM-normalized work features).
+- `POST /profile/vlamax-from-power-series` — standalone estimator endpoint.
+- `glycolytic_profile.power_derived_vlamax` and `vlamax_derivation.agreement`
+  when `sprint_power` is supplied on `/profile/glycolytic-profile`.
+
+### Semantics
+
+- `estimated_vlamax_mmol_L_s` (Mader/MMP) remains the primary model parameter.
+- `power_derived_vlamax` is an explicit power proxy, distinct from blood vLaPeak.
+
+### Documentation
+
+- All docs aligned to **5.2.2** / **106 OpenAPI paths**
+- New `docs/RELEASE_NOTES_v5.2.2.md`
+- `docs/FRONTEND_DEVELOPER_GUIDE.md` §6.8 power-derived VLamax
+- `docs/API_PAYLOAD_EXAMPLES.md` — `/profile/vlamax-from-power-series` examples
+
+## [5.2.1] — 2026-06-17
+
+Dual zone systems: metabolic (MLSS) and Coggan (FTP) exposed together for coach choice.
+
+### Changed
+
+- `zones_engine` v1.1.0: `metabolic_power` time-in-zone from metabolic snapshot
+  (MLSS/MAP 5-zone model) alongside existing `coggan_power`, Friel HR and Seiler.
+- Seiler VT1/VT2 default from MLSS when a metabolic snapshot is supplied.
+- `build_workout_summary()` passes auto-generated or supplied snapshot into zones.
+- `/ride/analytics/zones` accepts optional `metabolic_snapshot_json`.
+
+### Documentation
+
+- README, ARCHITECTURE, OPENAPI_FRONTEND, FRONTEND_DEVELOPER_GUIDE updated for **105 OpenAPI paths**
+- New `docs/API_ENDPOINT_INDEX.md` and `docs/RELEASE_NOTES_v5.2.1.md`
+- `pyproject.toml`, `.env.example`, deploy docs aligned to 5.2.1
+
+## [5.2.0] — 2026-06-17
+
+Full HTTP coverage for engine-only capabilities (profile, lab, ride analytics, load,
+explainability, race, integrations, meta).
+
+### Added
+
+- **Profile extended** (`/profile/*`): segmented/auto/bayesian snapshot, Kalman trajectory,
+  metabolic current, detraining, CTL/ATL/TSB, cross-validation, MMP quality, phenotype,
+  glycolytic profile, vLaMax-from-sprint, W′ τ resolver.
+- **Lab** (`/lab/*`): text parse, result validate/create, lactate thresholds and model
+  validation, vLaPeak observed/validate.
+- **Ride analytics** (`/ride/analytics/*`): zones, statistics, power, CP fit, W′ balance,
+  durability suite, cardiac, HRV, thermal, pedaling, efforts, session routing, resilience,
+  metabolic flexibility, segments, adaptive load.
+- **Load extended** (`/load/acwr`, `/load/monotony-strain`, adaptive trend/recommendation).
+- **Explainability** (`/explainability/*`): confidence scores and narratives.
+- **Race** (`/race/gpx/*`): GPX analyze and simulate.
+- **Integrations** (`/integrations/*`): activity normalize and deduplicate.
+- **Meta** (`/meta/engine-tiers`, `/meta/chart-config`).
+- **Twin** (`/twin/state/validate`).
+
+## [5.1.3] — 2026-06-17
+
+Glycolytic validation per Wackerhage et al. (2025): vLaPeak (observed) vs VLamax (modelled).
+
+### Added
+
+- `engines/metabolic/glycolytic_validation_engine.py`: vLaPeak computation, glycolytic flux
+  index, predicted vLaPeak/glycogen cost, Wingate+lactate validation verdict.
+- `glycolytic_profile` block on metabolic snapshots (`/profile/snapshot`).
+- Wingate in-person test accepts `lactate_pre_mmol` / `lactate_post_mmol` (+ optional `mmp`)
+  and returns `glycolytic_validation` with model vs observed comparison.
+
+### Documentation
+
+- `SCIENTIFIC_REFERENCES.md` and `science_contracts` VLamax wording updated for
+  vLamax_muscle vs vLaPeak distinction.
+
 ## [5.1.2] — 2026-06-17
 
 End-to-end API wiring for science-contract parameters introduced in 5.1.x.

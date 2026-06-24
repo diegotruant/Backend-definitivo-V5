@@ -383,6 +383,245 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+
+  /** POST /explainability/acwr-narrative */
+  explainabilityAcwrNarrative: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/explainability/acwr-narrative', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /explainability/durability-confidence */
+  explainabilityDurabilityConfidence: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/explainability/durability-confidence', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /explainability/durability-narrative */
+  explainabilityDurabilityNarrative: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/explainability/durability-narrative', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /explainability/metric-narrative */
+  explainabilityMetricNarrative: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/explainability/metric-narrative', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /explainability/vo2max-confidence */
+  explainabilityVo2maxConfidence: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/explainability/vo2max-confidence', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /explainability/workout-summary-narrative */
+  explainabilityWorkoutSummaryNarrative: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/explainability/workout-summary-narrative', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /integrations/activities/deduplicate */
+  integrationsActivitiesDeduplicate: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/integrations/activities/deduplicate', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /integrations/activity/normalize */
+  integrationsActivityNormalize: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/integrations/activity/normalize', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /lab/create-result */
+  labCreateResult: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/lab/create-result', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /lab/lactate/thresholds */
+  labLactateThresholds: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/lab/lactate/thresholds', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /lab/lactate/validate-model */
+  labLactateValidateModel: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/lab/lactate/validate-model', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /lab/parse-text */
+  labParseText: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/lab/parse-text', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /lab/validate-result */
+  labValidateResult: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/lab/validate-result', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /lab/vlapeak/observed */
+  labVlapeakObserved: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/lab/vlapeak/observed', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /lab/vlapeak/validate */
+  labVlapeakValidate: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/lab/vlapeak/validate', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /load/acwr */
+  loadAcwr: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/load/acwr', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /load/adaptive/recommendation */
+  loadAdaptiveRecommendation: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/load/adaptive/recommendation', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /load/adaptive/trend */
+  loadAdaptiveTrend: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/load/adaptive/trend', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /load/monotony-strain */
+  loadMonotonyStrain: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/load/monotony-strain', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /meta/chart-config */
+  metaChartConfig: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/meta/chart-config', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** GET /meta/engine-tiers */
+  metaEngineTiers: () => jsonFetch<EnginePayload>('/meta/engine-tiers'),
+
+  /** POST /profile/cross-validate */
+  profileCrossValidate: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/cross-validate', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /profile/detraining/apply */
+  profileDetrainingApply: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/detraining/apply', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /profile/glycolytic-profile */
+  profileGlycolyticProfile: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/glycolytic-profile', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /profile/kalman/trajectory */
+  profileKalmanTrajectory: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/kalman/trajectory', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /profile/metabolic/current */
+  profileMetabolicCurrent: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/metabolic/current', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /profile/mmp-quality */
+  profileMmpQuality: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/mmp-quality', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /profile/snapshot/auto */
+  profileSnapshotAuto: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/snapshot/auto', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /profile/snapshot/bayesian */
+  profileSnapshotBayesian: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/snapshot/bayesian', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /profile/snapshot/phenotype */
+  profileSnapshotPhenotype: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/snapshot/phenotype', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /profile/snapshot/segmented */
+  profileSnapshotSegmented: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/snapshot/segmented', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /profile/training-load/ctl-atl-tsb */
+  profileTrainingLoadCtlAtlTsb: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/training-load/ctl-atl-tsb', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /profile/vlamax-from-sprint */
+  profileVlamaxFromSprint: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/vlamax-from-sprint', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /profile/w-prime/tau */
+  profileWPrimeTau: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/w-prime/tau', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /race/gpx/analyze */
+  raceGpxAnalyze: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/race/gpx/analyze', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /race/gpx/simulate */
+  raceGpxSimulate: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/race/gpx/simulate', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /ride/analytics/adaptive-load */
+  rideAnalyticsAdaptiveLoad: (form: FormData) => jsonFetch<EnginePayload>('/ride/analytics/adaptive-load', { method: 'POST', body: form }),
+
+  /** POST /ride/analytics/cardiac */
+  rideAnalyticsCardiac: (form: FormData) => jsonFetch<EnginePayload>('/ride/analytics/cardiac', { method: 'POST', body: form }),
+
+  /** POST /ride/analytics/critical-power/fit */
+  rideAnalyticsCriticalPowerFit: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/ride/analytics/critical-power/fit', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /ride/analytics/durability/hourly-decay */
+  rideAnalyticsDurabilityHourlyDecay: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/ride/analytics/durability/hourly-decay', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /ride/analytics/durability/index */
+  rideAnalyticsDurabilityIndex: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/ride/analytics/durability/index', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /ride/analytics/durability/np-drift */
+  rideAnalyticsDurabilityNpDrift: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/ride/analytics/durability/np-drift', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /ride/analytics/durability/prescription */
+  rideAnalyticsDurabilityPrescription: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/ride/analytics/durability/prescription', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /ride/analytics/durability/tte-sustainability */
+  rideAnalyticsDurabilityTteSustainability: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/ride/analytics/durability/tte-sustainability', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /ride/analytics/efforts */
+  rideAnalyticsEfforts: (form: FormData) => jsonFetch<EnginePayload>('/ride/analytics/efforts', { method: 'POST', body: form }),
+
+  /** POST /ride/analytics/hrv */
+  rideAnalyticsHrv: (form: FormData) => jsonFetch<EnginePayload>('/ride/analytics/hrv', { method: 'POST', body: form }),
+
+  /** POST /ride/analytics/metabolic-flexibility */
+  rideAnalyticsMetabolicFlexibility: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/ride/analytics/metabolic-flexibility', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /ride/analytics/pedaling-balance */
+  rideAnalyticsPedalingBalance: (form: FormData) => jsonFetch<EnginePayload>('/ride/analytics/pedaling-balance', { method: 'POST', body: form }),
+
+  /** POST /ride/analytics/power */
+  rideAnalyticsPower: (form: FormData) => jsonFetch<EnginePayload>('/ride/analytics/power', { method: 'POST', body: form }),
+
+  /** POST /ride/analytics/resilience */
+  rideAnalyticsResilience: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/ride/analytics/resilience', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /ride/analytics/segments/climbs */
+  rideAnalyticsSegmentsClimbs: (form: FormData) => jsonFetch<EnginePayload>('/ride/analytics/segments/climbs', { method: 'POST', body: form }),
+
+  /** POST /ride/analytics/segments/compare */
+  rideAnalyticsSegmentsCompare: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/ride/analytics/segments/compare', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /ride/analytics/session/classify */
+  rideAnalyticsSessionClassify: (form: FormData) => jsonFetch<EnginePayload>('/ride/analytics/session/classify', { method: 'POST', body: form }),
+
+  /** POST /ride/analytics/session/protocol-completeness */
+  rideAnalyticsSessionProtocolCompleteness: (form: FormData) => jsonFetch<EnginePayload>('/ride/analytics/session/protocol-completeness', { method: 'POST', body: form }),
+
+  /** POST /ride/analytics/session/route-decide */
+  rideAnalyticsSessionRouteDecide: (form: FormData) => jsonFetch<EnginePayload>('/ride/analytics/session/route-decide', { method: 'POST', body: form }),
+
+  /** POST /ride/analytics/session/route-run */
+  rideAnalyticsSessionRouteRun: (form: FormData) => jsonFetch<EnginePayload>('/ride/analytics/session/route-run', { method: 'POST', body: form }),
+
+  /** POST /ride/analytics/statistics */
+  rideAnalyticsStatistics: (form: FormData) => jsonFetch<EnginePayload>('/ride/analytics/statistics', { method: 'POST', body: form }),
+
+  /** POST /ride/analytics/thermal/acclimation */
+  rideAnalyticsThermalAcclimation: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/ride/analytics/thermal/acclimation', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /ride/analytics/thermal/session */
+  rideAnalyticsThermalSession: (form: FormData) => jsonFetch<EnginePayload>('/ride/analytics/thermal/session', { method: 'POST', body: form }),
+
+  /** POST /ride/analytics/w-prime/balance */
+  rideAnalyticsWPrimeBalance: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/ride/analytics/w-prime/balance', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /ride/analytics/zones */
+  rideAnalyticsZones: (form: FormData) => jsonFetch<EnginePayload>('/ride/analytics/zones', { method: 'POST', body: form }),
+
+  /** POST /twin/state/validate */
+  twinStateValidate: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/twin/state/validate', { method: 'POST', body: JSON.stringify(payload) }),
+
+
+  /** POST /profile/vlamax-from-power-series */
+  profileVlamaxFromPowerSeries: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/vlamax-from-power-series', { method: 'POST', body: JSON.stringify(payload) }),
+
 } as const;
 
 /** OpenAPI operation ids for cross-reference with Swagger UI */

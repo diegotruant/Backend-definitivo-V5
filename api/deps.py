@@ -8,12 +8,20 @@ from fastapi import Request
 
 from api.auth.principal import Principal
 from api.services import (
-    LoadService,
+    ExplainabilityService,
     HistoryService,
-    PlanningService,
-    ReadinessService,
+    IntegrationService,
+    LabService,
+    LoadExtendedService,
+    LoadService,
+    MetaService,
     PerformanceService,
+    PlanningService,
+    ProfileExtendedService,
     ProfileService,
+    RaceService,
+    ReadinessService,
+    RideAnalyticsService,
     RideService,
     TeamService,
     TestService,
@@ -35,6 +43,11 @@ def get_ride_service() -> RideService:
 @lru_cache
 def get_profile_service() -> ProfileService:
     return ProfileService()
+
+
+@lru_cache
+def get_profile_extended_service() -> ProfileExtendedService:
+    return ProfileExtendedService()
 
 
 @lru_cache
@@ -63,6 +76,11 @@ def get_load_service() -> LoadService:
 
 
 @lru_cache
+def get_load_extended_service() -> LoadExtendedService:
+    return LoadExtendedService()
+
+
+@lru_cache
 def get_history_service() -> HistoryService:
     return HistoryService()
 
@@ -75,6 +93,36 @@ def get_readiness_service() -> ReadinessService:
 @lru_cache
 def get_planning_service() -> PlanningService:
     return PlanningService()
+
+
+@lru_cache
+def get_lab_service() -> LabService:
+    return LabService()
+
+
+@lru_cache
+def get_ride_analytics_service() -> RideAnalyticsService:
+    return RideAnalyticsService()
+
+
+@lru_cache
+def get_explainability_service() -> ExplainabilityService:
+    return ExplainabilityService()
+
+
+@lru_cache
+def get_race_service() -> RaceService:
+    return RaceService()
+
+
+@lru_cache
+def get_integration_service() -> IntegrationService:
+    return IntegrationService()
+
+
+@lru_cache
+def get_meta_service() -> MetaService:
+    return MetaService()
 
 
 def get_request_principal(request: Request) -> Principal | None:

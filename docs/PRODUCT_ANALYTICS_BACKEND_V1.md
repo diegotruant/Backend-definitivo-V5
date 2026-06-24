@@ -52,7 +52,7 @@ The backend remains stateless:
 ## Validation performed
 
 - `python -m compileall -q api engines`
-- `python scripts/export_openapi.py` → 42 paths
+- `python scripts/export_openapi.py` → 106 paths
 - `python -m pytest -q tests/pytest_product_engines_v1.py` → 5 passed
 - `python -m pytest -q tests/pytest_frontend_client_contract.py tests/pytest_openapi_contract.py tests/pytest_product_engines_v1.py` → 20 passed
 - `python -m pytest -q tests/pytest_*.py` → 105 passed, 12 skipped

@@ -46,7 +46,7 @@ def test_committed_openapi_paths_match_live_export(
 
 
 def test_openapi_documents_all_public_routes(live_openapi: dict) -> None:
-    assert len(live_openapi.get("paths", {})) >= 24
+    assert len(live_openapi.get("paths", {})) >= 100
     assert "/health" in live_openapi["paths"]
     assert "/twin/state/build" in live_openapi["paths"]
     assert "/test/in-person" in live_openapi["paths"]

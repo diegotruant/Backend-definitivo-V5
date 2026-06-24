@@ -1,6 +1,6 @@
-# Frontend Developer Guide — Digital Twin Backend V5.1
+# Frontend Developer Guide — Digital Twin Backend V5.2
 
-Unified document for a **software developer** who needs to build the frontend connected to this backend, **with no background in endurance cycling**. It explains what the backend (v **5.1.1**) produces, how to interpret the metrics, how to draw them, how to design the main pages, and how to use **TwinState** as the central persistence model.
+Unified document for a **software developer** who needs to build the frontend connected to this backend, **with no background in endurance cycling**. It explains what the backend (v **5.2.2**) produces, how to interpret the metrics, how to draw them, how to design the main pages, and how to use **TwinState** as the central persistence model.
 
 **Related documents (read in this order)**
 
@@ -10,7 +10,8 @@ Unified document for a **software developer** who needs to build the frontend co
 | 2 | `docs/FRONTEND_IMPLEMENTATION_BLUEPRINT.md` | Detailed layout per page, design system, DoD |
 | 3 | `docs/API_PAYLOAD_EXAMPLES.md` | curl / TypeScript examples for each endpoint |
 | 3b | `docs/OPENAPI_FRONTEND.md` | OpenAPI, TS codegen, `api.*` client |
-| 3c | `openapi/openapi.json` | HTTP contract committed (43 endpoints) |
+| 3c | `openapi/openapi.json` | HTTP contract committed (**106 endpoints**) |
+| 3d | `docs/API_ENDPOINT_INDEX.md` | Full endpoint inventory by tag |
 | 4 | `docs/WORKOUT_SYSTEM_BACKEND_V1.md` | Prescription flow → compliance |
 | 5 | `docs/BACKEND_IMPLEMENTATIONS_V2.md` | TwinState, projection, neuromuscular |
 | 6 | `docs/COACH_UX_COPYBOOK.md` | Copy coach facing |
@@ -89,7 +90,7 @@ Every important output leads (or can lead):
 
 ---
 
-## 4. Frontend ↔ backend architecture (V5.1)
+## 4. Frontend ↔ backend architecture (V5.2)
 
 The backend is **stateless**: the frontend (or Supabase) persists **TwinState**, anchor, curve, calibration model and sends them back to the API.
 
@@ -142,7 +143,7 @@ flowchart TB
   end
 ```
 
-**Principle V5.1:** Instead of piecing together state from lots of scattered JSON, use `TwinState` as the **canonical read model** for the Digital Twin page, Command Center, and seasonal projections.
+**Principle V5.2:** Use `TwinState` as the **canonical read model** for the Digital Twin page, Command Center, and seasonal projections. The API now exposes **106 paths** — use `docs/API_ENDPOINT_INDEX.md` for the full map; core coach flows remain in §6–7 below.
 
 ---
 
@@ -244,7 +245,52 @@ Base URL example: `http://localhost:8000` (`make run` or `uvicorn api_app:app`).
 | POST | `/team/calibration/update` | Adds validated events to the team model |
 | POST | `/team/calibration/apply` | Apply fix to snapshot or single parameter |
 
+### 6.6 Extended engine API (V5.2 — 106 paths total)
+
+See `docs/API_ENDPOINT_INDEX.md` for every path. Summary by tag:
+
+| Tag | Paths | Coach / UI use |
+|-----|------:|----------------|
+| profile (extended) | +14 beyond `/profile/snapshot` | Kalman, bayesian snapshot, glycolytic profile, **power VLamax proxy**, MMP quality, detraining |
+| lab | 7 | Lactate steps, vLaPeak observed vs model, lab text parse |
+| ride/analytics | 24 | W′ balance, durability suite, cardiac, HRV, session routing, **dual zones** |
+| load (extended) | +4 beyond `/load/manual` | ACWR, monotony/strain, adaptive trend |
+| explainability | 6 | Confidence badges + narrative copy for coaches |
+| race | 2 | GPX course analyze + race simulation |
+| integrations | 2 | External activity normalize / dedupe |
+| meta | 2 | Engine tiers, chart config for `chart_builder` |
+| twin | +1 | `/twin/state/validate` |
+
+### 6.7 Zones — metabolic vs Coggan (V5.2.1)
+
+Activity endpoints return **both** power zone systems in `sections.zones`:
+
+| Key | Model | Anchor | When to show |
+|-----|-------|--------|--------------|
+| `metabolic_power` | MLSS 5-zone | Snapshot MLSS + MAP | Primary for physiology-first coaching |
+| `coggan_power` | Coggan 7-zone | FTP | Comparison / athletes used to %FTP |
+| `friel_hr` | Friel HR | LTHR | No power meter |
+| `seiler_polarization` | 3-zone | VT1/VT2 (default from MLSS) | Polarization classification |
+
+UI pattern: toggle or side-by-side bars; read `systems_available` and `coach_note`. Profile snapshot `zones` are **definitions only**; ride summary adds **time-in-zone** for the session.
+
 Payload details: `docs/API_PAYLOAD_EXAMPLES.md`.
+
+### 6.8 Power-derived VLamax (V5.2.2)
+
+Three distinct VLamax-related values — never conflate them in the UI:
+
+| Field | Source | Badge |
+|-------|--------|-------|
+| `estimated_vlamax_mmol_L_s` | Mader/MMP model (snapshot) | Model estimate |
+| `power_derived_vlamax` | Sprint power trace proxy | Power proxy |
+| `observed_vlapeak_mmol_l_s` | Lactate pre/post on sprint | Lab observed |
+
+**Standalone:** `POST /profile/vlamax-from-power-series` — pass `power` (≥8 Hz samples), `dt_s`, optional `cp_w`, `vo2max_power_w`, lactate fields.
+
+**Integrated:** `POST /profile/glycolytic-profile` — add optional `sprint_power`, `sprint_dt_s`, lactate fields; response includes `power_derived_vlamax` and `vlamax_derivation.agreement` when sprint data is supplied.
+
+Client: `api.profileVlamaxFromPowerSeries()`, `api.profileGlycolyticProfile()`.
 
 ---
 
@@ -270,7 +316,7 @@ Operational table derived from `FRONTEND_IMPLEMENTATION_BLUEPRINT.md`. Each line
 | | Season projection | `/projection/season` | calendar plan |
 | **Activity Analysis** | Summary cards (NP, IF, TSS) | `/ride/summary` | `activities.summary` |
 | | Multi-series timeline | `activity_charts` configs from summary | stream metadata |
-| | Zone distribution | summary.`sections.zones` | summary |
+| | Zone distribution | summary.`sections.zones` (`metabolic_power` + `coggan_power`) | summary |
 | | Cardiac response | summary.`sections.cardiac` | summary |
 | | HRV timeline | summary.`sections.hrv` | summary (ramp test only) |
 | | Mader durability | `/ride/durability` or summary.`mader_durability` | JSON durability |
@@ -422,7 +468,7 @@ Endpoint: `POST /ride/summary` (multipart: `file` **or** `power_json`, `weight_k
 | Section | Content | Visualization |
 |---------|-----------|-----------------|
 | **power** | NP, IF, TSS, VI, MMP, CP+W′ fit | KPI row + `chart_power_duration_curve` |
-| **zones** | Coggan 7 zones, Friel HR, Seiler 3 zones | Stacked donuts/bars |
+| **zones** | Metabolic MLSS 5-zone + Coggan 7-zone, Friel HR, Seiler 3-zone | Stacked donuts/bars (coach toggle) |
 | **classification** | Coggan phenotype from MMP | `chart_phenotype_spider` |
 | **hrv** | DFA-α₁ Timeline (if RR) | `chart_hrv_timeline` |
 | **cardiac** | Drift, decoupling, recovery, kinetics | `chart_cardiac_drift`, `chart_hr_recovery` |
@@ -606,7 +652,7 @@ Reference SQL schema: `docs/workout_db_schema_v1.sql`.
 
 ## 16. Hardening and stress testing — been verified
 
-Run on **Backend V5.1.0** (2026-06-01).
+Run on **Backend V5.2.2** (2026-06-17).
 
 ### 16.1 Commands
 
@@ -672,7 +718,7 @@ See `docs/MULTI_TENANT_STRESS_TESTING.md` and `docs/HARDENING_TESTS.md`.
 
 ---
 
-## 17. Full end-to-end flow example (V5.1 sequence)
+## 17. Full end-to-end flow example (V5.2 sequence)
 
 ```
 1. Coach uploads FIT test                   → POST /test/propose
@@ -719,4 +765,4 @@ from engines.io.chart_builder import chart_power_duration_curve, chart_metabolic
 
 ---
 
-*Unified documentation for Backend-definitivo-V5 **5.1.0**. Update when new endpoints are added in `api_app.py` or new engines are introduced in `engines/`.*
+*Unified documentation for Backend-definitivo-V5 **5.2.2** (106 OpenAPI paths). See `docs/API_ENDPOINT_INDEX.md` when adding new routes.*
