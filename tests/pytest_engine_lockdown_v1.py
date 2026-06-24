@@ -172,6 +172,14 @@ def test_workout_recommendation_blocks_power_targets_without_cp_or_ftp() -> None
     assert "athlete_profile.cp_or_ftp" in out["model_metadata"]["missing_inputs"]
 
 
+def test_workout_recommendation_blocks_without_readiness_score() -> None:
+    out = recommend_workout({"weight_kg": 70.0, "cp_w": 260})
+    assert out["status"] == "insufficient_profile"
+    assert out["recommendation"]["next_step"] == "provide_readiness_score"
+    assert out["recommendation"]["workout"] is None
+    assert "readiness.readiness_score" in out["model_metadata"]["missing_inputs"]
+
+
 def test_ability_profile_hides_wkg_without_body_mass() -> None:
     out = build_ability_profile({"mmp": {"5": 1000, "60": 500, "300": 360, "1200": 300}})
     assert out["status"] == "success"
@@ -189,12 +197,11 @@ def test_history_load_trend_short_history_is_cold_start_metadata() -> None:
 
 
 # -----------------------------------------------------------------------------
-# Audit diagnostics: useful signal, but not yet release blockers.
-# If they fail, pytest records XFAIL instead of breaking the whole gate.
+# Hard gates: regression blockers — no xfail masking.
 # -----------------------------------------------------------------------------
 
 
-def test_audit_all_engine_submodules_import_without_side_effect_errors() -> None:
+def test_all_engine_submodules_import_without_side_effect_errors() -> None:
     errors: list[str] = []
     for module_info in pkgutil.walk_packages(engines.__path__, engines.__name__ + "."):
         name = module_info.name
@@ -207,8 +214,7 @@ def test_audit_all_engine_submodules_import_without_side_effect_errors() -> None
     assert not errors, "Engine import failures:\n" + "\n".join(errors)
 
 
-@pytest.mark.xfail(strict=False, reason="audit diagnostic: data-quality input contract is still evolving")
-def test_audit_data_quality_missing_optional_sensors_does_not_crash_or_emit_nonfinite() -> None:
+def test_data_quality_accepts_minimal_channel_dict_without_nonfinite_values() -> None:
     payload = {
         "power": [150, 160, 170, 180],
         "heart_rate": [130, 132, 135, 136],
@@ -219,24 +225,18 @@ def test_audit_data_quality_missing_optional_sensors_does_not_crash_or_emit_nonf
     _assert_no_nan_or_inf(out)
 
 
-@pytest.mark.xfail(strict=False, reason="audit diagnostic: negative planner inputs need product policy")
-def test_audit_season_plan_rejects_or_neutralizes_non_positive_weekly_hours() -> None:
+def test_season_plan_rejects_non_positive_weekly_hours() -> None:
     out = create_season_plan(
         start_date="2026-01-01",
         target_date="2026-03-01",
         weekly_hours=-8.0,
     )
-    if out.get("status") == "success":
-        for week in out["weeks"]:
-            assert week["target_hours"] >= 0
-            for workout in week["workouts"]:
-                assert workout["duration_min"] >= 0
-                assert workout["load"] >= 0
-    else:
-        assert out["status"] in {"error", "invalid_input"}
+    assert out["status"] == "invalid_input"
+    assert out["error"] == "weekly_hours_must_be_positive"
+    assert out["weeks"] == []
 
 
-def test_audit_mader_durability_output_is_bounded_for_constant_above_threshold_ride() -> None:
+def test_mader_durability_output_is_bounded_for_constant_above_threshold_ride() -> None:
     engine = MaderDurabilityEngine(
         weight_kg=72.0,
         vo2max=55.0,
@@ -253,8 +253,7 @@ def test_audit_mader_durability_output_is_bounded_for_constant_above_threshold_r
     _assert_no_nan_or_inf(out)
 
 
-@pytest.mark.xfail(strict=False, reason="audit diagnostic: static fallback scan may catch benign literals")
-def test_audit_no_high_risk_literal_power_or_weight_fallbacks_in_prescription_engines() -> None:
+def test_no_high_risk_literal_power_or_weight_fallbacks_in_prescription_engines() -> None:
     high_risk_files = [
         PROJECT_ROOT / "engines" / "workouts" / "recommendation_engine.py",
         PROJECT_ROOT / "engines" / "performance" / "ability_profile.py",

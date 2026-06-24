@@ -22,6 +22,19 @@ def create_season_plan(
     weekly_hours: float = 8.0,
     goal: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
+    if weekly_hours <= 0:
+        payload = {
+            "status": "invalid_input",
+            "schema_version": "1.0.0",
+            "error": "weekly_hours_must_be_positive",
+            "weeks": [],
+        }
+        return annotate_payload(
+            payload,
+            module_name="season_planner",
+            method="rule_based_periodization",
+            confidence=0.2,
+        )
     start = _parse_date(start_date, date.today())
     target = _parse_date(target_date, start + timedelta(days=84))
     total_days = max(7, (target - start).days)

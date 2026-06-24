@@ -80,8 +80,46 @@ def _quality_flags(flags: Any) -> Dict[str, Any]:
     }
 
 
+def _coerce_quality_stream(stream: Any) -> Any:
+    """Accept ActivityStreamEnhanced or a minimal channel dict for quality reports."""
+    if not isinstance(stream, dict):
+        return stream
+
+    class _ChannelStream:
+        pass
+
+    obj = _ChannelStream()
+    power = stream.get("power")
+    heart_rate = stream.get("heart_rate")
+    cadence = stream.get("cadence")
+    obj.power = np.asarray(power, dtype=float) if power is not None else np.array([], dtype=float)
+    obj.heart_rate = np.asarray(heart_rate, dtype=float) if heart_rate is not None else np.array([], dtype=float)
+    obj.cadence = np.asarray(cadence, dtype=float) if cadence is not None else np.array([], dtype=float)
+    obj.speed_mps = np.array([], dtype=float)
+    obj.distance_m = np.array([], dtype=float)
+    obj.altitude_m = np.array([], dtype=float)
+    obj.temperature_c = np.array([], dtype=float)
+    obj.respiration_rate = np.array([], dtype=float)
+    obj.left_right_balance = np.array([], dtype=float)
+    obj.lat = np.array([], dtype=float)
+    obj.lon = np.array([], dtype=float)
+    obj.quality_power = stream.get("quality_power")
+    obj.quality_hr = stream.get("quality_hr")
+    obj.gap_summary = stream.get("gap_summary", {}) or {}
+    obj.has_power = bool(obj.power.size and np.any(np.isfinite(obj.power) & (obj.power > 0)))
+    obj.has_heart_rate = bool(obj.heart_rate.size and np.any(np.isfinite(obj.heart_rate) & (obj.heart_rate > 0)))
+    obj.has_speed = False
+    obj.has_distance = False
+    obj.has_altitude = False
+    obj.has_rr = False
+    obj.has_cycling_dynamics = False
+    obj.has_respiration = False
+    return obj
+
+
 def build_data_quality_report(stream: Any) -> Dict[str, Any]:
     """Return signal coverage, dropout and warning information."""
+    stream = _coerce_quality_stream(stream)
     measured = measured_signal_flags(stream)
     signals = {
         "power": _series_quality(getattr(stream, "power", None), measured=measured["power"], valid_min=1),

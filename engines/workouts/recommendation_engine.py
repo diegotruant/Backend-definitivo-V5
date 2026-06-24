@@ -18,10 +18,30 @@ def recommend_workout(
 ) -> Dict[str, Any]:
     assumptions: list[str] = []
     missing_inputs: list[str] = []
-    readiness_score = int((readiness or {}).get("readiness_score") or 70)
-    if readiness is None or "readiness_score" not in readiness:
-        assumptions.append("readiness_score_defaulted_to_70")
+    readiness_score_raw = (readiness or {}).get("readiness_score")
+    if readiness_score_raw is None:
         missing_inputs.append("readiness.readiness_score")
+        payload = {
+            "status": "insufficient_profile",
+            "schema_version": "1.0.0",
+            "recommendation": {
+                "focus": None,
+                "intensity": None,
+                "readiness_score": None,
+                "rationale": "readiness_score required before workout prescription",
+                "workout": None,
+                "next_step": "provide_readiness_score",
+            },
+            "progression_levels": compute_progression_levels(athlete_profile, recent_workouts or []),
+            "model_metadata": finalize_model_metadata(
+                assumptions=assumptions,
+                missing_inputs=missing_inputs,
+                quality_flags=["prescription_blocked_without_readiness"],
+                confidence=0.35,
+            ),
+        }
+        return annotate_payload(payload, module_name="recommendation_engine", method="readiness_progression", confidence=0.35)
+    readiness_score = int(readiness_score_raw)
     goal_type = str((goal or {}).get("focus") or "balanced").lower()
     progress = compute_progression_levels(athlete_profile, recent_workouts or [])
     levels = progress.get("levels", {})
