@@ -12579,6 +12579,58 @@
               }
             ],
             "title": "Vo2Max Power W"
+          },
+          "t_p_peak_s": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "T P Peak S",
+            "description": "Seconds into the sprint when instantaneous peak power occurred."
+          },
+          "peak_3s_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak 3S W",
+            "description": "Best rolling 3 s mean power."
+          },
+          "peak_5s_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak 5S W",
+            "description": "Best rolling 5 s mean power."
+          },
+          "neuromuscular_peak_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Neuromuscular Peak W",
+            "description": "Recruitment-aware neuromuscular ceiling; inferred when omitted."
           }
         },
         "type": "object",

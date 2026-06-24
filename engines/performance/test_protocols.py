@@ -303,6 +303,13 @@ def run_wingate_test(
     minimum = float(np.min(p))
     fatigue_index = (peak - minimum) / peak * 100.0 if peak > 0 else None
 
+    from engines.performance.sprint_peak_analysis import analyze_sprint_power
+
+    peak_contract = None
+    analysis = analyze_sprint_power(p.tolist(), dt_s=1.0)
+    if analysis is not None:
+        peak_contract = analysis.to_dict()
+
     assumptions = []
     if weight is None or weight <= 0:
         assumptions.append("body_weight_missing_peak_power_wkg_not_computed")
@@ -316,6 +323,9 @@ def run_wingate_test(
         "duration_s": int(td.get("duration_s", p.size)),
         "assumptions": assumptions,
     }
+    if peak_contract is not None:
+        payload["sprint_peak_contract"] = peak_contract
+        payload["neuromuscular_peak_w"] = peak_contract["neuromuscular_peak_w"]
 
     lactate_pre = td.get("lactate_pre_mmol")
     lactate_post = td.get("lactate_post_mmol")

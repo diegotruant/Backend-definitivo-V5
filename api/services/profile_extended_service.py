@@ -79,6 +79,10 @@ class ProfileExtendedService:
             req.p_mean_sprint,
             sprint_duration_s=req.sprint_duration_s,
             vo2max_power_w=req.vo2max_power_w,
+            t_p_peak_s=req.t_p_peak_s,
+            peak_3s_w=req.peak_3s_w,
+            peak_5s_w=req.peak_5s_w,
+            neuromuscular_peak_w=req.neuromuscular_peak_w,
         )
 
     def vlamax_from_power_series(self, req: VlamaxPowerSeriesRequest) -> Dict[str, Any]:

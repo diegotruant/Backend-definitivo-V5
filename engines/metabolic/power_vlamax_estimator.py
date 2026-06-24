@@ -78,14 +78,18 @@ def estimate_vlamax_from_power_series(
     if p_peak <= 0:
         return {"status": "error", "reason": "non_positive_power", "message": "Peak power must be positive."}
 
+    from engines.performance.sprint_peak_analysis import analyze_sprint_power
+
+    peak_analysis = analyze_sprint_power(p, dt_s=dt)
+    p_neuro = peak_analysis.neuromuscular_peak_w if peak_analysis else p_peak
     i_peak = int(np.argmax(p))
-    t_p_peak = i_peak * dt
+    t_p_peak = peak_analysis.t_p_peak_s if peak_analysis else i_peak * dt
     p_mean = float(np.mean(p))
 
     end_n = max(1, int(round(1.0 / dt)))
     p_end = float(np.mean(p[max(0, p.size - end_n) :]))
     fatigue_index = (p_peak - p_end) / max(p_peak, 1e-9)
-    sustain_ratio = p_mean / p_peak
+    sustain_ratio = p_mean / p_neuro
 
     min_sustain = _min_sustain_ratio(duration_s)
     if sustain_ratio < min_sustain:
@@ -117,7 +121,10 @@ def estimate_vlamax_from_power_series(
     early_window_s = min(3.0, duration_s * 0.30)
     early_n = max(1, int(round(early_window_s / dt)))
     p_early_mean = float(np.mean(p[:early_n]))
-    p_alac_avg = min(p_early_mean, p_peak) * (t_p_peak / duration_s)
+    if peak_analysis and peak_analysis.recruitment_profile == "delayed":
+        p_alac_avg = min(p_neuro, p_peak) * (t_p_peak / duration_s)
+    else:
+        p_alac_avg = min(p_early_mean, p_neuro) * (t_p_peak / duration_s)
 
     aero_ceiling = vo2max_power_w if vo2max_power_w is not None else cp_w
     if aero_ceiling is not None and float(aero_ceiling) > 0:
@@ -145,6 +152,8 @@ def estimate_vlamax_from_power_series(
     quality_flags: List[str] = []
     if sustain_ratio < min_sustain + 0.05:
         quality_flags.append("borderline_sustain_ratio")
+    if peak_analysis and peak_analysis.recruitment_profile == "delayed":
+        quality_flags.append("delayed_motor_recruitment")
     if t_p_peak > 4.0:
         quality_flags.append("late_power_peak")
     if fatigue_index < 0.10:
@@ -161,6 +170,7 @@ def estimate_vlamax_from_power_series(
         "duration_s": round(duration_s, 2),
         "p_peak_w": round(p_peak, 1),
         "p_mean_w": round(p_mean, 1),
+        "neuromuscular_peak_w": round(p_neuro, 1),
         "p_peak_wkg": round(p_peak / weight_kg, 2),
         "p_mean_wkg": round(p_mean / weight_kg, 2),
         "t_p_peak_s": round(t_p_peak, 2),
@@ -187,6 +197,7 @@ def estimate_vlamax_from_power_series(
         "features": features,
         "quality_flags": quality_flags,
         "semantics": "power-derived VLamax proxy; not direct blood lactate measurement",
+        "sprint_peak_contract": peak_analysis.to_dict() if peak_analysis else None,
         "inputs": {
             "weight_kg": weight_kg,
             "active_muscle_mass_kg": round(active_muscle_mass_kg, 2),

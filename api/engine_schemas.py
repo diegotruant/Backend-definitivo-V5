@@ -35,6 +35,18 @@ class VlamaxSprintRequest(BaseModel):
     p_mean_sprint: float = Field(..., gt=0)
     sprint_duration_s: float = Field(default=15.0, gt=0, le=60)
     vo2max_power_w: Optional[float] = Field(default=None, gt=0)
+    t_p_peak_s: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="Seconds into the sprint when instantaneous peak power occurred.",
+    )
+    peak_3s_w: Optional[float] = Field(default=None, gt=0, description="Best rolling 3 s mean power.")
+    peak_5s_w: Optional[float] = Field(default=None, gt=0, description="Best rolling 5 s mean power.")
+    neuromuscular_peak_w: Optional[float] = Field(
+        default=None,
+        gt=0,
+        description="Recruitment-aware neuromuscular ceiling; inferred when omitted.",
+    )
 
 
 class VlamaxPowerSeriesRequest(BaseModel):

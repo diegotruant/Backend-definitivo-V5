@@ -43,16 +43,35 @@ class SprintCandidate:
     mean_w: float
     duration_s: int
     source: str               # "lap" | "power"
-    sustain_ratio: float      # mean / peak — how all-out it is
+    sustain_ratio: float      # mean / neuromuscular peak
     notes: str = ""
+    peak_3s_w: Optional[float] = None
+    peak_5s_w: Optional[float] = None
+    t_p_peak_s: Optional[float] = None
+    neuromuscular_peak_w: Optional[float] = None
+    neuromuscular_peak_window_s: Optional[int] = None
+    recruitment_profile: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        out = {
             "file_id": self.file_id, "start_s": self.start_s,
             "peak_1s_w": round(self.peak_1s_w, 0), "mean_w": round(self.mean_w, 0),
             "duration_s": self.duration_s, "source": self.source,
             "sustain_ratio": round(self.sustain_ratio, 3), "notes": self.notes,
         }
+        if self.peak_3s_w is not None:
+            out["peak_3s_w"] = round(self.peak_3s_w, 0)
+        if self.peak_5s_w is not None:
+            out["peak_5s_w"] = round(self.peak_5s_w, 0)
+        if self.t_p_peak_s is not None:
+            out["t_p_peak_s"] = round(self.t_p_peak_s, 2)
+        if self.neuromuscular_peak_w is not None:
+            out["neuromuscular_peak_w"] = round(self.neuromuscular_peak_w, 0)
+        if self.neuromuscular_peak_window_s is not None:
+            out["neuromuscular_peak_window_s"] = self.neuromuscular_peak_window_s
+        if self.recruitment_profile is not None:
+            out["recruitment_profile"] = self.recruitment_profile
+        return out
 
 
 @dataclass
@@ -123,6 +142,40 @@ def _best_mean(power: np.ndarray, w: int) -> float:
 # ---------------------------------------------------------------------------
 # Sprint detection
 # ---------------------------------------------------------------------------
+def _sprint_candidate_from_segment(
+    *,
+    file_id: str,
+    onset: int,
+    power_seg: np.ndarray,
+    source: str,
+    notes: str,
+) -> Optional[SprintCandidate]:
+    from engines.performance.sprint_peak_analysis import analyze_sprint_power
+
+    if power_seg.size < 5:
+        return None
+    analysis = analyze_sprint_power(power_seg.tolist(), dt_s=1.0)
+    if analysis is None:
+        return None
+    mean_w = float(np.mean(power_seg))
+    return SprintCandidate(
+        file_id=file_id,
+        start_s=onset,
+        peak_1s_w=analysis.peak_1s_w,
+        mean_w=mean_w,
+        duration_s=int(power_seg.size),
+        source=source,
+        sustain_ratio=mean_w / analysis.neuromuscular_peak_w if analysis.neuromuscular_peak_w > 0 else 0.0,
+        notes=notes,
+        peak_3s_w=analysis.peak_3s_w,
+        peak_5s_w=analysis.peak_5s_w,
+        t_p_peak_s=analysis.t_p_peak_s,
+        neuromuscular_peak_w=analysis.neuromuscular_peak_w,
+        neuromuscular_peak_window_s=analysis.neuromuscular_peak_window_s,
+        recruitment_profile=analysis.recruitment_profile,
+    )
+
+
 def _find_sprint_in_power(power: np.ndarray, file_id: str) -> Optional[SprintCandidate]:
     """
     A test sprint is a brief, very high effort that then collapses. We find the
@@ -147,10 +200,11 @@ def _find_sprint_in_power(power: np.ndarray, file_id: str) -> Optional[SprintCan
     if dur < 5 or dur > 40:           # not a sprint-shaped effort
         return None
     seg = power[onset:end + 1]
-    mean_w = float(np.mean(seg))
-    return SprintCandidate(
-        file_id=file_id, start_s=onset, peak_1s_w=peak_1s, mean_w=mean_w,
-        duration_s=dur, source="power", sustain_ratio=mean_w / peak_1s,
+    return _sprint_candidate_from_segment(
+        file_id=file_id,
+        onset=onset,
+        power_seg=seg,
+        source="power",
         notes=f"power-scan sprint, {dur}s near-maximal",
     )
 
@@ -171,11 +225,15 @@ def _find_sprint_in_laps(power: np.ndarray, laps: List[Dict[str, Any]], file_id:
         if peak < 400.0:
             continue
         mean_w = float(np.mean(seg))
-        cand = SprintCandidate(
-            file_id=file_id, start_s=t - d, peak_1s_w=peak, mean_w=mean_w,
-            duration_s=d, source="lap", sustain_ratio=mean_w / peak,
+        cand = _sprint_candidate_from_segment(
+            file_id=file_id,
+            onset=t - d,
+            power_seg=seg,
+            source="lap",
             notes=f"lap-marked sprint trial ({d}s)",
         )
+        if cand is None:
+            continue
         if best is None or cand.mean_w > best.mean_w:
             best = cand
     return best

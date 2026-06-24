@@ -121,8 +121,14 @@ def build_anchor_from_proposal(
         mean = g(sprint, "mean_w")
         dur = g(sprint, "duration_s", 15)
         vla_res = profiler.vlamax_from_sprint(
-            p_peak_1s=float(peak), p_mean_sprint=float(mean),
-            sprint_duration_s=float(dur), active_muscle_mass_kg=amm,
+            p_peak_1s=float(peak),
+            p_mean_sprint=float(mean),
+            sprint_duration_s=float(dur),
+            active_muscle_mass_kg=amm,
+            t_p_peak_s=g(sprint, "t_p_peak_s"),
+            peak_3s_w=g(sprint, "peak_3s_w"),
+            peak_5s_w=g(sprint, "peak_5s_w"),
+            neuromuscular_peak_w=g(sprint, "neuromuscular_peak_w"),
         )
         if vla_res.get("status") == "success":
             vlamax_val = vla_res["vlamax_mmol_l_s"]
