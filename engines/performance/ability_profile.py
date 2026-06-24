@@ -93,19 +93,21 @@ def build_ability_profile(
             compliance_score = sum(vals) / len(vals)
             levels["execution_consistency"] = round(max(0.0, min(1.0, compliance_score)) * 10, 1)
     phenotype = max(levels, key=levels.get)
+    wkg_payload = {
+        "5s": round(sprint, 2) if sprint else None,
+        "60s": round(one_min, 2) if one_min else None,
+        "300s": round(five_min, 2) if five_min else None,
+        "1200s": round(twenty_min, 2) if twenty_min else None,
+        "3600s": round(sixty_min, 2) if sixty_min else None,
+    }
     payload = {
         "status": "success",
         "schema_version": "1.0.0",
         "levels": levels,
         "dominant_ability": phenotype,
         "inputs": {"weight_kg": weight, "cp_w": cp, "ftp_w": ftp, "curve_points": len(curve)},
-        "derived_w_kg": {
-            "5s": round(sprint, 2) if sprint else None,
-            "60s": round(one_min, 2) if one_min else None,
-            "300s": round(five_min, 2) if five_min else None,
-            "1200s": round(twenty_min, 2) if twenty_min else None,
-            "3600s": round(sixty_min, 2) if sixty_min else None,
-        },
+        "derived_w_kg": wkg_payload,
+        "raw_wkg": wkg_payload,
         "model_metadata": finalize_model_metadata(
             assumptions=assumptions,
             missing_inputs=missing_inputs,
