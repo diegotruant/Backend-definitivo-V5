@@ -1,8 +1,9 @@
 """
 Power-series VLamax proxy (cLaMax_P) — glycolytic rate estimate from sprint power.
 
-Literature-informed features (Yang 2023 t_Ppeak, Haase 2025 relative power,
-Meixner 2024 FFM work, Clark & Macdermid 2025 sprint vs endurance distinction).
+Literature-informed features: fixed T_PCr 3.5 s (Meixner 2024 / Dunst 2023),
+t_Ppeak retained as protocol-quality metadata only, FFM-normalized work,
+relative sprint power, and sprint-vs-endurance distinction.
 
 Semantics: this is a **power-derived proxy**, not direct blood lactate measurement.
 Distinct from Mader model VLamax (vLamax_muscle) and from observed vLaPeak.
