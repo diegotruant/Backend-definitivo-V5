@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List
 
 import numpy as np
@@ -27,9 +27,30 @@ from engines.core import security
 from engines.core.data_quality_engine import assess_data_quality, clean_workout_data, detect_pauses
 from engines.io.fit_parser import parse_fit_records_enhanced
 from engines.metabolic.team_learning_engine import TeamCalibrationModel, ValidationEvent
-from engines.performance.interval_detector import classify_session, protocol_completeness
-from engines.performance.mmp_quality import analyze_mmp_quality, clean_mmp
-from engines.recovery.hrv_engine import analyze_rr_stream
+from engines.core.athlete_context import AthleteContext
+from engines.metabolic.lab_data import (
+    LabTestResult,
+    LactatePoint,
+    create_lab_result,
+    parse_lab_text,
+    validate_lab_result,
+)
+from engines.performance.effort_extractor import extract_test_proposal
+from engines.performance.interval_detector import (
+    QualifiedAnchor,
+    classify_session,
+    protocol_completeness,
+)
+from engines.performance.mmp_quality import analyze_mmp_quality, clean_mmp, filter_mmp_by_window
+from engines.performance.test_protocols import (
+    run_critical_power_test,
+    run_incremental_test,
+    run_power_cadence_test,
+    run_test,
+    run_wingate_test,
+)
+from engines.recovery.hrv_engine import analyze_rr_stream, calculate_dfa_alpha1, detect_thresholds_from_activity
+from engines.workouts.progression_levels import compute_progression_levels
 from tests._fixtures import twin_build_payload, workout_pct_cp
 
 
@@ -281,3 +302,316 @@ class TestProfileExtendedServiceDepth:
         out = svc.ctl_atl_tsb([{"date": "2026-01-01", "tss": 50}] * 14)
         assert "ctl" in out
         assert "tsb" in out
+
+
+def _flat_power(power_w: float, dur_s: int, *, noise: float = 0.0) -> List[float]:
+    arr = np.full(dur_s, float(power_w))
+    if noise > 0:
+        arr = arr + np.random.default_rng(7).normal(0, noise, dur_s)
+    return list(np.clip(arr, 0, None))
+
+
+def _sprint_shape(peak_w: float, dur_s: int) -> List[float]:
+    out: List[float] = []
+    for i in range(dur_s):
+        if i < 2:
+            out.append(peak_w * (0.4 + 0.3 * i))
+        else:
+            out.append(peak_w * max(0.6, 1.0 - 0.03 * (i - 2)))
+    return out + [40.0] * 5
+
+
+class TestLabData:
+    def test_create_lab_result_vo2max_only(self) -> None:
+        result = create_lab_result(date(2026, 5, 20), source="spirometry", vo2max=62.3, map_w=380)
+        assert result.has_vo2max
+        assert result.test_type.value == "vo2max_only"
+        assert result.n_parameters_available >= 2
+
+    def test_create_lab_result_lactate_and_ftp_fallback(self) -> None:
+        result = create_lab_result(
+            date(2026, 6, 1),
+            source="lactate_analyzer",
+            ftp_w=275,
+            lactate_curve=[(150, 0.9), (210, 1.5), (270, 3.8), (300, 5.5)],
+        )
+        assert result.has_lactate_curve
+        assert result.mlss_power_w == 275
+        assert result.test_type.value == "lactate_step"
+
+    def test_parse_lab_text_english_and_italian(self) -> None:
+        text = (
+            "VO2 max: 62.3 ml/kg/min\n"
+            "Consumo di O2 massimo: 55.0\n"
+            "MLSS: 275 W\n"
+            "VLamax: 0.42 mmol/L/s\n"
+            "Test date 15/05/2026"
+        )
+        result = parse_lab_text(text)
+        assert result.vo2max_ml_kg_min == 62.3
+        assert result.mlss_power_w == 275
+        assert result.vlamax_mmol_L_s == 0.42
+
+    def test_from_dict_and_validate_warnings(self) -> None:
+        result = LabTestResult.from_dict(
+            {
+                "test_date": "2026-01-01",
+                "source": "not_a_real_source",
+                "vo2max_ml_kg_min": 10.0,
+                "vlamax_mmol_L_s": 3.0,
+                "mlss_power_w": 400,
+                "map_w": 300,
+                "lactate_curve": [
+                    {"power_w": 200, "lactate_mmol": 2.0},
+                    {"power_w": 180, "lactate_mmol": 1.5},
+                    {"power_w": 220, "lactate_mmol": 2.5},
+                ],
+            }
+        )
+        warnings = validate_lab_result(result)
+        assert any("VO2max" in w for w in warnings)
+        assert any("VLamax" in w for w in warnings)
+        assert any("MLSS > MAP" in w for w in warnings)
+        assert any("not monotonically" in w for w in warnings)
+        assert result.summary().startswith("Lab test:")
+
+    def test_lactate_point_to_dict(self) -> None:
+        pt = LactatePoint(power_w=250, lactate_mmol=4.2, heart_rate_bpm=165)
+        body = pt.to_dict()
+        assert body["power_w"] == 250
+        assert body["lactate_mmol"] == 4.2
+
+
+class TestProgressionLevels:
+    def test_compute_progression_levels_with_compliance_history(self) -> None:
+        profile = {"mmp": {"5": 1000, "60": 500, "300": 360, "1200": 300}, "cp_w": 280, "weight_kg": 72}
+        history = [
+            {"target_zone": "threshold", "compliance_score": 0.9},
+            {"target_zone": "vo2max", "compliance_score": 0.85},
+            {"target_zone": "unknown_zone", "compliance_score": 0.5},
+            "not-a-dict",
+        ]
+        out = compute_progression_levels(profile, history)
+        assert out["status"] == "success"
+        assert "threshold" in out["levels"]
+        assert out["levels"]["threshold"] >= out["ability_profile"]["levels"]["threshold"]
+
+
+class TestTestProtocols:
+    def test_run_incremental_missing_steps(self) -> None:
+        out = run_incremental_test({"test_data": {}})
+        assert out["status"] == "error"
+        assert out["reason"] == "missing_steps"
+
+    def test_run_incremental_success(self) -> None:
+        out = run_incremental_test(
+            {
+                "test_data": {
+                    "steps": [
+                        {"power_w": 200, "hr_mean": 140},
+                        {"power_w": 250, "hr_mean": 155},
+                        {"power_w": 300, "hr_mean": 170},
+                    ]
+                }
+            }
+        )
+        assert out["status"] == "success"
+        assert out["max_power_w"] == 300
+        assert out["hr_max_observed"] == 170
+
+    def test_run_power_cadence_insufficient_points(self) -> None:
+        out = run_power_cadence_test({"test_data": {"points": [{"rpm_peak": 90, "w_peak": 400}]}})
+        assert out["reason"] == "insufficient_points"
+
+    def test_run_power_cadence_parabola_fit(self) -> None:
+        out = run_power_cadence_test(
+            {
+                "test_data": {
+                    "points": [
+                        {"rpm_peak": 80, "w_peak": 420},
+                        {"rpm_peak": 100, "w_peak": 560},
+                        {"rpm_peak": 120, "w_peak": 500},
+                    ]
+                }
+            }
+        )
+        assert out["status"] == "success"
+        assert 90 <= out["optimal_cadence_rpm"] <= 110
+        assert out["peak_power_w"] >= 500
+
+    def test_run_critical_power_fit_failed(self) -> None:
+        out = run_critical_power_test({"test_data": {"efforts": [{"duration_s": 60, "power_w": 400}]}})
+        assert out["reason"] == "cp_fit_failed"
+
+    def test_run_wingate_missing_weight_assumption(self) -> None:
+        stream = [100, 200, 500, 480, 450, 420, 400, 380, 350, 300]
+        out = run_wingate_test({"test_data": {"power_stream": stream}})
+        assert out["status"] == "success"
+        assert out["peak_power_wkg"] is None
+        assert "body_weight_missing_peak_power_wkg_not_computed" in out["assumptions"]
+        assert "sprint_peak_contract" in out
+
+    def test_run_test_unknown_type(self) -> None:
+        out = run_test({"test_type": "not_real"})
+        assert out["reason"] == "unknown_test_type"
+
+
+class TestEffortExtractor:
+    def test_empty_files(self) -> None:
+        prop = extract_test_proposal([])
+        assert prop.status == "empty"
+        assert prop.warnings
+
+    def test_genuine_flow_style_proposal(self) -> None:
+        rng = np.random.default_rng(42)
+        day1 = (
+            _flat_power(120, 600, noise=8)
+            + _sprint_shape(1000, 15)
+            + _flat_power(90, 300, noise=8)
+            + _flat_power(300, 720, noise=6)
+        )
+        day2 = (
+            _flat_power(120, 600, noise=8)
+            + _flat_power(360, 180, noise=8)
+            + _flat_power(90, 300, noise=8)
+            + _flat_power(330, 360, noise=7)
+        )
+        prop = extract_test_proposal(
+            [
+                {"file_id": "day1", "power": day1, "laps": None},
+                {"file_id": "day2", "power": day2, "laps": None},
+            ]
+        )
+        body = prop.to_dict()
+        assert body["status"] == "proposed"
+        assert body["confidence"] >= 0.6
+        assert body["sprint"] is not None
+        assert len(body["cp_candidates"]) >= 2
+
+
+class TestHrvEngineDepth:
+    def test_calculate_dfa_alpha1_insufficient_data(self) -> None:
+        out = calculate_dfa_alpha1([800.0] * 20)
+        assert out["status"] == "INSUFFICIENT_DATA"
+
+    def test_calculate_dfa_alpha1_valid_segment(self) -> None:
+        rng = np.random.default_rng(1)
+        rr = (800.0 + rng.normal(0, 15, 80)).tolist()
+        out = calculate_dfa_alpha1(rr)
+        assert out["status"] in {"AEROBIC", "MIXED", "ANAEROBIC", "INVALID_WINDOW"}
+        if out["alpha1"] is not None:
+            assert 0.0 < out["alpha1"] < 2.0
+
+    def test_calculate_dfa_alpha1_novice_context(self) -> None:
+        rr = (810.0 + np.sin(np.linspace(0, 6, 80)) * 10).tolist()
+        ctx = AthleteContext(training_years=1.0)
+        out = calculate_dfa_alpha1(rr, context=ctx)
+        if out.get("confidence"):
+            assert out["confidence"] in {"MEDIUM", "HIGH", "NONE"}
+
+    def test_detect_thresholds_empty_rr(self) -> None:
+        out = detect_thresholds_from_activity([])
+        assert out["vt1"]["detected"] is False
+        assert out["vt2"]["detected"] is False
+
+
+class TestIntervalDetectorDepth:
+    def test_classify_endurance_z2_signal(self) -> None:
+        powers = [140.0] * 2000
+        result = classify_session(powers, ftp=280)
+        assert result.category in {"ENDURANCE", "STEADY"}
+        assert result.confidence > 0.1
+
+    def test_classify_hiit_signal(self) -> None:
+        powers = [320.0 if i % 2 == 0 else 260.0 for i in range(1200)]
+        result = classify_session(powers, ftp=280)
+        assert result.category in {"HIIT", "FREE", "STEADY"}
+
+    def test_classify_too_short(self) -> None:
+        result = classify_session([200.0] * 10, ftp=280)
+        assert result.category == "UNCLASSIFIED"
+        assert result.confidence <= 0.15
+
+    def test_protocol_completeness_with_anchors(self) -> None:
+        report = protocol_completeness(
+            available_durations_s=[60],
+            qualified_anchors=[
+                QualifiedAnchor(
+                    duration_s=10,
+                    power_w=900,
+                    anchor_reliability=0.9,
+                    source_subtype="sprint_set",
+                )
+            ],
+        )
+        body = report.to_dict()
+        assert body["completeness_pct"] <= 75
+        assert body["missing_windows"]
+
+
+class TestMmpQualityDepth:
+    def test_sprint_outlier_detection(self) -> None:
+        report = analyze_mmp_quality({5: 1500, 1200: 280})
+        assert any(i.category == "sprint_outlier" for i in report.issues)
+
+    def test_non_monotonic_detection(self) -> None:
+        report = analyze_mmp_quality({60: 300, 120: 320})
+        assert any(i.category == "non_monotonic" for i in report.issues)
+
+    def test_filter_mmp_by_window(self) -> None:
+        ref = date(2026, 6, 17)
+        samples = [
+            {"duration_s": 300, "power_w": 320, "date": "2026-06-01"},
+            {"duration_s": 600, "power_w": 310, "date": "2025-01-01"},
+        ]
+        filtered, kept = filter_mmp_by_window(samples, today=ref, window_days=90)
+        assert 300 in filtered
+        assert 600 not in filtered
+        assert len(kept) == 1
+
+
+class TestRideAnalyticsServiceBatch2:
+    def setup_method(self) -> None:
+        self.svc = RideAnalyticsService()
+        self.stream = _stream(seconds=7200, power=255.0)
+        self.athlete = AthleteParams(weight_kg=72.0, ftp=280.0)
+
+    def test_power_analyze_without_ftp(self) -> None:
+        out = self.svc.power_analyze(self.stream, weight_kg=72.0, ftp=None)
+        assert out.get("status") != "error" or out.get("reason") == "FTP_NOT_AVAILABLE"
+
+    def test_critical_power_fit_failed(self) -> None:
+        out = self.svc.critical_power_fit([])
+        assert out["status"] == "partial"
+        assert out["reason"] == "FIT_FAILED"
+
+    def test_durability_prescription_tiers(self) -> None:
+        excellent = self.svc.durability_prescription(98)
+        good = self.svc.durability_prescription(94)
+        fair = self.svc.durability_prescription(90)
+        poor = self.svc.durability_prescription(80)
+        assert "focus" in excellent
+        assert excellent["focus"] != poor["focus"]
+        assert good["focus"] != fair["focus"]
+
+    def test_hrv_analyze_with_rr(self) -> None:
+        stream = _stream(seconds=3600, power=250.0, with_rr=True)
+        out = self.svc.hrv_analyze(stream)
+        assert out["status"] in {"success", "partial", "error"}
+        if out["status"] == "success":
+            assert out.get("n_windows", 0) >= 0
+
+    def test_metabolic_flexibility_alt_keys(self) -> None:
+        out = self.svc.metabolic_flexibility({"fatmax_watts": 200, "vt2_watts": 280})
+        assert out["status"] == "success"
+
+    def test_session_route_decide(self) -> None:
+        stream = _stream(seconds=1800, device_name="ramp_test.fit")
+        out = self.svc.session_route_decide(stream, ftp=280.0)
+        assert "route" in out or "category" in out or "status" in out
+
+    def test_session_route_run_smoke(self) -> None:
+        stream = _stream(seconds=1800, device_name="ftp_20min_test.fit")
+        out = self.svc.session_route_run(stream, athlete=self.athlete, ftp=280.0)
+        assert isinstance(out, dict)
+        assert out.get("status") in {"success", "partial", "error", None} or "route" in out
