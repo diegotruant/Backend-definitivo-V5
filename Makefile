@@ -32,6 +32,9 @@ integrity-test:
 api-matrix-test:
 	$(PYTHON) -m pytest -q tests/pytest_openapi_http_matrix.py --tb=short
 
+perfection-status:
+	$(PYTHON) scripts/perfection_status.py
+
 perfection-test:
 	$(PYTHON) -m pytest -q tests/pytest_engine_unit_hardening.py tests/pytest_perfection_http_strict.py --tb=short
 
