@@ -134,6 +134,7 @@ make lint | format | typecheck
 |----------|---------|
 | [`docs/API_ENDPOINT_INDEX.md`](docs/API_ENDPOINT_INDEX.md) | **All 106 endpoints** by tag |
 | [`docs/RELEASE_NOTES_v5.2.2.md`](docs/RELEASE_NOTES_v5.2.2.md) | V5.2.2 — power-series VLamax proxy |
+| [`docs/VLAMAX_POWER_PROXY_PROTOCOL.md`](docs/VLAMAX_POWER_PROXY_PROTOCOL.md) | Fixed T_PCr semantics, late-peak handling, coach UI wording |
 | [`docs/RELEASE_NOTES_v5.2.1.md`](docs/RELEASE_NOTES_v5.2.1.md) | V5.2.0 + V5.2.1 release notes |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Layering router/service/engines |
 | [`docs/FRONTEND_DEVELOPER_GUIDE.md`](docs/FRONTEND_DEVELOPER_GUIDE.md) | Frontend integration, TwinState, zones |
