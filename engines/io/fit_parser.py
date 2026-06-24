@@ -13,7 +13,7 @@ GAP HANDLING STRATEGY:
   - Gap >60s:   Mark as UNRELIABLE (exclude from calculations)
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from io import BytesIO
 import time
@@ -448,6 +448,24 @@ def _available_measured_signals(stream: ActivityStreamEnhanced) -> list[str]:
     return signals
 
 
+def _ensure_utc_datetime(value: Any) -> Any:
+    """Normalize FIT timestamps to timezone-aware UTC datetimes."""
+    if value is None or not isinstance(value, datetime):
+        return value
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _utc_isoformat(value: Any) -> Any:
+    """Serialize FIT timestamps as UTC ISO-8601 strings."""
+    if value is None:
+        return None
+    if not hasattr(value, "isoformat"):
+        return value
+    return _ensure_utc_datetime(value).isoformat()
+
+
 def normalize_lap_messages(lap_msgs: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
     """Normalize FIT lap messages into the effort-extractor contract."""
     laps: list[Dict[str, Any]] = []
@@ -470,11 +488,7 @@ def normalize_lap_messages(lap_msgs: list[Dict[str, Any]]) -> list[Dict[str, Any
         laps.append(
             {
                 "lap_index": int(lap.get("message_index", idx)),
-                "start_time": (
-                    start_time.isoformat()
-                    if hasattr(start_time, "isoformat")
-                    else start_time
-                ),
+                "start_time": _utc_isoformat(start_time),
                 "duration_s": duration_s,
                 "avg_power_w": float(avg_power) if avg_power is not None else None,
                 "max_power_w": float(max_power) if max_power is not None else None,
@@ -675,7 +689,7 @@ def parse_fit_file_enhanced(
         if rec.get("sub_sport") is not None:
             session_dict["sub_sport"] = rec.get("sub_sport")
         if rec.get("start_time") is not None:
-            session_dict["start_time"] = rec.get("start_time")
+            session_dict["start_time"] = _ensure_utc_datetime(rec.get("start_time"))
         if rec.get("total_elapsed_time") is not None:
             session_dict["total_elapsed_time"] = rec.get("total_elapsed_time")
     
@@ -876,7 +890,7 @@ def parse_fit_records_enhanced(
     sport = session_dict.get("sport", "cycling")
     sub_sport = session_dict.get("sub_sport")
     device_name = session_dict.get("device_name")
-    start_time = session_dict.get("start_time")
+    start_time = _ensure_utc_datetime(session_dict.get("start_time"))
     total_elapsed = session_dict.get("total_elapsed_time")
     
     # Normalize to 1Hz grid
@@ -885,7 +899,9 @@ def parse_fit_records_enhanced(
     else:
         # Estimate from records
         if records and "timestamp" in records[0] and "timestamp" in records[-1]:
-            dt = (records[-1]["timestamp"] - records[0]["timestamp"]).total_seconds()
+            first_ts = _ensure_utc_datetime(records[0]["timestamp"])
+            last_ts = _ensure_utc_datetime(records[-1]["timestamp"])
+            dt = (last_ts - first_ts).total_seconds()
             n_samples = int(np.ceil(dt)) + 1
         else:
             n_samples = len(records)
@@ -906,8 +922,9 @@ def parse_fit_records_enhanced(
     for rec in records:
         if "timestamp" not in rec or not start_time:
             continue
-        
-        elapsed = (rec["timestamp"] - start_time).total_seconds()
+
+        timestamp = _ensure_utc_datetime(rec["timestamp"])
+        elapsed = (timestamp - start_time).total_seconds()
         idx = int(np.round(elapsed))
         
         if 0 <= idx < n_samples:

@@ -31,7 +31,7 @@ def test_fitdecode_field_extraction_uses_frame_fields(monkeypatch: pytest.Monkey
         FitReader=_FakeReader,
         records=SimpleNamespace(FitDataMessage=_FakeDataMessage),
     )
-    monkeypatch.setattr(fp, "fitdecode", fake_fitdecode)
+    monkeypatch.setattr("engines.io.fit_parser.fitdecode", fake_fitdecode, raising=False)
 
     records, sessions, device_infos, hrv_msgs, lap_msgs = fp._extract_messages_with_fitdecode(
         b"ignored",
@@ -43,6 +43,20 @@ def test_fitdecode_field_extraction_uses_frame_fields(monkeypatch: pytest.Monkey
     assert device_infos == []
     assert hrv_msgs == []
     assert lap_msgs == []
+
+
+def test_normalize_lap_messages_coerces_naive_start_time_to_utc_iso() -> None:
+    naive = fp.datetime(2025, 6, 15, 8, 0, 0)
+    laps = fp.normalize_lap_messages(
+        [
+            {
+                "total_elapsed_time": 120,
+                "start_time": naive,
+                "avg_power": 226,
+            }
+        ]
+    )
+    assert laps[0]["start_time"] == "2025-06-15T08:00:00+00:00"
 
 
 def test_hrv_dict_messages_are_consumed_without_fields_attribute(

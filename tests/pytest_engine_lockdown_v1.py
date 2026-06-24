@@ -194,7 +194,6 @@ def test_history_load_trend_short_history_is_cold_start_metadata() -> None:
 # -----------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(strict=False, reason="audit diagnostic: optional imports may include legacy modules")
 def test_audit_all_engine_submodules_import_without_side_effect_errors() -> None:
     errors: list[str] = []
     for module_info in pkgutil.walk_packages(engines.__path__, engines.__name__ + "."):
@@ -237,7 +236,6 @@ def test_audit_season_plan_rejects_or_neutralizes_non_positive_weekly_hours() ->
         assert out["status"] in {"error", "invalid_input"}
 
 
-@pytest.mark.xfail(strict=False, reason="audit diagnostic: mechanistic durability bounds need validation")
 def test_audit_mader_durability_output_is_bounded_for_constant_above_threshold_ride() -> None:
     engine = MaderDurabilityEngine(
         weight_kg=72.0,
