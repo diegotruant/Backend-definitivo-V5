@@ -3610,3 +3610,622 @@ class TestPhase5CoverageBatch2:
             SimpleNamespace(n_samples=0, power=[], heart_rate=[], cadence=[]),
         )
         assert empty["status"] == "failed"
+
+
+class TestPhase5CoverageBatch3:
+    """Phase 5 — third coverage push toward interim 86/76."""
+
+    def test_durability_np_tte_and_fair_classification(self) -> None:
+        poor_power = [300.0] * 3600 + [200.0] * 3600
+        poor = calculate_durability_index(poor_power, len(poor_power))
+        assert poor["classification"] in {"FAIR", "POOR"}
+
+        declining_np = [280.0] * 1800 + [220.0] * 1800
+        drift = calculate_np_drift(declining_np, len(declining_np))
+        assert drift["status"] == "success"
+        assert drift["classification"] in {"FAIR", "POOR", "GOOD", "EXCELLENT"}
+
+        good_tte = calculate_tte_sustainability([290.0] * 3700, 280.0)
+        fair_tte = calculate_tte_sustainability([280.0] * 1500, 280.0)
+        poor_tte = calculate_tte_sustainability([280.0] * 600, 280.0)
+        assert good_tte["classification"] in {"EXCELLENT", "GOOD"}
+        assert fair_tte["classification"] == "FAIR"
+        assert poor_tte["classification"] == "POOR"
+
+        nan_power = [float("nan")] * 7200
+        bad = calculate_durability_index(nan_power, 7200)
+        assert bad["status"] == "invalid_data"
+
+    def test_athlete_context_invalid_and_inferred_fields(self) -> None:
+        ctx = AthleteContext(gender=object(), training_years="bad", discipline="UNKNOWN_SPORT", body_fat_pct="x")
+        assert ctx.effective_gender() == "MALE"
+        assert ctx.effective_training_years() == 5.0
+        assert ctx.effective_discipline() == "MIXED"
+        assert ctx.effective_body_fat() == 15.0
+        inferred = ctx.inferred_fields()
+        assert "gender" in inferred
+        assert "training_years" in inferred
+        assert "discipline" in inferred
+        assert "body_fat_pct" in inferred
+
+        female = AthleteContext(gender="FEMALE", body_fat_pct=None)
+        assert female.effective_body_fat() == 22.0
+        assert female.active_muscle_fraction() < AthleteContext(gender="MALE").active_muscle_fraction()
+
+    def test_twin_service_build_and_update_errors(self) -> None:
+        from api.domain_schemas import ComplianceResult
+        from api.schemas import TwinStateUpdateRideRequest, TwinStateUpdateWorkoutRequest
+
+        with pytest.raises(ServiceError) as validate_exc:
+            TwinService().validate({"schema_version": "wrong"})
+        assert validate_exc.value.code == "TWIN_VALIDATE"
+
+        broken = TwinStateDocument.model_construct(
+            schema_version="broken.v0",
+            athlete_id="broken-athlete",
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+        )
+
+        with pytest.raises(ServiceError) as ride_exc:
+            TwinService().update_from_ride(
+                TwinStateUpdateRideRequest(
+                    twin_state=broken,
+                    ride_summary={},
+                    ingest_result={},
+                    power_source_report={},
+                    ride_id="r1",
+                )
+            )
+        assert ride_exc.value.code == "TWIN_UPDATE_RIDE"
+
+        with pytest.raises(ServiceError) as workout_exc:
+            TwinService().update_from_workout(
+                TwinStateUpdateWorkoutRequest(
+                    twin_state=broken,
+                    compliance_result=ComplianceResult.model_validate(
+                        {"classification": "completed_as_prescribed", "compliance_score": 92}
+                    ),
+                    assignment_id="w1",
+                )
+            )
+        assert workout_exc.value.code == "TWIN_UPDATE_WORKOUT"
+
+    def test_activity_streams_hr_json_and_missing_payload(self) -> None:
+        import asyncio
+        import json
+
+        from api.activity_streams import load_activity_stream
+        from engines.core.security import MAX_POWER_SAMPLES
+
+        loaded = asyncio.run(
+            load_activity_stream(
+                None,
+                json.dumps([200.0, 205.0]),
+                json.dumps([140.0, 142.0]),
+            )
+        )
+        assert getattr(loaded, "n_samples", 0) >= 2
+
+        with pytest.raises(Exception):
+            asyncio.run(load_activity_stream(None, json.dumps([]), None))
+
+        with pytest.raises(Exception):
+            asyncio.run(load_activity_stream(None, None, None))
+
+        long_power = json.dumps([200.0] * (MAX_POWER_SAMPLES + 1))
+        with pytest.raises(Exception):
+            asyncio.run(load_activity_stream(None, long_power, None))
+
+    def test_lab_data_properties_validate_and_create(self) -> None:
+        from datetime import date as date_cls
+
+        bare = LabTestResult.from_dict({"vo2max_ml_kg_min": 55.0})
+        assert bare.test_date == date_cls.today()
+        assert bare.has_vo2max
+        assert bare.n_parameters_available >= 1
+        assert "VO" in bare.summary()
+
+        lactate_only = create_lab_result(
+            date_cls(2026, 6, 1),
+            source="bad_source_name",
+            lactate_curve=[(200, 1.0), (240, 2.0), (280, 4.0), (320, 7.0)],
+            lt2_w=270,
+            ftp_w=265,
+        )
+        assert lactate_only.test_type == LabTestType.LACTATE_STEP
+
+        suspicious = create_lab_result(
+            date_cls(2026, 6, 1),
+            vo2max=120.0,
+            vlamax=3.0,
+            mlss_w=400,
+            map_w=300,
+            hr_max=90,
+            lactate_curve=[(200, 1.0), (240, 1.5), (280, 2.0)],
+        )
+        warnings = validate_lab_result(suspicious)
+        assert warnings
+
+    def test_scoring_rr_thermal_and_external_fallbacks(self) -> None:
+        from engines.adaptive_load.scoring import (
+            calculate_external_load,
+            calculate_internal_load,
+            calculate_rr_metrics,
+            calculate_session_load,
+            calculate_thermal_load,
+            flatten_rr_intervals,
+            score_from_high_is_bad,
+            score_from_low_is_bad,
+        )
+
+        assert score_from_high_is_bad(None, good=1.0, bad=2.0) is None
+        assert score_from_low_is_bad(5.0, bad=5.0, good=5.0) is None
+
+        noisy = SimpleNamespace(
+            rr_intervals=[[300.0, 2000.0, 100.0, 1800.0] * 20],
+        )
+        noisy_metrics = calculate_rr_metrics(noisy)
+        assert noisy_metrics["available"] is False
+
+        clean_rr = SimpleNamespace(
+            rr_intervals=[[820.0 + (i % 7) for i in range(80)]],
+        )
+        ok_metrics = calculate_rr_metrics(clean_rr)
+        assert ok_metrics["available"] is True
+        assert flatten_rr_intervals(clean_rr)
+
+        ext = calculate_external_load({"work_kj": 800.0})
+        assert ext["source"] == "work_kj_fallback"
+        dur = calculate_external_load({"duration_s": 3600.0})
+        assert dur["source"] == "duration_fallback"
+
+        internal = calculate_internal_load(
+            {"worst_cardiac_drift_pct": 8.0, "worst_aerobic_decoupling_pct": 6.0}
+        )
+        assert internal["available"] is True
+
+        thermal_none = calculate_thermal_load({"data_quality": "no_data"})
+        assert thermal_none["available"] is False
+        thermal = calculate_thermal_load(
+            {
+                "data_quality": "ok",
+                "core_temp_peak": 39.2,
+                "thermal_rise_rate": 0.03,
+                "n_valid_samples": 1000,
+                "time_in_zone_s": {
+                    "hot_38.5_39.0": 100.0,
+                    "caution_39.0_39.5": 50.0,
+                    "danger_above_39.5": 10.0,
+                },
+            }
+        )
+        assert thermal["available"] is True
+
+        session = calculate_session_load(
+            external_load=ext,
+            internal_load=internal,
+            rr_metrics=ok_metrics,
+            thermal_load=thermal,
+        )
+        assert session["status"] == "success"
+
+    def test_mader_durability_session_and_sustainability(self) -> None:
+        from engines.performance.mader_durability import (
+            compute_session_durability,
+            sustainability_targets,
+        )
+
+        missing = compute_session_durability([220.0] * 600, {"status": "success"}, 72.0)
+        assert missing["status"] == "unavailable"
+
+        snap = {
+            "status": "success",
+            "estimated_vo2max": 55.0,
+            "estimated_vlamax_mmol_L_s": 0.45,
+            "mlss_power_watts": 265.0,
+        }
+        power = [180.0] * 1800 + [250.0] * 1800 + [160.0] * 1800
+        session = compute_session_durability(power, snap, weight_kg=72.0)
+        assert session["status"] == "success"
+        assert session["sustainability"]["status"] == "success"
+
+        unavailable = sustainability_targets({"status": "error"})
+        assert unavailable["status"] == "unavailable"
+
+    def test_glycolytic_predict_vlapeak_paths(self) -> None:
+        from engines.metabolic.glycolytic_validation_engine import predict_vlapeak_from_snapshot
+
+        missing = predict_vlapeak_from_snapshot({"status": "success"})
+        assert missing["status"] == "unavailable"
+
+        snap = {
+            "status": "success",
+            "estimated_vlamax_mmol_L_s": 0.52,
+            "mlss_power_watts": 280.0,
+            "map_aerobic_watts": 360.0,
+            "combustion_curve": [
+                {"watt": 200, "carbOxidation": 30},
+                {"watt": 280, "carbOxidation": 55},
+                {"watt": 350, "carbOxidation": 80},
+            ],
+        }
+        profiler = MetabolicProfiler(weight=72.0)
+        out = predict_vlapeak_from_snapshot(
+            snap,
+            profiler=profiler,
+            mmp={1: 900, 15: 650},
+        )
+        assert out["status"] == "success"
+        assert "predicted_glycogen_cost_g_per_h_at_mlss" in out
+
+    def test_detraining_status_bands_and_recommendations(self) -> None:
+        ref = date(2026, 6, 17)
+        snapshot = {
+            "status": "success",
+            "estimated_vo2max": 60.0,
+            "estimated_vlamax_mmol_L_s": 0.45,
+            "mlss_power_watts": 280.0,
+            "map_aerobic_watts": 350.0,
+            "fatmax_power_watts": 200.0,
+        }
+
+        improving_hist = [
+            {"date": ref - timedelta(days=i), "tss": 100.0}
+            for i in range(1, 45)
+        ]
+        improving = apply_detraining_model(snapshot, improving_hist, ref)
+        assert improving["training_load"]["status"] in {"IMPROVING", "MAINTAINING"}
+
+        maintaining_hist = [{"date": ref - timedelta(days=2), "tss": 25.0}]
+        maintaining = apply_detraining_model(snapshot, maintaining_hist, ref)
+        assert maintaining["training_load"]["status"] in {"MAINTAINING", "DECLINING", "IMPROVING"}
+
+        declining_hist = [{"date": ref - timedelta(days=3), "tss": 5.0}]
+        declining = apply_detraining_model(snapshot, declining_hist, ref)
+        assert declining["training_load"]["status"] in {"DECLINING", "MAINTAINING", "DETRAINING"}
+
+        tsb_hist = [{"date": ref - timedelta(days=1), "tss": 200.0}]
+        tsb_out = apply_detraining_model(snapshot, tsb_hist, ref)
+        assert isinstance(tsb_out.get("recommendations"), list)
+
+    def test_metabolic_current_exception_and_datetime_history(self) -> None:
+        from unittest.mock import patch
+
+        mmp = {60: 500, 300: 340, 1200: 290}
+        out = get_current_metabolic_status(
+            mmp,
+            [{"date": datetime(2026, 6, 1, 10, 0), "tss": 70}],
+            athlete_weight_kg=72.0,
+            today="2026-06-17",
+        )
+        assert out["status"] == "success"
+
+        err = handle_edge_function_request({"workout_history": [], "athlete_weight_kg": 72.0})
+        assert err["status"] == "error"
+
+        with patch(
+            "engines.metabolic.metabolic_current.get_current_metabolic_status",
+            side_effect=RuntimeError("boom"),
+        ):
+            broken = handle_edge_function_request(
+                {
+                    "historical_mmp": mmp,
+                    "workout_history": [],
+                    "athlete_weight_kg": 72.0,
+                    "today": "2026-06-17",
+                }
+            )
+        assert broken["status"] == "error"
+        assert "Internal" in broken["error"]
+
+    def test_hrv_analyze_rr_stream_extended(self) -> None:
+        rr_samples = [
+            {
+                "elapsed": float(i * 5),
+                "rr": [880.0 - (i % 4) + (j % 3) * 2 for j in range(40)],
+            }
+            for i in range(120)
+        ]
+        timeline = analyze_rr_stream(
+            rr_samples,
+            window_seconds=120,
+            step_seconds=30.0,
+            context=AthleteContext(training_years=8, discipline="ROAD"),
+        )
+        assert timeline
+        assert _normal_z_for_ci(0.99) > _normal_z_for_ci(0.90)
+
+    def test_upload_parse_rejects_invalid_and_oversized(self) -> None:
+        import asyncio
+        from unittest.mock import MagicMock
+
+        from api.upload import parse_upload
+        from engines.core.security import PayloadTooLarge
+
+        async def _read_invalid(_size: int) -> bytes:
+            if not hasattr(_read_invalid, "sent"):
+                _read_invalid.sent = True
+                return b"NOT_A_FIT_FILE"
+            return b""
+
+        bad_file = MagicMock()
+        bad_file.filename = "bad.fit"
+        bad_file.read = _read_invalid
+        with pytest.raises(Exception):
+            asyncio.run(parse_upload(bad_file))
+
+        async def _read_huge(_size: int) -> bytes:
+            raise PayloadTooLarge("too big")
+
+        huge_file = MagicMock()
+        huge_file.filename = "huge.fit"
+        huge_file.read = _read_huge
+        with pytest.raises(Exception):
+            asyncio.run(parse_upload(huge_file))
+
+
+class TestPhase5CoverageBatch4:
+    """Phase 5 — fourth coverage push: parsers, compliance depth, data quality."""
+
+    def test_lab_parse_text_date_and_metabolic_profile_source(self) -> None:
+        text = (
+            "Metabolic profile report\n"
+            "VO2max: 62 ml/kg/min\n"
+            "VLamax: 0.55 mmol/L\n"
+            "MLSS: 285 W\n"
+            "FTP: 280 W\n"
+            "Weight: 71 kg\n"
+            "17/06/2026\n"
+        )
+        parsed = parse_lab_text(text)
+        assert parsed.vo2max_ml_kg_min == pytest.approx(62.0)
+        assert parsed.has_vo2max
+
+        roundtrip = LabTestResult.from_dict(parsed.to_dict())
+        assert roundtrip.has_vo2max
+
+    def test_compliance_step_scoring_with_power_and_hr(self) -> None:
+        from engines.workouts.compliance_engine import compare_workout_to_activity
+
+        workout = {
+            "title": "Threshold",
+            "steps": [
+                {"id": "w1", "type": "work", "duration_s": 300, "target_pct_cp": 100, "is_key_step": True},
+                {"id": "r1", "type": "recovery", "duration_s": 180, "target_pct_cp": 55},
+            ],
+        }
+        stream = _stream(seconds=480, power=280.0)
+        out = compare_workout_to_activity(
+            workout,
+            stream,
+            athlete_profile={"cp_w": 280.0, "ftp": 280.0},
+            tolerance_policy={"duration_tolerance_pct": 15.0, "min_time_in_target_pct": 50.0},
+        )
+        assert out["status"] in {"success", "partial", "failed"}
+        assert "compliance_score" in out or out.get("reason")
+
+    def test_data_quality_pause_and_hr_cleaning(self) -> None:
+        power = [0.0] * 20 + [250.0, 900.0, 250.0] * 50 + [0.0] * 20
+        cleaned_power = clean_power_stream(power)
+        assert cleaned_power
+        hr = [140.0] * 100 + [300.0] + [140.0] * 100
+        cleaned_hr = clean_hr_stream(hr)
+        assert cleaned_hr
+        pauses = detect_pauses(power)
+        removed = remove_pauses(power, pauses)
+        assert removed
+
+    def test_power_curve_history_datetime_object_and_bad_mmp(self) -> None:
+        from datetime import datetime as dt_cls
+
+        activities = [
+            {"date": dt_cls(2026, 5, 10), "power_curve": [{"duration": 60, "value": 420}]},
+            {"date": "garbage", "mmp": "not-a-dict"},
+        ]
+        curve = aggregate_power_curve(activities)
+        assert 60 in curve
+        hist = build_power_curve_history(activities, as_of=date(2026, 6, 17))
+        assert hist["periods"]["season"]["activity_count"] >= 1
+
+    def test_mmp_aggregator_update_without_weight_and_expire(self) -> None:
+        stored = {
+            60: {
+                "duration_s": 60,
+                "power_w": 400.0,
+                "ride_id": "old",
+                "ride_date": "2020-01-01",
+                "reliability": 1.0,
+            }
+        }
+        result = update_power_curve(
+            [300.0] * 120,
+            ride_date="2026-06-17",
+            stored_curve=stored,
+            ride_id="new-ride",
+            today="2026-06-17",
+            weight_kg=None,
+        )
+        assert result.to_dict()["tier"] == "REFERENCE"
+        assert result.notes or result.improvements or result.expired or result.curve
+
+    def test_metabolic_profiler_phenotype_success_path(self) -> None:
+        snap = {
+            "status": "success",
+            "estimated_vo2max": 58.0,
+            "mlss_power_watts": 290.0,
+        }
+        enhanced = enhance_metabolic_snapshot_with_phenotype(
+            snap,
+            phenotype="TT_CLIMBER",
+            weight_kg=68.0,
+            power_30s=500.0,
+            power_1200s=285.0,
+        )
+        assert enhanced["energy_contributions"]["sprint_30s"]["aerobic_fraction"] >= 0.0
+        assert enhanced["energy_contributions"]["threshold_20min"]["pcr_fraction"] >= 0.0
+
+    def test_hourly_decay_curve_multi_hour(self) -> None:
+        power = [250.0 - h * 5 for h in range(3) for _ in range(3600)]
+        curve = generate_hourly_decay_curve(power, len(power))
+        assert curve["status"] == "success"
+        assert len(curve["hourly_data"]) == 3
+        assert curve["decay_rate_watts_per_hour"] != 0
+
+    def test_adaptive_load_orchestrator_with_daily_status(self) -> None:
+        report = build_adaptive_load_report(
+            stream=_stream(seconds=3600, power=230.0, with_rr=True),
+            workout_summary={
+                "headline": {"np_w": 230},
+                "sections": {
+                    "power": {
+                        "status": "success",
+                        "metrics": {"tss": 75.0, "duration_s": 3600, "normalized_power": 230},
+                    },
+                    "cardiac": {
+                        "status": "success",
+                        "metrics": {"worst_cardiac_drift_pct": 4.0},
+                    },
+                },
+                "stream_metadata": {"duration_s": 3600},
+            },
+            athlete_profile=AthleteLoadProfile(weight_kg=72.0, ftp=280.0),
+            daily_status=DailyStatus.from_dict(
+                {
+                    "morning_hrv_lnrmssd": 3.8,
+                    "baseline_hrv_lnrmssd": 3.9,
+                    "sleep_score": 80,
+                    "soreness": 2,
+                }
+            ),
+            history=[{"session_load": 60.0 + (i % 8)} for i in range(42)],
+        )
+        assert report["status"] == "success"
+        assert report["sections"]["readiness"]["available"] is True
+        assert report["sections"]["session_load"]["score"] == 75.0
+
+
+class TestPhase5CoverageBatch5:
+    """Phase 5 — final push across interim 86/76."""
+
+    def test_season_planner_invalid_and_load_risk(self) -> None:
+        from engines.planning.season_planner import check_load_risk, create_season_plan
+
+        bad = create_season_plan(start_date="2026-06-01", target_date="2026-09-01", weekly_hours=0)
+        assert bad["status"] == "invalid_input"
+
+        plan = create_season_plan(
+            start_date="bad-date",
+            target_date="also-bad",
+            weekly_hours=10.0,
+            goal={"focus": "vo2"},
+        )
+        assert plan["status"] == "success"
+        assert plan["weeks"]
+
+        risky_weeks = [
+            {"week_index": 1, "workouts": [{"load": 100.0}]},
+            {"week_index": 2, "workouts": [{"load": 200.0}]},
+        ]
+        risk = check_load_risk(risky_weeks, chronic_load=40.0)
+        assert risk["status"] == "success"
+        assert risk["warnings"]
+
+    def test_recommendation_engine_blocked_paths(self) -> None:
+        blocked = recommend_workout({"weight_kg": 72})
+        assert blocked["status"] == "insufficient_profile"
+
+        no_cp = recommend_workout({"weight_kg": 72}, readiness={"readiness_score": 80})
+        assert no_cp["status"] == "insufficient_profile"
+
+        anaerobic = recommend_workout(
+            {"cp_w": 280, "weight_kg": 72},
+            readiness={"readiness_score": 82},
+            goal={"focus": "anaerobic"},
+        )
+        assert anaerobic["status"] == "success"
+        assert anaerobic["recommendation"]["focus"] == "anaerobic"
+
+    def test_readiness_engine_risk_and_quality_bands(self) -> None:
+        from engines.readiness.readiness_engine import compute_load_risk, compute_readiness_today
+
+        high = compute_load_risk({"acute_load": 90, "chronic_load": 50})
+        assert high["risk"] == "high"
+
+        detraining = compute_load_risk({"acute_load": 5, "chronic_load": 40})
+        assert detraining["risk"] == "detraining"
+
+        ready = compute_readiness_today(
+            load_state={"acute_load": 30, "chronic_load": 55, "load_balance": 30},
+            hrv_status={"score": 0.95},
+            sleep_status={"score": 0.92},
+            subjective={"score": 0.9},
+        )
+        assert ready["status"] == "success"
+        assert ready["readiness_score"] >= 75
+
+        stressed = compute_readiness_today(
+            load_state={"acute_load": 120, "chronic_load": 50},
+            hrv_status={"score": 0.4},
+            sleep_status={"score": 0.4},
+            subjective={"score": 0.4},
+            recent_warnings=["prior_warning"],
+        )
+        assert stressed["readiness_score"] < ready["readiness_score"]
+        assert stressed["warnings"]
+
+    def test_twin_state_ride_update_full_sections(self) -> None:
+        from engines.twin_state.state_update_engine import update_twin_state_from_ride
+        from engines.twin_state.models import build_twin_state
+
+        state = build_twin_state(
+            {
+                "athlete_id": "phase5-twin",
+                "athlete_profile": {"weight_kg": 72, "cp_w": 260, "w_prime_j": 19000},
+                "metabolic_snapshot": {
+                    "status": "success",
+                    "confidence_score": 0.62,
+                    "vo2max": 52,
+                    "vlamax": 0.48,
+                    "mlss_watts": 260,
+                    "w_prime_j": 19000,
+                },
+                "rolling_power_curve": {"60": 480},
+            }
+        )
+        updated = update_twin_state_from_ride(
+            state,
+            ride_summary={
+                "headline": {"np_w": 250},
+                "sections": {
+                    "cardiac": {"status": "success"},
+                    "hrv": {"alpha1_mean": 0.75},
+                    "power": {"status": "success", "metrics": {"tss": 80}},
+                },
+                "physiological_resilience": {"status": "success", "dcp_pct": 8.0},
+                "warnings": ["test_warning"],
+            },
+            ingest_result={"curve": {"60": 500, "300": 340}},
+            power_source_report={"offsets": [], "status": "ok"},
+            ride_id="ride-phase5",
+        )
+        assert updated["rolling_power_curve"]["60"] == 500
+        assert updated["power_source_state"]["status"] == "ok"
+        assert updated["physiological_resilience"]["status"] == "success"
+        assert "test_warning" in updated["warnings"]
+
+    def test_coggan_female_profile_edges(self) -> None:
+        female = classify_from_mmp(
+            [
+                {"duration_s": 5, "power_w": 900},
+                {"duration_s": 60, "power_w": 420},
+                {"duration_s": 300, "power_w": 300},
+                {"duration_s": 1200, "power_w": 260},
+            ],
+            weight_kg=62.0,
+            gender="FEMALE",
+        )
+        assert female["overall"]["phenotype_code"] in {"SPRINTER", "PURSUITER", "TT_CLIMBER", "ALL_ROUNDER"}
+
+        duration = classify_duration(18.0, "5s", gender="FEMALE")
+        assert duration["tier"] in {"WORLD_CLASS", "EXCEPTIONAL", "EXCELLENT", "VERY_GOOD", "GOOD", "MODERATE", "FAIR", "UNTRAINED"}

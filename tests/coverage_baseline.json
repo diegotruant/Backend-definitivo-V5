@@ -1,5 +1,5 @@
 {
-  "line_percent": 84.0,
-  "branch_percent": 74.0,
-  "note": "Ratchet baseline — Phase 4 completion. Measured: line 84.85%, branch 74.01%. Deleted misplaced engines/adaptive_load/pytest_adaptive_load.py; completion batches 11–15."
+  "line_percent": 86.0,
+  "branch_percent": 76.0,
+  "note": "Ratchet baseline — Phase 5 interim. Measured: line 86.15%, branch 76.06%. Batches 1–5 in pytest_phase4_coverage_depth.py; perfection-gate script added."
 }
