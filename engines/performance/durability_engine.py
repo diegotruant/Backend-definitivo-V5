@@ -399,3 +399,67 @@ def generate_durability_prescription(
             "NO threshold or VO2max work for 4-6 weeks",
         ],
     }
+
+
+# =============================================================================
+# EXAMPLE USAGE
+# =============================================================================
+
+if __name__ == "__main__":
+    # Simulate 3-hour ride with decay
+    duration_seconds = 3 * 3600  # 3 hours
+    
+    # Generate power stream with decay
+    # First hour: 250W average
+    # Second hour: 245W
+    # Third hour: 235W (fatigue)
+    power_stream = []
+    
+    # Hour 1
+    power_stream.extend([250 + np.random.normal(0, 20) for _ in range(3600)])
+    
+    # Hour 2  
+    power_stream.extend([245 + np.random.normal(0, 20) for _ in range(3600)])
+    
+    # Hour 3
+    power_stream.extend([235 + np.random.normal(0, 25) for _ in range(3600)])
+    
+    # Calculate durability index
+    di = calculate_durability_index(power_stream, duration_seconds)
+    
+    # NP drift
+    np_drift = calculate_np_drift(power_stream, duration_seconds)
+    
+    # TTE sustainability
+    tte = calculate_tte_sustainability(power_stream, threshold_power=290, tolerance_pct=5.0)
+    
+    # Hourly decay curve
+    decay_curve = generate_hourly_decay_curve(power_stream, duration_seconds)
+    
+    # Training prescription
+    prescription = generate_durability_prescription(di["durability_index"], di["classification"])
+    
+    print("=" * 80)
+    print("DURABILITY ENGINE — 3-Hour Ride Analysis")
+    print("=" * 80)
+    print(f"\nDurability Index: {di['durability_index']:.1f}% ({di['classification']})")
+    print(f"{di['interpretation']}")
+    print(f"\nFirst hour: {di['first_hour_avg']:.0f}W")
+    print(f"Last hour:  {di['last_hour_avg']:.0f}W")
+    print(f"Decay: -{di['decay_watts']:.0f}W ({di['decay_watts_per_hour']:.1f}W/hour)")
+    print("\nNormalized Power Drift:")
+    print(f"  First half NP: {np_drift['np_first_half']:.0f}W")
+    print(f"  Second half NP: {np_drift['np_second_half']:.0f}W")
+    print(f"  Drift: {np_drift['np_drift_pct']:.1f}% ({np_drift['classification']})")
+    print("\nTTE @ 290W (FTP):")
+    print(f"  Sustainable: {tte['tte_minutes']:.1f} min ({tte['classification']})")
+    print("\nHourly Power Decay:")
+    for hour_data in decay_curve['hourly_data']:
+        print(f"  Hour {hour_data['hour']}: {hour_data['average_power']:.0f}W")
+    print(f"  Decay rate: {decay_curve['decay_rate_watts_per_hour']:.1f}W/hour")
+    print("\nTRAINING PRESCRIPTION:")
+    print(f"Focus: {prescription['focus']}")
+    print(f"Volume: {prescription['volume']}")
+    print("Key sessions:")
+    for session in prescription['key_sessions']:
+        print(f"  • {session}")
