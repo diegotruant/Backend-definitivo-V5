@@ -97,8 +97,18 @@ def calculate_durability_index(
             confidence=0.0,
         )
 
-    first_hour_avg = float(np.nanmean(first_hour))
-    last_hour_avg = float(np.nanmean(last_hour))
+    first_hour_finite = first_hour[np.isfinite(first_hour)]
+    last_hour_finite = last_hour[np.isfinite(last_hour)]
+    if first_hour_finite.size == 0 or last_hour_finite.size == 0:
+        return annotate_payload(
+            {"status": "invalid_data", "reason": "non_finite_power_window"},
+            module_name="durability_engine",
+            method="elapsed_time_durability_index",
+            confidence=0.0,
+        )
+
+    first_hour_avg = float(np.mean(first_hour_finite))
+    last_hour_avg = float(np.mean(last_hour_finite))
     if not np.isfinite(first_hour_avg) or not np.isfinite(last_hour_avg):
         return annotate_payload(
             {"status": "invalid_data", "reason": "non_finite_power_window"},
@@ -314,8 +324,9 @@ def generate_hourly_decay_curve(
         start_idx = hour * samples_per_hour
         end_idx = min(start_idx + samples_per_hour, len(power_stream))
         
-        hour_data = power_stream[start_idx:end_idx]
-        hour_avg = np.mean([p for p in hour_data if p > 0])
+        hour_data = np.asarray(power_stream[start_idx:end_idx], dtype=float)
+        valid_positive = hour_data[np.isfinite(hour_data) & (hour_data > 0)]
+        hour_avg = float(np.mean(valid_positive)) if valid_positive.size > 0 else 0.0
         
         hourly_averages.append({
             "hour": hour + 1,
@@ -338,122 +349,3 @@ def generate_hourly_decay_curve(
         "decay_rate_watts_per_hour": round(decay_rate, 1),
         "total_hours": len(hourly_averages),
     }
-
-
-# =============================================================================
-# TRAINING PRESCRIPTION
-# =============================================================================
-
-def generate_durability_prescription(
-    durability_index: float,
-    classification: str,
-) -> Dict[str, Any]:
-    """
-    Generate training recommendations based on durability assessment.
-    """
-    if classification == "EXCELLENT":
-        recommendation = {
-            "focus": "Maintain current aerobic base",
-            "volume": "70-80% Zone 2, 15-20% Zone 3-4, 5-10% Zone 5+",
-            "key_sessions": [
-                "3-4h endurance rides weekly",
-                "1x sweet-spot intervals",
-                "1x threshold work",
-            ],
-        }
-    elif classification == "GOOD":
-        recommendation = {
-            "focus": "Fine-tune aerobic efficiency",
-            "volume": "75-85% Zone 2, 10-15% Zone 3-4, 5% Zone 5+",
-            "key_sessions": [
-                "2-3h base rides 3x/week",
-                "1x tempo intervals",
-                "Optional: 1x VO2max work",
-            ],
-        }
-    elif classification == "FAIR":
-        recommendation = {
-            "focus": "Build aerobic base — reduce intensity",
-            "volume": "80-90% Zone 1-2, 10-15% Zone 3, <5% Zone 4+",
-            "key_sessions": [
-                "Long endurance rides (3-5h) 1-2x/week",
-                "Tempo intervals 1x/week",
-                "Limit high-intensity work",
-            ],
-        }
-    else:  # POOR
-        recommendation = {
-            "focus": "URGENT: Rebuild aerobic foundation",
-            "volume": "85-95% Zone 1-2, 5-10% Zone 3, AVOID Zone 4+",
-            "key_sessions": [
-                "Consistent base rides 4-5x/week",
-                "2-4h endurance pace",
-                "NO threshold or VO2max work for 4-6 weeks",
-            ],
-        }
-    
-    return recommendation
-
-
-# =============================================================================
-# EXAMPLE USAGE
-# =============================================================================
-
-if __name__ == "__main__":
-    # Simulate 3-hour ride with decay
-    duration_seconds = 3 * 3600  # 3 hours
-    
-    # Generate power stream with decay
-    # First hour: 250W average
-    # Second hour: 245W
-    # Third hour: 235W (fatigue)
-    power_stream = []
-    
-    # Hour 1
-    power_stream.extend([250 + np.random.normal(0, 20) for _ in range(3600)])
-    
-    # Hour 2  
-    power_stream.extend([245 + np.random.normal(0, 20) for _ in range(3600)])
-    
-    # Hour 3
-    power_stream.extend([235 + np.random.normal(0, 25) for _ in range(3600)])
-    
-    # Calculate durability index
-    di = calculate_durability_index(power_stream, duration_seconds)
-    
-    # NP drift
-    np_drift = calculate_np_drift(power_stream, duration_seconds)
-    
-    # TTE sustainability
-    tte = calculate_tte_sustainability(power_stream, threshold_power=290, tolerance_pct=5.0)
-    
-    # Hourly decay curve
-    decay_curve = generate_hourly_decay_curve(power_stream, duration_seconds)
-    
-    # Training prescription
-    prescription = generate_durability_prescription(di["durability_index"], di["classification"])
-    
-    print("=" * 80)
-    print("DURABILITY ENGINE — 3-Hour Ride Analysis")
-    print("=" * 80)
-    print(f"\nDurability Index: {di['durability_index']:.1f}% ({di['classification']})")
-    print(f"{di['interpretation']}")
-    print(f"\nFirst hour: {di['first_hour_avg']:.0f}W")
-    print(f"Last hour:  {di['last_hour_avg']:.0f}W")
-    print(f"Decay: -{di['decay_watts']:.0f}W ({di['decay_watts_per_hour']:.1f}W/hour)")
-    print("\nNormalized Power Drift:")
-    print(f"  First half NP: {np_drift['np_first_half']:.0f}W")
-    print(f"  Second half NP: {np_drift['np_second_half']:.0f}W")
-    print(f"  Drift: {np_drift['np_drift_pct']:.1f}% ({np_drift['classification']})")
-    print("\nTTE @ 290W (FTP):")
-    print(f"  Sustainable: {tte['tte_minutes']:.1f} min ({tte['classification']})")
-    print("\nHourly Power Decay:")
-    for hour_data in decay_curve['hourly_data']:
-        print(f"  Hour {hour_data['hour']}: {hour_data['average_power']:.0f}W")
-    print(f"  Decay rate: {decay_curve['decay_rate_watts_per_hour']:.1f}W/hour")
-    print("\nTRAINING PRESCRIPTION:")
-    print(f"Focus: {prescription['focus']}")
-    print(f"Volume: {prescription['volume']}")
-    print("Key sessions:")
-    for session in prescription['key_sessions']:
-        print(f"  • {session}")
