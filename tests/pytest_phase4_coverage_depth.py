@@ -43,7 +43,15 @@ from engines.core.data_quality_engine import (
     remove_pauses,
 )
 from engines.core.athlete_physiological_prior import MeasuredProfile, PhysiologicalPriorManager
-from engines.io.fit_parser import parse_fit_records_enhanced
+from engines.io.fit_parser import (
+    QUALITY_GOOD,
+    ActivityStreamEnhanced,
+    detect_and_fill_gaps,
+    measured_signal_flags,
+    normalize_lap_messages,
+    parse_fit_records_enhanced,
+)
+from engines.io.activity_intelligence import build_activity_intelligence, compute_best_efforts, detect_auto_intervals
 from engines.metabolic.team_learning_engine import TeamCalibrationModel, ValidationEvent
 from types import SimpleNamespace
 
@@ -55,6 +63,7 @@ from engines.metabolic.lab_data import (
     parse_lab_text,
     validate_lab_result,
 )
+from engines.performance.breakthrough_detector import detect_breakthroughs
 from engines.performance.effort_extractor import extract_test_proposal
 from engines.performance.interval_detector import (
     QualifiedAnchor,
@@ -107,6 +116,7 @@ from engines.recovery.cardiac_engine import (
     compute_aerobic_decoupling,
     compute_cardiac_drift,
     compute_cardiac_efficiency,
+    compute_chronotropic_response,
     compute_hr_kinetics_tau,
     compute_hr_recovery,
     cross_validate_thresholds,
@@ -1682,3 +1692,175 @@ class TestCardiacEngineBatch7:
         assert out.get("available") is True or out.get("reason") in {"TOO_SHORT", "INSUFFICIENT_HR_RISE"}
         if out.get("available"):
             assert out["tau_s"] > 0
+
+
+class TestMetabolicCurrentBatch8:
+    def test_invalid_mmp_returns_error(self) -> None:
+        out = get_current_metabolic_status({}, [], athlete_weight_kg=72.0)
+        assert out["status"] == "error"
+        assert "baseline" in out.get("error", "").lower() or out.get("details")
+
+    def test_success_with_detraining_and_edge_adapter(self) -> None:
+        mmp = {5: 1000, 60: 500, 180: 360, 300: 340, 600: 320, 1200: 290}
+        ref = date(2026, 6, 17)
+        history = [{"date": ref - timedelta(days=25), "tss": 80.0}]
+        out = get_current_metabolic_status(
+            mmp,
+            history,
+            athlete_weight_kg=72.0,
+            athlete_context={"gender": "FEMALE", "training_years": 6, "discipline": "MTB"},
+            today=ref.isoformat(),
+        )
+        assert out["status"] == "success"
+        assert out["training_load"]["status"] == "DETRAINING"
+        assert out["athlete"]["gender"] == "FEMALE"
+
+        edge = handle_edge_function_request(
+            {
+                "historical_mmp": mmp,
+                "workout_history": history,
+                "athlete_weight_kg": 72.0,
+                "today": ref.isoformat(),
+            }
+        )
+        assert edge["status"] == "success"
+
+    def test_skips_malformed_history_dates(self) -> None:
+        mmp = {60: 500, 300: 340, 1200: 290}
+        out = get_current_metabolic_status(
+            mmp,
+            [{"date": "not-a-date", "tss": 50}, {"date": date(2026, 6, 1), "tss": 60}],
+            athlete_weight_kg=72.0,
+            today=date(2026, 6, 17),
+        )
+        assert out["status"] == "success"
+
+
+class TestDetrainingEngineBatch8:
+    def test_detraining_status_and_fatmax_shift(self) -> None:
+        ref = date(2026, 6, 17)
+        history = [{"date": ref - timedelta(days=20), "tss": 5.0}]
+        snapshot = {
+            "status": "success",
+            "estimated_vo2max": 62.0,
+            "estimated_vlamax_mmol_L_s": 0.42,
+            "mlss_power_watts": 280.0,
+            "map_aerobic_watts": 350.0,
+            "fatmax_power_watts": 200.0,
+        }
+        out = apply_detraining_model(snapshot, history, ref)
+        assert out["training_load"]["status"] == "DETRAINING"
+        assert out["current_fatmax_watts"] == 210.0
+        assert out["recommendations"]
+
+
+class TestFitParserBatch8:
+    def test_detect_and_fill_gaps_interpolation(self) -> None:
+        values = np.array([200.0, 200.0, 0.0, 0.0, 200.0, 200.0])
+        elapsed = np.arange(6, dtype=float)
+        quality = np.full(6, QUALITY_GOOD, dtype=np.uint8)
+        filled, updated_quality, stats = detect_and_fill_gaps(values, quality, elapsed)
+        assert stats["interpolated"] == 1
+        assert filled[2] > 0 and filled[3] > 0
+        assert np.any(updated_quality[2:4] > QUALITY_GOOD)
+
+    def test_measured_signal_flags_and_lap_normalization(self) -> None:
+        stream = ActivityStreamEnhanced(20)
+        stream.power[:10] = 220.0
+        stream.heart_rate[:10] = 140.0
+        stream.cadence[:10] = 90.0
+        stream.lat[0] = 45.0
+        stream.lon[0] = 7.0
+        flags = measured_signal_flags(stream)
+        assert flags["power"] and flags["gps"]
+
+        laps = normalize_lap_messages(
+            [
+                {"total_timer_time": 300, "avg_power": 250, "max_power": 310, "avg_heart_rate": 150},
+                {"total_elapsed_time": 0, "avg_power": 200},
+            ]
+        )
+        assert len(laps) == 1
+        assert laps[0]["duration_s"] == 300
+
+    def test_parse_records_with_power_gap(self) -> None:
+        start = datetime(2026, 6, 1, 8, 0, 0)
+        records: List[Dict[str, Any]] = []
+        for i in range(120):
+            row: Dict[str, Any] = {"timestamp": start + timedelta(seconds=i), "power": 220.0}
+            if 40 <= i < 50:
+                row["power"] = 0
+            records.append(row)
+        stream = parse_fit_records_enhanced(
+            records,
+            session_dict={"start_time": start, "sport": "cycling", "total_elapsed_time": 120},
+        )
+        assert stream.has_power
+        assert stream.gap_summary.get("n_gaps", 0) >= 0
+
+
+class TestBreakthroughDetectorBatch8:
+    def test_major_minor_and_no_breakthrough(self) -> None:
+        major = detect_breakthroughs({"60": 400}, {"60": 430})
+        assert major["breakthrough"] is True
+        assert major["severity"] == "major"
+
+        minor = detect_breakthroughs({"300": 320}, {"300": 328})
+        assert minor["severity"] == "minor"
+
+        none = detect_breakthroughs({"60": 400}, {"60": 402})
+        assert none["breakthrough"] is False
+        assert none["severity"] == "none"
+
+
+class TestActivityIntelligenceBatch8:
+    def test_build_intelligence_envelope(self) -> None:
+        stream = _stream(seconds=1800, power=240.0)
+        out = build_activity_intelligence(stream, weight_kg=72.0, ftp=280.0, lthr=165.0)
+        assert out["status"] == "success"
+        assert out["best_efforts_power"]["status"] == "success"
+        assert out["power_zones"]["status"] == "success"
+        assert "chart_series" in out
+
+    def test_auto_intervals_and_best_efforts_empty(self) -> None:
+        intervals = detect_auto_intervals(
+            [150.0] * 60 + [300.0] * 120 + [150.0] * 60,
+            threshold_w=250.0,
+        )
+        assert intervals["status"] == "success"
+        assert intervals["intervals"]
+        skipped = compute_best_efforts([])
+        assert skipped["status"] == "skipped"
+
+
+class TestHrvBatch8:
+    def test_analyze_rr_without_elapsed_timestamps(self) -> None:
+        rr_samples = [{"rr": [800.0 + (i % 10)] * 30} for i in range(120)]
+        timeline = analyze_rr_stream(rr_samples, window_seconds=60, step_seconds=10.0)
+        assert len(timeline) >= 5
+
+    def test_detect_thresholds_empty_rr(self) -> None:
+        out = detect_thresholds_from_activity([])
+        assert out["vt1"]["detected"] is False
+        assert "No valid DFA" in out.get("message", "")
+
+
+class TestCardiacEngineBatch8:
+    def test_chronotropic_response_on_ramp(self) -> None:
+        t = np.arange(180, dtype=float)
+        p = np.linspace(100, 280, 180)
+        h = 120.0 + 0.15 * p
+        seg = Segment(kind="ramp", start_idx=0, end_idx=180, start_t=0.0, end_t=179.0, duration_s=180.0)
+        out = compute_chronotropic_response(t, p, h, seg)
+        assert out["available"] is True
+        assert out["slope_bpm_per_w"] > 0
+        assert out["r_squared"] is not None
+
+    def test_chronotropic_flat_power_rejected(self) -> None:
+        t = np.arange(120, dtype=float)
+        p = np.full(120, 220.0)
+        h = np.linspace(130, 150, 120)
+        seg = Segment(kind="steady", start_idx=0, end_idx=120, start_t=0.0, end_t=119.0, duration_s=120.0)
+        out = compute_chronotropic_response(t, p, h, seg)
+        assert out["available"] is False
+        assert out["reason"] == "POWER_NOT_VARYING"
