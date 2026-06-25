@@ -50,5 +50,5 @@ jobs:
           path: reports/ci/engine_lockdown_pytest.*
           if-no-files-found: warn
 
-      - name: Release gate (lint + typecheck + test-all + hardening)
+      - name: Release gate (lint + typecheck + test-all + hardening + matrix + perfection + coverage)
         run: make check

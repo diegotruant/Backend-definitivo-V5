@@ -16,7 +16,11 @@ class LoadExtendedService:
         return calculate_monotony_strain(req.daily_tss)
 
     def adaptive_trend(self, history: List[Dict[str, Any]]) -> Dict[str, Any]:
-        return calculate_load_trend(history)
+        return calculate_load_trend(history, None)
 
     def adaptive_recommendation(self, report: Dict[str, Any]) -> Dict[str, Any]:
-        return generate_recommendation(report)
+        return generate_recommendation(
+            session_load=report.get("session_load") or {},
+            trend=report.get("trend") or report,
+            readiness=report.get("readiness") or {},
+        )

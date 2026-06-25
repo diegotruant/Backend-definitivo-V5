@@ -74,6 +74,9 @@ def test_golden_metabolic_lab_cases(case: dict) -> None:
         if "confidence_max" in expected:
             assert snap["confidence_score"] <= expected["confidence_max"]
 
+        if "confidence_max" in expected:
+            assert snap["confidence_score"] <= expected["confidence_max"]
+
         if expected.get("ui_display_masked"):
             assert snap.get("ui_display", {}).get("show_values") is False
         return
@@ -162,6 +165,11 @@ def test_golden_lactate_lab_cases(case: dict) -> None:
             assert lo_a <= thr.aerobic_2mmol_w <= hi_a
         return
 
+    if expected.get("mlss_dmax_is_null"):
+        thr = compute_lactate_thresholds(steps)
+        assert thr.mlss_dmax_w is None
+        return
+
     profiler = MetabolicProfiler(weight=case["weight_kg"], context=AthleteContext())
     out = validate_model_against_lactate(steps, profiler, case["mmp"])
     assert out.get("status") == expected["status"]
@@ -174,3 +182,5 @@ def test_golden_lactate_lab_cases(case: dict) -> None:
         assert lo <= mlss <= hi
     if "abs_error_pct_max" in expected:
         assert abs(out.get("error_pct", 999.0)) <= expected["abs_error_pct_max"]
+    if "abs_error_pct_min" in expected:
+        assert abs(out.get("error_pct", 0.0)) >= expected["abs_error_pct_min"]

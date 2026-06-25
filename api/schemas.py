@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from api.domain_schemas import (
     AthleteProfileSnippet,
@@ -165,7 +165,8 @@ class SeasonProjectionRequest(BaseModel):
 
 class PowerSourceNormalizationRequest(BaseModel):
     activities: List[PowerSourceActivity] = Field(
-        default_factory=list,
+        ...,
+        min_length=1,
         description="Activities with source_id and MMP signatures.",
     )
     baseline_source_id: Optional[str] = None
@@ -189,7 +190,7 @@ class ActivityIntelligenceRequest(BaseModel):
 
 
 class HistorySummaryRequest(BaseModel):
-    activities: List[Dict[str, Any]] = Field(default_factory=list)
+    activities: List[Dict[str, Any]] = Field(..., min_length=1)
     as_of: Optional[str] = None
     weight_kg: Optional[float] = Field(default=None, gt=30, lt=200)
 
@@ -201,15 +202,41 @@ class ReadinessTodayRequest(BaseModel):
     subjective: Optional[Dict[str, Any]] = None
     recent_warnings: List[str] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def require_at_least_one_signal(self) -> "ReadinessTodayRequest":
+        if not any(
+            (
+                self.load_state,
+                self.hrv_status,
+                self.sleep_status,
+                self.subjective,
+                self.recent_warnings,
+            )
+        ):
+            raise ValueError("At least one readiness signal is required")
+        return self
+
 
 class LoadStateUpdateRequest(BaseModel):
     previous_state: Optional[Dict[str, Any]] = None
     session_load: float = Field(default=0.0, ge=0)
 
+    @model_validator(mode="after")
+    def require_state_or_load(self) -> "LoadStateUpdateRequest":
+        if not self.previous_state and self.session_load <= 0:
+            raise ValueError("previous_state or session_load > 0 is required")
+        return self
+
 
 class LoadRiskRequest(BaseModel):
     load_state: Dict[str, Any] = Field(default_factory=dict)
     planned_load: float = Field(default=0.0, ge=0)
+
+    @model_validator(mode="after")
+    def require_load_context(self) -> "LoadRiskRequest":
+        if not self.load_state and self.planned_load <= 0:
+            raise ValueError("load_state or planned_load > 0 is required")
+        return self
 
 
 class AbilityProfileRequest(BaseModel):
@@ -218,11 +245,31 @@ class AbilityProfileRequest(BaseModel):
     durability: Optional[Dict[str, Any]] = None
     compliance_history: List[Dict[str, Any]] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def profile_must_have_context(self) -> "AbilityProfileRequest":
+        weight = self.weight_kg or self.athlete_profile.get("weight_kg")
+        curve = (
+            self.athlete_profile.get("mmp")
+            or self.athlete_profile.get("power_curve")
+            or self.athlete_profile.get("rolling_power_curve")
+        )
+        if weight is None:
+            raise ValueError("weight_kg or athlete_profile.weight_kg is required")
+        if not curve:
+            raise ValueError("athlete_profile must include mmp or power_curve")
+        return self
+
 
 class BreakthroughRequest(BaseModel):
     baseline_curve: Dict[str, Any] = Field(default_factory=dict)
     activity_curve: Dict[str, Any] = Field(default_factory=dict)
     min_gain_pct: float = Field(default=1.5, ge=0)
+
+    @model_validator(mode="after")
+    def curves_required(self) -> "BreakthroughRequest":
+        if not self.baseline_curve or not self.activity_curve:
+            raise ValueError("baseline_curve and activity_curve are required")
+        return self
 
 
 class WorkoutRecommendationRequest(BaseModel):
@@ -231,14 +278,29 @@ class WorkoutRecommendationRequest(BaseModel):
     goal: Optional[Dict[str, Any]] = None
     recent_workouts: List[Dict[str, Any]] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def profile_must_have_threshold(self) -> "WorkoutRecommendationRequest":
+        profile = self.athlete_profile or {}
+        weight = profile.get("weight_kg")
+        threshold = profile.get("cp_w") or profile.get("ftp_w") or profile.get("ftp")
+        if weight is None or threshold is None:
+            raise ValueError("athlete_profile requires weight_kg and cp_w or ftp_w")
+        return self
+
 
 class ProgressionLevelsRequest(BaseModel):
     athlete_profile: Dict[str, Any] = Field(default_factory=dict)
     workout_history: List[Dict[str, Any]] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def profile_must_have_weight(self) -> "ProgressionLevelsRequest":
+        if not (self.athlete_profile or {}).get("weight_kg"):
+            raise ValueError("athlete_profile.weight_kg is required")
+        return self
+
 
 class AdaptPlanRequest(BaseModel):
-    plan: List[Dict[str, Any]] = Field(default_factory=list)
+    plan: List[Dict[str, Any]] = Field(..., min_length=1)
     readiness: Optional[Dict[str, Any]] = None
     last_compliance: Optional[Dict[str, Any]] = None
 
@@ -247,6 +309,13 @@ class WorkoutExportRequest(BaseModel):
     workout: Dict[str, Any] = Field(default_factory=dict)
     format: str = Field(default="erg", description="erg, mrc or zwo")
 
+    @model_validator(mode="after")
+    def workout_must_have_steps(self) -> "WorkoutExportRequest":
+        steps = self.workout.get("steps")
+        if not steps:
+            raise ValueError("workout.steps must contain at least one step")
+        return self
+
 
 class CreateSeasonPlanRequest(BaseModel):
     start_date: Optional[str] = None
@@ -254,13 +323,19 @@ class CreateSeasonPlanRequest(BaseModel):
     weekly_hours: float = Field(default=8.0, ge=1, le=40)
     goal: Optional[Dict[str, Any]] = None
 
+    @model_validator(mode="after")
+    def dates_required(self) -> "CreateSeasonPlanRequest":
+        if not self.start_date or not self.target_date:
+            raise ValueError("start_date and target_date are required")
+        return self
+
 
 class AdaptWeekRequest(BaseModel):
-    week_plan: List[Dict[str, Any]] = Field(default_factory=list)
+    week_plan: List[Dict[str, Any]] = Field(..., min_length=1)
     readiness: Optional[Dict[str, Any]] = None
     compliance: Optional[Dict[str, Any]] = None
 
 
 class CheckLoadRiskRequest(BaseModel):
-    plan: List[Dict[str, Any]] = Field(default_factory=list)
+    plan: List[Dict[str, Any]] = Field(..., min_length=1)
     chronic_load: float = Field(default=50.0, ge=0)

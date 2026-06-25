@@ -1,0 +1,61 @@
+[
+  {
+    "id": "build_canonical",
+    "action": "build",
+    "payload": {
+      "athlete_id": "golden_1",
+      "weight_kg": 72,
+      "metabolic_snapshot": {"status": "success", "cp_w": 265, "w_prime_j": 19500},
+      "rolling_power_curve": {"60": 410, "300": 295}
+    },
+    "expected": {
+      "schema_version": "twin_state.v1",
+      "athlete_id": "golden_1",
+      "cp_w": 265
+    }
+  },
+  {
+    "id": "validate_roundtrip",
+    "action": "validate",
+    "payload": {
+      "athlete_id": "golden_1",
+      "weight_kg": 72,
+      "metabolic_snapshot": {"status": "success", "cp_w": 265, "w_prime_j": 19500},
+      "rolling_power_curve": {"60": 410, "300": 295}
+    },
+    "expected": {"schema_version": "twin_state.v1", "athlete_id": "golden_1"}
+  },
+  {
+    "id": "update_ride_curve",
+    "action": "update_ride",
+    "payload": {
+      "athlete_id": "golden_1",
+      "weight_kg": 72,
+      "metabolic_snapshot": {"status": "success", "cp_w": 265, "w_prime_j": 19500},
+      "rolling_power_curve": {"60": 410, "300": 295}
+    },
+    "ride": {"ingest_result": {"curve": {"60": 430}}},
+    "expected": {"rolling_power_curve": {"60": 430}}
+  },
+  {
+    "id": "update_workout_compliance",
+    "action": "update_workout",
+    "payload": {
+      "athlete_id": "golden_1",
+      "weight_kg": 72,
+      "metabolic_snapshot": {"status": "success", "cp_w": 265, "w_prime_j": 19500},
+      "rolling_power_curve": {"60": 410, "300": 295}
+    },
+    "workout": {
+      "assignment_id": "w_g1",
+      "compliance_result": {"classification": "completed_as_prescribed", "compliance_score": 91}
+    },
+    "expected": {"last_assignment_id": "w_g1", "last_compliance_score": 91}
+  },
+  {
+    "id": "reject_wrong_schema",
+    "action": "validate_raw",
+    "twin_state": {"schema_version": "twin_state.v0", "athlete_id": "x"},
+    "expected": {"raises": "ValueError"}
+  }
+]

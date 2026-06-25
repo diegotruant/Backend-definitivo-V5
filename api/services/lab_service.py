@@ -26,10 +26,15 @@ from engines.metabolic.lactate_validation_engine import (
 
 class LabService:
     def parse_text(self, req: LabTextParseRequest) -> Dict[str, Any]:
-        return parse_lab_text(req.text, source=req.source)
+        result = parse_lab_text(req.text)
+        return result.to_dict()
 
     def validate_result(self, req: LabResultValidateRequest) -> Dict[str, Any]:
-        return validate_lab_result(req.lab_result)
+        from engines.metabolic.lab_data import LabTestResult
+
+        result = LabTestResult.from_dict(req.lab_result)
+        warnings = validate_lab_result(result)
+        return {"status": "success", "warnings": warnings, "valid": len(warnings) == 0}
 
     def create_result(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         raw_date = payload.pop("test_date", None) or date.today().isoformat()

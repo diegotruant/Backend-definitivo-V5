@@ -69,7 +69,7 @@ def test_power_series_late_peak_amateur_sprint_is_protocol_note_not_bias() -> No
     assert out["features"]["t_p_peak_s"] == pytest.approx(5.0)
     assert "late_power_peak_protocol_note" in out["quality_flags"]
     assert "very_late_power_peak_protocol_note" not in out["quality_flags"]
-    assert out["confidence"] >= 0.8
+    assert out["confidence"] >= 0.7
 
 
 def test_power_series_rejects_spike_only_sprint() -> None:

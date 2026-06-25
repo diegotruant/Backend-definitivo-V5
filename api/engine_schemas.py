@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from api.schemas import AthleteParams, TauModel
 
@@ -35,6 +35,18 @@ class VlamaxSprintRequest(BaseModel):
     p_mean_sprint: float = Field(..., gt=0)
     sprint_duration_s: float = Field(default=15.0, gt=0, le=60)
     vo2max_power_w: Optional[float] = Field(default=None, gt=0)
+    t_p_peak_s: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="Seconds into the sprint when instantaneous peak power occurred.",
+    )
+    peak_3s_w: Optional[float] = Field(default=None, gt=0, description="Best rolling 3 s mean power.")
+    peak_5s_w: Optional[float] = Field(default=None, gt=0, description="Best rolling 5 s mean power.")
+    neuromuscular_peak_w: Optional[float] = Field(
+        default=None,
+        gt=0,
+        description="Recruitment-aware neuromuscular ceiling; inferred when omitted.",
+    )
 
 
 class VlamaxPowerSeriesRequest(BaseModel):
@@ -82,7 +94,8 @@ class DetrainingApplyRequest(BaseModel):
 
 class CtlAtlTsbRequest(BaseModel):
     tss_history: List[Dict[str, Any]] = Field(
-        default_factory=list,
+        ...,
+        min_length=1,
         description="List of {date, tss} entries.",
     )
 
@@ -216,6 +229,7 @@ class ZonesAnalyzeRequest(BaseModel):
 class EffortsAnalyzeRequest(BaseModel):
     athlete: AthleteParams
     metabolic_snapshot: Optional[Dict[str, Any]] = None
+    ftp: Optional[float] = None
     cp_w: Optional[float] = None
     w_prime_j: Optional[float] = None
 
@@ -335,3 +349,9 @@ class LabCreateResultRequest(BaseModel):
     weight_kg: Optional[float] = None
     notes: str = ""
     extra: Dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def require_at_least_one_metric(self) -> "LabCreateResultRequest":
+        if not any(v is not None for v in (self.vo2max, self.vlamax, self.mlss_w, self.ftp_w)):
+            raise ValueError("At least one of vo2max, vlamax, mlss_w, ftp_w is required")
+        return self

@@ -41,5 +41,54 @@
       "mlss_model_range": [245.0, 265.0],
       "abs_error_pct_max": 8.0
     }
+  },
+  {
+    "id": "flat_lactate_response",
+    "description": "Near-flat lactate steps must not invent D-max MLSS",
+    "steps": [
+      {"power_w": 200, "lactate_mmol": 2.0},
+      {"power_w": 220, "lactate_mmol": 2.1},
+      {"power_w": 240, "lactate_mmol": 2.15}
+    ],
+    "expected": {"mlss_dmax_range": [215.0, 225.0]}
+  },
+  {
+    "id": "model_lab_mismatch",
+    "description": "Model MLSS far from lactate ramp must not validate",
+    "weight_kg": 72.0,
+    "steps": [
+      {"power_w": 150, "lactate_mmol": 1.2},
+      {"power_w": 200, "lactate_mmol": 1.8},
+      {"power_w": 230, "lactate_mmol": 2.6},
+      {"power_w": 260, "lactate_mmol": 4.1},
+      {"power_w": 290, "lactate_mmol": 6.8},
+      {"power_w": 320, "lactate_mmol": 10.2}
+    ],
+    "mmp": {
+      "5": 850,
+      "60": 400,
+      "300": 200,
+      "1200": 180,
+      "3600": 170
+    },
+    "expected": {
+      "status": "success",
+      "validated": false,
+      "abs_error_pct_min": 20.0
+    }
+  },
+  {
+    "id": "compact_ramp_thresholds",
+    "description": "Four-step ramp still yields bounded threshold anchors",
+    "steps": [
+      {"power_w": 160, "lactate_mmol": 1.4},
+      {"power_w": 210, "lactate_mmol": 2.2},
+      {"power_w": 250, "lactate_mmol": 3.8},
+      {"power_w": 290, "lactate_mmol": 6.5}
+    ],
+    "expected": {
+      "mlss_dmax_range": [210.0, 275.0],
+      "obla_4mmol_range": [235.0, 295.0]
+    }
   }
 ]

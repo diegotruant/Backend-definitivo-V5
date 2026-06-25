@@ -18,12 +18,19 @@ from api.domain_schemas import (
 from api.schemas import (
     InPersonTestRequest,
     PowerSourceNormalizationRequest,
+    SeasonProjectionRequest,
+    TeamCalibrationApplyRequest,
+    TeamCalibrationUpdateRequest,
     TwinStateBuildRequest,
+    TwinStateUpdateRideRequest,
+    TwinStateUpdateWorkoutRequest,
     WorkoutFeasibilityRequest,
     WorkoutValidateRequest,
 )
+from api.domain_schemas import ComplianceResult, TwinStateDocument
 from api.errors import ServiceError
 from api.services.performance_service import PerformanceService
+from api.services.team_service import TeamService
 from api.services.test_service import TestService
 from api.services.twin_service import TwinService
 from api.services.workout_service import WorkoutService
@@ -202,3 +209,95 @@ def test_profile_snapshot_accepts_tau_model_and_cadence() -> None:
     body = resp.json()
     assert body["cadence_anchor"]["effective_cadence_rpm"] == 95.0
     assert body["w_prime_tau"]["tau_model"] == "pugh_level_based"
+
+
+def _built_twin_document() -> TwinStateDocument:
+    state = TwinService().build(TwinStateBuildRequest(payload=twin_build_payload()))
+    return TwinStateDocument.model_validate(state)
+
+
+def test_twin_service_validate_rejects_invalid_schema() -> None:
+    svc = TwinService()
+    with pytest.raises(ServiceError) as exc:
+        svc.validate({"schema_version": "twin_state.v0", "athlete_id": "x"})
+    assert exc.value.code == "TWIN_VALIDATE"
+
+
+def test_twin_service_update_from_ride_and_workout() -> None:
+    svc = TwinService()
+    twin = _built_twin_document()
+    after_ride = svc.update_from_ride(
+        TwinStateUpdateRideRequest(
+            twin_state=twin,
+            ride_summary={"sections": {"power": {"np_w": 245}}},
+            ingest_result={"curve": {"60": 495}},
+            ride_id="ride_42",
+        )
+    )
+    assert after_ride["rolling_power_curve"]["60"] == 495
+
+    after_workout = svc.update_from_workout(
+        TwinStateUpdateWorkoutRequest(
+            twin_state=TwinStateDocument.model_validate(after_ride),
+            compliance_result=ComplianceResult.model_validate(
+                {"classification": "completed_as_prescribed", "compliance_score": 92}
+            ),
+            assignment_id="assign_1",
+        )
+    )
+    assert after_workout["last_compliance_results"][-1]["assignment_id"] == "assign_1"
+
+
+def test_twin_service_project_season_success() -> None:
+    svc = TwinService()
+    twin = _built_twin_document()
+    req = SeasonProjectionRequest(
+        twin_state=twin,
+        calendar_plan=[],
+        start_date="2026-06-01",
+        target_date="2026-06-07",
+    )
+    out = svc.project_season(req)
+    assert out["status"] == "success"
+    assert len(out["time_series"]) == 7
+
+
+def test_team_service_calibration_update_and_apply() -> None:
+    svc = TeamService()
+    updated = svc.update_calibration(
+        TeamCalibrationUpdateRequest(
+            team_id="team_matrix",
+            events=[
+                {
+                    "athlete_id": "athlete_1",
+                    "parameter": "mlss",
+                    "predicted_value": 280,
+                    "measured_value": 275,
+                    "test_date": "2026-01-15",
+                }
+            ],
+        )
+    )
+    assert updated["team_id"] == "team_matrix"
+
+    applied = svc.apply_calibration(
+        TeamCalibrationApplyRequest(
+            calibration_model=updated,
+            parameter="mlss",
+            predicted_value=280,
+        )
+    )
+    assert applied["parameter"] == "mlss"
+    assert applied["corrected_value"] == 280.0
+
+
+def test_team_service_calibration_team_id_mismatch_is_400() -> None:
+    svc = TeamService()
+    with pytest.raises(ServiceError) as exc:
+        svc.update_calibration(
+            TeamCalibrationUpdateRequest(
+                team_id="team_a",
+                calibration_model={"team_id": "team_b", "events": [], "corrections": {}},
+            )
+        )
+    assert exc.value.code == "TEAM_ID_MISMATCH"

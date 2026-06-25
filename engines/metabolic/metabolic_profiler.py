@@ -655,6 +655,13 @@ class MetabolicProfiler:
         tau_alactic_s: float = 15.0,
         tau_aerobic_s: float = 30.0,
         active_muscle_mass_kg: Optional[float] = None,
+        *,
+        t_p_peak_s: Optional[float] = None,
+        peak_3s_w: Optional[float] = None,
+        peak_5s_w: Optional[float] = None,
+        neuromuscular_peak_w: Optional[float] = None,
+        power: Optional[List[float]] = None,
+        dt_s: float = 1.0,
     ) -> Dict[str, Any]:
         """
         Estimate VLamax from an all-out sprint, Mader-based lactate decomposition.
@@ -691,15 +698,27 @@ class MetabolicProfiler:
         if p_peak_1s <= 0 or p_mean_sprint <= 0:
             return {"status": "error", "message": "Sprint powers must be positive."}
 
+        from engines.performance.sprint_peak_analysis import neuromuscular_peak_for_decomposition
+
+        peak_ctx = neuromuscular_peak_for_decomposition(
+            p_peak_1s=p_peak_1s,
+            p_mean_sprint=p_mean_sprint,
+            sprint_duration_s=sprint_duration_s,
+            t_p_peak_s=t_p_peak_s,
+            peak_3s_w=peak_3s_w,
+            peak_5s_w=peak_5s_w,
+            neuromuscular_peak_w=neuromuscular_peak_w,
+            power=power,
+            dt_s=dt_s,
+        )
+        p_neuro = float(peak_ctx["neuromuscular_peak_w"])
+        sustain_ratio = float(peak_ctx["sustain_ratio"])
+        quality_flags = list(peak_ctx.get("quality_flags") or [])
+
         # Sprint validity gate. The decomposition only works on a genuine
-        # all-out sprint where power is *sustained* near the peak. If the 1 s
-        # peak towers over the mean (e.g. a 1 s spike on virtual platform, not a real
-        # seated 15-20 s effort), the alactic estimate swallows the whole
-        # mean and the glycolytic remainder goes to zero or negative — a
-        # garbage VLamax. We detect that and refuse, rather than return 0.05.
-        sustain_ratio = p_mean_sprint / p_peak_1s
-        # A real maximal sprint holds >= ~62% of 1 s peak over 10 s, less for
-        # longer windows. Threshold scales down with duration.
+        # all-out sprint where power is *sustained* near the neuromuscular
+        # ceiling (instantaneous 1 s peak for early recruiters; best 3–5 s
+        # rolling peak when motor recruitment is delayed).
         min_sustain = 0.70 - 0.012 * sprint_duration_s  # 10s->0.58, 20s->0.46
         if sustain_ratio < max(0.40, min_sustain):
             return {
@@ -707,10 +726,11 @@ class MetabolicProfiler:
                 "message": (
                     f"Sprint not maximal/sustained enough for VLamax estimation "
                     f"(mean/peak={sustain_ratio:.2f}, need >= {max(0.40, min_sustain):.2f}). "
-                    f"The 1 s peak ({p_peak_1s:.0f} W) likely a momentary spike, not a "
+                    f"The neuromuscular peak ({p_neuro:.0f} W) likely a momentary spike, not a "
                     f"true all-out effort. Provide a dedicated maximal sprint."
                 ),
                 "sustain_ratio": round(sustain_ratio, 3),
+                "sprint_peak_contract": peak_ctx.get("sprint_peak_contract"),
             }
 
         amm = active_muscle_mass_kg if active_muscle_mass_kg is not None else self.active_muscle_mass
@@ -722,22 +742,10 @@ class MetabolicProfiler:
         eta = self.context.expected_eta()
         J_PER_MMOL_LACTATE_PER_KG = 63.0  # Mader-consistent energetic equivalent
 
-        # T_PCR: duration of the alactic (PCr-dominant) phase.
-        # Literature consensus (Meixner 2024, Dunst 2023) shows that using
-        # t_Ppeak as t_PCr introduces variability and bias — especially when
-        # the power peak is reached late (amateur athletes, trainer inertia,
-        # suboptimal pacing). A fixed value of 3.5 s yields the best
-        # test-retest reliability (ICC=0.91 vs 0.87 for t_Ppeak).
-        # Glycolytic flux rises significantly after ~3-4 s regardless of when
-        # the mechanical power peak occurs (Dunst et al. 2023a,b).
-        T_PCR_S = 3.5  # fixed alactic phase duration, s (Meixner 2024)
-
         def _vlamax_for_tau(tau_alac: float) -> float:
             t = sprint_duration_s
-            # Alactic contribution: PCr decays over T_PCR_S, not over the
-            # full sprint. Time-averaged power from PCr during [0, T_PCR_S]:
-            alac_frac_avg = tau_alac / T_PCR_S * (1.0 - np.exp(-T_PCR_S / tau_alac))
-            p_alac_avg = (p_peak_1s * 0.98) * alac_frac_avg * (T_PCR_S / t)
+            alac_frac_avg = tau_alac / t * (1.0 - np.exp(-t / tau_alac))
+            p_alac_avg = (p_neuro * 0.98) * alac_frac_avg
             aero_frac = 1.0 - tau_aerobic_s / t * (1.0 - np.exp(-t / tau_aerobic_s))
             p_aero_avg = vo2_power * aero_frac * 0.5  # VO2 not at steady state
             p_glyc = max(0.0, p_mean_sprint - p_alac_avg - p_aero_avg)
@@ -771,17 +779,18 @@ class MetabolicProfiler:
                 "p_peak_1s": p_peak_1s,
                 "p_mean_sprint": p_mean_sprint,
                 "sprint_duration_s": sprint_duration_s,
+                "neuromuscular_peak_w": round(p_neuro, 1),
                 "vo2max_power_w": round(vo2_power, 1),
                 "tau_alactic_s": tau_alactic_s,
-                "t_pcr_s": T_PCR_S,
                 "active_muscle_mass_kg": round(amm, 2),
             },
+            "sprint_peak_contract": peak_ctx.get("sprint_peak_contract"),
+            "quality_flags": quality_flags,
+            "sustain_ratio": round(sustain_ratio, 3),
             "note": (
                 "VLamax is sensitive to the alactic time constant; the range "
-                "reflects tau_alactic 12-20 s. A measured/structured sprint "
-                "protocol narrows this. "
-                "t_PCr fixed at 3.5 s per Meixner 2024 / Dunst 2023: more "
-                "reliable than using t_Ppeak (ICC 0.91 vs 0.87)."
+                "reflects tau_alactic 12-20 s. Delayed motor recruitment uses "
+                "the best 3–5 s rolling peak as the neuromuscular ceiling."
             ),
         }
 

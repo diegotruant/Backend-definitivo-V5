@@ -1,0 +1,42 @@
+[
+  {
+    "id": "stable_3h",
+    "power_pattern": {"type": "constant", "power_w": 250, "power_len": 10800},
+    "expected": {
+      "status": "success",
+      "durability_index": 100.0,
+      "classification": "EXCELLENT"
+    }
+  },
+  {
+    "id": "decay_2h",
+    "power_pattern": {"type": "two_segment", "first_w": 300, "second_w": 250, "segment_s": 3600},
+    "expected": {
+      "status": "success",
+      "durability_index": 83.3,
+      "classification": "POOR",
+      "durability_index_range": [80.0, 92.0]
+    }
+  },
+  {
+    "id": "short_ride",
+    "power_pattern": {"type": "constant", "power_w": 200, "power_len": 1000},
+    "expected": {"status": "insufficient_duration"}
+  },
+  {
+    "id": "empty_stream",
+    "power_pattern": {"type": "constant", "power_w": 0, "power_len": 0},
+    "duration_seconds": 7200,
+    "expected": {"status": "invalid_data"}
+  },
+  {
+    "id": "strong_decay_2h",
+    "power_pattern": {"type": "two_segment", "first_w": 320, "second_w": 220, "segment_s": 3600},
+    "expected": {
+      "status": "success",
+      "durability_index": 68.8,
+      "classification": "POOR",
+      "durability_index_max": 80.0
+    }
+  }
+]

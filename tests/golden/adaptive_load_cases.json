@@ -1,0 +1,47 @@
+[
+  {
+    "id": "green_window",
+    "input": {
+      "session_load": {"score": 55},
+      "trend": {"load_ratio": 1.0, "tsb": 5},
+      "readiness": {"score": 85}
+    },
+    "expected": {"status": "blue", "risk_points": 0}
+  },
+  {
+    "id": "yellow_load",
+    "input": {
+      "session_load": {"score": 78},
+      "trend": {"load_ratio": 1.35, "tsb": -10},
+      "readiness": {"score": 70}
+    },
+    "expected": {"status": "yellow", "risk_points": 2}
+  },
+  {
+    "id": "red_fatigue",
+    "input": {
+      "session_load": {"score": 92},
+      "trend": {"load_ratio": 1.55, "tsb": -28},
+      "readiness": {"score": 42}
+    },
+    "expected": {"status": "red", "risk_points": 10}
+  },
+  {
+    "id": "blue_opportunity",
+    "input": {
+      "session_load": {"score": 48},
+      "trend": {"load_ratio": 1.05, "tsb": 8},
+      "readiness": {"score": 88}
+    },
+    "expected": {"status": "blue", "risk_points": 0}
+  },
+  {
+    "id": "thermal_risk",
+    "input": {
+      "session_load": {"score": 70, "thermal_load": {"score": 75}},
+      "trend": {"load_ratio": 1.1, "tsb": -5},
+      "readiness": {"score": 72}
+    },
+    "expected": {"status": "yellow", "risk_points": 2}
+  }
+]
