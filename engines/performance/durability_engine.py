@@ -349,3 +349,53 @@ def generate_hourly_decay_curve(
         "decay_rate_watts_per_hour": round(decay_rate, 1),
         "total_hours": len(hourly_averages),
     }
+
+
+# =============================================================================
+# TRAINING PRESCRIPTION
+# =============================================================================
+
+def generate_durability_prescription(
+    durability_index: float,
+    classification: str,
+) -> Dict[str, Any]:
+    """Generate training recommendations based on durability assessment."""
+    if classification == "EXCELLENT":
+        return {
+            "focus": "Maintain current aerobic base",
+            "volume": "70-80% Zone 2, 15-20% Zone 3-4, 5-10% Zone 5+",
+            "key_sessions": [
+                "3-4h endurance rides weekly",
+                "1x sweet-spot intervals",
+                "1x threshold work",
+            ],
+        }
+    if classification == "GOOD":
+        return {
+            "focus": "Fine-tune aerobic efficiency",
+            "volume": "75-85% Zone 2, 10-15% Zone 3-4, 5% Zone 5+",
+            "key_sessions": [
+                "2-3h base rides 3x/week",
+                "1x tempo intervals",
+                "Optional: 1x VO2max work",
+            ],
+        }
+    if classification == "FAIR":
+        return {
+            "focus": "Build aerobic base — reduce intensity",
+            "volume": "80-90% Zone 1-2, 10-15% Zone 3, <5% Zone 4+",
+            "key_sessions": [
+                "Long endurance rides (3-5h) 1-2x/week",
+                "Tempo intervals 1x/week",
+                "Limit high-intensity work",
+            ],
+        }
+    return {
+        "focus": "URGENT: Rebuild aerobic foundation",
+        "volume": "85-95% Zone 1-2, 5-10% Zone 3, AVOID Zone 4+",
+        "key_sessions": [
+            "Consistent base rides 4-5x/week",
+            "2-4h endurance pace",
+            "NO threshold or VO2max work for 4-6 weeks",
+        ],
+    }
