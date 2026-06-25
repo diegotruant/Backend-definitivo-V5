@@ -3,7 +3,7 @@ UVICORN_HOST ?= 127.0.0.1
 UVICORN_PORT ?= 8000
 UVICORN_RELOAD ?= true
 
-.PHONY: install run test test-all hardening-test stress-test lockdown-test integrity-test coverage-test api-matrix-test perfection-test multitenant-stress lint format typecheck check precommit openapi openapi-frontend
+.PHONY: install run test test-all hardening-test stress-test lockdown-test integrity-test coverage-test api-matrix-test perfection-test perfection-gate perfection-status multitenant-stress lint format typecheck check precommit openapi openapi-frontend
 
 install:
 	$(PYTHON) -m pip install -r requirements-dev.txt
@@ -34,6 +34,9 @@ api-matrix-test:
 
 perfection-status:
 	$(PYTHON) scripts/perfection_status.py
+
+perfection-gate:
+	$(PYTHON) scripts/perfection_gate.py
 
 perfection-test:
 	$(PYTHON) -m pytest -q tests/pytest_engine_unit_hardening.py tests/pytest_perfection_http_strict.py tests/pytest_openapi_contract_hardening.py --tb=short

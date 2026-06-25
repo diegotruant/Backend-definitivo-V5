@@ -97,7 +97,7 @@
     {
       "id": 5,
       "name": "perfection_gate",
-      "status": "pending",
+      "status": "in_progress",
       "targets": {
         "coverage_line_percent": 92,
         "coverage_branch_percent": 85,

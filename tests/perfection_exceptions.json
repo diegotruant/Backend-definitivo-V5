@@ -1,0 +1,4 @@
+{
+  "approved": [],
+  "note": "Documented exceptions to perfection_gate. Each entry must be explicitly approved: { \"id\": \"...\", \"reason\": \"...\", \"expires\": \"YYYY-MM-DD\" }"
+}
