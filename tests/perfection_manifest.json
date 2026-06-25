@@ -103,11 +103,11 @@
         "coverage_branch_percent": 76
       },
       "interim_achieved": {
-        "coverage_line_percent": 86.15,
-        "coverage_branch_percent": 76.06,
-        "tests_total": 881
+        "coverage_line_percent": 87.12,
+        "coverage_branch_percent": 77.59,
+        "tests_total": 914
       },
-      "notes": "Interim 86/76 met. Final gate 92/85 still open; matrix/lockdown/OpenAPI already green.",
+      "notes": "Interim ratcheted to 87/77 (push II). Final gate 92/85 still open; matrix/lockdown/OpenAPI already green.",
       "targets": {
         "coverage_line_percent": 92,
         "coverage_branch_percent": 85,

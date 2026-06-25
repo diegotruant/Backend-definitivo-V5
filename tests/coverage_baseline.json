@@ -1,5 +1,5 @@
 {
-  "line_percent": 86.0,
-  "branch_percent": 76.0,
-  "note": "Ratchet baseline — Phase 5 interim. Measured: line 86.15%, branch 76.06%. Batches 1–5 in pytest_phase4_coverage_depth.py; perfection-gate script added."
+  "line_percent": 87.0,
+  "branch_percent": 77.0,
+  "note": "Ratchet baseline — Phase 5 push II. Measured: line 87.12%, branch 77.59%. Batches 6–12 in pytest_phase4_coverage_depth.py; final gate 92/85 still open."
 }
