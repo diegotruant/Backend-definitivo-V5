@@ -34,7 +34,15 @@ from engines.core.science_contracts import (
 from engines.core.tiers import annotate, mask_low_confidence, should_display, tier_for
 from engines.history.athlete_history import build_history_summary, compute_personal_records
 from engines.history.load_trends import compute_load_trends
-from engines.core.data_quality_engine import assess_data_quality, clean_workout_data, detect_pauses
+from engines.core.data_quality_engine import (
+    assess_data_quality,
+    clean_hr_stream,
+    clean_power_stream,
+    clean_workout_data,
+    detect_pauses,
+    remove_pauses,
+)
+from engines.core.athlete_physiological_prior import MeasuredProfile, PhysiologicalPriorManager
 from engines.io.fit_parser import parse_fit_records_enhanced
 from engines.metabolic.team_learning_engine import TeamCalibrationModel, ValidationEvent
 from types import SimpleNamespace
@@ -61,7 +69,21 @@ from engines.performance.test_protocols import (
     run_test,
     run_wingate_test,
 )
-from engines.performance.race_prediction_engine import AthleteRaceProfile, CourseSegment, parse_gpx_course
+from engines.history.power_curve_history import aggregate_power_curve, build_power_curve_history
+from engines.io.chart_builder import chart_power_duration_curve, chart_zones_distribution, generate_workout_charts
+from engines.io.session_router import decide_route, route_and_run
+from engines.load.manual_load import calculate_manual_load
+from engines.metabolic.detraining_engine import apply_detraining_model, calculate_ctl_atl_tsb, calculate_decay_factor
+from engines.metabolic.metabolic_kalman import DailyInput, MetabolicKalman, process_workout_history
+from engines.performance.mmp_aggregator import curve_to_mmp, extract_ride_curve, update_power_curve
+from engines.performance.physiological_resilience import build_physiological_resilience
+from engines.performance.race_prediction_engine import (
+    AthleteRaceProfile,
+    CourseSegment,
+    analyze_course,
+    parse_gpx_course,
+    simulate_gpx_race,
+)
 from engines.performance.training_variability_engine import calculate_acwr, calculate_monotony_strain
 from engines.recovery.cardiac_engine import (
     ActivitySample,
@@ -1048,3 +1070,237 @@ class TestRideAnalyticsServiceBatch4:
         ]
         out = self.svc.thermal_acclimation(sessions)
         assert isinstance(out, dict)
+
+
+_RACE_GPX = """<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk><trkseg>
+    <trkpt lat="45.0000" lon="7.0000"><ele>300</ele></trkpt>
+    <trkpt lat="45.0000" lon="7.0100"><ele>310</ele></trkpt>
+    <trkpt lat="45.0000" lon="7.0200"><ele>340</ele></trkpt>
+    <trkpt lat="45.0000" lon="7.0300"><ele>390</ele></trkpt>
+    <trkpt lat="45.0000" lon="7.0400"><ele>450</ele></trkpt>
+    <trkpt lat="45.0000" lon="7.0500"><ele>455</ele></trkpt>
+    <trkpt lat="45.0000" lon="7.0600"><ele>420</ele></trkpt>
+    <trkpt lat="45.0000" lon="7.0700"><ele>360</ele></trkpt>
+  </trkseg></trk>
+</gpx>
+"""
+
+
+class TestDataQualityBatch5:
+    def test_clean_power_and_hr_streams(self) -> None:
+        spiky = [200.0] * 50 + [1500.0, 1500.0] + [200.0] * 50
+        cleaned_power = clean_power_stream(spiky)
+        assert max(cleaned_power) < 1200
+        hr = clean_hr_stream([140.0, 0.0, 0.0, 145.0, 150.0, 250.0, 148.0])
+        assert all(40 <= h <= 220 for h in hr)
+
+    def test_flat_erg_artifact_lowers_quality(self) -> None:
+        report = assess_data_quality([250.0] * 200)
+        assert report.power_quality < 1.0 or report.overall_score < 1.0
+
+    def test_pause_removal_pipeline(self) -> None:
+        power = [0.0] * 40 + [250.0] * 100 + [0.0] * 40 + [250.0] * 100
+        pauses = detect_pauses(power, threshold_seconds=30)
+        trimmed = remove_pauses(power, pauses)
+        assert len(trimmed) < len(power)
+        assert max(trimmed) > 0
+
+
+class TestMmpQualityBatch5:
+    def test_rolling_window_redundant_cluster(self) -> None:
+        mmp = {600: 300.0, 900: 298.0, 1200: 296.0, 1800: 294.0}
+        samples = [
+            {"duration_s": d, "power_w": p, "source_file": "same_ride.fit"}
+            for d, p in mmp.items()
+        ]
+        report = analyze_mmp_quality(mmp, mmp_samples=samples)
+        assert any(i.category == "rolling_window_redundant" for i in report.issues)
+
+    def test_clean_mmp_string_keys_and_plateau_rule(self) -> None:
+        mmp = {"5s": 800, "60s": 320, "120s": 320, "300s": 310}
+        report = analyze_mmp_quality(mmp)
+        cleaned, audit = clean_mmp(mmp, drop_rules=["identical_plateau"])
+        assert audit["dropped"] or report.issues
+
+
+class TestMetabolicKalmanBatch5:
+    def test_process_workout_history_trajectory(self) -> None:
+        start = date(2026, 1, 1)
+        inputs = [
+            DailyInput(date=start + timedelta(days=i), vo2max_stimulus_min=25.0, neuromuscular_stimulus_min=2.0)
+            for i in range(10)
+        ]
+        traj = process_workout_history(inputs, initial_vo2=60.0, initial_vla=0.4, weight=72.0)
+        assert len(traj.states) >= 10
+        assert traj.states[-1].vo2max > 0
+
+    def test_kalman_update_with_test_anchors(self) -> None:
+        import numpy as np
+
+        kalman = MetabolicKalman(np.array([60.0, 0.4]), np.diag([4.0, 0.01]), weight=72.0)
+        kalman.predict(DailyInput(date=date(2026, 1, 1), vo2max_stimulus_min=20.0))
+        updated = kalman.update([(180, 360.0), (360, 330.0), (720, 300.0)])
+        assert updated is not None
+        assert kalman.current_state.vo2max > 0
+
+
+class TestSessionRouterBatch5:
+    def test_decide_route_ramp_with_rr(self) -> None:
+        power = [150 + i * 2 for i in range(600)]
+        decision = decide_route(power, filename="ramp_test.fit", ftp=280.0, has_rr=True)
+        assert decision.route in {"hrv_threshold", "metabolic_anchor"}
+        assert decision.engines_to_run
+
+    def test_decide_route_hiit(self) -> None:
+        power = [350.0] * 60 + [150.0] * 120
+        power = power * 15
+        decision = decide_route(power, filename="30_15.fit", ftp=280.0, has_rr=True, has_metabolic_profile=True)
+        assert decision.route == "hiit"
+        assert "interval_stimulus" in decision.engines_to_run
+
+    def test_route_and_run_smoke(self) -> None:
+        power = [200.0] * 1800
+        out = route_and_run(power, ftp=280.0, filename="endurance_ride.fit", weight_kg=72.0)
+        assert "routing" in out
+        assert out["routing"]["route"] == "ride_monitoring"
+
+
+class TestRacePredictionBatch5:
+    def test_analyze_and_simulate_gpx(self) -> None:
+        points = parse_gpx_course(_RACE_GPX)
+        course = analyze_course(points)
+        assert course["distance_km"] > 5.0
+        assert course["elevation_gain_m"] >= 100
+        prediction = simulate_gpx_race(
+            _RACE_GPX,
+            weight_kg=72.0,
+            ftp_w=300.0,
+            metabolic_snapshot={"mlss_power_watts": 295, "fatmax_power_watts": 190},
+        )
+        assert prediction["status"] == "success"
+        assert prediction["prediction"]["estimated_time_s"] > 0
+
+
+class TestMmpAggregatorBatch5:
+    def test_extract_and_update_power_curve(self) -> None:
+        curve = extract_ride_curve([255.0] * 3600)
+        assert curve
+        result = update_power_curve(
+            [260.0] * 1800,
+            date(2026, 6, 1),
+            stored_curve={},
+            weight_kg=72.0,
+        )
+        assert result.mmp_for_profiler
+        rebuilt = curve_to_mmp(result.curve)
+        assert rebuilt
+
+
+class TestChartBuilderBatch5:
+    def test_power_duration_and_zones_charts(self) -> None:
+        pdc = chart_power_duration_curve(
+            {60: 400, 300: 320, 1200: 280},
+            cp_model={"cp": 270, "w_prime": 20000},
+            ftp=280,
+        )
+        assert pdc["type"] == "line_scatter"
+        zones = chart_zones_distribution(
+            {"coggan": {"Z1": 30.0, "Z2": 40.0, "Z3": 20.0, "Z4": 10.0}},
+            system="coggan",
+        )
+        assert zones["type"] == "bar_stacked"
+
+    def test_generate_workout_charts(self) -> None:
+        charts = generate_workout_charts(
+            {
+                "power_metrics": {"mmp_curve": {60: 400, 300: 320}, "ftp": 280},
+                "zones_distribution": {"coggan": {"Z1": 50.0, "Z2": 30.0, "Z3": 20.0}},
+            }
+        )
+        assert "power_duration" in charts
+        assert "zones_coggan" in charts
+
+
+class TestPowerCurveHistoryBatch5:
+    def test_aggregate_and_build_history(self) -> None:
+        activities = [
+            {"date": "2026-06-01", "mmp": {"300": 320, "1200": 280}},
+            {"date": "2026-06-10", "mmp": {"300": 330}},
+        ]
+        curve = aggregate_power_curve(activities)
+        assert curve[300] == 330
+        history = build_power_curve_history(activities, as_of="2026-06-15", weight_kg=72.0)
+        assert "last_90_days" in history["periods"]
+
+
+class TestDetrainingEngineBatch5:
+    def test_ctl_atl_tsb_and_decay_factor(self) -> None:
+        ref = date(2026, 6, 17)
+        history = [{"date": ref - timedelta(days=i), "tss": 50.0} for i in range(14)]
+        tl = calculate_ctl_atl_tsb(history, ref)
+        assert tl["ctl"] > 0
+        decay = calculate_decay_factor(21.0, 25.0, "vo2max")
+        assert 0 < decay <= 1.0
+
+    def test_apply_detraining_success_and_partial(self) -> None:
+        ref = date(2026, 6, 17)
+        history = [{"date": ref - timedelta(days=3), "tss": 80.0}]
+        snapshot = {
+            "status": "success",
+            "estimated_vo2max": 62.0,
+            "estimated_vlamax_mmol_L_s": 0.42,
+            "mlss_power_watts": 280.0,
+            "map_aerobic_watts": 350.0,
+        }
+        out = apply_detraining_model(snapshot, history, ref)
+        assert out.get("detraining_applied") is True or out.get("status") == "success"
+        partial = apply_detraining_model({"status": "success"}, [], ref)
+        assert partial["status"] == "partial"
+
+
+class TestPhysiologicalPriorBatch5:
+    def test_prior_manager_std_growth_and_bayesian_kwargs(self) -> None:
+        profile = MeasuredProfile(
+            measured_on=date(2026, 1, 1),
+            vo2max=62.0,
+            vlamax=0.42,
+            mlss_watts=280.0,
+        )
+        mgr = PhysiologicalPriorManager(profile)
+        priors = mgr.current_priors(date(2026, 6, 1), load_factor=0.4)
+        assert priors["vo2max"].std > priors["vo2max"].mean * 0.01
+        kwargs = mgr.bayesian_kwargs(date(2026, 6, 1))
+        assert "prior_vo2_mean" in kwargs
+
+
+class TestPhysiologicalResilienceBatch5:
+    def test_unavailable_without_signals(self) -> None:
+        out = build_physiological_resilience()
+        assert out["status"] == "unavailable"
+
+    def test_declining_trend_with_prior(self) -> None:
+        out = build_physiological_resilience(
+            mader_durability={"status": "success", "durability_loss_pct": 12.0, "confidence_score": 0.8},
+            prior={"dcp_pct": 8.0},
+        )
+        assert out["status"] == "success"
+        assert out["trend"] == "declining"
+
+
+class TestManualLoadBatch5:
+    def test_running_and_strength_modifiers(self) -> None:
+        run = calculate_manual_load(duration_min=60, rpe=7, modality="running")
+        gym = calculate_manual_load(duration_min=45, rpe=8, modality="strength")
+        assert run["load"]["recovery_cost"] > gym["load"]["training_load_equivalent"] * 0.5
+        assert run["load"]["readiness_modifier"] < 0
+
+
+class TestIntervalDetectorBatch5:
+    def test_mixed_test_signature(self) -> None:
+        ftp = 280.0
+        powers = [100.0] * 100 + [900.0] * 10 + [270.0] * 2000
+        result = classify_session(powers, ftp=ftp)
+        assert result.category == "TEST"
+        assert result.subtype in {"mixed_test", "cp_test", "ftp_20min", "cp12", "cp6", "cp3", "ramp_test"}
