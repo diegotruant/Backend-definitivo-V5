@@ -98,6 +98,10 @@
       "id": 5,
       "name": "perfection_gate",
       "status": "in_progress",
+      "interim_targets": {
+        "coverage_line_percent": 86,
+        "coverage_branch_percent": 76
+      },
       "targets": {
         "coverage_line_percent": 92,
         "coverage_branch_percent": 85,

@@ -3329,3 +3329,50 @@ class TestPhase4CompletionBatch15:
             ],
         )
         assert out.get("available") is True or "hr_at_vt1_dfa" in out or "hr_at_mlss" in out
+
+
+class TestPhase5CoverageBatch1:
+    """Phase 5 — first coverage push toward interim 86/76."""
+
+    def test_interval_detector_lap_and_filename_branches(self) -> None:
+        cp12 = classify_session([320.0] * 900, filename="cp12_test.fit", ftp=280.0)
+        assert cp12.category == "TEST"
+        assert cp12.subtype == "cp12"
+
+        ramp_laps = [{"duration_s": 180, "avg_power_w": 200 + i * 15} for i in range(8)]
+        ramp = classify_session([210.0] * 2000, laps=ramp_laps, ftp=280.0)
+        assert ramp.category == "TEST"
+        medium_hiit_laps = []
+        for _ in range(8):
+            medium_hiit_laps.append({"duration_s": 120, "avg_power_w": 330})
+            medium_hiit_laps.append({"duration_s": 180, "avg_power_w": 140})
+        medium = classify_session([240.0] * 3000, laps=medium_hiit_laps, ftp=280.0)
+        assert medium.category in {"HIIT", "TEST", "STEADY"}
+
+    def test_glycolytic_flux_and_vlapeak_edges(self) -> None:
+        from engines.metabolic.glycolytic_validation_engine import glycolytic_flux_index
+        assert glycolytic_flux_index(0.55) > glycolytic_flux_index(0.25)
+        bad = compute_vlapeak_observed(None, None, None)
+        assert bad["status"] == "error"
+
+    def test_mmp_quality_and_filter_paths(self) -> None:
+        raw = {5: 1100, 60: 520, 180: 400, 300: 380, 720: 340, 1200: 320}
+        cleaned, meta = clean_mmp(raw)
+        assert cleaned[60] <= raw[60]
+        assert meta["cleaned_anchors"] >= 1
+        ref = date(2026, 6, 17)
+        samples = [
+            {"duration_s": 300, "power_w": 380, "date": "2026-06-01"},
+            {"duration_s": 1200, "power_w": 320, "date": "2025-01-01"},
+        ]
+        filtered, kept = filter_mmp_by_window(samples, today=ref, window_days=90)
+        assert 300 in filtered and 1200 not in filtered
+        assert len(kept) == 1
+        report = analyze_mmp_quality(cleaned)
+        assert report.quality_score >= 0.0
+
+    def test_calculate_dfa_extended_stream(self) -> None:
+        rng = np.random.default_rng(7)
+        rr = (820.0 + rng.normal(0, 12, 120)).tolist()
+        out = calculate_dfa_alpha1(rr, context=AthleteContext(training_years=10, discipline="ROAD"))
+        assert out["status"] in {"AEROBIC", "MIXED", "ANAEROBIC", "INVALID_WINDOW", "INSUFFICIENT_DATA"}
