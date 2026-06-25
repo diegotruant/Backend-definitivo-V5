@@ -107,6 +107,7 @@ from engines.recovery.cardiac_engine import (
     compute_aerobic_decoupling,
     compute_cardiac_drift,
     compute_cardiac_efficiency,
+    compute_hr_kinetics_tau,
     compute_hr_recovery,
     cross_validate_thresholds,
 )
@@ -1507,3 +1508,177 @@ class TestDataQualityBatch6:
         report = assess_data_quality([220.0] * 250, cadence_stream=cadence)
         assert report.cadence_quality is not None
         assert report.overall_score >= 0
+
+
+def _pedaling_session(left_start: float, left_end: float, *, n: int = 600) -> Any:
+    balance = [left_start] * (n // 2) + [left_end] * (n - n // 2)
+    return analyze_pedaling_balance(balance, [180.0] * n, ftp=250.0, pedaling_balance_source="dual")
+
+
+def _ramp_staircase_powers(*, steps: int = 8, step_s: int = 60, base_w: int = 150, increment: int = 25) -> List[float]:
+    powers: List[float] = []
+    for step in range(steps):
+        powers.extend([float(base_w + step * increment)] * step_s)
+    return powers
+
+
+class TestMmpAggregatorBatch7:
+    def test_quality_gate_rejects_dirty_ride(self) -> None:
+        power = [0.0] * 80 + [1200.0] * 15 + [-5.0] * 5
+        hr = [0.0] * 100
+        result = update_power_curve(
+            power,
+            date(2026, 6, 1),
+            stored_curve={60: 350.0},
+            hr_stream=hr,
+            enforce_quality_gate=True,
+        )
+        assert result.ride_usable is False
+        assert any("quality gate" in note for note in result.notes)
+
+    def test_expired_windows_and_spike_despike(self) -> None:
+        stored = {
+            60: {
+                "duration_s": 60,
+                "power_w": 400,
+                "ride_date": "2020-01-01",
+                "ride_id": "old",
+                "reliability": 1.0,
+            }
+        }
+        expired = update_power_curve(
+            [250.0] * 3600,
+            date(2026, 6, 17),
+            stored_curve=stored,
+            today=date(2026, 6, 17),
+            window_days=90,
+        )
+        assert len(expired.expired) == 1
+
+        spiky = [200.0] * 100
+        spiky[50] = 1500.0
+        curve = extract_ride_curve(spiky, durations=[5, 10, 30, 60])
+        assert curve
+        assert max(curve.values()) < 1500.0
+
+    def test_curve_to_mmp_bare_numbers(self) -> None:
+        rebuilt = curve_to_mmp({60: 400.0, "300": {"power_w": 320.0}, "bad": "x"})
+        assert rebuilt[60] == 400.0
+        assert rebuilt[300] == 320.0
+
+
+class TestHrvBatch7:
+    def test_analyze_rr_stream_long_with_novice_context(self) -> None:
+        rr_samples = [
+            {
+                "elapsed": float(i * 5),
+                "rr": [800.0 + np.sin(i / 10.0) * 20.0 for _ in range(30)],
+            }
+            for i in range(200)
+        ]
+        ctx = AthleteContext(gender="MALE", training_years=1, discipline="ROAD")
+        timeline = analyze_rr_stream(rr_samples, window_seconds=60, step_seconds=10.0, context=ctx)
+        assert len(timeline) >= 10
+        assert timeline[0]["status"] in {"AEROBIC", "MIXED", "ANAEROBIC"}
+        assert timeline[0]["metadata"].get("sqi") is not None
+
+    def test_detect_thresholds_quality_summary(self) -> None:
+        rr_samples = [
+            {"elapsed": float(i * 5), "rr": [820.0 - i * 0.3 for _ in range(25)]}
+            for i in range(120)
+        ]
+        power = [150.0 + i * 0.6 for i in range(1200)]
+        out = detect_thresholds_from_activity(
+            rr_samples,
+            power_data=power,
+            power_timestamps=[float(i) for i in range(len(power))],
+            context=AthleteContext(gender="MALE", training_years=1, discipline="ROAD"),
+        )
+        assert "quality_summary" in out
+        assert out["context_used"]["thresholds_modulated"] is True
+
+
+class TestPedalingBalanceBatch7:
+    def test_worsening_trend_with_consistent_drift(self) -> None:
+        reports = [_pedaling_session(50, 50) for _ in range(2)] + [_pedaling_session(50, 38) for _ in range(4)]
+        trend = analyze_balance_trend(reports)
+        assert trend.trend == "worsening"
+        assert trend.consistent_drift_direction == "rightward"
+        assert trend.sessions_with_drift_above_threshold >= 4
+        assert trend.summary and "Unilateral" in trend.summary
+
+
+class TestIntervalDetectorBatch7:
+    def test_ramp_staircase_signal_classification(self) -> None:
+        result = classify_session(_ramp_staircase_powers(), ftp=280.0)
+        assert result.category == "TEST"
+        assert result.subtype == "ramp_test"
+        assert result.confidence >= 0.65
+
+    def test_filename_and_hiit_lap_patterns(self) -> None:
+        by_name = classify_session([200.0] * 600, filename="gran_fondo_spring.fit", ftp=280.0)
+        assert by_name.category == "FREE"
+        laps = [{"duration_s": 60, "avg_power_w": 350} for _ in range(12)] + [
+            {"duration_s": 120, "avg_power_w": 150} for _ in range(12)
+        ]
+        hiit = classify_session([250.0] * 2400, laps=laps, ftp=280.0)
+        assert hiit.category in {"HIIT", "STEADY", "TEST", "FREE"}
+
+
+class TestActivityChartsBatch7:
+    def test_thermal_and_lr_balance_charts(self) -> None:
+        stream = _chart_stream(seconds=300)
+        stream.core_temperature = [37.0 + i * 0.01 for i in range(300)]
+        stream.skin_temperature = [33.0 + i * 0.005 for i in range(300)]
+        stream.left_right_balance = [48.0] * 150 + [42.0] * 150
+        charts = build_activity_charts(
+            stream,
+            zones=[{"name": "Z2", "min_w": 150, "max_w": 220}],
+            hrv_durability={"time_in_intensity": {"fat_min": 120.0, "carb_min": 45.0}},
+        )
+        assert charts["thermal"]["type"] == "line"
+        assert charts["lr_balance"]["type"] == "line"
+        assert charts["time_in_intensity"]["type"] == "bar"
+
+
+class TestSessionRouterBatch7:
+    def test_cp_test_with_rr_runs_hrv_durability(self) -> None:
+        power = [900.0] * 10 + [270.0] * 2000
+        rr = [{"elapsed": float(i * 5), "rr": [800.0 + (i % 5)] * 20} for i in range(80)]
+        out = route_and_run(
+            power,
+            rr_samples=rr,
+            elapsed_s=[float(i) for i in range(len(power))],
+            filename="cp_test.fit",
+            ftp=280.0,
+            weight_kg=72.0,
+            metabolic_snapshot={"status": "success", "mlss_power_watts": 280},
+        )
+        assert out["routing"]["route"] == "metabolic_anchor"
+        assert "hrv_durability" in out["results"] or "hrv_durability" in out["skipped"]
+
+    def test_hiit_with_profile_runs_mader(self) -> None:
+        power = ([350.0] * 60 + [150.0] * 120) * 12
+        rr = [{"elapsed": float(i * 5), "rr": [810.0] * 15} for i in range(60)]
+        out = route_and_run(
+            power,
+            rr_samples=rr,
+            filename="30_15.fit",
+            ftp=280.0,
+            weight_kg=72.0,
+            metabolic_snapshot={"status": "success", "mlss_power_watts": 280, "estimated_vo2max": 62},
+        )
+        assert out["routing"]["route"] == "hiit"
+        assert "mader_durability" in out["results"] or "mader_durability" in out["skipped"]
+
+
+class TestCardiacEngineBatch7:
+    def test_hr_kinetics_tau_on_ramp(self) -> None:
+        t = np.arange(180, dtype=float)
+        p = np.linspace(100, 280, 180)
+        h = 120.0 + 40.0 * (1.0 - np.exp(-t / 45.0))
+        seg = Segment(kind="ramp", start_idx=0, end_idx=180, start_t=0.0, end_t=179.0, duration_s=180.0)
+        out = compute_hr_kinetics_tau(t, p, h, seg)
+        assert out.get("available") is True or out.get("reason") in {"TOO_SHORT", "INSUFFICIENT_HR_RISE"}
+        if out.get("available"):
+            assert out["tau_s"] > 0
