@@ -3376,3 +3376,237 @@ class TestPhase5CoverageBatch1:
         rr = (820.0 + rng.normal(0, 12, 120)).tolist()
         out = calculate_dfa_alpha1(rr, context=AthleteContext(training_years=10, discipline="ROAD"))
         assert out["status"] in {"AEROBIC", "MIXED", "ANAEROBIC", "INVALID_WINDOW", "INSUFFICIENT_DATA"}
+
+
+class TestPhase5CoverageBatch2:
+    """Phase 5 — second coverage push toward interim 86/76."""
+
+    def test_jwt_jwks_audience_and_missing_secret(self) -> None:
+        import jwt as pyjwt
+        from unittest.mock import MagicMock, patch
+
+        from api.auth.config import AuthConfig
+        from api.auth.jwt import decode_bearer_token
+
+        secret = "phase5-test-secret"
+        token = pyjwt.encode(
+            {"sub": "athlete-jwks", "aud": "twin-api", "iss": "https://issuer.test"},
+            secret,
+            algorithm="HS256",
+        )
+        jwks_cfg = AuthConfig(
+            mode="jwt",
+            require_athlete_id=False,
+            valid_api_keys=frozenset(),
+            api_key_athlete_prefixes={},
+            jwt_secret=None,
+            jwt_algorithms=("HS256",),
+            jwt_audience="twin-api",
+            jwt_issuer="https://issuer.test",
+            jwt_jwks_url="https://issuer.test/.well-known/jwks.json",
+            athlete_scoped_prefixes=("/ride",),
+            protected_prefixes=("/ride",),
+        )
+        mock_client = MagicMock()
+        mock_client.uri = jwks_cfg.jwt_jwks_url
+        mock_client.get_signing_key_from_jwt.return_value = MagicMock(key=secret)
+        with patch("api.auth.jwt.PyJWKClient", return_value=mock_client):
+            import api.auth.jwt as jwt_mod
+
+            jwt_mod._JWKS_CLIENT = None
+            claims = decode_bearer_token(token, jwks_cfg)
+            assert claims["sub"] == "athlete-jwks"
+
+        bare_cfg = AuthConfig(
+            mode="jwt",
+            require_athlete_id=False,
+            valid_api_keys=frozenset(),
+            api_key_athlete_prefixes={},
+            jwt_secret=None,
+            jwt_algorithms=("HS256",),
+            jwt_audience=None,
+            jwt_issuer=None,
+            jwt_jwks_url=None,
+            athlete_scoped_prefixes=("/ride",),
+            protected_prefixes=("/ride",),
+        )
+        with pytest.raises(RuntimeError, match="JWT auth requires"):
+            decode_bearer_token(token, bare_cfg)
+
+    def test_physiological_resilience_improving_and_di_only(self) -> None:
+        improving = build_physiological_resilience(
+            mader_durability={"status": "success", "durability_loss_pct": 6.0, "confidence_score": 0.9},
+            prior={"dcp_pct": 10.0},
+        )
+        assert improving["trend"] == "improving"
+        assert improving["confidence"] == "high"
+
+        di_only = build_physiological_resilience(
+            durability_index={"status": "success", "durability_index": 94.0},
+        )
+        assert di_only["status"] == "success"
+        assert di_only["durability_index"] == pytest.approx(0.94)
+
+        bad_di = build_physiological_resilience(
+            mader_durability={"status": "success", "durability_loss_pct": "bad"},
+            durability_index={"durability_index": "n/a"},
+        )
+        assert bad_di["status"] == "success"
+
+    def test_power_curve_history_datetime_and_list_mmp(self) -> None:
+        from datetime import datetime
+
+        activities = [
+            {
+                "start_date": datetime(2026, 5, 20, 10, 0, 0),
+                "best_efforts": [
+                    {"duration_s": 60, "power_w": 410},
+                    {"duration": 300, "value": 350},
+                ],
+            },
+            {"activity_date": "not-a-date", "mmp": {"60": 390}},
+        ]
+        curve = aggregate_power_curve(activities)
+        assert curve[60] == 410
+        assert curve[300] == 350
+
+        history = build_power_curve_history(activities, as_of="2026-06-17", weight_kg=70.0)
+        assert history["periods"]["last_90_days"]["activity_count"] >= 1
+
+    def test_adaptive_load_daily_status_from_dict(self) -> None:
+        status = DailyStatus.from_dict(
+            {
+                "morning_temp": 36.8,
+                "baseline_temp": 36.5,
+                "soreness": "3",
+                "stress": 2,
+                "mood": 4,
+                "morning_hrv_lnrmssd": "bad",
+            }
+        )
+        assert status is not None
+        assert status.morning_temp_c == pytest.approx(36.8)
+        assert status.baseline_temp_c == pytest.approx(36.5)
+        assert status.morning_hrv_lnrmssd is None
+        assert DailyStatus.from_dict(None) is None
+
+    def test_fit_parse_report_and_activity_stream_loaders(self) -> None:
+        import asyncio
+        import json
+
+        from api.activity_streams import load_activity_stream, stream_from_power
+        from engines.io.fit_parse_report import build_fit_parse_report, _series_or_none
+
+        stream = stream_from_power([210.0, 220.0, 215.0], heart_rate=[140.0, 142.0, 141.0])
+        report = build_fit_parse_report(stream=stream, file_id="phase5-fit", file_hash="abc")
+        assert report["status"] == "success"
+        assert report["streams"]["power_w"] == [210.0, 220.0, 215.0]
+        assert report["streams"]["heart_rate_bpm"] == [140.0, 142.0, 141.0]
+
+        assert _series_or_none("bad", n_samples=3) is None
+        assert _series_or_none([], n_samples=3) is None
+
+        loaded = asyncio.run(load_activity_stream(None, json.dumps([200.0, 205.0]), None))
+        assert getattr(loaded, "n_samples", 0) >= 2
+
+        with pytest.raises(Exception):
+            asyncio.run(load_activity_stream(None, "not-json", None))
+
+    def test_twin_state_serialization_roundtrip(self) -> None:
+        from engines.twin_state.models import build_twin_state
+        from engines.twin_state.serialization import dumps_twin_state, loads_twin_state
+
+        state = build_twin_state(
+            {
+                "athlete_id": "phase5-athlete",
+                "athlete_profile": {"weight_kg": 72, "cp_w": 260, "w_prime_j": 19000},
+                "metabolic_snapshot": {
+                    "status": "success",
+                    "confidence_score": 0.62,
+                    "vo2max": 52,
+                    "vlamax": 0.48,
+                    "mlss_watts": 260,
+                    "w_prime_j": 19000,
+                },
+                "rolling_power_curve": {"60": 480, "300": 330},
+            }
+        )
+        raw = dumps_twin_state(state)
+        restored = loads_twin_state(raw)
+        assert restored["athlete_id"] == "phase5-athlete"
+
+    def test_phenotype_zero_energy_and_failed_snapshot(self) -> None:
+        zero = compute_energy_contribution_adaptive(
+            duration_s=0.0,
+            power_w=0.0,
+            vo2max_mlkgmin=55.0,
+            weight_kg=70.0,
+            phenotype="SPRINTER",
+        )
+        assert zero["pcr_fraction"] == 0.0
+
+        failed = enhance_metabolic_snapshot_with_phenotype({"status": "error"}, phenotype="SPRINTER")
+        assert failed["status"] == "error"
+
+        good = enhance_metabolic_snapshot_with_phenotype(
+            {
+                "status": "success",
+                "estimated_vo2max": 55.0,
+                "mlss_power_watts": 280.0,
+            },
+            phenotype="PURSUITER",
+            weight_kg=72.0,
+        )
+        assert good["energy_contributions"]["sprint_30s"]["pcr_fraction"] > 0
+
+    def test_durability_mid_window_and_metabolic_flexibility_bands(self) -> None:
+        mid = calculate_durability_index([240.0] * 5000, 7200, min_duration_hours=2.0)
+        assert mid["status"] == "success"
+
+        empty = calculate_durability_index([], 7200)
+        assert empty["status"] == "invalid_data"
+
+        good = calculate_metabolic_flexibility_index(190, 300)
+        trained = estimate_fat_oxidation_rate(720, 70.0)
+        recreational = estimate_fat_oxidation_rate(120, 70.0)
+        elite = estimate_fat_oxidation_rate(1000, 70.0)
+        assert good["classification"] == "GOOD"
+        assert trained["classification"] == "TRAINED"
+        assert recreational["classification"] == "RECREATIONAL"
+        assert elite["classification"] == "ELITE"
+
+    def test_mmp_aggregator_result_dict_and_despike_fallback(self) -> None:
+        from engines.performance.mmp_aggregator import CurveEntry, CurveUpdateResult, _ceiling_for
+
+        result = CurveUpdateResult()
+        result.curve[60] = CurveEntry(60, 400.0, "ride-1", "2026-06-01")
+        result.improvements.append({"duration_s": 60})
+        payload = result.to_dict()
+        assert payload["tier"] == "REFERENCE"
+        assert payload["improvements"]
+        assert _ceiling_for(30, 70.0) > 0
+
+        spiky = [200.0, 200.0, 900.0, 200.0, 200.0] * 400
+        curve = extract_ride_curve(spiky, durations=[5, 60], despike=True)
+        assert curve
+
+    def test_athlete_weight_and_compliance_empty_stream(self) -> None:
+        from engines.core.athlete_weight import require_weight_kg, resolve_weight_kg
+        from engines.workouts.compliance_engine import compare_workout_to_activity
+
+        out_of_range, meta = resolve_weight_kg(200.0)
+        assert out_of_range == 200.0
+        assert meta["wkg_official"] is False
+
+        invalid, bad_meta = resolve_weight_kg("heavy")
+        assert invalid is None
+        assert bad_meta["source"] == "invalid"
+
+        with pytest.raises(ValueError):
+            require_weight_kg(None)
+
+        empty = compare_workout_to_activity(
+            {"title": "empty", "steps": [{"type": "work", "duration_s": 60, "target_pct_cp": 100}]},
+            SimpleNamespace(n_samples=0, power=[], heart_rate=[], cadence=[]),
+        )
+        assert empty["status"] == "failed"
