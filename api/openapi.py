@@ -5,6 +5,19 @@ from __future__ import annotations
 from typing import Any, Dict
 
 
+def _normalize_binary_file_schema(node: Any) -> None:
+    """Keep generated UploadFile schemas stable across Pydantic/FastAPI versions."""
+    if isinstance(node, dict):
+        if node.get("contentMediaType") == "application/octet-stream":
+            node.pop("contentMediaType", None)
+            node.setdefault("format", "binary")
+        for value in node.values():
+            _normalize_binary_file_schema(value)
+    elif isinstance(node, list):
+        for item in node:
+            _normalize_binary_file_schema(item)
+
+
 def enrich_openapi_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
     """Add deployment metadata used by frontend codegen and docs."""
     components = schema.setdefault("components", {})
@@ -65,6 +78,7 @@ def enrich_openapi_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
         "description": "Frontend integration guide",
         "url": "https://github.com/diegotruant/Backend-definitivo-V5/blob/main/docs/OPENAPI_FRONTEND.md",
     }
+    _normalize_binary_file_schema(schema)
     info = schema.setdefault("info", {})
     info["x-codegen"] = {
         "typescript_output": "frontend/src/api/generated/schema.ts",
