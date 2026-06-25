@@ -90,6 +90,16 @@ from engines.io.chart_builder import (
 )
 from engines.io.session_router import decide_route, route_and_run
 from engines.load.manual_load import calculate_manual_load
+from engines.metabolic.coggan_classifier import classify_duration, classify_from_mmp, classify_power_profile
+from engines.metabolic.glycolytic_validation_engine import (
+    build_glycolytic_profile,
+    compute_vlapeak_observed,
+    validate_vlapeak_against_model,
+)
+from engines.metabolic.metabolic_flexibility_engine import (
+    calculate_metabolic_flexibility_index,
+    estimate_fat_oxidation_rate,
+)
 from engines.metabolic.detraining_engine import apply_detraining_model, calculate_ctl_atl_tsb, calculate_decay_factor
 from engines.metabolic.metabolic_current import get_current_metabolic_status, handle_edge_function_request
 from engines.metabolic.metabolic_kalman import DailyInput, MetabolicKalman, process_workout_history
@@ -97,8 +107,10 @@ from engines.performance.durability_engine import (
     calculate_durability_index,
     calculate_np_drift,
     calculate_tte_sustainability,
+    generate_durability_prescription,
     generate_hourly_decay_curve,
 )
+from engines.performance.efforts_analyzer import analyze_efforts
 from engines.performance.mmp_aggregator import curve_to_mmp, extract_ride_curve, update_power_curve
 from engines.performance.physiological_resilience import build_physiological_resilience
 from engines.performance.race_prediction_engine import (
@@ -1864,3 +1876,224 @@ class TestCardiacEngineBatch8:
         out = compute_chronotropic_response(t, p, h, seg)
         assert out["available"] is False
         assert out["reason"] == "POWER_NOT_VARYING"
+
+
+class TestDurabilityEngineBatch9:
+    def test_prescription_all_classifications(self) -> None:
+        for classification, needle in [
+            ("EXCELLENT", "Maintain"),
+            ("GOOD", "Fine-tune"),
+            ("FAIR", "Build aerobic"),
+            ("POOR", "URGENT"),
+        ]:
+            rx = generate_durability_prescription(95.0, classification)
+            assert needle in rx["focus"]
+
+    def test_insufficient_duration_and_poor_ride(self) -> None:
+        short = calculate_durability_index([220.0] * 3600, 3600, min_duration_hours=2.0)
+        assert short["status"] == "insufficient_duration"
+        poor_power = [250.0] * 3600 + [200.0] * 3600
+        poor = calculate_durability_index(poor_power, len(poor_power))
+        assert poor["classification"] == "POOR"
+        assert poor["durability_index"] < 88
+
+
+class TestManualLoadBatch9:
+    def test_cycling_mobility_and_damage_override(self) -> None:
+        bike = calculate_manual_load(duration_min=60, rpe=6, modality="bike")
+        mobility = calculate_manual_load(duration_min=30, rpe=3, modality="mobility")
+        custom = calculate_manual_load(
+            duration_min=45,
+            rpe=8,
+            modality="strength",
+            muscle_damage_factor=2.0,
+            notes="heavy legs",
+        )
+        assert bike["input"]["modality"] == "bike"
+        assert mobility["load"]["recovery_cost"] < bike["load"]["recovery_cost"]
+        assert custom["input"]["muscle_damage_factor"] == 2.0
+        assert custom["input"]["notes"] == "heavy legs"
+
+
+class TestCogganClassifierBatch9:
+    def test_sprinter_profile_and_duration_tier(self) -> None:
+        profile = classify_power_profile(
+            weight_kg=72.0,
+            gender="MALE",
+            p5s=1400,
+            p1min=900,
+            p5min=450,
+            ftp=320,
+        )
+        assert profile["status"] == "success"
+        assert profile["overall"]["phenotype_code"] == "SPRINTER"
+
+        tier = classify_duration(5.5, "5min", "FEMALE")
+        assert tier["tier"] in {"UNTRAINED", "FAIR", "MODERATE", "GOOD", "VERY_GOOD", "EXCELLENT", "WORLD_CLASS"}
+
+    def test_classify_from_mmp_ftp_fallback(self) -> None:
+        mmp = [
+            {"duration_s": 5, "power_w": 1400},
+            {"duration_s": 60, "power_w": 900},
+            {"duration_s": 300, "power_w": 450},
+            {"duration_s": 1200, "power_w": 340},
+        ]
+        out = classify_from_mmp(mmp, weight_kg=72.0, gender="MALE")
+        assert out["status"] == "success"
+        assert out["by_duration"]["ftp"]["available"] is True
+
+
+class TestMetabolicFlexibilityBatch9:
+    def test_mfi_bands_and_fat_oxidation(self) -> None:
+        excellent = calculate_metabolic_flexibility_index(220, 300)
+        carb = calculate_metabolic_flexibility_index(150, 300)
+        zero = calculate_metabolic_flexibility_index(200, 0)
+        assert excellent["classification"] == "EXCELLENT"
+        assert carb["classification"] == "CARB_DEPENDENT"
+        assert zero["status"] == "error"
+
+        elite = estimate_fat_oxidation_rate(250, 70.0)
+        bad_weight = estimate_fat_oxidation_rate(200, 0.0)
+        assert elite["status"] == "success"
+        assert bad_weight["status"] == "error"
+
+
+class TestEffortsAnalyzerBatch9:
+    def test_full_anchor_breakdown(self) -> None:
+        mmp = [
+            {"duration_s": 5, "power_w": 1400, "wkg": 19.4},
+            {"duration_s": 60, "power_w": 900, "wkg": 12.5},
+            {"duration_s": 300, "power_w": 450, "wkg": 6.25},
+            {"duration_s": 1200, "power_w": 340, "wkg": 4.7},
+        ]
+        out = analyze_efforts(
+            mmp,
+            weight_kg=72.0,
+            ftp=320.0,
+            cp_fit={"cp_w": 310.0, "wprime_kj": 22.0},
+            metabolic_snapshot={
+                "mlss_power_watts": 300.0,
+                "map_aerobic_watts": 380.0,
+                "fatmax_power_watts": 220.0,
+            },
+        )
+        assert out["status"] == "success"
+        assert out["efforts"]
+        assert out["efforts"][0]["pct_ftp"] is not None
+        assert "best_sprint_5s" in out["summary"]
+
+
+class TestGlycolyticValidationBatch9:
+    def test_vlapeak_observed_and_profile(self) -> None:
+        observed = compute_vlapeak_observed(1.2, 8.5, 30.0)
+        assert observed["status"] == "success"
+        assert observed["vlapeak_observed_mmol_l_s"] > 0
+
+        bad = compute_vlapeak_observed(5.0, 4.0, 30.0)
+        assert bad["status"] == "error"
+
+        snap = {
+            "status": "success",
+            "estimated_vlamax_mmol_L_s": 0.55,
+            "mlss_power_watts": 280.0,
+            "map_aerobic_watts": 350.0,
+        }
+        profile = build_glycolytic_profile(snap)
+        assert profile["status"] == "success"
+        assert profile["glycolytic_flux_index"] > 0
+
+        comparison = validate_vlapeak_against_model(
+            vlapeak_observed_mmol_l_s=0.8,
+            predicted_vlapeak_mmol_l_s=0.75,
+            model_vlamax_mmol_l_s=0.55,
+        )
+        assert comparison["status"] == "success"
+
+
+class TestAthleteContextBatch9:
+    def test_sport_discipline_mapping_and_getters(self) -> None:
+        sprint_ctx = AthleteContext(gender="FEMALE", discipline="TRACK_SPRINT", training_years=12)
+        endurance_ctx = AthleteContext(discipline="GRAVEL", training_years=0.5, body_fat_pct=18.0)
+        assert sprint_ctx.effective_discipline() == "SPRINT"
+        assert endurance_ctx.effective_discipline() == "ENDURANCE"
+        assert sprint_ctx.expected_eta() > endurance_ctx.expected_eta()
+        assert sprint_ctx.vlamax_initial_guess() > 0
+        assert sprint_ctx.cho_oxidation_coefficient() == 1.0
+        assert "discipline" in sprint_ctx.inferred_fields() or sprint_ctx.effective_discipline()
+
+
+class TestPowerCurveHistoryBatch9:
+    def test_empty_history_and_wkg_curve(self) -> None:
+        empty = build_power_curve_history([], as_of="2026-06-17", weight_kg=72.0)
+        assert empty["status"] == "success"
+        assert empty["periods"]["last_90_days"]["activity_count"] == 0
+        assert empty["periods"]["last_90_days"]["curve_w_kg"] == {}
+
+        populated = build_power_curve_history(
+            [{"date": "2026-06-01", "mmp": {"300": 320}}],
+            as_of="2026-06-15",
+            weight_kg=72.0,
+        )
+        assert populated["periods"]["last_90_days"]["curve_w_kg"]["300"] > 0
+
+
+class TestHrvBatch9:
+    def test_invalid_window_rejects_artifact_heavy_rr(self) -> None:
+        noisy = [300.0, 2000.0, 100.0, 1800.0] * 20
+        out = calculate_dfa_alpha1(noisy)
+        assert out["status"] in {"INVALID_WINDOW", "ERROR", "INSUFFICIENT_DATA"}
+
+    def test_detect_thresholds_with_long_declining_stream(self) -> None:
+        rr_samples = [
+            {"elapsed": float(i * 5), "rr": [900.0 - i * 1.5 + (j % 3) for j in range(30)]}
+            for i in range(180)
+        ]
+        power = [120.0 + i * 1.2 for i in range(1800)]
+        out = detect_thresholds_from_activity(
+            rr_samples,
+            power_data=power,
+            power_timestamps=[float(i) for i in range(len(power))],
+        )
+        assert "quality_summary" in out
+        assert out["quality_summary"]["windows_analyzed"] >= 1
+
+
+class TestCardiacEngineBatch9:
+    def test_full_analyzer_with_cross_validation(self) -> None:
+        samples: List[ActivitySample] = []
+        for i in range(1200):
+            power = 100.0 + i * 0.15 if i < 400 else 220.0
+            samples.append(ActivitySample(t=float(i), power=power, hr=120.0 + power * 0.2))
+        for j in range(200):
+            samples.append(ActivitySample(t=1200.0 + float(j), power=0.0, hr=max(100.0, 180.0 - j * 0.3)))
+
+        hrv = [
+            {"timestamp": 200.0, "status": "AEROBIC"},
+            {"timestamp": 500.0, "status": "MIXED"},
+            {"timestamp": 900.0, "status": "ANAEROBIC"},
+        ]
+        out = CardiacResponseAnalyzer(
+            weight=72.0,
+            metabolic_snapshot={"status": "success", "mlss_power_watts": 220},
+            hrv_timeline=hrv,
+        ).analyze(samples)
+        assert out["status"] == "success"
+        assert out["segments"]["steady"] or out["segments"]["recovery"]
+        assert out["metrics"]["hr_recovery"] or out["metrics"]["aerobic_decoupling"]
+        assert out["cross_validation"].get("available") is True or "hr_at_vt1_dfa" in out["cross_validation"]
+
+
+class TestFitParserBatch9:
+    def test_long_gap_marks_unreliable(self) -> None:
+        values = np.array([200.0, 200.0, 0.0, 0.0, 0.0, 0.0, 0.0, 200.0])
+        elapsed = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 70.0])
+        quality = np.full(len(values), QUALITY_GOOD, dtype=np.uint8)
+        filled, updated_quality, stats = detect_and_fill_gaps(
+            values,
+            quality,
+            elapsed,
+            gap_short_s=5.0,
+            gap_long_s=30.0,
+        )
+        assert stats["unreliable"] >= 1 or stats["forward_filled"] >= 1
+        assert filled[-1] == 200.0
