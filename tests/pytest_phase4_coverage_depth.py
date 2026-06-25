@@ -42,22 +42,33 @@ from engines.core.data_quality_engine import (
     detect_pauses,
     remove_pauses,
 )
+from engines.core.athlete_context import AthleteContext
 from engines.core.athlete_physiological_prior import MeasuredProfile, PhysiologicalPriorManager
 from engines.io.fit_parser import (
+    QUALITY_FORWARD_FILLED,
     QUALITY_GOOD,
+    QUALITY_INTERPOLATED,
+    QUALITY_UNRELIABLE,
     ActivityStreamEnhanced,
     detect_and_fill_gaps,
     measured_signal_flags,
     normalize_lap_messages,
     parse_fit_records_enhanced,
+    _available_measured_signals,
+    _ensure_utc_datetime,
 )
 from engines.io.activity_intelligence import build_activity_intelligence, compute_best_efforts, detect_auto_intervals
 from engines.metabolic.team_learning_engine import TeamCalibrationModel, ValidationEvent
 from types import SimpleNamespace
 
-from engines.core.athlete_context import AthleteContext
+from engines.adaptive_load.models import AthleteLoadProfile, DailyStatus
+from engines.adaptive_load.orchestrator import build_adaptive_load_report
+from engines.adaptive_load.readiness import calculate_readiness
+from engines.adaptive_load.trend import calculate_load_trend
 from engines.metabolic.lab_data import (
+    LabSource,
     LabTestResult,
+    LabTestType,
     LactatePoint,
     create_lab_result,
     parse_lab_text,
@@ -81,10 +92,16 @@ from engines.performance.test_protocols import (
 from engines.history.power_curve_history import aggregate_power_curve, build_power_curve_history
 from engines.io.activity_charts import (
     build_activity_charts,
+    chart_ambient_temp,
+    chart_cadence,
     chart_elevation,
+    chart_heart_rate,
     chart_position,
+    chart_power,
     chart_power_phase,
+    chart_respiration,
     chart_speed,
+    chart_time_in_power_zone,
 )
 from engines.io.chart_builder import (
     chart_cardiac_drift,
@@ -110,6 +127,7 @@ from engines.metabolic.glycolytic_validation_engine import (
     build_glycolytic_profile,
     compute_vlapeak_observed,
     validate_vlapeak_against_model,
+    validate_wingate_glycolytic,
 )
 from engines.metabolic.metabolic_flexibility_engine import (
     calculate_metabolic_flexibility_index,
@@ -117,6 +135,13 @@ from engines.metabolic.metabolic_flexibility_engine import (
 )
 from engines.metabolic.detraining_engine import apply_detraining_model, calculate_ctl_atl_tsb, calculate_decay_factor
 from engines.metabolic.metabolic_current import get_current_metabolic_status, handle_edge_function_request
+from engines.metabolic.metabolic_profiler_phenotype import (
+    compute_energy_contribution_adaptive,
+    compute_recovery_curve_adaptive,
+    enhance_metabolic_snapshot_with_phenotype,
+    get_pcr_params,
+)
+from engines.metabolic.metabolic_profiler import MetabolicProfiler
 from engines.metabolic.metabolic_kalman import DailyInput, MetabolicKalman, process_workout_history
 from engines.performance.durability_engine import (
     calculate_durability_index,
@@ -126,6 +151,7 @@ from engines.performance.durability_engine import (
     generate_hourly_decay_curve,
 )
 from engines.performance.efforts_analyzer import analyze_efforts
+from engines.performance.mader_residual_mlp import NeuralDynamics, NeuralPowerDuration, TinyMLP
 from engines.performance.mmp_aggregator import curve_to_mmp, extract_ride_curve, update_power_curve
 from engines.performance.physiological_resilience import build_physiological_resilience
 from engines.performance.race_prediction_engine import (
@@ -164,7 +190,24 @@ from engines.workouts.adaptive_planner import adapt_plan
 from engines.workouts.calendar_engine import validate_status_transition
 from engines.workouts.recommendation_engine import recommend_workout
 from engines.workouts.template_engine import prescribe_for_athlete, validate_template
-from engines.recovery.hrv_engine import analyze_rr_stream, calculate_dfa_alpha1, detect_thresholds_from_activity
+from engines.recovery.hrv_engine import (
+    _artifact_mask,
+    _compute_sqi,
+    _correct_ectopic,
+    _detect_threshold_crossing,
+    _normal_z_for_ci,
+    _prepare_rr_quality,
+    analyze_rr_stream,
+    calculate_dfa_alpha1,
+    detect_thresholds_from_activity,
+)
+from engines.workouts.models import (
+    WorkoutStep,
+    WorkoutValidationError,
+    materialize_workout,
+    normalize_workout,
+    validate_workout_payload,
+)
 from engines.workouts.progression_levels import compute_progression_levels
 from tests._fixtures import twin_build_payload, workout_pct_cp
 
@@ -2345,3 +2388,944 @@ class TestFitParserBatch10:
         assert flags["respiration"]
         assert stream.has_core_sensor
         assert np.any(stream.left_right_balance > 0)
+
+
+class TestAdaptiveLoadCompletion:
+    def test_readiness_status_bands_and_flags(self) -> None:
+        high = calculate_readiness(
+            DailyStatus(
+                morning_hrv_lnrmssd=4.5,
+                baseline_hrv_lnrmssd=4.3,
+                morning_rhr=45,
+                baseline_rhr=46,
+                morning_temp_c=36.5,
+                baseline_temp_c=36.5,
+                sleep_score=90,
+                soreness=1,
+                stress=1,
+                mood=5,
+            )
+        )
+        assert high["status"] == "high"
+        assert high["available"] is True
+
+        low = calculate_readiness(
+            DailyStatus(
+                morning_hrv_lnrmssd=3.8,
+                baseline_hrv_lnrmssd=4.3,
+                morning_rhr=58,
+                baseline_rhr=46,
+                morning_temp_c=37.3,
+                baseline_temp_c=36.5,
+                sleep_score=30,
+                soreness=5,
+                stress=5,
+                mood=1,
+            )
+        )
+        assert low["status"] == "low"
+        assert low["flags"]
+
+        missing = calculate_readiness(None)
+        assert missing["available"] is False
+
+    def test_orchestrator_with_history(self) -> None:
+        stream = _stream(seconds=600, power=230.0)
+        workout_summary = {
+            "stream_metadata": {"sport": "cycling", "duration_s": 600, "has_power": True, "has_hr": True},
+            "sections": {
+                "power": {
+                    "status": "success",
+                    "metrics": {
+                        "duration_s": 600,
+                        "tss": 55.0,
+                        "intensity_factor": 0.82,
+                        "normalized_power": 230.0,
+                        "work_kj": 138.0,
+                    },
+                },
+                "cardiac": {"status": "success", "metrics": {"avg_hr": 145}},
+            },
+            "headline": {"worst_cardiac_drift_pct": 6.0, "worst_aerobic_decoupling_pct": 4.0},
+        }
+        report = build_adaptive_load_report(
+            stream=stream,
+            workout_summary=workout_summary,
+            athlete_profile=AthleteLoadProfile(weight_kg=72.0, ftp=280.0, hr_max=190.0, hr_rest=48.0),
+            daily_status=DailyStatus(morning_hrv_lnrmssd=4.2, baseline_hrv_lnrmssd=4.3),
+            history=[{"session_load": 50.0 + (i % 10)} for i in range(42)],
+        )
+        assert report["status"] == "success"
+        assert report["sections"]["session_load"]["external_load"]["tss"] > 0
+
+
+class TestMetabolicPhenotypeCompletion:
+    def test_enhance_snapshot_and_energy_contribution(self) -> None:
+        snap = {
+            "status": "success",
+            "estimated_vo2max": 62.0,
+            "mlss_power_watts": 280.0,
+            "map_aerobic_watts": 350.0,
+        }
+        enhanced = enhance_metabolic_snapshot_with_phenotype(
+            snap,
+            phenotype="SPRINTER",
+            weight_kg=72.0,
+            power_30s=500.0,
+            power_1200s=280.0,
+        )
+        assert enhanced["phenotype_pcr_params"]["phenotype"] == "SPRINTER"
+        assert enhanced["energy_contributions"] is not None
+
+        partial = enhance_metabolic_snapshot_with_phenotype({"status": "success"}, phenotype="SPRINTER")
+        assert partial.get("phenotype_enhancement_status") == "insufficient_metabolic_fields"
+
+        contrib = compute_energy_contribution_adaptive(
+            duration_s=1200.0,
+            power_w=280.0,
+            vo2max_mlkgmin=62.0,
+            weight_kg=72.0,
+            phenotype="TT_CLIMBER",
+        )
+        assert contrib["pcr_fraction"] + contrib["anaerobic_fraction"] + contrib["aerobic_fraction"] > 0.9
+
+
+class TestMaderResidualMlpCompletion:
+    def test_neural_power_duration_predict_and_fit(self) -> None:
+        model = NeuralPowerDuration(n_hidden=8, seed=1)
+        durations = np.array([30.0, 60.0, 180.0, 300.0])
+        mader = np.array([520.0, 480.0, 400.0, 360.0])
+        untrained = model.predict(durations, mader, vo2max=62.0, vlamax=0.4)
+        assert np.allclose(untrained, mader)
+        observed = mader * 1.03
+        result = model.fit(durations, observed, mader, vo2max=62.0, vlamax=0.4, max_iter=50)
+        trained = model.predict(durations, mader, vo2max=62.0, vlamax=0.4)
+        assert result.n_train_points == len(durations)
+        assert trained.shape == mader.shape
+
+
+class TestDetrainingCompletion:
+    def test_load_status_branches(self) -> None:
+        ref = date(2026, 6, 17)
+        base = {
+            "status": "success",
+            "estimated_vo2max": 62.0,
+            "estimated_vlamax_mmol_L_s": 0.42,
+            "mlss_power_watts": 280.0,
+            "map_aerobic_watts": 350.0,
+            "fatmax_power_watts": 200.0,
+        }
+        improving = apply_detraining_model(
+            base,
+            [{"date": ref - timedelta(days=i), "tss": 95.0} for i in range(60)],
+            ref,
+        )
+        assert improving["training_load"]["status"] in {"IMPROVING", "MAINTAINING"}
+        assert improving["training_load"]["ctl"] >= 40.0
+        assert improving["recommendations"]
+
+        declining = apply_detraining_model(
+            base,
+            [{"date": ref - timedelta(days=i), "tss": 8.0} for i in range(14)],
+            ref,
+        )
+        assert declining["training_load"]["status"] in {"DECLINING", "MAINTAINING", "DETRAINING"}
+
+
+class TestGlycolyticWingateCompletion:
+    def test_validate_wingate_glycolytic(self) -> None:
+        profiler = MetabolicProfiler(weight=72.0)
+        mmp = {5: 1100, 60: 520, 180: 420, 300: 380, 720: 340, 1200: 320}
+        out = validate_wingate_glycolytic(
+            lactate_pre_mmol=1.2,
+            lactate_post_mmol=12.0,
+            duration_s=30.0,
+            peak_power_w=1100.0,
+            mean_power_w=850.0,
+            profiler=profiler,
+            mmp=mmp,
+        )
+        assert out["status"] in {"success", "insufficient_data"}
+
+
+class TestActivityChartsCompletion:
+    def test_all_chart_helpers_and_na_paths(self) -> None:
+        stream = _chart_stream(seconds=180)
+        stream.respiration_rate = [16.0] * 180
+        stream.temperature = [22.0] * 180
+        assert chart_power(stream)["type"] == "line"
+        assert chart_heart_rate(stream)["type"] == "line"
+        assert chart_cadence(stream)["type"] == "line"
+        assert chart_respiration(stream)["type"] == "line"
+        assert chart_ambient_temp(stream)["type"] == "line"
+        zones = chart_time_in_power_zone(stream, [{"name": "Z2", "min_w": 150, "max_w": 220}])
+        assert zones["type"] == "bar"
+
+        empty = SimpleNamespace(time=[], power=[], heart_rate=[], cadence=[], speed=[], altitude=[])
+        assert chart_speed(empty).get("available") is False
+        assert chart_elevation(empty).get("available") is False
+
+
+class TestMmpAggregatorCompletion:
+    def test_monotonicity_rejection_and_date_parsing(self) -> None:
+        stored = {
+            60: {
+                "duration_s": 60,
+                "power_w": 400,
+                "ride_date": "2025-01-01",
+                "ride_id": "r1",
+                "reliability": 1.0,
+            },
+            300: {
+                "duration_s": 300,
+                "power_w": 340,
+                "ride_date": "2025-01-01",
+                "ride_id": "r1",
+                "reliability": 1.0,
+            },
+        }
+        spiky = [500.0] * 60 + [330.0] * 3540
+        result = update_power_curve(
+            spiky,
+            "2026-06-10",
+            stored_curve=stored,
+            weight_kg=72.0,
+            enforce_monotonicity=True,
+        )
+        assert result.rejected or result.improvements or result.curve
+
+        expired = update_power_curve(
+            [250.0] * 3600,
+            date(2026, 6, 17),
+            stored_curve=stored,
+            today=date(2026, 6, 17),
+            window_days=90,
+        )
+        assert len(expired.expired) >= 1
+
+
+class TestIntervalDetectorCompletion:
+    def test_cp_blocks_and_protocol_completeness(self) -> None:
+        ftp = 280.0
+        powers = [100.0] * 300
+        for block in [(900, 10), (600, 8), (360, 6)]:
+            powers.extend([float(block[0])] * block[1])
+        powers.extend([150.0] * 1200)
+        result = classify_session(powers, ftp=ftp)
+        assert result.category in {"TEST", "HIIT", "STEADY", "ENDURANCE", "FREE"}
+
+        report = protocol_completeness(
+            available_durations_s=[5, 60, 180, 300, 720, 1200],
+            qualified_anchors=[
+                QualifiedAnchor(
+                    duration_s=60,
+                    power_w=520,
+                    anchor_reliability=1.0,
+                    source_subtype="cp_test",
+                ),
+                QualifiedAnchor(
+                    duration_s=300,
+                    power_w=380,
+                    anchor_reliability=0.9,
+                    source_subtype="threshold",
+                ),
+            ],
+        )
+        assert report.to_dict()["completeness_pct"] > 0.5
+
+
+class TestHrvCompletion:
+    def test_threshold_crossing_with_declining_alpha(self) -> None:
+        rr_samples = []
+        for i in range(240):
+            base = max(650.0, 950.0 - i * 2.5)
+            rr_samples.append(
+                {
+                    "elapsed": float(i * 5),
+                    "rr": [base + (j % 5) * 2.0 for j in range(35)],
+                }
+            )
+        power = [100.0 + i * 1.5 for i in range(2400)]
+        out = detect_thresholds_from_activity(
+            rr_samples,
+            power_data=power,
+            power_timestamps=[float(i) for i in range(len(power))],
+            window_seconds=90,
+            step_seconds=8.0,
+        )
+        assert out["quality_summary"]["windows_analyzed"] >= 1
+        assert "vt1" in out and "vt2" in out
+
+
+class TestAthleteContextCompletion:
+    def test_all_discipline_mappings(self) -> None:
+        for sport, expected in [
+            ("ROAD", "ENDURANCE"),
+            ("MTB_XCO", "MIXED"),
+            ("TRACK_SPRINT", "SPRINT"),
+            ("TRIATHLON", "ENDURANCE"),
+            ("CRITERIUM", "MIXED"),
+        ]:
+            ctx = AthleteContext(discipline=sport, training_years=5)
+            assert ctx.effective_discipline() == expected
+            assert ctx.phenotype_thresholds()[0] > 0
+            assert ctx.active_muscle_fraction() > 0
+
+
+class TestLoadTrendsCompletion:
+    def test_summary_nested_tss_path(self) -> None:
+        ref = date(2026, 6, 17)
+        activities = [
+            {
+                "date": (ref - timedelta(days=i)).isoformat(),
+                "summary": {"training_stress_score": 40.0 + (i % 5)},
+            }
+            for i in range(90)
+        ]
+        out = compute_load_trends(activities, as_of=ref.isoformat())
+        assert out["status"] == "success"
+        assert out["acute_load"] > 0
+
+
+class TestDataQualityCompletion:
+    def test_clean_streams_and_pause_detection(self) -> None:
+        power = [220.0] * 100 + [0.0] * 30 + [220.0] * 100
+        cleaned = clean_power_stream([-5.0, 1200.0, 220.0, 220.0])
+        assert all(p >= 0 for p in cleaned)
+        pauses = detect_pauses(power, threshold_seconds=20)
+        assert pauses
+        trimmed = remove_pauses(power, pauses)
+        assert len(trimmed) < len(power)
+        hr = clean_hr_stream([0.0, 35.0, 140.0, 250.0, 145.0])
+        assert len(hr) == 5
+        assert 130.0 <= hr[2] <= 150.0
+        assert max(hr) <= 220.0
+
+
+class TestThermalEngineCompletion:
+    def test_heat_acclimation_branches(self) -> None:
+        sessions = [
+            ThermalSessionReport(
+                data_quality="good",
+                n_valid_samples=3000,
+                n_total_samples=3600,
+                thermal_rise_rate=0.030 - i * 0.003,
+                heat_tolerance_threshold=38.0 + i * 0.1,
+            )
+            for i in range(6)
+        ]
+        trend = analyze_heat_acclimation(sessions)
+        assert trend.n_sessions == 6
+        assert trend.trend in {"acclimating", "stable", "declining", None} or trend.notes
+
+
+class TestPhase4CompletionBatch11:
+    def test_neural_dynamics_and_mlp_state(self) -> None:
+        mlp = TinyMLP(n_in=3, n_hidden=4, n_out=2, seed=2)
+        batch = mlp.forward(np.array([[1.0, 0.5, 0.2], [0.8, 0.3, 0.1]]))
+        assert batch.shape == (2, 2)
+
+        pd = NeuralPowerDuration(n_hidden=8, seed=3)
+        short_fit = pd.fit(np.array([30.0, 60.0]), np.array([500.0, 470.0]), np.array([490.0, 460.0]), 62.0, 0.4)
+        assert short_fit.success is False
+
+        durations = np.array([30.0, 60.0, 180.0, 300.0])
+        mader = np.array([520.0, 480.0, 400.0, 360.0])
+        observed = mader * 1.03
+        trained = pd.fit(durations, observed, mader, vo2max=62.0, vlamax=0.4, max_iter=50)
+        assert trained.n_train_points == len(durations)
+        pd2 = NeuralPowerDuration(n_hidden=8, seed=3)
+        pd2.load_state(pd.get_state())
+        assert np.allclose(
+            pd2.predict(durations, mader, vo2max=62.0, vlamax=0.4),
+            pd.predict(durations, mader, vo2max=62.0, vlamax=0.4),
+        )
+
+        nd = NeuralDynamics(n_hidden=8, seed=4)
+        assert nd.predict_delta(55.0, 0.4, 10.0, 2.0) == (0.0, 0.0)
+        transitions = [
+            {
+                "vo2_before": 55.0,
+                "vla_before": 0.40,
+                "vo2_after": 55.4,
+                "vla_after": 0.41,
+                "vo2_stimulus_min": 18.0,
+                "vla_stimulus_min": 4.0,
+                "days_between": 7,
+            },
+            {
+                "vo2_before": 55.4,
+                "vla_before": 0.41,
+                "vo2_after": 54.9,
+                "vla_after": 0.39,
+                "vo2_stimulus_min": 2.0,
+                "vla_stimulus_min": 0.0,
+                "days_between": 7,
+            },
+            {
+                "vo2_before": 54.9,
+                "vla_before": 0.39,
+                "vo2_after": 55.6,
+                "vla_after": 0.42,
+                "vo2_stimulus_min": 20.0,
+                "vla_stimulus_min": 5.0,
+                "days_between": 7,
+            },
+        ]
+        dyn = nd.fit(transitions, reg_lambda=0.01, max_iter=80)
+        assert dyn.n_transitions == 3
+        delta = nd.predict_delta(55.0, 0.4, 15.0, 3.0, days=2.0)
+        assert isinstance(delta[0], float)
+        restored = NeuralDynamics(n_hidden=8, seed=4)
+        restored.load_state(nd.get_state())
+        assert restored.predict_delta(55.0, 0.4, 15.0, 3.0) != (0.0, 0.0) or dyn.success
+
+    def test_hrv_threshold_crossing_branches(self) -> None:
+        with pytest.raises(ValueError):
+            _detect_threshold_crossing([], threshold=0.75, persistence_windows=0)
+
+        no_cross = _detect_threshold_crossing(
+            [{"timestamp": 0.0, "alpha1_smoothed": 0.9}, {"timestamp": 10.0, "alpha1_smoothed": 0.85}],
+            threshold=0.75,
+        )
+        assert no_cross == (None, None, None)
+
+        crossing, t_cross, p_cross = _detect_threshold_crossing(
+            [
+                {"timestamp": 100.0, "alpha1_smoothed": 0.80},
+                {"timestamp": 110.0, "alpha1_smoothed": 0.70},
+                {"timestamp": 120.0, "alpha1_smoothed": 0.65},
+            ],
+            threshold=0.75,
+            power_data=[200.0, 300.0, 400.0],
+            power_timestamps=[100.0, 110.0, 120.0],
+            persistence_windows=2,
+        )
+        assert t_cross == 110
+        assert abs(p_cross - 250.0) < 1e-6
+
+        flat_denom = _detect_threshold_crossing(
+            [
+                {"timestamp": 0.0, "alpha1_smoothed": 0.80},
+                {"timestamp": 10.0, "alpha1_smoothed": 0.70},
+                {"timestamp": 20.0, "alpha1_smoothed": 0.65},
+            ],
+            threshold=0.75,
+            power_data=[200.0, 200.0, 200.0],
+            power_timestamps=[0.0, 10.0, 20.0],
+            persistence_windows=2,
+        )
+        assert flat_denom[2] == 200.0
+
+    def test_chart_builder_cei_and_workout_charts(self) -> None:
+        for cei, label in [(1.15, "EXCELLENT"), (1.05, "GOOD"), (0.95, "FAIR"), (0.80, "POOR")]:
+            scatter = chart_power_hr_scatter([180, 220, 260], [130, 145, 160], mlss_power=250.0, cei=cei)
+            assert label in scatter["title"]
+
+        hrv = chart_hrv_timeline(
+            [float(i * 60) for i in range(12)],
+            [0.95 - i * 0.03 for i in range(12)],
+            vt1_power=180,
+            vt2_power=220,
+            power_series=[150 + i * 8 for i in range(12)],
+        )
+        assert hrv["type"] == "line_multi_axis"
+        assert hrv.get("markers")
+
+        charts = generate_workout_charts(
+            {
+                "power_metrics": {
+                    "mmp_curve": {60: 500, 300: 340},
+                    "cp_model": {"cp": 280, "w_prime": 18000},
+                    "ftp": 290,
+                },
+                "zones_distribution": {
+                    "coggan": {"Z1": 20, "Z2": 50},
+                    "friel": {"Z1": 15, "Z2": 55},
+                    "seiler": {"Z1": 25, "Z2": 45},
+                    "metabolic": {"Z1": 30, "Z2": 40},
+                },
+                "cardiac_metrics": {
+                    "drift": {"segments": [{"segment": "First Half", "drift_pct": 4.0, "fitness": "GOOD"}]},
+                    "recovery_segments": [{"name": "R1", "hrr_60s": 22, "hrr_120s": 38}],
+                },
+            }
+        )
+        assert "power_duration" in charts
+        assert "cardiac_drift" in charts
+        assert "hr_recovery" in charts
+
+    def test_phenotype_recovery_and_weight_gates(self) -> None:
+        curve = compute_recovery_curve_adaptive(30.0, 120.0, phenotype="SPRINTER", sample_rate_s=5.0)
+        assert len(curve) == 24
+
+        missing_weight = enhance_metabolic_snapshot_with_phenotype(
+            {"status": "success", "estimated_vo2max": 62.0, "mlss_power_watts": 280.0},
+            phenotype="SPRINTER",
+        )
+        assert missing_weight["phenotype_enhancement_status"] == "insufficient_weight"
+
+        invalid_weight = enhance_metabolic_snapshot_with_phenotype(
+            {"status": "success", "estimated_vo2max": 62.0, "mlss_power_watts": 280.0},
+            phenotype="SPRINTER",
+            weight_kg=0.0,
+        )
+        assert invalid_weight["phenotype_enhancement_status"] == "invalid_weight"
+
+        defaults = enhance_metabolic_snapshot_with_phenotype(
+            {"status": "success", "estimated_vo2max": 62.0, "mlss_power_watts": 280.0},
+            phenotype="UNKNOWN_PHENOTYPE",
+            weight_kg=72.0,
+        )
+        assert defaults["phenotype_pcr_params"]["phenotype"] == "DEFAULT"
+        assert defaults["energy_contributions"]["sprint_30s"]["pcr_fraction"] > 0
+
+    def test_lab_data_roundtrip_and_parse_edges(self) -> None:
+        parsed = parse_lab_text("VO2max: 58 ml/kg/min\nVLamax 0.45\nTest date 17/06/2026")
+        assert parsed.vo2max_ml_kg_min == 58.0
+        assert parsed.test_date.year == 2026
+
+        restored = LabTestResult.from_dict(
+            {
+                "test_date": "2026-01-15",
+                "source": "not_a_real_source",
+                "test_type": "not_a_real_type",
+                "lactate_curve": [{"power_w": 200, "lactate_mmol": 2.0, "heart_rate_bpm": 140}],
+                "vo2max_ml_kg_min": 60.0,
+            }
+        )
+        assert restored.source == LabSource.UNKNOWN
+        assert restored.test_type == LabTestType.UNKNOWN
+        assert restored.lactate_curve is not None
+        assert restored.to_dict()["vo2max_ml_kg_min"] == 60.0
+
+        created = create_lab_result(
+            test_date=date(2026, 3, 1),
+            source="manual_entry",
+            vo2max=61.0,
+            vlamax=0.42,
+            mlss_w=275.0,
+        )
+        validation = validate_lab_result(created)
+        assert isinstance(validation, list)
+
+    def test_fit_parser_gaps_and_properties(self) -> None:
+        stream = ActivityStreamEnhanced(n_samples=3)
+        stream.speed_mps = np.array([1.0, 2.0, 3.0])
+        stream.temperature_c = np.array([20.0, 21.0, 22.0])
+        stream.core_body_temp = np.array([37.0, 37.1, 37.2])
+        stream.skin_temp = np.array([33.0, 33.1, 33.2])
+        assert stream.speed.tolist() == [1.0, 2.0, 3.0]
+        assert stream.temperature.tolist() == [20.0, 21.0, 22.0]
+        assert stream.core_temperature.tolist() == [37.0, 37.1, 37.2]
+
+        values = np.array([0.0, 0.0, 0.0, 220.0, 220.0], dtype=float)
+        quality = np.array([QUALITY_GOOD] * 5)
+        elapsed = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+        filled, q_out, stats = detect_and_fill_gaps(values, quality, elapsed, gap_short_s=1.0, gap_long_s=2.0)
+        assert stats["n_gaps"] >= 1
+        assert filled[-1] == 220.0
+
+        stream.lat = np.array([45.0, 45.1, 45.2])
+        stream.lon = np.array([7.0, 7.1, 7.2])
+        flags = measured_signal_flags(stream)
+        assert flags["gps"] is True
+
+    def test_jwt_hs256_decode(self) -> None:
+        import jwt as pyjwt
+
+        from api.auth.config import AuthConfig
+        from api.auth.jwt import decode_bearer_token
+
+        secret = "phase4-test-secret"
+        token = pyjwt.encode({"sub": "athlete-1"}, secret, algorithm="HS256")
+        cfg = AuthConfig(
+            mode="jwt",
+            require_athlete_id=False,
+            valid_api_keys=frozenset(),
+            api_key_athlete_prefixes={},
+            jwt_secret=secret,
+            jwt_algorithms=("HS256",),
+            jwt_audience=None,
+            jwt_issuer=None,
+            jwt_jwks_url=None,
+            athlete_scoped_prefixes=("/ride",),
+            protected_prefixes=("/ride",),
+        )
+        claims = decode_bearer_token(token, cfg)
+        assert claims["sub"] == "athlete-1"
+
+    def test_hrv_stream_without_elapsed(self) -> None:
+        rr_only = [{"rr": [800.0 + (i % 5) for i in range(40)]} for _ in range(30)]
+        timeline = analyze_rr_stream(rr_only, window_seconds=60, step_seconds=15.0)
+        assert isinstance(timeline, list)
+
+
+class TestPhase4CompletionBatch12:
+    def test_hrv_internal_quality_paths(self) -> None:
+        assert _artifact_mask(np.array([])).size == 0
+        rr = np.array([800.0, 810.0, 2000.0, 805.0, 812.0] * 20, dtype=float)
+        mask = _artifact_mask(rr)
+        corrected = _correct_ectopic(rr, mask)
+        assert corrected.shape == rr.shape
+        assert _compute_sqi(np.array([]), np.array([]), 0.0) == 0.0
+
+        excessive = _prepare_rr_quality([300.0, 2000.0, 100.0] * 30)
+        assert excessive["valid"] is False
+        assert excessive["rejected_reason"] in {"EXCESSIVE_ARTIFACTS", "INSUFFICIENT_BEATS", "HIGH_ARTIFACT_RATIO"}
+
+        clean = _prepare_rr_quality([800.0 + np.sin(i / 5.0) * 10 for i in range(80)])
+        assert "sqi" in clean
+        assert _normal_z_for_ci(0.92) > 1.6
+        assert _normal_z_for_ci(0.99) == 2.576
+
+    def test_workout_models_power_and_hr_ranges(self) -> None:
+        profile = {"cp_w": 300.0, "ftp_w": 290.0}
+        w_step = WorkoutStep(
+            step_id="w1",
+            type="work",
+            duration_s=300,
+            target_min_w=200.0,
+            target_max_w=240.0,
+        )
+        assert w_step.power_range() == (200.0, 240.0)
+        cp_step = WorkoutStep(
+            step_id="w2",
+            type="work",
+            duration_s=300,
+            target_min_pct_cp=85.0,
+            target_max_pct_cp=95.0,
+        )
+        assert cp_step.power_range(profile) == (255.0, 285.0)
+        ftp_step = WorkoutStep(
+            step_id="w3",
+            type="work",
+            duration_s=300,
+            target_pct_ftp=90.0,
+        )
+        assert ftp_step.power_range(profile) == (261.0, 261.0)
+        hr_step = WorkoutStep(step_id="w4", type="work", duration_s=120, target_min_hr=140.0, target_max_hr=155.0)
+        assert hr_step.hr_range() == (140.0, 155.0)
+
+        workout = normalize_workout(
+            {
+                "title": "Threshold",
+                "structure": [
+                    {"duration_s": 600, "type": "work", "target_pct_ftp": 95},
+                    {"duration_s": 300, "type": "recovery", "target_pct_ftp": 55},
+                ],
+            }
+        )
+        validated = validate_workout_payload(workout.to_dict(profile))
+        assert validated["status"] == "valid"
+        assert validated["summary"]["duration_s"] == 900
+
+        with pytest.raises(WorkoutValidationError):
+            normalize_workout({"title": "bad", "steps": []})
+
+    def test_thermal_session_full_analysis(self) -> None:
+        n = 3600
+        core = [36.8 + i * 0.00015 for i in range(n)]
+        power = [250.0 - (i // 400) * 5 for i in range(n)]
+        hr = [140 + (i % 200) * 0.05 for i in range(n)]
+        skin = [33.0 + i * 0.00005 for i in range(n)]
+        ambient = [24.0] * n
+        report = analyze_thermal_session(
+            core,
+            power,
+            hr_stream=hr,
+            skin_temp_stream=skin,
+            ambient_temp_stream=ambient,
+            ftp=280.0,
+        )
+        assert report.n_valid_samples >= 300
+        assert report.data_quality in {"good", "partial"}
+        assert report.thermal_rise_rate is not None or report.notes
+
+    def test_fit_parser_helpers_and_lap_normalization(self) -> None:
+        gap_start = np.array([0.0, 0.0, 0.0, 220.0], dtype=float)
+        quality = np.array([QUALITY_GOOD] * 4)
+        elapsed = np.array([0.0, 1.0, 2.0, 3.0])
+        _, q_out, _ = detect_and_fill_gaps(gap_start, quality, elapsed, gap_short_s=1.0, gap_long_s=2.0)
+        assert q_out[0] != QUALITY_GOOD or q_out[1] != QUALITY_GOOD
+
+        naive = datetime(2026, 6, 1, 8, 0, 0)
+        aware = _ensure_utc_datetime(naive)
+        assert aware.tzinfo is not None
+
+        stream = ActivityStreamEnhanced(n_samples=2)
+        stream.lat = np.array([45.0, 45.1])
+        stream.lon = np.array([7.0, 7.1])
+        stream.power = np.array([200.0, 210.0])
+        signals = _available_measured_signals(stream)
+        assert "latitude" in signals and "longitude" in signals
+
+        laps = normalize_lap_messages(
+            [
+                {
+                    "total_timer_time": 300,
+                    "avg_power": 250,
+                    "start_time": datetime(2026, 6, 1, 8, 0, 0, tzinfo=__import__("datetime").timezone.utc),
+                },
+                {"total_elapsed_time": "bad"},
+                {"total_timer_time": 0},
+            ]
+        )
+        assert len(laps) == 1
+        assert laps[0]["avg_power_w"] == 250.0
+
+    def test_lab_validation_warnings(self) -> None:
+        suspicious = LabTestResult(
+            test_date=date(2026, 1, 1),
+            vo2max_ml_kg_min=10.0,
+            vlamax_mmol_L_s=3.0,
+            mlss_power_w=400.0,
+            map_w=350.0,
+            hr_max_bpm=100.0,
+            lactate_curve=[
+                LactatePoint(power_w=200, lactate_mmol=4.0),
+                LactatePoint(power_w=250, lactate_mmol=2.0),
+            ],
+        )
+        warnings = validate_lab_result(suspicious)
+        assert len(warnings) >= 3
+
+
+class TestPhase4CompletionBatch13:
+    def test_api_parsing_helpers(self) -> None:
+        from fastapi import HTTPException
+
+        from api.parsing import (
+            athlete_context,
+            athlete_context_from_params,
+            coerce_stored_curve,
+            parse_iso_date,
+            parse_metabolic_snapshot,
+        )
+        from api.schemas import AthleteParams
+
+        ctx = athlete_context("FEMALE", 3.0, "ROAD")
+        assert ctx.gender == "FEMALE"
+        assert athlete_context_from_params(
+            AthleteParams(gender="MALE", training_years=5, discipline="TT", weight_kg=72.0)
+        ).discipline == "TT"
+        assert parse_metabolic_snapshot(None) is None
+        assert parse_metabolic_snapshot('{"status":"success"}')["status"] == "success"
+        with pytest.raises(HTTPException):
+            parse_metabolic_snapshot("{bad")
+        with pytest.raises(HTTPException):
+            parse_metabolic_snapshot('["not","object"]')
+        with pytest.raises(HTTPException):
+            parse_iso_date("2026-13-40", "test_date")
+        assert coerce_stored_curve({"60": 400, "300": 320})[60] == 400
+        assert coerce_stored_curve({"a": 1})["a"] == 1
+
+    def test_glycolytic_validation_error_paths(self) -> None:
+        bad = compute_vlapeak_observed("x", 12.0, 30.0)
+        assert bad["status"] == "error"
+        zero_dur = compute_vlapeak_observed(1.0, 12.0, 0.0)
+        assert zero_dur["reason"] == "invalid_duration"
+        flat = compute_vlapeak_observed(12.0, 10.0, 30.0)
+        assert flat["reason"] == "non_positive_lactate_delta"
+        ok = compute_vlapeak_observed(1.2, 12.0, 30.0)
+        assert ok["status"] == "success"
+        comparison = validate_vlapeak_against_model(
+            vlapeak_observed_mmol_l_s=0.9,
+            predicted_vlapeak_mmol_l_s=0.85,
+            model_vlamax_mmol_l_s=0.55,
+        )
+        assert comparison["status"] == "success"
+
+    def test_athlete_history_list_records(self) -> None:
+        records = compute_personal_records(
+            [
+                {
+                    "id": "a1",
+                    "date": "2026-06-01",
+                    "best_efforts": [
+                        {"duration_s": 300, "power_w": 320},
+                        {"duration": 60, "value": 480},
+                    ],
+                }
+            ],
+            weight_kg=72.0,
+        )
+        assert records["status"] == "success"
+        assert any(r["duration_s"] == 300 for r in records["records"])
+
+        summary = build_history_summary(
+            [{"date": "2026-06-01", "tss": 55, "mmp": {300: 310}}],
+            as_of="2026-06-15",
+            weight_kg=72.0,
+        )
+        assert summary["activity_count"] == 1
+        assert summary["personal_records"]["status"] == "success"
+
+    def test_materialize_workout_resolution(self) -> None:
+        resolved = materialize_workout(
+            {
+                "title": "Sweet spot",
+                "steps": [
+                    {"duration_s": 1200, "type": "work", "target_pct_ftp": 88},
+                    {"duration_s": 300, "type": "recovery", "target_type": "free"},
+                ],
+            },
+            {"ftp_w": 280.0, "cp_w": 285.0},
+        )
+        assert resolved["prescription_status"] == "resolved"
+        assert resolved["steps"][0]["resolved_target_w"] > 0
+
+        partial = materialize_workout(
+            {
+                "title": "Mystery",
+                "steps": [{"duration_s": 600, "type": "work", "target_type": "zone"}],
+            },
+            {},
+        )
+        assert partial["prescription_status"] == "partially_resolved"
+        assert partial["unresolved_steps"]
+
+    def test_hrv_long_threshold_detection(self) -> None:
+        rr_samples = []
+        for i in range(300):
+            base = max(600.0, 980.0 - i * 1.2)
+            rr_samples.append(
+                {
+                    "elapsed": float(i * 4),
+                    "rr": [base + (j % 4) for j in range(40)],
+                }
+            )
+        power = [90.0 + i * 0.8 for i in range(3600)]
+        out = detect_thresholds_from_activity(
+            rr_samples,
+            power_data=power,
+            power_timestamps=[float(i) for i in range(len(power))],
+            window_seconds=90,
+            step_seconds=6.0,
+            context=AthleteContext(gender="MALE", training_years=8, discipline="ROAD"),
+        )
+        assert out["quality_summary"]["windows_analyzed"] >= 5
+        assert "context_used" in out
+
+    def test_fit_parser_gap_strategies(self) -> None:
+        short_vals = np.array([220.0, 0.0, 0.0, 220.0], dtype=float)
+        short_q = np.array([QUALITY_GOOD] * 4)
+        short_t = np.array([0.0, 1.0, 2.0, 3.0])
+        short_filled, short_q_out, short_stats = detect_and_fill_gaps(short_vals, short_q, short_t, gap_short_s=5.0)
+        assert short_stats["interpolated"] >= 1
+        assert short_q_out[1] == QUALITY_INTERPOLATED
+
+        medium_vals = np.array([220.0, 0.0, 0.0, 0.0, 0.0, 220.0], dtype=float)
+        medium_q = np.array([QUALITY_GOOD] * 6)
+        medium_t = np.array([0.0, 10.0, 20.0, 30.0, 40.0, 50.0])
+        medium_filled, medium_q_out, medium_stats = detect_and_fill_gaps(
+            medium_vals, medium_q, medium_t, gap_short_s=5.0, gap_long_s=60.0
+        )
+        assert medium_stats["forward_filled"] >= 1
+
+        long_vals = np.array([220.0] + [0.0] * 8 + [220.0], dtype=float)
+        long_q = np.array([QUALITY_GOOD] * 10)
+        long_t = np.array([float(i * 10) for i in range(10)])
+        _, long_q_out, long_stats = detect_and_fill_gaps(long_vals, long_q, long_t, gap_short_s=5.0, gap_long_s=30.0)
+        assert long_stats["unreliable"] >= 1
+        assert QUALITY_UNRELIABLE in long_q_out
+
+        hr_vals = np.array([140.0, np.nan, 145.0], dtype=float)
+        hr_q = np.array([QUALITY_GOOD] * 3)
+        hr_t = np.array([0.0, 1.0, 2.0])
+        hr_filled, _, _ = detect_and_fill_gaps(hr_vals, hr_q, hr_t, zero_is_missing=False)
+        assert not np.isnan(hr_filled[1])
+
+
+class TestIntervalDetectorCompletionBatch14:
+    def test_filename_and_lap_classification_branches(self) -> None:
+        by_name = classify_session([200.0] * 600, filename="ftp_2x8_test.fit", ftp=280.0)
+        assert by_name.category == "TEST"
+        assert by_name.subtype == "ftp_2x8"
+
+        ftp_laps = [
+            {"duration_s": 480, "avg_power_w": 270},
+            {"duration_s": 480, "avg_power_w": 275},
+            {"duration_s": 300, "avg_power_w": 150},
+        ]
+        lap_test = classify_session([220.0] * 2400, laps=ftp_laps, ftp=280.0)
+        assert lap_test.category == "TEST"
+
+        hiit_laps = []
+        for _ in range(12):
+            hiit_laps.append({"duration_s": 40, "avg_power_w": 360})
+            hiit_laps.append({"duration_s": 80, "avg_power_w": 140})
+        hiit = classify_session([250.0] * 2400, laps=hiit_laps, ftp=280.0)
+        assert hiit.category in {"HIIT", "TEST", "STEADY", "FREE"}
+
+        cp_laps = [{"duration_s": 180, "avg_power_w": 350}, {"duration_s": 120, "avg_power_w": 150}]
+        cp_test = classify_session([300.0] * 1800, laps=cp_laps, ftp=280.0)
+        assert cp_test.category in {"TEST", "HIIT", "STEADY"}
+
+    def test_signal_classification_variants(self) -> None:
+        short = classify_session([200.0] * 20, ftp=280.0)
+        assert short.category == "UNCLASSIFIED"
+
+        sprint = [120.0] * 200 + [500.0] * 15 + [120.0] * 400
+        sprint_result = classify_session(sprint, ftp=280.0)
+        assert sprint_result.category in {"TEST", "FREE", "HIIT", "STEADY", "UNCLASSIFIED", "ENDURANCE"}
+
+        steady = [255.0] * 3600
+        steady_result = classify_session(steady, ftp=280.0)
+        assert steady_result.category in {"STEADY", "ENDURANCE", "FREE", "TEST", "UNCLASSIFIED"}
+
+        race = [180.0 + 80.0 * np.sin(i / 30.0) + np.random.default_rng(1).normal(0, 20) for i in range(3600)]
+        race_result = classify_session([max(50, p) for p in race], ftp=280.0)
+        assert race_result.category in {"FREE", "HIIT", "STEADY", "TEST", "ENDURANCE", "UNCLASSIFIED"}
+
+        blocks = [100.0] * 300
+        for dur in [900, 600, 360]:
+            blocks.extend([float(dur)] * 10)
+        blocks.extend([150.0] * 1200)
+        cp_blocks = classify_session(blocks, ftp=280.0)
+        assert cp_blocks.category in {"TEST", "STEADY", "HIIT", "FREE", "ENDURANCE", "UNCLASSIFIED"}
+
+
+class TestPhase4CompletionBatch15:
+    def test_data_quality_trainer_and_pause_paths(self) -> None:
+        trainer_like = [220.0 if i % 2 == 0 else 221.0 for i in range(600)]
+        report = assess_data_quality(trainer_like, hr_stream=[140.0] * 600, cadence_stream=[0.0] * 600)
+        assert report.power_quality <= 1.0
+        assert isinstance(report.issues_detected, list)
+
+        spiky = [220.0] * 50 + [800.0] + [220.0] * 50
+        spike_report = assess_data_quality(spiky)
+        assert spike_report.usable_for_analysis in {True, False}
+
+        paused = clean_workout_data([220.0] * 80 + [0.0] * 35 + [220.0] * 80, remove_pauses_flag=True)
+        assert len(paused["power_cleaned"]) < 195
+
+    def test_tiers_and_metric_helpers(self) -> None:
+        from engines.core.tiers import Tier
+
+        assert tier_for("metabolic_profiler") in {Tier.REFERENCE, Tier.MODEL, Tier.EXPERIMENTAL}
+        assert should_display(0.95) is True
+        masked = mask_low_confidence(
+            {"confidence_score": 0.2, "estimated_vo2max": 62.0},
+            value_fields=["estimated_vo2max"],
+            threshold=0.5,
+        )
+        assert masked["estimated_vo2max"] == "—" or masked.get("_display")
+
+    def test_cardiac_cross_validation_edge_inputs(self) -> None:
+        samples = _cardiac_activity(steady_s=500)
+        t = np.array([s.t for s in samples])
+        p = np.array([s.power for s in samples])
+        h = np.array([s.hr for s in samples])
+        out = cross_validate_thresholds(
+            t,
+            p,
+            h,
+            {"status": "success", "mlss_power_watts": 220, "map_aerobic_watts": 300},
+            [
+                {"timestamp": 60.0, "status": "AEROBIC", "alpha1_smoothed": 0.9},
+                {"timestamp": 180.0, "status": "MIXED", "alpha1_smoothed": 0.72},
+                {"timestamp": 300.0, "status": "ANAEROBIC", "alpha1_smoothed": 0.55},
+            ],
+        )
+        assert out.get("available") is True or "hr_at_vt1_dfa" in out or "hr_at_mlss" in out

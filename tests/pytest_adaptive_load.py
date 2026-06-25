@@ -79,3 +79,36 @@ def test_adaptive_load_report_smoke() -> None:
     assert report["headline"]["session_load_score"] is not None
     assert report["sections"]["readiness"]["available"] is True
     assert report["sections"]["recommendation"]["status"] in {"green", "yellow", "red", "blue"}
+
+
+def test_external_internal_divergence_detects_hidden_fatigue() -> None:
+    from engines.adaptive_load.trend import calculate_load_trend
+
+    history = []
+    for i in range(42):
+        dow = i % 7
+        tss = 0.0 if dow in (5, 6) else 70.0
+        sf = 1.0 + 0.50 * min(1.0, i / 35.0)
+        history.append({"tss": tss, "session_load_score": round(tss * sf, 1)})
+
+    trend = calculate_load_trend(
+        history,
+        history[-1]["session_load_score"],
+        current_external_load=history[-1]["tss"],
+    )
+    div = trend["external_internal_divergence"]
+    assert div["available"] is True
+    assert div["tsb_external"] > div["tsb_internal"]
+    assert div["divergence"] >= 6.0
+    assert div["divergence_status"] == "hidden_fatigue"
+
+
+def test_external_internal_divergence_graceful_without_internal() -> None:
+    from engines.adaptive_load.trend import calculate_load_trend
+
+    history = [{"tss": 80.0} for _ in range(40)]
+    trend = calculate_load_trend(history, 80.0, current_external_load=80.0)
+    div = trend["external_internal_divergence"]
+    assert div["available"] is True
+    assert abs(div["divergence"]) < 0.1
+    assert div["divergence_status"] == "aligned"
