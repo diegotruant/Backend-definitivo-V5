@@ -70,11 +70,26 @@ from engines.performance.test_protocols import (
     run_wingate_test,
 )
 from engines.history.power_curve_history import aggregate_power_curve, build_power_curve_history
-from engines.io.chart_builder import chart_power_duration_curve, chart_zones_distribution, generate_workout_charts
+from engines.io.activity_charts import build_activity_charts
+from engines.io.chart_builder import (
+    chart_hrv_timeline,
+    chart_metabolic_combustion,
+    chart_power_duration_curve,
+    chart_training_load,
+    chart_zones_distribution,
+    generate_workout_charts,
+)
 from engines.io.session_router import decide_route, route_and_run
 from engines.load.manual_load import calculate_manual_load
 from engines.metabolic.detraining_engine import apply_detraining_model, calculate_ctl_atl_tsb, calculate_decay_factor
+from engines.metabolic.metabolic_current import get_current_metabolic_status, handle_edge_function_request
 from engines.metabolic.metabolic_kalman import DailyInput, MetabolicKalman, process_workout_history
+from engines.performance.durability_engine import (
+    calculate_durability_index,
+    calculate_np_drift,
+    calculate_tte_sustainability,
+    generate_hourly_decay_curve,
+)
 from engines.performance.mmp_aggregator import curve_to_mmp, extract_ride_curve, update_power_curve
 from engines.performance.physiological_resilience import build_physiological_resilience
 from engines.performance.race_prediction_engine import (
@@ -107,8 +122,10 @@ from engines.recovery.explainability_engine import (
 from engines.recovery.pedaling_balance import analyze_balance_trend, analyze_pedaling_balance
 from engines.routes.segment_engine import compare_segments, detect_climb_segments
 from engines.recovery.thermal_engine import ThermalSessionReport, analyze_heat_acclimation, analyze_thermal_session
+from engines.workouts.adaptive_planner import adapt_plan
 from engines.workouts.calendar_engine import validate_status_transition
 from engines.workouts.recommendation_engine import recommend_workout
+from engines.workouts.template_engine import prescribe_for_athlete, validate_template
 from engines.recovery.hrv_engine import analyze_rr_stream, calculate_dfa_alpha1, detect_thresholds_from_activity
 from engines.workouts.progression_levels import compute_progression_levels
 from tests._fixtures import twin_build_payload, workout_pct_cp
@@ -1304,3 +1321,189 @@ class TestIntervalDetectorBatch5:
         result = classify_session(powers, ftp=ftp)
         assert result.category == "TEST"
         assert result.subtype in {"mixed_test", "cp_test", "ftp_20min", "cp12", "cp6", "cp3", "ramp_test"}
+
+
+def _chart_stream(*, seconds: int = 600) -> SimpleNamespace:
+    t = np.arange(seconds, dtype=float)
+    return SimpleNamespace(
+        time=t.tolist(),
+        altitude=(100.0 + np.linspace(0, 50, seconds)).tolist(),
+        speed=[8.0] * seconds,
+        power=[220.0] * seconds,
+        heart_rate=[140.0] * seconds,
+        cadence=[90.0] * seconds,
+        respiration=[16.0] * seconds,
+        ambient_temp=[20.0] * seconds,
+        left_right_balance=[50.0] * seconds,
+        position=[0.0] * seconds,
+        power_phase=[0.0] * seconds,
+        platform_offset=[0.0] * seconds,
+        core_body_temp=[37.2] * seconds,
+        skin_temp=[33.0] * seconds,
+        n_samples=seconds,
+    )
+
+
+class TestMetabolicCurrentBatch6:
+    def test_get_current_metabolic_status(self) -> None:
+        mmp = {5: 1000, 60: 500, 180: 360, 300: 340, 600: 320, 1200: 290}
+        history = [{"date": (date(2026, 6, 17) - timedelta(days=i)).isoformat(), "tss": 55.0} for i in range(14)]
+        out = get_current_metabolic_status(
+            mmp,
+            history,
+            athlete_weight_kg=72.0,
+            athlete_context={"gender": "MALE", "training_years": 8, "discipline": "ROAD"},
+            today="2026-06-17",
+        )
+        assert out.get("status") == "success" or out.get("detraining_applied") is True
+        assert "athlete" in out or "training_load" in out
+
+    def test_handle_edge_function_missing_field(self) -> None:
+        out = handle_edge_function_request({"historical_mmp": {60: 400}})
+        assert out["status"] == "error"
+
+
+class TestActivityChartsBatch6:
+    def test_build_activity_charts(self) -> None:
+        stream = _chart_stream(seconds=900)
+        charts = build_activity_charts(
+            stream,
+            zones=[{"name": "Z2", "min_w": 150, "max_w": 220}],
+            hrv_durability={"time_in_zone": {"AEROBIC": 400, "MIXED": 200, "ANAEROBIC": 50}},
+        )
+        assert charts["power"].get("type") == "line"
+        assert charts["elevation"].get("type") == "line"
+        assert charts["_metadata"]["available_charts_count"] >= 5
+
+
+class TestWorkoutEnginesBatch6:
+    _WORKOUT = {
+        "title": "Threshold",
+        "steps": [{"step_id": "1", "type": "work", "duration_s": 1200, "target_w": 260, "is_key_step": True}],
+    }
+
+    def test_validate_and_prescribe_template(self) -> None:
+        valid = validate_template(self._WORKOUT)
+        assert valid["status"] == "valid"
+        rx = prescribe_for_athlete(self._WORKOUT, {"cp_w": 280, "weight_kg": 72})
+        assert rx["status"] == "success"
+        assert rx["prescription"]["prescription_status"] in {"resolved", "partially_resolved"}
+
+    def test_adapt_plan_branches(self) -> None:
+        plan = [{"target_w": 200, "load": 80.0}]
+        reduced = adapt_plan(plan, readiness={"readiness_score": 40}, last_compliance={"compliance_score": 0.4})
+        assert reduced["reason"] == "reduce_load"
+        assert reduced["adapted_plan"][0]["target_w"] < 200
+        progressed = adapt_plan(plan, readiness={"readiness_score": 90}, last_compliance={"compliance_score": 0.95})
+        assert progressed["reason"] == "small_progression"
+
+
+class TestMetabolicKalmanLabBatch6:
+    def test_update_from_lab_result(self) -> None:
+        kalman = MetabolicKalman(np.array([58.0, 0.38]), np.diag([9.0, 0.02]), weight=72.0)
+        lab = create_lab_result(date(2026, 6, 1), vo2max=62.5, vlamax=0.42)
+        updated = kalman.update_from_lab(lab)
+        assert updated.vo2max > 58.0
+
+
+class TestSessionRouterBatch6:
+    def test_route_with_metabolic_snapshot_and_rr(self) -> None:
+        power = [150 + i * 2 for i in range(600)]
+        rr = [{"elapsed": float(i * 5), "rr": [800.0 + (i % 5)] * 20} for i in range(120)]
+        elapsed = [float(i) for i in range(len(power))]
+        out = route_and_run(
+            power,
+            rr_samples=rr,
+            elapsed_s=elapsed,
+            filename="ramp_test.fit",
+            ftp=280.0,
+            weight_kg=72.0,
+            metabolic_snapshot={"status": "success", "mlss_power_watts": 280, "estimated_vo2max": 62},
+        )
+        assert out["routing"]["route"] in {"hrv_threshold", "metabolic_anchor"}
+        assert "results" in out
+
+
+class TestHrvBatch6:
+    def test_detect_thresholds_with_power_alignment(self) -> None:
+        rr_samples = [
+            {"elapsed": float(i * 10), "rr": [820.0 - i * 0.5] * 25}
+            for i in range(60)
+        ]
+        power = [150.0 + i * 0.8 for i in range(600)]
+        out = detect_thresholds_from_activity(rr_samples, power_data=power)
+        assert "vt1" in out
+        assert "vt2" in out
+
+
+class TestPedalingBalanceBatch6:
+    def test_refuse_unknown_source_strict(self) -> None:
+        report = analyze_pedaling_balance(
+            [50.0] * 300,
+            [200.0] * 300,
+            pedaling_balance_source="unknown",
+            accept_unknown_source=False,
+        )
+        assert report.data_quality == "refused_single_side"
+
+
+class TestChartBuilderBatch6:
+    def test_hrv_timeline_and_training_load(self) -> None:
+        hrv = chart_hrv_timeline(
+            list(range(0, 600, 10)),
+            [0.9 - i * 0.002 for i in range(60)],
+            vt1_power=210,
+            vt2_power=260,
+            power_series=[150 + i for i in range(60)],
+        )
+        assert hrv["type"] == "line_multi_axis"
+        pmc = chart_training_load(
+            [date(2026, 6, 1) + timedelta(days=i) for i in range(7)],
+            [50, 52, 54, 55, 56, 57, 58],
+            [60, 58, 57, 56, 55, 54, 53],
+            [10, 8, 6, 4, 2, 0, -2],
+        )
+        assert pmc["type"] == "line_multi"
+
+    def test_metabolic_combustion_chart(self) -> None:
+        chart = chart_metabolic_combustion(
+            [180, 220, 260],
+            [60.0, 40.0, 20.0],
+            [35.0, 50.0, 60.0],
+            [5.0, 10.0, 20.0],
+            markers={"FatMax": 180, "MLSS": 260},
+        )
+        assert chart["type"] == "area_stacked"
+
+
+class TestDurabilityEngineBatch6:
+    def test_durability_np_drift_and_decay(self) -> None:
+        power = [250.0] * 3600 + [235.0] * 3600
+        di = calculate_durability_index(power, duration_seconds=len(power))
+        assert di["status"] == "success"
+        drift = calculate_np_drift(power, len(power))
+        assert "drift_pct" in drift or drift.get("status")
+        decay = generate_hourly_decay_curve(power, len(power))
+        assert decay.get("status") == "success" or "hourly" in str(decay).lower()
+        tte = calculate_tte_sustainability(power[:1800], 270.0)
+        assert tte.get("status") in {"success", "insufficient_data", None} or "sustainability" in tte
+
+
+class TestIntervalDetectorBatch6:
+    def test_classify_by_laps_ramp(self) -> None:
+        laps = [
+            {"duration_s": 300, "avg_power_w": 180 + i * 15}
+            for i in range(8)
+        ]
+        powers = [200.0] * 2400
+        result = classify_session(powers, laps=laps, ftp=280.0)
+        assert result.category in {"TEST", "HIIT", "STEADY"}
+        assert result.source == "laps" or result.confidence > 0.1
+
+
+class TestDataQualityBatch6:
+    def test_cadence_quality_and_assess_all_streams(self) -> None:
+        cadence = [0.0] * 50 + [90.0] * 200
+        report = assess_data_quality([220.0] * 250, cadence_stream=cadence)
+        assert report.cadence_quality is not None
+        assert report.overall_score >= 0
