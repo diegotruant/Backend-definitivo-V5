@@ -79,15 +79,30 @@ from engines.performance.test_protocols import (
     run_wingate_test,
 )
 from engines.history.power_curve_history import aggregate_power_curve, build_power_curve_history
-from engines.io.activity_charts import build_activity_charts
+from engines.io.activity_charts import (
+    build_activity_charts,
+    chart_elevation,
+    chart_position,
+    chart_power_phase,
+    chart_speed,
+)
 from engines.io.chart_builder import (
+    chart_cardiac_drift,
+    chart_cross_validation_matrix,
+    chart_detraining_decay,
+    chart_efforts_radar,
+    chart_hr_kinetics,
+    chart_hr_recovery,
     chart_hrv_timeline,
     chart_metabolic_combustion,
+    chart_phenotype_spider,
     chart_power_duration_curve,
+    chart_power_hr_scatter,
     chart_training_load,
     chart_zones_distribution,
     generate_workout_charts,
 )
+from engines.io.profile_anchor_flow import build_anchor_from_proposal, update_profile_from_ride
 from engines.io.session_router import decide_route, route_and_run
 from engines.load.manual_load import calculate_manual_load
 from engines.metabolic.coggan_classifier import classify_duration, classify_from_mmp, classify_power_profile
@@ -2097,3 +2112,236 @@ class TestFitParserBatch9:
         )
         assert stats["unreliable"] >= 1 or stats["forward_filled"] >= 1
         assert filled[-1] == 200.0
+
+
+class TestChartBuilderBatch10:
+    def test_secondary_chart_types(self) -> None:
+        drift = chart_cardiac_drift(
+            [
+                {"segment": "First Half", "drift_pct": 2.3, "fitness": "EXCELLENT"},
+                {"segment": "Second Half", "drift_pct": 6.5, "fitness": "FAIR"},
+            ]
+        )
+        assert drift["type"] == "bar"
+
+        decay = chart_detraining_decay(
+            ["VO2max", "MLSS"],
+            [62.0, 280.0],
+            [58.0, 265.0],
+            ["ml/kg/min", "W"],
+        )
+        assert decay["type"] == "bar_grouped"
+
+        radar = chart_efforts_radar(
+            ["5s", "1min", "5min"],
+            [180.0, 140.0, 110.0],
+            [175.0, 135.0, 105.0],
+            [170.0, 130.0, 100.0],
+            [165.0, 125.0, 95.0],
+        )
+        assert radar["type"] == "radar"
+
+        spider = chart_phenotype_spider({"5s": 7, "1min": 6, "5min": 4, "FTP": 3})
+        assert spider["type"] == "radar"
+
+        matrix = chart_cross_validation_matrix(
+            ["HRV", "Mader"],
+            [250.0, 255.0],
+            [315.0, None],
+        )
+        assert matrix["type"] == "table"
+        assert matrix["data"][1]["VT2 (W)"] == "N/A"
+
+        kinetics = chart_hr_kinetics([0, 60, 120], [130, 150, 165], tau=45.0, steady_state_hr=170)
+        assert kinetics["type"] == "line_scatter"
+
+        scatter = chart_power_hr_scatter([180, 220, 260], [130, 145, 160], mlss_power=250.0)
+        assert scatter["type"] == "scatter"
+
+        recovery = chart_hr_recovery(
+            [{"name": "Recovery 1", "hrr_60s": 25, "hrr_120s": 42}],
+        )
+        assert recovery["type"] == "bar_grouped"
+
+
+class TestDurabilityEngineBatch10:
+    def test_np_drift_tte_and_hourly_decay(self) -> None:
+        short = calculate_np_drift([220.0] * 1200, 1200)
+        assert short["status"] == "insufficient_duration"
+
+        power = [270.0] * 1800 + [250.0] * 1800
+        drift = calculate_np_drift(power, len(power))
+        assert drift["status"] == "success"
+        assert drift["classification"] in {"EXCELLENT", "GOOD", "FAIR", "POOR"}
+
+        tte = calculate_tte_sustainability([280.0] * 4200 + [200.0] * 600, 270.0)
+        assert tte["classification"] == "EXCELLENT"
+
+        hourly = generate_hourly_decay_curve([250.0] * 7200, 7200)
+        assert hourly["status"] == "success"
+        assert len(hourly["hourly_data"]) >= 2
+
+        short_hourly = generate_hourly_decay_curve([220.0] * 1800, 1800)
+        assert short_hourly["status"] == "insufficient_duration"
+
+
+class TestProfileAnchorFlowBatch10:
+    def test_build_anchor_and_ride_update_paths(self) -> None:
+        proposal = {
+            "confidence": 0.85,
+            "sprint": {
+                "peak_1s_w": 1200,
+                "mean_w": 900,
+                "duration_s": 15,
+                "peak_3s_w": 1100,
+                "peak_5s_w": 1050,
+            },
+            "mmp_for_fit": {60: 520, 180: 420, 300: 380, 720: 340, 1200: 320},
+        }
+        anchor = build_anchor_from_proposal(proposal, weight_kg=72.0, measured_on="2026-06-01")
+        assert anchor.status in {"anchored", "partial"}
+        assert anchor.profile is not None
+
+        profile = MeasuredProfile(
+            measured_on=date(2026, 1, 1),
+            vo2max=62.0,
+            vlamax=0.42,
+            mlss_watts=280.0,
+        )
+        held = update_profile_from_ride(
+            profile,
+            {5: 700, 60: 400, 300: 350, 1200: 400},
+            weight_kg=72.0,
+            as_of="2026-06-17",
+        )
+        assert held["status"] == "anchor_held"
+
+        updated = update_profile_from_ride(
+            profile,
+            {5: 1200, 60: 900, 300: 400, 1200: 320},
+            weight_kg=72.0,
+            as_of="2026-06-17",
+        )
+        assert updated.get("update_method") == "deterministic_fit_with_vlamax_prior"
+
+
+class TestActivityChartsBatch10:
+    def test_individual_chart_helpers(self) -> None:
+        stream = _chart_stream(seconds=120)
+        stream.lat = [45.0] * 120
+        stream.lon = [7.0] * 120
+        stream.left_power_phase = [12.0] * 120
+        assert chart_elevation(stream)["type"] == "line"
+        assert chart_speed(stream)["type"] == "line"
+        assert chart_position(stream)["type"] == "map"
+        assert chart_power_phase(stream)["type"] == "cycling_dynamics"
+
+        empty = SimpleNamespace(time=[], altitude=[], lat=[], lon=[], left_power_phase=[])
+        assert chart_position(empty).get("available") is False
+
+
+class TestMmpAggregatorBatch10:
+    def test_merge_improvements_with_streams(self) -> None:
+        stored = {
+            60: {
+                "duration_s": 60,
+                "power_w": 400,
+                "ride_date": "2026-06-01",
+                "ride_id": "r1",
+                "reliability": 1.0,
+            }
+        }
+        result = update_power_curve(
+            [420.0] * 3600,
+            date(2026, 6, 10),
+            stored_curve=stored,
+            weight_kg=72.0,
+            hr_stream=[140.0] * 3600,
+            cadence_stream=[90.0] * 3600,
+            ride_id="strong_ride",
+        )
+        assert result.ride_usable is not False
+        assert result.improvements or result.mmp_for_profiler.get(60, 0) >= 400
+
+
+class TestCardiacEngineBatch10:
+    def test_ramp_segment_kinetics(self) -> None:
+        samples = [
+            ActivitySample(t=float(i), power=100.0 + i * 0.5, hr=100.0 + (100.0 + i * 0.5) * 0.3)
+            for i in range(1200)
+        ]
+        out = CardiacResponseAnalyzer(weight=72.0).analyze(samples)
+        assert out["status"] == "success"
+        assert out["segments"]["ramp"]
+        assert out["metrics"]["hr_kinetics"] or out["metrics"]["chronotropic_response"]
+
+
+class TestMetabolicKalmanBatch10:
+    def test_update_with_anchors_and_lab(self) -> None:
+        kalman = MetabolicKalman(np.array([60.0, 0.4]), np.diag([4.0, 0.01]), weight=72.0)
+        kalman.predict(DailyInput(date=date(2026, 6, 1), vo2max_stimulus_min=25.0))
+        state = kalman.update([(180, 360.0), (360, 330.0), (720, 300.0)])
+        assert state is not None
+        assert state.vo2max > 0
+
+        lab = create_lab_result(date(2026, 6, 2), vo2max=63.0, vlamax=0.41)
+        lab_state = kalman.update_from_lab(lab)
+        assert lab_state.vo2max > 0
+
+
+class TestLoadTrendsBatch10:
+    def test_moderate_risk_band(self) -> None:
+        ref = date(2026, 6, 17)
+        activities = []
+        for i in range(90):
+            d = ref - timedelta(days=89 - i)
+            tss = 55.0 if i >= 70 else 20.0
+            activities.append({"date": d.isoformat(), "tss": tss})
+        out = compute_load_trends(activities, as_of=ref.isoformat())
+        assert out["risk"] in {"moderate", "high"}
+        assert out["acute_load"] > out["chronic_load"]
+
+
+class TestLabDataBatch10:
+    def test_parse_german_source_markers(self) -> None:
+        text = (
+            "Spiroergometrie Bericht\n"
+            "VO2max 58.5 ml/kg/min\n"
+            "FTP: 265 W\n"
+            "FatMax 190 W\n"
+            "Gewicht 72 kg\n"
+        )
+        result = parse_lab_text(text)
+        assert result.vo2max_ml_kg_min == 58.5
+        assert result.mlss_power_w == 265
+        assert result.fatmax_power_w == 190
+
+
+class TestFitParserBatch10:
+    def test_parse_extended_sensor_fields(self) -> None:
+        start = datetime(2026, 6, 1, 8, 0, 0)
+        records = []
+        for i in range(60):
+            records.append(
+                {
+                    "timestamp": start + timedelta(seconds=i),
+                    "power": 220.0,
+                    "heart_rate": 140,
+                    "cadence": 90,
+                    "position_lat": 45.0 + i * 0.0001,
+                    "position_long": 7.0 + i * 0.0001,
+                    "respiration_rate": 16.0,
+                    "core_body_temperature": 37.1,
+                    "skin_temperature": 33.0,
+                    "left_right_balance": 128,
+                }
+            )
+        stream = parse_fit_records_enhanced(
+            records,
+            session_dict={"start_time": start, "sport": "cycling", "total_elapsed_time": 60},
+        )
+        flags = measured_signal_flags(stream)
+        assert flags["gps"]
+        assert flags["respiration"]
+        assert stream.has_core_sensor
+        assert np.any(stream.left_right_balance > 0)
