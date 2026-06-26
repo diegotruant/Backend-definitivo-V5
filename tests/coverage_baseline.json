@@ -1,5 +1,5 @@
 {
-  "line_percent": 93.53,
-  "branch_percent": 87.77,
-  "note": "Phase 7 heavy pass — measured line 93.53%, branch 87.77% (1202 tests). Golden FIT parsing, HRV/cardiac depth, workout summary E2E."
+  "line_percent": 93.82,
+  "branch_percent": 88.29,
+  "note": "Phase 8 toward-100 pass — measured line 93.82%, branch 88.29% (1234 tests). Interval/HRV/fit/cardiac/thermal/effort depth."
 }
