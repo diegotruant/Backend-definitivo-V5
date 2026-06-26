@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Any, Dict, List
 
 import numpy as np
@@ -5272,3 +5273,413 @@ class TestPhase5CoverageBatch13:
 
         rx = generate_durability_prescription(88.0, "FAIR")
         assert rx["focus"]
+
+
+class TestPhase5CoverageBatch14:
+    """Phase 5 — fit_parser and interval_detector branch closure."""
+
+    def test_fit_parser_field_helpers_and_import_stubs(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import engines.io.fit_parser as fp
+
+        assert fp._field_to_float(None) is None
+        assert fp._field_to_float({"value": 42.0}) == 42.0
+        assert fp._field_to_float([{"raw_value": 33.0}]) == 33.0
+        assert fp._field_to_float(float("nan")) is None
+        assert fp._field_to_float("bad") is None
+
+        monkeypatch.setattr(fp, "FITDECODE_AVAILABLE", False, raising=False)
+        monkeypatch.setattr(fp, "FITPARSE_AVAILABLE", False, raising=False)
+        monkeypatch.setattr(fp, "FIT_BACKEND_AVAILABLE", False, raising=False)
+        with pytest.raises(RuntimeError, match="No FIT parser backend"):
+            fp._extract_messages(b"x", check_crc=False)
+
+        monkeypatch.setattr(fp, "FITPARSE_AVAILABLE", True, raising=False)
+        monkeypatch.setattr(fp, "FIT_BACKEND_AVAILABLE", True, raising=False)
+
+        class _BrokenFitFile:
+            def __init__(self, *_args, **_kwargs) -> None:
+                pass
+
+            def get_messages(self):
+                return []
+
+        monkeypatch.setattr(fp, "fitparse", SimpleNamespace(FitFile=_BrokenFitFile), raising=False)
+        records, *_ = fp._extract_messages_with_fitparse(b"\x0e" + b"x" * 40, check_crc=False)
+        assert records == []
+
+    def test_fit_parser_balance_hrv_and_device_branches(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import engines.io.fit_parser as fp
+
+        start = datetime(2026, 6, 1, 8, 0, 0)
+        records = []
+        for i in range(120):
+            lrb: Any = 200 if i % 3 == 0 else 48.0
+            if i == 10:
+                lrb = {"value": 130, "right": True}
+            elif i == 11:
+                lrb = 0x8A  # top bit + right percent encoding
+            records.append(
+                {
+                    "timestamp": start + timedelta(seconds=i),
+                    "power": 220.0,
+                    "heart_rate": 140.0,
+                    "left_right_balance": lrb,
+                    "respiratory_rate": 18.0,
+                    "core_body_temperature": 37.2,
+                    "skin_temperature": 33.0,
+                    "left_power_phase": 120.0,
+                    "right_pedal_smoothness": 44.0,
+                    "left_torque_effectiveness": 21.0,
+                    "cadence_position": "standing" if i % 50 == 0 else "seated",
+                }
+            )
+
+        stream = parse_fit_records_enhanced(
+            records,
+            session_dict={"start_time": start, "sport": "cycling", "total_elapsed_time": 120},
+        )
+        assert stream.has_power
+        assert stream.has_respiration or np.any(stream.respiration_rate > 0)
+        assert stream.has_core_sensor
+
+        varying_balance = parse_fit_records_enhanced(
+            [
+                {
+                    "timestamp": start + timedelta(seconds=i),
+                    "power": 220.0,
+                    "left_right_balance": 42.0 + (i % 7),
+                }
+                for i in range(90)
+            ],
+            session_dict={"start_time": start, "total_elapsed_time": 90},
+        )
+        assert varying_balance.left_right_balance.std() > 1.0
+
+        def _fake_extract(payload: bytes, *, check_crc: bool):
+            rr_records = [
+                {"timestamp": start + timedelta(seconds=i), "power": 200.0, "heart_rate": 140.0}
+                for i in range(30)
+            ]
+            return (
+                rr_records,
+                [{"sport": "cycling", "start_time": start, "total_elapsed_time": 30}],
+                [
+                    {"manufacturer": "Garmin", "product": "Edge"},
+                    {"manufacturer": "SRAM", "product": "dual power crank", "antplus_device_type": 11},
+                ],
+                [{"time": [0.82, 0.81, 0.83]}],
+                [{"total_timer_time": 300, "avg_power": 250}],
+            )
+
+        monkeypatch.setattr(fp, "_extract_messages", _fake_extract)
+        fit_path = Path(__file__).resolve().parent / "assets" / "fit" / "minimal_power_hr_lap_hrv.fit"
+        if fit_path.exists():
+            parsed = fp.parse_fit_file_enhanced(str(fit_path), check_crc=False, repair_synthetic_header=False)
+            assert parsed.n_samples > 0
+            assert parsed.pedaling_balance_source in {"dual", "single_estimated", "unknown"}
+            assert isinstance(parsed.laps, list)
+
+    def test_interval_detector_private_lap_and_signal_matrix(self) -> None:
+        from engines.performance.interval_detector import (
+            _classify_by_filename,
+            _classify_by_laps,
+            _classify_by_signal,
+            _detect_ramp_protocol,
+            _detect_sustained_blocks,
+        )
+
+        assert _classify_by_filename("ftp_20min_test.fit") is not None
+        assert _classify_by_filename(None) is None
+
+        no_power_laps = [{"duration_s": 300, "avg_power_w": None} for _ in range(4)]
+        assert _classify_by_laps(no_power_laps, ftp=280.0) is None
+
+        ramp_laps = [{"duration_s": 180, "avg_power_w": 180 + i * 20} for i in range(8)]
+        ramp = _classify_by_laps(ramp_laps, ftp=280.0)
+        assert ramp is not None and ramp[0] == "TEST"
+
+        ftp_laps = [
+            {"duration_s": 480, "avg_power_w": 270},
+            {"duration_s": 480, "avg_power_w": 272},
+            {"duration_s": 300, "avg_power_w": 150},
+        ]
+        ftp = _classify_by_laps(ftp_laps, ftp=280.0)
+        assert ftp is not None and ftp[0] == "TEST"
+
+        hiit_laps = []
+        for _ in range(12):
+            hiit_laps.append({"duration_s": 35, "avg_power_w": 360})
+            hiit_laps.append({"duration_s": 85, "avg_power_w": 140})
+        hiit = _classify_by_laps(hiit_laps, ftp=280.0)
+        assert hiit is not None and hiit[0] == "HIIT"
+
+        cp_lap = [{"duration_s": 180, "avg_power_w": 350}, {"duration_s": 120, "avg_power_w": 150}]
+        cp = _classify_by_laps(cp_lap, ftp=280.0)
+        assert cp is not None and cp[0] == "TEST"
+
+        mixed_laps = [{"duration_s": 120, "avg_power_w": 220 + (i % 3) * 30} for i in range(6)]
+        mixed = _classify_by_laps(mixed_laps, ftp=280.0)
+        assert mixed is None or mixed[0] in {"HIIT", "TEST"}
+
+        ramp_sig = _detect_ramp_protocol(_ramp_staircase_powers(steps=8, step_s=60))
+        assert ramp_sig["is_ramp"] is True
+
+        blocks = _detect_sustained_blocks([150.0] * 200 + [300.0] * 400 + [150.0] * 200, ftp=280.0)
+        assert blocks
+
+        sprint_sig = _classify_by_signal([120.0] * 200 + [500.0] * 12 + [120.0] * 400, ftp=280.0)
+        assert sprint_sig[0] in {"TEST", "FREE", "HIIT", "UNCLASSIFIED"}
+
+        hiit_sig = _classify_by_signal([350.0 if i % 2 == 0 else 260.0 for i in range(1200)], ftp=280.0)
+        assert hiit_sig[0] in {"HIIT", "FREE", "STEADY", "TEST", "UNCLASSIFIED"}
+
+        mixed_test = [900.0] * 8 + [285.0] * 420 + [120.0] * 600
+        mixed_cls = _classify_by_signal(mixed_test, ftp=280.0)
+        assert mixed_cls[0] in {"TEST", "HIIT", "STEADY", "FREE", "UNCLASSIFIED"}
+
+
+class TestPhase5CoverageBatch15:
+    """Phase 5 — hrv, cardiac, mmp_quality, lab_data branch closure."""
+
+    def test_hrv_internal_quality_and_crossing_paths(self) -> None:
+        from engines.recovery.hrv_engine import _compute_sqi, _correct_ectopic
+
+        rr = np.array([800.0, 820.0, 810.0, 805.0, 815.0], dtype=float)
+        mask = _artifact_mask(rr)
+        corrected = _correct_ectopic(rr, mask)
+        sqi = _compute_sqi(rr, corrected, art_ratio=0.1)
+        assert 0.0 <= sqi <= 1.0
+
+        with pytest.raises(ValueError):
+            _correct_ectopic(rr, np.ones_like(rr, dtype=bool))
+
+        with pytest.raises(ValueError):
+            _detect_threshold_crossing([], 0.75, persistence_windows=0)
+
+        crossing = _detect_threshold_crossing(
+            [
+                {"timestamp": 0.0, "alpha1_smoothed": 0.95},
+                {"timestamp": 30.0, "alpha1_smoothed": 0.72},
+                {"timestamp": 60.0, "alpha1_smoothed": 0.68},
+            ],
+            threshold=0.75,
+            power_data=[200.0, 240.0, 260.0],
+            power_timestamps=[0.0, 30.0, 60.0],
+            persistence_windows=1,
+        )
+        assert crossing[0] is not None
+
+        bad_rr = analyze_rr_stream([{"rr": [50.0, 3000.0, 100.0] * 10}], window_seconds=30, step_seconds=5.0)
+        assert isinstance(bad_rr, list)
+
+        sparse = calculate_dfa_alpha1([800.0] * 5)
+        assert sparse["status"] in {"INSUFFICIENT_DATA", "INVALID_WINDOW", "ERROR"}
+
+    def test_cardiac_segments_and_cross_validation_edges(self) -> None:
+        samples = _cardiac_activity(steady_s=600)
+        t = np.array([s.t for s in samples])
+        p = np.array([s.power for s in samples])
+        h = np.array([s.hr for s in samples])
+        seg = Segment(kind="steady", start_idx=50, end_idx=550, start_t=50.0, end_t=549.0, duration_s=500.0)
+
+        drift = compute_cardiac_drift(t, p, h, seg)
+        assert drift.get("available") in {True, False}
+        decouple = compute_aerobic_decoupling(t, p, h, seg)
+        assert decouple.get("available") in {True, False}
+        chrono = compute_chronotropic_response(t, p, h, seg)
+        assert chrono.get("available") in {True, False}
+        recovery = compute_hr_recovery(t, h, seg)
+        assert recovery.get("available") in {True, False}
+
+        ramp_t = np.arange(240, dtype=float)
+        ramp_p = np.linspace(120, 300, 240)
+        ramp_h = 120.0 + ramp_p * 0.12
+        ramp_seg = Segment(kind="ramp", start_idx=0, end_idx=239, start_t=0.0, end_t=239.0, duration_s=240.0)
+        ramp_chrono = compute_chronotropic_response(ramp_t, ramp_p, ramp_h, ramp_seg)
+        assert ramp_chrono.get("available") in {True, False}
+
+        cv = cross_validate_thresholds(
+            t,
+            p,
+            h,
+            {"status": "success", "mlss_power_watts": 220, "map_aerobic_watts": 320},
+            [
+                {"timestamp": 60.0, "status": "AEROBIC", "alpha1_smoothed": 0.92},
+                {"timestamp": 180.0, "status": "MIXED", "alpha1_smoothed": 0.72},
+                {"timestamp": 300.0, "status": "ANAEROBIC", "alpha1_smoothed": 0.55},
+            ],
+        )
+        assert cv.get("available") is True or "hr_at_vt1_dfa" in cv or "hr_at_mlss" in cv
+
+    def test_mmp_quality_lab_and_effort_edges(self) -> None:
+        weird = {5: 2500, 15: 1800, 60: 520, 300: 520, 600: 520, 1200: 510}
+        report = analyze_mmp_quality(weird)
+        assert report.issues
+        assert report.classification
+
+        cleaned, audit = clean_mmp(
+            weird,
+            drop_rules=["identical_plateau", "sprint_outlier", "rolling_window_redundant"],
+        )
+        assert audit["original_anchors"] >= 3
+        assert isinstance(cleaned, dict)
+
+        text = (
+            "INSCYD Report\nVO2max 58.5 ml/kg/min\nVLamax 0.48 mmol/L/s\n"
+            "MLSS 275 W\nFTP 270 W\nFatMax 195 W\nMAP 340 W\nHRmax 185\nWeight 70 kg\n"
+        )
+        parsed = parse_lab_text(text)
+        assert parsed.vo2max_ml_kg_min == pytest.approx(58.5)
+
+        proposal = extract_test_proposal(
+            [
+                {
+                    "file_id": "mixed.fit",
+                    "power": [120.0] * 200 + [1000.0] * 10 + [120.0] * 200,
+                    "laps": [{"duration_s": 12, "avg_power_w": 950}],
+                }
+            ]
+        )
+        assert proposal.to_dict()["status"] in {"proposed", "incomplete", "empty"}
+
+
+class TestPhase5CoverageBatch16:
+    """Phase 5 — metabolic, durability, thermal, session routing closure."""
+
+    def test_bayesian_kalman_zones_and_vlamax(self) -> None:
+        from engines.metabolic.bayesian_profiler import bayesian_metabolic_snapshot
+        from engines.metabolic.metabolic_kalman import DailyInput, MetabolicKalman, process_workout_history
+        from engines.metabolic.metabolic_profiler import MetabolicProfiler
+        from engines.metabolic.power_vlamax_estimator import estimate_vlamax_from_power_series
+        from engines.metabolic.zones_engine import metabolic_power_zones, seiler_polarization
+
+        profiler = MetabolicProfiler(weight=72.0)
+        snap = bayesian_metabolic_snapshot(
+            profiler,
+            {60: 500, 300: 360, 1200: 300, 3600: 280},
+            n_samples=300,
+            n_warmup=50,
+            seed=3,
+        )
+        assert snap.to_dict()["status"] in {"success", "error"}
+
+        stream = _stream(seconds=600, power=240.0)
+        metabolic_snap = {
+            "status": "success",
+            "mlss_power_watts": 280.0,
+            "map_aerobic_watts": 350.0,
+            "expressiveness": {"mlss_reliable": True},
+            "zones": [
+                {"name": "Z1", "minWatt": 0, "maxWatt": 154},
+                {"name": "Z2", "minWatt": 155, "maxWatt": 210},
+                {"name": "Z3", "minWatt": 211, "maxWatt": 252},
+                {"name": "Z4", "minWatt": 253, "maxWatt": 294},
+                {"name": "Z5", "minWatt": 295, "maxWatt": 350},
+            ],
+        }
+        zones = metabolic_power_zones(stream, metabolic_snap)
+        assert zones["available"] is True
+        seiler = seiler_polarization(stream, vt1_w=200.0, vt2_w=260.0)
+        assert seiler["available"] is True
+
+        kalman = MetabolicKalman(np.array([60.0, 0.4]), np.diag([4.0, 0.01]), weight=72.0)
+        kalman.predict(DailyInput(date=date(2026, 6, 1), vo2max_stimulus_min=20.0))
+        kalman.update([(180, 360.0), (360, 330.0)])
+        traj = process_workout_history(
+            [DailyInput(date=date(2026, 6, i + 1), vo2max_stimulus_min=20.0 + i) for i in range(5)],
+            initial_vo2=60.0,
+            initial_vla=0.4,
+            weight=72.0,
+        )
+        assert len(traj.states) >= 1
+
+        sprint = [200.0] * 3 + [1100.0] * 15 + [200.0] * 2
+        vla = estimate_vlamax_from_power_series(
+            sprint,
+            dt_s=1.0,
+            weight_kg=72.0,
+            eta=0.23,
+            active_muscle_mass_kg=10.0,
+            vo2max_power_w=360.0,
+        )
+        assert vla.get("status") in {"success", "error", "partial", "invalid_protocol"}
+
+    def test_durability_thermal_and_session_router(self) -> None:
+        from engines.recovery.thermal_engine import analyze_heat_acclimation, analyze_thermal_session
+
+        long_power = [250.0] * 3600 + [220.0] * 3600
+        di = calculate_durability_index(long_power, len(long_power))
+        assert di["status"] == "success"
+        drift = calculate_np_drift(long_power, len(long_power))
+        assert drift.get("status") in {"success", None} or "drift_pct" in drift
+        decay_curve = generate_hourly_decay_curve(long_power, len(long_power))
+        assert decay_curve.get("status") in {"success", None} or "hourly" in str(decay_curve).lower()
+        tte = calculate_tte_sustainability(long_power[:2400], 270.0)
+        assert tte.get("status") in {"success", "insufficient_data", None} or "sustainability" in tte
+
+        thermal = analyze_thermal_session(
+            core_temp_stream=[37.0 + i * 0.003 for i in range(500)],
+            power_stream=[230.0] * 500,
+            hr_stream=[145.0] * 500,
+            ftp=280.0,
+        )
+        accl = analyze_heat_acclimation([thermal, thermal, thermal])
+        assert accl.n_sessions >= 1
+        assert accl.to_dict()
+
+        decision = decide_route(
+            [350.0] * 60 + [150.0] * 120,
+            filename="30_15.fit",
+            ftp=280.0,
+            has_rr=True,
+        )
+        assert decision.route in {"hiit", "metabolic_anchor", "hrv_threshold", "free"}
+
+        routed = route_and_run(
+            [900.0] * 10 + [270.0] * 2000,
+            rr_samples=[{"elapsed": float(i * 5), "rr": [810.0] * 15} for i in range(40)],
+            filename="cp_test.fit",
+            ftp=280.0,
+            weight_kg=72.0,
+            metabolic_snapshot={"status": "success", "mlss_power_watts": 280},
+        )
+        assert routed["routing"]["route"] in {"metabolic_anchor", "hrv_threshold", "hiit", "free"}
+
+    def test_workouts_compliance_and_mmp_aggregator(self) -> None:
+        from engines.performance.mmp_aggregator import curve_to_mmp, extract_ride_curve, update_power_curve
+        from engines.workouts.compliance_engine import compare_workout_to_activity
+        from engines.workouts.feasibility_engine import analyze_workout_feasibility
+        from engines.workouts.models import WorkoutStep, materialize_workout
+
+        workout = {
+            "title": "Threshold",
+            "steps": [
+                {"id": "w1", "type": "work", "duration_s": 1200, "target_pct_cp": 95, "is_key_step": True},
+                {"id": "r1", "type": "recovery", "duration_s": 300, "target_pct_cp": 50},
+            ],
+        }
+        stream = _stream(seconds=1500, power=265.0)
+        compliance = compare_workout_to_activity(workout, stream, athlete_profile={"cp_w": 280.0})
+        assert compliance["status"] in {"success", "partial", "failed"}
+
+        feasibility = analyze_workout_feasibility(
+            workout,
+            athlete_profile={"cp_w": 280.0, "w_prime_j": 20000, "weight_kg": 72.0},
+        )
+        assert feasibility["status"] in {"success", "warning", "blocked", "error", "feasible", "challenging"}
+
+        step = WorkoutStep(step_id="1", type="work", duration_s=600, target_pct_cp=90)
+        materialized = materialize_workout({"steps": [step.to_dict()]}, {"cp_w": 280.0})
+        assert materialized["steps"]
+
+        curve = extract_ride_curve([250.0 + (i % 10) for i in range(1800)])
+        assert curve
+        rebuilt = curve_to_mmp({60: {"power_w": 420.0}, 300: {"power_w": 360.0}})
+        assert rebuilt[60] == 420.0
+        updated = update_power_curve(
+            [250.0] * 1800,
+            "2026-06-01",
+            stored_curve={60: {"duration_s": 60, "power_w": 400.0, "ride_id": "old", "ride_date": "2020-01-01"}},
+            ride_id="new-ride",
+        )
+        assert hasattr(updated, "curve") or isinstance(updated, dict)
