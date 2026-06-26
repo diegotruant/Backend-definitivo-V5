@@ -115,7 +115,7 @@ def analyze_w_prime_usage(
     }
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # Simulate interval workout
     power = [100]*600 + [400]*300 + [150]*300 + [380]*300 + [100]*600  # Warm-up, 2 intervals, cool
     

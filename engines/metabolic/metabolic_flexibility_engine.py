@@ -112,7 +112,7 @@ def estimate_fat_oxidation_rate(
     )
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     mfi = calculate_metabolic_flexibility_index(fatmax_watts=215, vt2_watts=315)
     fat_ox = estimate_fat_oxidation_rate(fatmax_watts=215, weight_kg=75)
 

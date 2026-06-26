@@ -287,7 +287,7 @@ def enhance_metabolic_snapshot_with_phenotype(
     return snapshot
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # Demonstration
     print("Metabolic Profiler — Phenotype-Adaptive PCr Model")
     print("=" * 60)

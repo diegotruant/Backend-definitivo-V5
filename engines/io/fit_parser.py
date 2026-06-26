@@ -1161,7 +1161,7 @@ def parse_fit_records_enhanced(
     return stream
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # Self-test with synthetic data
     print("FIT Parser — Gap Handling Test")
     print("=" * 60)

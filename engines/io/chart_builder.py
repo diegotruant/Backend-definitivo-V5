@@ -1011,7 +1011,7 @@ def generate_workout_charts(workout_summary: Dict[str, Any]) -> Dict[str, Any]:
 # EXAMPLE USAGE
 # =============================================================================
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     import json
     
     # Example: Power Duration Curve

@@ -491,7 +491,7 @@ def clean_workout_data(
 # EXAMPLE USAGE
 # =============================================================================
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # Simulate dirty data
     power = [250]*600 + [0]*120 + [300]*900 + [5000] + [280]*400  # Spike + pause
     hr = [150]*600 + [0]*120 + [160]*900 + [250] + [155]*400  # Dropout + spike

@@ -339,7 +339,7 @@ def _generate_recommendations(tl: Dict[str, float], status: str) -> List[str]:
 # EXAMPLE USAGE
 # =============================================================================
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     from datetime import date, timedelta
     
     # Simulate workout history

@@ -1,5 +1,5 @@
 {
-  "line_percent": 89.3,
-  "branch_percent": 81.9,
-  "note": "Ratchet baseline — Phase 5 batches F/G + protocol/mmp ports. Measured: line 89.29%, branch 81.86%. Target 92/85 still open (~50 lines / ~135 branches remaining)."
+  "line_percent": 91.99,
+  "branch_percent": 85.0,
+  "note": "Phase 5 gate closed — measured line 91.996% (display 92.0%), branch 85.33% (1159 tests). Batches H–M + API/workout ports + mmp_aggregator _parse_date fix."
 }

@@ -157,7 +157,7 @@ def calculate_monotony_strain(daily_tss: List[float]) -> Dict[str, Any]:
     )
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     acwr = calculate_acwr(atl=75.0, ctl=58.0)
     monotony = calculate_monotony_strain([80, 65, 90, 75, 100, 60, 85])
     flat_week = calculate_monotony_strain([50.0] * 7)

@@ -447,7 +447,7 @@ def steps_from_payload(raw_steps: List[Dict[str, Any]]) -> List[LactateStep]:
     return out
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # Demo with synthetic data: an athlete with true MLSS ~250W from lactate.
     demo_steps = [
         LactateStep(power_w=150, lactate_mmol=1.2),

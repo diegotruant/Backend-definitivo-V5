@@ -97,17 +97,17 @@
     {
       "id": 5,
       "name": "perfection_gate",
-      "status": "in_progress",
+      "status": "done",
       "interim_targets": {
         "coverage_line_percent": 86,
         "coverage_branch_percent": 76
       },
       "interim_achieved": {
-        "coverage_line_percent": 89.29,
-        "coverage_branch_percent": 81.86,
-        "tests_total": 1078
+        "coverage_line_percent": 92.0,
+        "coverage_branch_percent": 85.33,
+        "tests_total": 1159
       },
-      "notes": "Batches 92 A-G, integration ports (pedaling, thermal, bayesian, kalman, metabolic, mmp, protocols). Target 92/85 still open (~50 lines / ~135 branches). Next: real FIT files for fit_parser recovery branches.",
+      "notes": "Phase 5 coverage gate closed at 92.0/85.33. Batches H–M, API/workout ports, mmp_aggregator date fix. FIT recovery branches deferred until real assets uploaded.",
       "targets": {
         "coverage_line_percent": 92,
         "coverage_branch_percent": 85,

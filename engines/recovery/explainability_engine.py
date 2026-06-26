@@ -417,7 +417,7 @@ def generate_workout_summary_narrative(
 # EXAMPLE USAGE
 # =============================================================================
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # Example 1: VO2max confidence
     mmp = {30: 850, 60: 720, 180: 520, 300: 420, 1200: 290}
     vo2max_conf = calculate_vo2max_confidence(

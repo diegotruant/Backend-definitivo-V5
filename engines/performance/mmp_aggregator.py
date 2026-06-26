@@ -170,10 +170,10 @@ def _ceiling_for(duration_s: int, weight_kg: float) -> float:
 
 
 def _parse_date(d) -> date:
-    if isinstance(d, date):
-        return d
     if isinstance(d, datetime):
         return d.date()
+    if isinstance(d, date):
+        return d
     if isinstance(d, str):
         try:
             return date.fromisoformat(d[:10])

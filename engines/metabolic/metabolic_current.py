@@ -221,7 +221,7 @@ def handle_edge_function_request(request_body: Dict[str, Any]) -> Dict[str, Any]
 # EXAMPLE USAGE
 # =============================================================================
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # Simulate Edge Function request
     request = {
         "athlete_id": "c226ee4e-9f9c-47fb-9cb5-4d5332d0220e",

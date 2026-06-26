@@ -405,7 +405,7 @@ def generate_durability_prescription(
 # EXAMPLE USAGE
 # =============================================================================
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # Simulate 3-hour ride with decay
     duration_seconds = 3 * 3600  # 3 hours
     
