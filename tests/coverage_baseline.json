@@ -1,5 +1,5 @@
 {
-  "line_percent": 91.99,
-  "branch_percent": 85.0,
-  "note": "Phase 5 gate closed — measured line 91.996% (display 92.0%), branch 85.33% (1159 tests). Batches H–M + API/workout ports + mmp_aggregator _parse_date fix."
+  "line_percent": 93.35,
+  "branch_percent": 87.42,
+  "note": "Phase 6 medium pass — measured line 93.35%, branch 87.42% (1187 tests). pytest_phase6_coverage_medium.py: 11/20 target modules ≥90% branch."
 }

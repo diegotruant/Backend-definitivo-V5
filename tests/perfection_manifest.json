@@ -1,6 +1,6 @@
 {
   "goal": "Release-grade perfection for Backend-definitivo-V5 — measurable, ratcheting, no masked failures.",
-  "current_phase": 5,
+  "current_phase": 6,
   "phases": [
     {
       "id": 0,
@@ -121,6 +121,27 @@
         "make perfection-gate (or check) is the single release blocker",
         "Documented exceptions list (must be empty or explicitly approved)",
         "Frontend contract + backend golden alignment"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "coverage_medium",
+      "status": "done",
+      "interim_achieved": {
+        "coverage_line_percent": 93.35,
+        "coverage_branch_percent": 87.42,
+        "tests_total": 1187,
+        "target_modules_at_90_branch": 11
+      },
+      "notes": "Medium coverage pass: pytest_phase6_coverage_medium.py (28 tests). 11/20 medium-tier modules ≥90% branch; global +1.35pp line, +2.09pp branch vs Phase 5.",
+      "targets": {
+        "coverage_line_percent": 93,
+        "coverage_branch_percent": 87,
+        "medium_tier_modules_at_90_branch": 11
+      },
+      "deliverables": [
+        "Branch-focused tests for compliance, zones, twin_state, auth, adaptive_load, workout engines",
+        "Coverage baseline ratchet to 93.35/87.42"
       ]
     }
   ],
