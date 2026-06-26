@@ -260,5 +260,18 @@ class ProfileExtendedService:
             sprint_power=req.sprint_power,
         )
 
-    def w_prime_tau(self, cp: float, w_prime: float, phenotype: Optional[str] = None) -> Dict[str, Any]:
-        return resolve_w_prime_tau(cp=cp, w_prime=w_prime, phenotype=phenotype).to_dict()
+    def w_prime_tau(
+        self,
+        tau_model: str,
+        athlete_profile: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        profile = athlete_profile or {}
+        tau_s, model_used = resolve_w_prime_tau(
+            tau_model,
+            athlete_profile=profile,
+            athlete_level=profile.get("level") or profile.get("athlete_level"),
+        )
+        return {
+            "tau_s": round(tau_s, 1),
+            "tau_model": model_used,
+        }

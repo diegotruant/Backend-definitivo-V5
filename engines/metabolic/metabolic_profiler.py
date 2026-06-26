@@ -1053,7 +1053,7 @@ class MetabolicProfiler:
         Tier: HEURISTIC (phenotype PCr capacities are rule-of-thumb).
         """
         # Local import to avoid circular reference at module load
-        from metabolic_profiler_phenotype import enhance_metabolic_snapshot_with_phenotype
+        from engines.metabolic.metabolic_profiler_phenotype import enhance_metabolic_snapshot_with_phenotype
         return enhance_metabolic_snapshot_with_phenotype(
             snapshot,
             phenotype=phenotype,

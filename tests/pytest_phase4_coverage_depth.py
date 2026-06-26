@@ -5192,3 +5192,83 @@ class TestPhase5CoverageBatch12:
         mmp_curve = [{**pt, "wkg": pt["power_w"] / 72.0} for pt in mmp_raw]
         efforts = analyze_efforts(mmp_curve, weight_kg=72.0, ftp=280.0)
         assert efforts["status"] == "success"
+
+
+class TestPhase5CoverageBatch13:
+    """Phase 5 — post-main merge: profile extended, neuromuscular refactor, durability edges."""
+
+    def test_profile_extended_w_prime_tau_and_vlamax_confidence(self) -> None:
+        from api.engine_schemas import VlamaxSprintRequest
+        from api.schemas import AthleteParams
+
+        svc = ProfileExtendedService()
+        skiba = svc.w_prime_tau("skiba_default", {})
+        assert skiba["tau_model"] == "skiba_default"
+        assert skiba["tau_s"] > 0
+
+        elite = svc.w_prime_tau("skiba_default", {"level": "elite"})
+        assert elite["tau_model"] == "bartram_elite"
+
+        custom = svc.w_prime_tau("individualized", {"w_prime_tau_s": 480.0})
+        assert custom["tau_s"] == 480.0
+
+        sprint = svc.vlamax_from_sprint(
+            VlamaxSprintRequest(
+                athlete=AthleteParams(weight_kg=72.0),
+                p_peak_1s=1100.0,
+                p_mean_sprint=850.0,
+                sprint_duration_s=15.0,
+                peak_3s_w=1050.0,
+                peak_5s_w=1000.0,
+            )
+        )
+        assert sprint.get("status") in {"success", "error"}
+        if sprint.get("status") == "success":
+            assert "confidence_score" in sprint
+
+    def test_neuromuscular_profile_sprint_clusters_and_recommendations(self) -> None:
+        from engines.performance.neuromuscular_profile import analyze_neuromuscular_profile
+
+        n = 1200
+        power = np.full(n, 120.0)
+        for base in (120, 280, 520, 760):
+            power[base : base + 8] = 1050.0
+            power[base + 8 : base + 20] = 140.0
+        cadence = np.full(n, 75.0)
+        cadence[120:128] = 95.0
+        balance = np.full(n, 48.0)
+        stream = SimpleNamespace(
+            power=power.tolist(),
+            cadence=cadence.tolist(),
+            left_right_balance=balance.tolist(),
+            n_samples=n,
+        )
+        out = analyze_neuromuscular_profile(stream, weight_kg=72.0, sprint_threshold_w=700.0)
+        assert out["status"] == "success"
+        assert out["summary"]["n_sprints_detected"] >= 1
+        assert isinstance(out["recommendations"], list)
+
+        sparse = analyze_neuromuscular_profile(SimpleNamespace(power=[]), weight_kg=72.0)
+        assert sparse["status"] == "insufficient_data"
+
+    def test_durability_invalid_and_classification_bands(self) -> None:
+        short = calculate_durability_index([220.0] * 1800, 1800)
+        assert short["status"] == "insufficient_duration"
+
+        empty = calculate_durability_index([], 7200)
+        assert empty["status"] == "invalid_data"
+
+        fair_decay = [250.0] * 3600 + [220.0] * 3600
+        fair = calculate_durability_index(fair_decay, len(fair_decay))
+        assert fair["status"] == "success"
+        assert fair["classification"] in {"EXCELLENT", "GOOD", "FAIR", "POOR"}
+
+        poor_decay = [260.0] * 3600 + [200.0] * 3600
+        poor = calculate_durability_index(poor_decay, len(poor_decay))
+        assert poor["classification"] in {"FAIR", "POOR", "GOOD"}
+
+        np_short = calculate_np_drift([220.0] * 600, 600)
+        assert np_short["status"] == "insufficient_duration"
+
+        rx = generate_durability_prescription(88.0, "FAIR")
+        assert rx["focus"]
