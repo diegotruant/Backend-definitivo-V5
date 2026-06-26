@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import random
 import subprocess
 import sys
@@ -322,6 +323,7 @@ class TestMetabolicPorts92I:
                 text=True,
                 cwd=str(root),
                 timeout=60,
+                env={**os.environ, "PYTHONPATH": str(root)},
             )
             assert r.returncode == 0, f"{rel}: {r.stderr[:300]}"
 
