@@ -1,5 +1,5 @@
 {
-  "line_percent": 93.35,
-  "branch_percent": 87.42,
-  "note": "Phase 6 medium pass — measured line 93.35%, branch 87.42% (1187 tests). pytest_phase6_coverage_medium.py: 11/20 target modules ≥90% branch."
+  "line_percent": 93.53,
+  "branch_percent": 87.77,
+  "note": "Phase 7 heavy pass — measured line 93.53%, branch 87.77% (1202 tests). Golden FIT parsing, HRV/cardiac depth, workout summary E2E."
 }

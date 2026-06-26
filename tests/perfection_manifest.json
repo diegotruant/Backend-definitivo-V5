@@ -1,6 +1,6 @@
 {
   "goal": "Release-grade perfection for Backend-definitivo-V5 — measurable, ratcheting, no masked failures.",
-  "current_phase": 6,
+  "current_phase": 7,
   "phases": [
     {
       "id": 0,
@@ -142,6 +142,29 @@
       "deliverables": [
         "Branch-focused tests for compliance, zones, twin_state, auth, adaptive_load, workout engines",
         "Coverage baseline ratchet to 93.35/87.42"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "coverage_heavy",
+      "status": "done",
+      "interim_achieved": {
+        "coverage_line_percent": 93.53,
+        "coverage_branch_percent": 87.77,
+        "tests_total": 1202,
+        "target_modules_at_90_branch": 15
+      },
+      "notes": "Heavy pass: pytest_phase7_coverage_heavy.py (15 tests). Golden FIT assets exercised; hrv_engine 90.5%, cardiac_engine 93.1%, fit_parser 90.4%, workout_summary 90.2%.",
+      "targets": {
+        "coverage_line_percent": 93.5,
+        "coverage_branch_percent": 87.5,
+        "fit_assets_committed": true
+      },
+      "deliverables": [
+        "Parse all golden FIT files (CRC recovery, truncated, RR/HRV)",
+        "HRV/cardiac segment depth tests",
+        "workout_summary E2E on real FIT streams",
+        "Coverage baseline ratchet to 93.53/87.77"
       ]
     }
   ],
