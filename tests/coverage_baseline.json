@@ -1,5 +1,5 @@
 {
-  "line_percent": 93.82,
-  "branch_percent": 88.29,
-  "note": "Phase 8 toward-100 pass — measured line 93.82%, branch 88.29% (1234 tests). Interval/HRV/fit/cardiac/thermal/effort depth."
+  "line_percent": 94.14,
+  "branch_percent": 88.69,
+  "note": "Phase 9 gate push — measured line 94.14%, branch 88.69% (1257 tests). HRV/cardiac/thermal/API services depth; high-yield engines batch2."
 }
