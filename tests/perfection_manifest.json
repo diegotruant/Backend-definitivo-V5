@@ -103,11 +103,11 @@
         "coverage_branch_percent": 76
       },
       "interim_achieved": {
-        "coverage_line_percent": 89.01,
-        "coverage_branch_percent": 81.31,
-        "tests_total": 1058
+        "coverage_line_percent": 89.29,
+        "coverage_branch_percent": 81.86,
+        "tests_total": 1078
       },
-      "notes": "Batches 92 A-E, integration ports (pedaling, thermal, bayesian, kalman, metabolic), gate suite. Target 92/85 still open (~76 lines / ~161 branches remaining).",
+      "notes": "Batches 92 A-G, integration ports (pedaling, thermal, bayesian, kalman, metabolic, mmp, protocols). Target 92/85 still open (~50 lines / ~135 branches). Next: real FIT files for fit_parser recovery branches.",
       "targets": {
         "coverage_line_percent": 92,
         "coverage_branch_percent": 85,
