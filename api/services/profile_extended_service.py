@@ -39,6 +39,9 @@ def _with_sprint_vlamax_confidence(result: Dict[str, Any]) -> Dict[str, Any]:
 
     vlamax = result.get("vlamax_mmol_l_s")
     vlamax_range = result.get("vlamax_range") or []
+    if vlamax is None or not isinstance(vlamax_range, list) or len(vlamax_range) < 2:
+        result.setdefault("confidence_score", 0.55)
+        return result
     try:
         point = float(vlamax)
         lo = float(vlamax_range[0])

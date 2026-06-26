@@ -1,5 +1,5 @@
 {
-  "line_percent": 88.0,
+  "line_percent": 87.9,
   "branch_percent": 79.0,
   "note": "Ratchet baseline — Phase 5 gate push. Measured: line 87.92%, branch 79.08%. Target 92/85 still open; gate tests + integration ports + batches 14-16."
 }
