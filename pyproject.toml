@@ -26,9 +26,9 @@ dependencies = [
 pdf = ["pypdf>=3.0"]
 dev = [
     "black>=24.0",
-    "httpx>=0.27",
-    # Starlette >=0.37.2 removes the deprecated httpx Client(app=...) path used by TestClient.
-    "starlette>=0.37.2",
+    # Keep httpx below 0.27 while FastAPI 0.110.x may resolve Starlette 0.36.x;
+    # newer httpx emits TestClient(app=...) deprecation warnings with that Starlette line.
+    "httpx>=0.26,<0.27",
     "mypy>=1.10",
     "pre-commit>=3.7",
     "pypdf>=3.0",
