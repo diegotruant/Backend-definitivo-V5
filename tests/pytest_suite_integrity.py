@@ -78,19 +78,19 @@ def test_no_xfail_markers_in_pytest_modules() -> None:
 
 
 def test_no_bare_pass_in_except_handlers() -> None:
-   """Bare ``except: pass`` in tests swallows regressions."""
-   violations: list[str] = []
-   for path in _pytest_modules():
-       tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-       for node in ast.walk(tree):
-           if not isinstance(node, ast.ExceptHandler):
-               continue
-           if len(node.body) == 1 and isinstance(node.body[0], ast.Pass):
-               violations.append(f"{path.name}:{node.lineno}")
-   assert not violations, (
-       "replace bare except/pass with explicit expected exception or outcome:\n"
-       + "\n".join(f"  - {item}" for item in violations)
-   )
+    """Bare ``except: pass`` in tests swallows regressions."""
+    violations: list[str] = []
+    for path in _pytest_modules():
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            if len(node.body) == 1 and isinstance(node.body[0], ast.Pass):
+                violations.append(f"{path.name}:{node.lineno}")
+    assert not violations, (
+        "replace bare except/pass with explicit expected exception or outcome:\n"
+        + "\n".join(f"  - {item}" for item in violations)
+    )
 
 
 def test_openapi_path_count_is_exact_not_fuzzy() -> None:
@@ -125,7 +125,7 @@ def test_production_code_does_not_use_flat_legacy_imports() -> None:
                 if not isinstance(node, ast.ImportFrom) or node.module is None:
                     continue
                 base_module = node.module.split(".", 1)[0]
-                if base_module in LEGACY_FLAT_MODULES:
+                if node.module == "engines" or base_module in LEGACY_FLAT_MODULES:
                     violations.append(f"{rel}:{node.lineno}: from {node.module} import ...")
     assert not violations, (
         "production code must use fully-qualified package imports, e.g. "
