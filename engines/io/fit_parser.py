@@ -23,7 +23,7 @@ try:
     import fitdecode
     from fitdecode import FitCRCError, FitEOFError, FitError, FitHeaderError, FitParseError
     FITDECODE_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover
     FITDECODE_AVAILABLE = False
     class FitError(Exception): ...  # type: ignore[no-redef]
     class FitParseError(FitError): ...  # type: ignore[no-redef]
@@ -40,7 +40,7 @@ try:
         FitParseError as FitParseLibError,
     )
     FITPARSE_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover
     FITPARSE_AVAILABLE = False
     class FitParseLibError(Exception): ...  # type: ignore[no-redef]
     class FitParseEOFError(FitParseLibError): ...  # type: ignore[no-redef]
