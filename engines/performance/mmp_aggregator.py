@@ -94,7 +94,7 @@ class CurveEntry:
 @dataclass
 class CurveUpdateResult:
     """
-    Outcome of folding one ride into the rolling curve.
+    Outcome of folding one ride into the athlete's rolling curve.
 
     curve : dict[int, dict]
         The updated power-duration curve, keyed by duration_s. Each value
@@ -201,7 +201,7 @@ def extract_ride_curve(
         enter as a duration best. Reuses the quality engine's logic rather
         than duplicating it.
     """
-    from power_engine import mean_maximal_power
+    from engines.performance.power_engine import mean_maximal_power
 
     if durations is None:
         durations = STANDARD_DURATIONS

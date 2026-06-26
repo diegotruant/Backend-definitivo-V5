@@ -37,7 +37,7 @@ _SUBPACKAGE_MAP: dict[str, str] = {
     "mader_residual_mlp": "engines.performance.mader_residual_mlp",
     "mmp_aggregator": "engines.performance.mmp_aggregator",
     "mmp_quality": "engines.performance.mmp_quality",
-    "neural_ode": "engines.performance.neural_ode",
+    "neural_ode": "engines.performance.mader_residual_mlp",
     "power_engine": "engines.performance.power_engine",
     "race_prediction_engine": "engines.performance.race_prediction_engine",
     "test_protocols": "engines.performance.test_protocols",
@@ -108,44 +108,44 @@ for _short, _canonical in _SUBPACKAGE_MAP.items():
 _LEGACY_BOOTSTRAP = False
 
 from engines.core.athlete_context import AthleteContext
-from bayesian_profiler import (
+from engines.metabolic.bayesian_profiler import (
     BayesianMetabolicSnapshot,
     PosteriorSummary,
     bayesian_metabolic_snapshot,
 )
-from data_quality_engine import assess_data_quality, clean_workout_data
-from detraining_engine import apply_detraining_model, calculate_ctl_atl_tsb
-from durability_engine import (
+from engines.core.data_quality_engine import assess_data_quality, clean_workout_data
+from engines.metabolic.detraining_engine import apply_detraining_model, calculate_ctl_atl_tsb
+from engines.performance.durability_engine import (
     calculate_durability_index,
     calculate_np_drift,
     generate_hourly_decay_curve,
 )
-from mader_durability import (
+from engines.performance.mader_durability import (
     DurabilityAthleteParams,
     MaderDurabilityEngine,
     compute_session_durability,
     from_metabolic_snapshot,
     sustainability_targets,
 )
-from explainability_engine import (
+from engines.recovery.explainability_engine import (
     calculate_durability_confidence,
     generate_acwr_narrative,
     generate_durability_narrative,
 )
-from fit_parser import parse_fit_records_enhanced, parse_fit_file_enhanced
-from efforts_analyzer import analyze_efforts
-from mmp_aggregator import (
+from engines.io.fit_parser import parse_fit_records_enhanced, parse_fit_file_enhanced
+from engines.performance.efforts_analyzer import analyze_efforts
+from engines.performance.mmp_aggregator import (
     update_power_curve,
     extract_ride_curve,
     curve_to_mmp,
     CurveUpdateResult,
     CurveEntry,
 )
-from cross_validation_engine import (
+from engines.metabolic.cross_validation_engine import (
     cross_validate_metabolic_profile,
     CrossValidationResult,
 )
-from lab_data import (
+from engines.metabolic.lab_data import (
     LabSource,
     LabTestType,
     LabTestResult,
@@ -155,14 +155,14 @@ from lab_data import (
     parse_lab_pdf,
     validate_lab_result,
 )
-from lactate_validation_engine import (
+from engines.metabolic.lactate_validation_engine import (
     LactateStep,
     LactateThresholds,
     compute_lactate_thresholds,
     steps_from_payload,
     validate_model_against_lactate,
 )
-from test_protocols import (
+from engines.performance.test_protocols import (
     run_critical_power_test,
     run_incremental_test,
     run_mader_test,
@@ -174,7 +174,7 @@ from test_protocols import (
 # Alias for API / tablet runners
 run_in_person_test = run_test
 # analyze_rr_stream / calculate_dfa_alpha1 exported lazily — see __getattr__ at bottom
-from interval_detector import (
+from engines.performance.interval_detector import (
     Category,
     ClassifiedSession,
     ProtocolCompletenessReport,
@@ -187,11 +187,11 @@ from interval_detector import (
     classify_session,
     protocol_completeness,
 )
-from metabolic_flexibility_engine import (
+from engines.metabolic.metabolic_flexibility_engine import (
     calculate_metabolic_flexibility_index,
     estimate_fat_oxidation_rate,
 )
-from metabolic_kalman import (
+from engines.metabolic.metabolic_kalman import (
     AdaptationConfig,
     DailyInput,
     DecayConfig,
@@ -200,9 +200,9 @@ from metabolic_kalman import (
     MetabolicState,
     process_workout_history,
 )
-from metabolic_profiler import ExpressivenessReport, MaderConstants, MetabolicProfiler
-from metabolic_profiler_phenotype import enhance_metabolic_snapshot_with_phenotype
-from metric_contracts import (
+from engines.metabolic.metabolic_profiler import ExpressivenessReport, MaderConstants, MetabolicProfiler
+from engines.metabolic.metabolic_profiler_phenotype import enhance_metabolic_snapshot_with_phenotype
+from engines.core.metric_contracts import (
     ConfidenceLevel,
     MetricEnvelope,
     MetricUncertainty,
@@ -213,21 +213,21 @@ from metric_contracts import (
     normalize_confidence,
     summarize_section_contracts,
 )
-from mmp_quality import analyze_mmp_quality, clean_mmp, filter_mmp_by_window
-from neural_ode import (
+from engines.performance.mmp_quality import analyze_mmp_quality, clean_mmp, filter_mmp_by_window
+from engines.performance.mader_residual_mlp import (
     DynamicsTrainingResult,
     NeuralDynamics,
     NeuralPDTrainingResult,
     NeuralPowerDuration,
     TinyMLP,
 )
-from pedaling_balance import (
+from engines.recovery.pedaling_balance import (
     BalanceTrend,
     PedalingBalanceReport,
     analyze_balance_trend,
     analyze_pedaling_balance,
 )
-from race_prediction_engine import (
+from engines.performance.race_prediction_engine import (
     AthleteRaceProfile,
     Climb,
     CoursePoint,
@@ -239,13 +239,13 @@ from race_prediction_engine import (
     simulate_gpx_race,
     simulate_race,
 )
-from thermal_engine import (
+from engines.recovery.thermal_engine import (
     HeatAcclimationTrend,
     ThermalSessionReport,
     analyze_heat_acclimation,
     analyze_thermal_session,
 )
-from tiers import (
+from engines.core.tiers import (
     DEFAULT_DISPLAY_THRESHOLD,
     ENGINE_TIERS,
     SCOPE,
@@ -255,8 +255,8 @@ from tiers import (
     should_display,
     tier_for,
 )
-from training_variability_engine import calculate_acwr, calculate_monotony_strain
-from w_prime_balance_engine import analyze_w_prime_usage, calculate_w_prime_balance
+from engines.performance.training_variability_engine import calculate_acwr, calculate_monotony_strain
+from engines.performance.w_prime_balance_engine import analyze_w_prime_usage, calculate_w_prime_balance
 __all__ = [
     "AdaptationConfig",
     "AthleteContext",
@@ -389,8 +389,8 @@ from engines.io.workout_summary import build_workout_summary
 
 # Lazy re-exports for hrv_engine (kept lazy to limit import-time coupling).
 _LAZY_EXPORTS = {
-    "analyze_rr_stream": ("hrv_engine", "analyze_rr_stream"),
-    "calculate_dfa_alpha1": ("hrv_engine", "calculate_dfa_alpha1"),
+    "analyze_rr_stream": ("engines.recovery.hrv_engine", "analyze_rr_stream"),
+    "calculate_dfa_alpha1": ("engines.recovery.hrv_engine", "calculate_dfa_alpha1"),
 }
 
 

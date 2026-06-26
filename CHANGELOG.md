@@ -7,7 +7,8 @@ Power-series VLamax proxy (cLaMax_P) for metabolic profile.
 ### Added
 
 - `engines/metabolic/power_vlamax_estimator.py`: sprint power trace → VLamax proxy
-  (Yang-style t_Ppeak, oxidative fraction, FFM-normalized work features).
+  (fixed `T_PCr = 3.5 s`; `t_Ppeak` retained only as protocol-quality metadata;
+  oxidative fraction and FFM-normalized work features).
 - `POST /profile/vlamax-from-power-series` — standalone estimator endpoint.
 - `glycolytic_profile.power_derived_vlamax` and `vlamax_derivation.agreement`
   when `sprint_power` is supplied on `/profile/glycolytic-profile`.
@@ -16,11 +17,16 @@ Power-series VLamax proxy (cLaMax_P) for metabolic profile.
 
 - `estimated_vlamax_mmol_L_s` (Mader/MMP) remains the primary model parameter.
 - `power_derived_vlamax` is an explicit power proxy, distinct from blood vLaPeak.
+- `t_Ppeak` is **not** used as the glycolytic-window boundary; late mechanical peak
+  timing is exposed as a protocol note for coach interpretation.
+- `features.t_pcr_s` stays fixed at `3.5`; `features.t_p_peak_s` reports the observed
+  mechanical peak timing.
 
 ### Documentation
 
 - All docs aligned to **5.2.2** / **106 OpenAPI paths**
 - New `docs/RELEASE_NOTES_v5.2.2.md`
+- New `docs/VLAMAX_POWER_PROXY_PROTOCOL.md`
 - `docs/FRONTEND_DEVELOPER_GUIDE.md` §6.8 power-derived VLamax
 - `docs/API_PAYLOAD_EXAMPLES.md` — `/profile/vlamax-from-power-series` examples
 

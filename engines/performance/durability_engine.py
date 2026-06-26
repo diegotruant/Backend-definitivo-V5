@@ -97,8 +97,18 @@ def calculate_durability_index(
             confidence=0.0,
         )
 
-    first_hour_avg = float(np.nanmean(first_hour))
-    last_hour_avg = float(np.nanmean(last_hour))
+    first_hour_finite = first_hour[np.isfinite(first_hour)]
+    last_hour_finite = last_hour[np.isfinite(last_hour)]
+    if first_hour_finite.size == 0 or last_hour_finite.size == 0:
+        return annotate_payload(
+            {"status": "invalid_data", "reason": "non_finite_power_window"},
+            module_name="durability_engine",
+            method="elapsed_time_durability_index",
+            confidence=0.0,
+        )
+
+    first_hour_avg = float(np.mean(first_hour_finite))
+    last_hour_avg = float(np.mean(last_hour_finite))
     if not np.isfinite(first_hour_avg) or not np.isfinite(last_hour_avg):
         return annotate_payload(
             {"status": "invalid_data", "reason": "non_finite_power_window"},
@@ -314,8 +324,9 @@ def generate_hourly_decay_curve(
         start_idx = hour * samples_per_hour
         end_idx = min(start_idx + samples_per_hour, len(power_stream))
         
-        hour_data = power_stream[start_idx:end_idx]
-        hour_avg = np.mean([p for p in hour_data if p > 0])
+        hour_data = np.asarray(power_stream[start_idx:end_idx], dtype=float)
+        valid_positive = hour_data[np.isfinite(hour_data) & (hour_data > 0)]
+        hour_avg = float(np.mean(valid_positive)) if valid_positive.size > 0 else 0.0
         
         hourly_averages.append({
             "hour": hour + 1,
@@ -348,11 +359,9 @@ def generate_durability_prescription(
     durability_index: float,
     classification: str,
 ) -> Dict[str, Any]:
-    """
-    Generate training recommendations based on durability assessment.
-    """
+    """Generate training recommendations based on durability assessment."""
     if classification == "EXCELLENT":
-        recommendation = {
+        return {
             "focus": "Maintain current aerobic base",
             "volume": "70-80% Zone 2, 15-20% Zone 3-4, 5-10% Zone 5+",
             "key_sessions": [
@@ -361,8 +370,8 @@ def generate_durability_prescription(
                 "1x threshold work",
             ],
         }
-    elif classification == "GOOD":
-        recommendation = {
+    if classification == "GOOD":
+        return {
             "focus": "Fine-tune aerobic efficiency",
             "volume": "75-85% Zone 2, 10-15% Zone 3-4, 5% Zone 5+",
             "key_sessions": [
@@ -371,8 +380,8 @@ def generate_durability_prescription(
                 "Optional: 1x VO2max work",
             ],
         }
-    elif classification == "FAIR":
-        recommendation = {
+    if classification == "FAIR":
+        return {
             "focus": "Build aerobic base — reduce intensity",
             "volume": "80-90% Zone 1-2, 10-15% Zone 3, <5% Zone 4+",
             "key_sessions": [
@@ -381,18 +390,15 @@ def generate_durability_prescription(
                 "Limit high-intensity work",
             ],
         }
-    else:  # POOR
-        recommendation = {
-            "focus": "URGENT: Rebuild aerobic foundation",
-            "volume": "85-95% Zone 1-2, 5-10% Zone 3, AVOID Zone 4+",
-            "key_sessions": [
-                "Consistent base rides 4-5x/week",
-                "2-4h endurance pace",
-                "NO threshold or VO2max work for 4-6 weeks",
-            ],
-        }
-    
-    return recommendation
+    return {
+        "focus": "URGENT: Rebuild aerobic foundation",
+        "volume": "85-95% Zone 1-2, 5-10% Zone 3, AVOID Zone 4+",
+        "key_sessions": [
+            "Consistent base rides 4-5x/week",
+            "2-4h endurance pace",
+            "NO threshold or VO2max work for 4-6 weeks",
+        ],
+    }
 
 
 # =============================================================================

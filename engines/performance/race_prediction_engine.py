@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from math import atan, cos, radians, sin, sqrt
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
+import warnings
 import xml.etree.ElementTree as ET
 
 try:
@@ -33,6 +34,11 @@ try:
 
     _XML_HARDENED = True
 except ImportError:  # pragma: no cover - falls back if dependency missing
+    warnings.warn(
+        "defusedxml is not installed; GPX parsing falls back to xml.etree and is less hardened.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
     _safe_xml_fromstring = ET.fromstring  # type: ignore[assignment]
     _XML_HARDENED = False
 

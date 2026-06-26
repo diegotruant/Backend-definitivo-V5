@@ -31,6 +31,45 @@ from engines.metabolic.power_vlamax_estimator import estimate_vlamax_from_power_
 from engines.performance.mmp_quality import analyze_mmp_quality, clean_mmp
 
 
+def _with_sprint_vlamax_confidence(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Propagate tau_alactic sensitivity into the endpoint-level confidence score."""
+    if result.get("status") != "success":
+        result.setdefault("confidence_score", 0.0)
+        return result
+
+    vlamax = result.get("vlamax_mmol_l_s")
+    vlamax_range = result.get("vlamax_range") or []
+    try:
+        point = float(vlamax)
+        lo = float(vlamax_range[0])
+        hi = float(vlamax_range[1])
+    except (TypeError, ValueError, IndexError):
+        result.setdefault("confidence_score", 0.55)
+        return result
+
+    range_width = max(0.0, hi - lo)
+    sensitivity_ratio = range_width / max(point, 0.05)
+    quality_flags = list(result.get("quality_flags") or [])
+    if sensitivity_ratio >= 0.75:
+        quality_flags.append("tau_alactic_sensitivity_high")
+    elif sensitivity_ratio >= 0.45:
+        quality_flags.append("tau_alactic_sensitivity_moderate")
+
+    confidence = 0.82
+    confidence -= min(0.32, sensitivity_ratio * 0.35)
+    confidence -= min(0.12, 0.03 * len(set(quality_flags)))
+    confidence = max(0.35, min(0.90, confidence))
+
+    result["confidence_score"] = round(confidence, 3)
+    result["tau_alactic_sensitivity"] = {
+        "vlamax_range_width": round(range_width, 3),
+        "relative_to_point_estimate": round(sensitivity_ratio, 3),
+        "confidence_penalty_applied": True,
+    }
+    result["quality_flags"] = sorted(set(quality_flags))
+    return result
+
+
 class ProfileExtendedService:
     def __init__(self) -> None:
         self._base = ProfileService()
@@ -74,7 +113,7 @@ class ProfileExtendedService:
 
     def vlamax_from_sprint(self, req: VlamaxSprintRequest) -> Dict[str, Any]:
         profiler = profiler_from_athlete(req.athlete)
-        return profiler.vlamax_from_sprint(
+        result = profiler.vlamax_from_sprint(
             req.p_peak_1s,
             req.p_mean_sprint,
             sprint_duration_s=req.sprint_duration_s,
@@ -84,6 +123,7 @@ class ProfileExtendedService:
             peak_5s_w=req.peak_5s_w,
             neuromuscular_peak_w=req.neuromuscular_peak_w,
         )
+        return _with_sprint_vlamax_confidence(result)
 
     def vlamax_from_power_series(self, req: VlamaxPowerSeriesRequest) -> Dict[str, Any]:
         profiler = profiler_from_athlete(req.athlete)
@@ -218,13 +258,7 @@ class ProfileExtendedService:
             endurance_max=end_max,
             allrounder_max=all_max,
             sprint_power=req.sprint_power,
-            sprint_dt_s=req.sprint_dt_s,
-            cp_w=req.cp_w,
-            vo2max_power_w=req.vo2max_power_w,
-            lactate_pre_mmol_l=req.lactate_pre_mmol_l,
-            lactate_peak_mmol_l=req.lactate_peak_mmol_l,
         )
 
-    def w_prime_tau(self, tau_model: str, athlete_profile: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        tau_s, model = resolve_w_prime_tau(tau_model, athlete_profile=athlete_profile or {})  # type: ignore[arg-type]
-        return {"tau_s": round(tau_s, 1), "tau_model": model}
+    def w_prime_tau(self, cp: float, w_prime: float, phenotype: Optional[str] = None) -> Dict[str, Any]:
+        return resolve_w_prime_tau(cp=cp, w_prime=w_prime, phenotype=phenotype).to_dict()

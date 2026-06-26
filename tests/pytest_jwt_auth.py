@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from api.app import create_app
 
-JWT_SECRET = "test-secret-for-ci-only"
+JWT_SECRET = "test-secret-for-ci-only-32-bytes-minimum-0001"
 COACH_TOKEN = jwt.encode(
     {
         "sub": "coach-001",
