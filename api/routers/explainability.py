@@ -9,6 +9,8 @@ from api.engine_schemas import (
     DurabilityNarrativeRequest,
     ExplainabilityAcwrNarrativeRequest,
     ExplainabilityDurabilityConfidenceRequest,
+    ExplainabilityFatmaxConfidenceRequest,
+    ExplainabilityFatmaxNarrativeRequest,
     ExplainabilityMetricNarrativeRequest,
     ExplainabilityVo2ConfidenceRequest,
     ExplainabilityWorkoutSummaryRequest,
@@ -29,6 +31,16 @@ def vo2max_confidence(req: ExplainabilityVo2ConfidenceRequest, service: Explaina
 @router.post("/durability-confidence", operation_id="explainabilityDurabilityConfidence", response_model=EnginePayload, responses={200: JSON_OBJECT})
 def durability_confidence(req: ExplainabilityDurabilityConfidenceRequest, service: ExplainabilityService = Depends(get_explainability_service)):
     return json_response(service.durability_confidence(req))
+
+
+@router.post("/fatmax-confidence", operation_id="explainabilityFatmaxConfidence", response_model=EnginePayload, responses={200: JSON_OBJECT})
+def fatmax_confidence(req: ExplainabilityFatmaxConfidenceRequest, service: ExplainabilityService = Depends(get_explainability_service)):
+    return json_response(service.fatmax_confidence(req))
+
+
+@router.post("/fatmax-narrative", operation_id="explainabilityFatmaxNarrative", response_model=EnginePayload, responses={200: JSON_OBJECT})
+def fatmax_narrative(req: ExplainabilityFatmaxNarrativeRequest, service: ExplainabilityService = Depends(get_explainability_service)):
+    return json_response(service.fatmax_narrative(req))
 
 
 @router.post("/metric-narrative", operation_id="explainabilityMetricNarrative", response_model=EnginePayload, responses={200: JSON_OBJECT})

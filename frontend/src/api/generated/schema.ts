@@ -1555,6 +1555,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/explainability/fatmax-confidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fatmax Confidence */
+        post: operations["explainabilityFatmaxConfidence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/explainability/fatmax-narrative": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fatmax Narrative */
+        post: operations["explainabilityFatmaxNarrative"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/explainability/metric-narrative": {
         parameters: {
             query?: never;
@@ -2840,6 +2874,20 @@ export interface components {
              * @default 1
              */
             power_data_completeness: number;
+        };
+        /** ExplainabilityFatmaxConfidenceRequest */
+        ExplainabilityFatmaxConfidenceRequest: {
+            /** Report */
+            report: {
+                [key: string]: unknown;
+            };
+        };
+        /** ExplainabilityFatmaxNarrativeRequest */
+        ExplainabilityFatmaxNarrativeRequest: {
+            /** Report */
+            report: {
+                [key: string]: unknown;
+            };
         };
         /** ExplainabilityMetricNarrativeRequest */
         ExplainabilityMetricNarrativeRequest: {
@@ -8167,6 +8215,72 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ExplainabilityDurabilityConfidenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    explainabilityFatmaxConfidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExplainabilityFatmaxConfidenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    explainabilityFatmaxNarrative: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExplainabilityFatmaxNarrativeRequest"];
             };
         };
         responses: {

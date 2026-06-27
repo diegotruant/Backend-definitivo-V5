@@ -31,6 +31,19 @@ Named in `engines/metabolic/fatmax_engine.py` (see also
 | `FATMAX_BASE_THRESHOLD_FRACTION_DEFAULT` | 0.80 | Base-width band around peak fat oxidation | Protocol default |
 | `FATMAX_SHIFT_RIGHT_THRESHOLD_W` | +8 W | Longitudinal right-shift classification | Coaching heuristic |
 | `FATMAX_SHIFT_LEFT_THRESHOLD_W` | −8 W | Longitudinal left-shift classification | Coaching heuristic |
+| `FATMAX_LAB_SMOOTH_WINDOW` | 3 | Centered moving-average window for lab fat curve | Protocol default |
+
+## Lab curve smoothing
+
+Before peak FATmax/MFO detection on stepped VO₂/VCO₂ data, the engine applies a
+**centered moving average** (`window = 3`) to `fat_g_min`.
+
+- Raw values are preserved as `fat_g_min_raw` on each curve point.
+- Peak detection, base-width and crossover use smoothed values.
+- `curve.smoothing` documents whether smoothing was applied.
+
+Rationale: stepped lab protocols often produce single-step noise; smoothing
+reduces spurious peaks without claiming additional physiological measurement.
 
 ## Carbohydrate crossover semantics
 
@@ -74,7 +87,15 @@ All coach interpretation strings in the engine are **English**, aligned with
 
 - `tests/pytest_fatmax_engine.py` — stoichiometry, lab/model tiers, compare logic
 - `tests/pytest_fatmax_api.py` — HTTP smoke and validation
+- `tests/pytest_fatmax_explainability.py` — lab smoothing + explainability narratives
 - `tests/pytest_science_contracts.py` — `fatmax_contract_fields`
+
+## Explainability endpoints
+
+| Endpoint | Input | Output |
+| --- | --- | --- |
+| `POST /explainability/fatmax-narrative` | Full FATmax report JSON | Coach narrative string |
+| `POST /explainability/fatmax-confidence` | Full FATmax report JSON | Confidence level, factors, limitations |
 
 ## Implementation reference
 

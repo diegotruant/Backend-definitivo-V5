@@ -251,6 +251,14 @@ class ExplainabilityWorkoutSummaryRequest(BaseModel):
     summary: Dict[str, Any]
 
 
+class ExplainabilityFatmaxNarrativeRequest(BaseModel):
+    report: Dict[str, Any]
+
+
+class ExplainabilityFatmaxConfidenceRequest(BaseModel):
+    report: Dict[str, Any]
+
+
 class AcwrRequest(BaseModel):
     acute_load: float = Field(..., ge=0)
     chronic_load: float = Field(..., ge=0)

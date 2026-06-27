@@ -396,6 +396,14 @@ export const api = {
   explainabilityDurabilityNarrative: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/explainability/durability-narrative', { method: 'POST', body: JSON.stringify(payload) }),
 
+  /** POST /explainability/fatmax-confidence */
+  explainabilityFatmaxConfidence: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/explainability/fatmax-confidence', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /explainability/fatmax-narrative */
+  explainabilityFatmaxNarrative: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/explainability/fatmax-narrative', { method: 'POST', body: JSON.stringify(payload) }),
+
   /** POST /explainability/metric-narrative */
   explainabilityMetricNarrative: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/explainability/metric-narrative', { method: 'POST', body: JSON.stringify(payload) }),

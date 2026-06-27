@@ -5,6 +5,8 @@ from typing import Any, Dict
 from api.engine_schemas import (
     ExplainabilityAcwrNarrativeRequest,
     ExplainabilityDurabilityConfidenceRequest,
+    ExplainabilityFatmaxConfidenceRequest,
+    ExplainabilityFatmaxNarrativeRequest,
     ExplainabilityMetricNarrativeRequest,
     ExplainabilityVo2ConfidenceRequest,
     ExplainabilityWorkoutSummaryRequest,
@@ -13,9 +15,11 @@ from engines.recovery.explainability_engine import (
     ConfidenceLevel,
     ConfidenceScore,
     calculate_durability_confidence,
+    calculate_fatmax_confidence,
     calculate_vo2max_confidence,
     generate_acwr_narrative,
     generate_durability_narrative,
+    generate_fatmax_narrative,
     generate_metric_narrative,
     generate_workout_summary_narrative,
 )
@@ -59,6 +63,19 @@ class ExplainabilityService:
             "factors": score.factors,
             "limitations": score.limitations,
         }
+
+    def fatmax_confidence(self, req: ExplainabilityFatmaxConfidenceRequest) -> Dict[str, Any]:
+        score = calculate_fatmax_confidence(req.report)
+        return {
+            "confidence_level": score.confidence_level.name,
+            "confidence_pct": score.confidence_pct,
+            "factors": score.factors,
+            "limitations": score.limitations,
+            "measurement_tier": req.report.get("measurement_tier"),
+        }
+
+    def fatmax_narrative(self, req: ExplainabilityFatmaxNarrativeRequest) -> Dict[str, Any]:
+        return {"narrative": generate_fatmax_narrative(req.report)}
 
     def metric_narrative(self, req: ExplainabilityMetricNarrativeRequest) -> Dict[str, Any]:
         text = generate_metric_narrative(

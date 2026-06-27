@@ -40,6 +40,8 @@ FATMAX_COACH_WIDTH_MODERATE_W = 25.0
 FATMAX_WIDTH_WIDE_RATIO_MLSS = 0.22
 FATMAX_WIDTH_MODERATE_RATIO_MLSS = 0.12
 
+FATMAX_LAB_SMOOTH_WINDOW = 3
+
 _CROSSOVER_LAB_METHOD = "indirect_calorimetry_g_min"
 _CROSSOVER_LAB_DESCRIPTION = (
     "Power where carbohydrate oxidation (g/min) equals or exceeds fat oxidation (g/min) "
@@ -192,6 +194,34 @@ def _carb_crossover(points: Sequence[Dict[str, Any]], *, fat_key: str, carb_key:
     return None
 
 
+def _smooth_lab_fat_curve(curve: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Apply centered moving-average smoothing to lab fat oxidation before peak detection."""
+    if len(curve) < FATMAX_LAB_SMOOTH_WINDOW:
+        return curve, {"applied": False, "reason": "insufficient_points_for_smoothing"}
+
+    fats = [float(row.get("fat_g_min") or 0.0) for row in curve]
+    half = FATMAX_LAB_SMOOTH_WINDOW // 2
+    smoothed: List[Dict[str, Any]] = []
+    for index, row in enumerate(curve):
+        lo = max(0, index - half)
+        hi = min(len(fats), index + half + 1)
+        smoothed_fat = sum(fats[lo:hi]) / (hi - lo)
+        point = dict(row)
+        point["fat_g_min_raw"] = row.get("fat_g_min")
+        point["fat_g_min"] = round(smoothed_fat, 4)
+        smoothed.append(point)
+
+    return smoothed, {
+        "applied": True,
+        "method": "centered_moving_average",
+        "window": FATMAX_LAB_SMOOTH_WINDOW,
+        "note": (
+            "Peak FATmax and MFO use smoothed fat oxidation to reduce stepped-protocol noise; "
+            "raw values remain in fat_g_min_raw."
+        ),
+    }
+
+
 def _carbohydrate_crossover_block(
     power_w: Optional[float],
     *,
@@ -258,11 +288,17 @@ def build_lab_fatmax_report(
             "confidence_score": 0.0,
         }
 
-    peak_point = max(curve, key=lambda row: float(row["fat_g_min"] or 0.0))
+    smoothed_curve, smoothing = _smooth_lab_fat_curve(curve)
+    peak_point = max(smoothed_curve, key=lambda row: float(row["fat_g_min"] or 0.0))
     fatmax_power = float(peak_point["power_w"])
     mfo = float(peak_point["fat_g_min"] or 0.0)
-    base = _fatmax_base_from_curve(curve, fat_key="fat_g_min", threshold_fraction=threshold_fraction, mlss_power_w=mlss_power_w)
-    crossover = _carb_crossover(curve, fat_key="fat_g_min", carb_key="carbohydrate_g_min")
+    base = _fatmax_base_from_curve(
+        smoothed_curve,
+        fat_key="fat_g_min",
+        threshold_fraction=threshold_fraction,
+        mlss_power_w=mlss_power_w,
+    )
+    crossover = _carb_crossover(smoothed_curve, fat_key="fat_g_min", carb_key="carbohydrate_g_min")
 
     confidence = 0.90
     if len(curve) < 5:
@@ -286,7 +322,8 @@ def build_lab_fatmax_report(
             "map_power_w": _round_or_none(map_power_w, 1),
         },
         "curve": {
-            "points": curve,
+            "points": smoothed_curve,
+            "smoothing": smoothing,
             "fatmax_base": base,
             "carbohydrate_crossover_w": _round_or_none(crossover, 1),
             "carbohydrate_crossover": _carbohydrate_crossover_block(

@@ -44,6 +44,7 @@ def test_lab_fatmax_report_exposes_measured_mfo_and_base_width() -> None:
     assert report["confidence_score"] >= 0.75
     assert report["mfo_is_measured"] is True
     assert report["curve"]["carbohydrate_crossover"]["method"] == "indirect_calorimetry_g_min"
+    assert report["curve"]["smoothing"]["applied"] is True
 
 
 def test_lab_fatmax_report_rejects_too_few_points() -> None:
@@ -217,3 +218,55 @@ def test_fatmax_compare_ignores_non_numeric_summary_values() -> None:
         {"summary": {"fatmax_power_w": 180.0}},
     ).to_dict()
     assert shift["available"] is False
+
+
+def test_lab_base_width_interpretation_scales_with_mlss() -> None:
+    points = [
+        GasExchangePoint(power_w=120, vo2_l_min=2.05, vco2_l_min=1.65),
+        GasExchangePoint(power_w=160, vo2_l_min=2.45, vco2_l_min=1.95),
+        GasExchangePoint(power_w=190, vo2_l_min=2.80, vco2_l_min=2.22),
+        GasExchangePoint(power_w=230, vo2_l_min=3.20, vco2_l_min=2.75),
+        GasExchangePoint(power_w=270, vo2_l_min=3.60, vco2_l_min=3.35),
+    ]
+    wide = build_lab_fatmax_report(points, athlete_weight_kg=72, mlss_power_w=200)
+    interpretation = wide["curve"]["fatmax_base"]["interpretation"]
+    assert "Wide base" in interpretation or "Moderate base" in interpretation
+
+
+def test_fatmax_compare_handles_malformed_report_structures() -> None:
+    shift = compare_fatmax_reports({"summary": "bad"}, {"summary": {"fatmax_power_w": 180.0}}).to_dict()
+    assert shift["available"] is False
+    shift2 = compare_fatmax_reports(
+        {"summary": {"fatmax_power_w": 180.0}, "curve": "bad"},
+        {"summary": {"fatmax_power_w": 190.0}, "curve": {"fatmax_base": {"width_w": 40.0}}},
+    ).to_dict()
+    assert shift2["available"] is True
+    assert shift2["delta_base_width_w"] is None
+
+
+def test_fatmax_compare_notes_base_narrowing_without_large_power_shift() -> None:
+    previous = {
+        "summary": {"fatmax_power_w": 180.0, "mfo_g_min": 0.50},
+        "curve": {"fatmax_base": {"width_w": 52.0}},
+    }
+    current = {
+        "summary": {"fatmax_power_w": 182.0, "mfo_g_min": 0.51},
+        "curve": {"fatmax_base": {"width_w": 36.0}},
+    }
+    shift = compare_fatmax_reports(previous, current).to_dict()
+    assert shift["direction"] == "stable"
+    assert "narrowed" in shift["interpretation"]
+
+
+def test_fatmax_compare_stable_with_width_notes() -> None:
+    previous = {
+        "summary": {"fatmax_power_w": 180.0, "mfo_g_min": 0.50},
+        "curve": {"fatmax_base": {"width_w": 30.0}},
+    }
+    current = {
+        "summary": {"fatmax_power_w": 182.0, "mfo_g_min": 0.52},
+        "curve": {"fatmax_base": {"width_w": 45.0}},
+    }
+    shift = compare_fatmax_reports(previous, current).to_dict()
+    assert shift["direction"] == "stable"
+    assert "Base width increased" in shift["interpretation"]

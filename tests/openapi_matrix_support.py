@@ -337,6 +337,25 @@ JSON_PAYLOAD_OVERRIDES: Dict[str, Any] = {
             },
         },
     },
+    "explainabilityFatmaxConfidence": {
+        "report": {
+            "status": "success",
+            "measurement_tier": "MODEL_ESTIMATE",
+            "confidence_score": 0.72,
+            "summary": {"fatmax_power_w": 185.0, "mfo_g_min": 0.58},
+            "limitations": ["MFO g/min is estimated."],
+        },
+    },
+    "explainabilityFatmaxNarrative": {
+        "report": {
+            "status": "success",
+            "measurement_tier": "MODEL_ESTIMATE",
+            "confidence_score": 0.72,
+            "summary": {"fatmax_power_w": 185.0, "mfo_g_min": 0.58, "mfo_tier": "estimated_model_proxy_not_gas_exchange"},
+            "coach_interpretation": {"primary_goal": "build_aerobic_base", "message": "Build aerobic base."},
+            "limitations": ["MFO g/min is estimated."],
+        },
+    },
     "metaChartConfig": {"chart_type": "mmp", "payload": {"mmp": MMP}},
     "workoutsRecommend": {
         "athlete_profile": ATHLETE_PROFILE,
@@ -530,6 +549,8 @@ STRICT_SUCCESS_OPERATIONS: frozenset[str] = frozenset(
         "rideAnalyticsThermalAcclimation",
         "explainabilityMetricNarrative",
         "explainabilityDurabilityNarrative",
+        "explainabilityFatmaxConfidence",
+        "explainabilityFatmaxNarrative",
         "twinStateValidate",
         "twinStateUpdateFromRide",
         "teamCalibrationApply",
@@ -540,6 +561,8 @@ STRICT_SUCCESS_OPERATIONS: frozenset[str] = frozenset(
 DIRECT_RESPONSE_OPERATIONS: frozenset[str] = frozenset(
     {
         "explainabilityDurabilityNarrative",
+        "explainabilityFatmaxConfidence",
+        "explainabilityFatmaxNarrative",
         "explainabilityMetricNarrative",
         "labCreateResult",
         "labParseText",
@@ -582,6 +605,8 @@ RESPONSE_CONTRACTS: Dict[str, tuple[str, ...]] = {
     "rideAnalyticsThermalAcclimation": ("n_sessions", "trend"),
     "explainabilityMetricNarrative": ("narrative",),
     "explainabilityDurabilityNarrative": ("narrative",),
+    "explainabilityFatmaxNarrative": ("narrative",),
+    "explainabilityFatmaxConfidence": ("confidence_level", "confidence_pct"),
     "twinStateValidate": ("schema_version", "athlete_id"),
     "teamCalibrationApply": ("parameter", "corrected_value"),
 }
