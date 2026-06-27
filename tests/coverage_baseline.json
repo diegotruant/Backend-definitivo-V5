@@ -1,5 +1,5 @@
 {
   "line_percent": 94.17,
-  "branch_percent": 88.65,
-  "note": "FATmax explainability endpoints, lab curve smoothing, OpenAPI 111 paths. Line ratchet up; branch floor reflects new explainability/smoothing branches with dedicated tests."
+  "branch_percent": 88.62,
+  "note": "FATmax explainability endpoints, lab curve smoothing, workout-summary FATmax integration. Line 94.17%; branch floor after workout narrative branches."
 }

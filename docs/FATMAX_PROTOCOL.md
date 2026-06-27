@@ -96,6 +96,10 @@ All coach interpretation strings in the engine are **English**, aligned with
 | --- | --- | --- |
 | `POST /explainability/fatmax-narrative` | Full FATmax report JSON | Coach narrative string |
 | `POST /explainability/fatmax-confidence` | Full FATmax report JSON | Confidence level, factors, limitations |
+| `POST /explainability/workout-summary-narrative` | Workout summary with optional `sections.fatmax` | Master narrative including FATmax when present |
+
+`build_workout_summary()` attaches `sections.fatmax` (model estimate) whenever a
+successful metabolic snapshot is available for the activity.
 
 ## Implementation reference
 

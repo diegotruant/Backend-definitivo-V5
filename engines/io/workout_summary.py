@@ -41,6 +41,7 @@ from engines.metabolic.zones_engine import ZonesEngine
 from engines.core.metric_contracts import annotate_payload, summarize_section_contracts
 from engines.performance.physiological_resilience import build_physiological_resilience
 from engines.io.activity_statistics import compute_activity_statistics
+from engines.metabolic.fatmax_engine import build_model_fatmax_report
 
 
 def _mmp_curve_to_dict(mmp_curve: List[Dict[str, Any]]) -> Dict[int, float]:
@@ -205,6 +206,16 @@ def build_workout_summary(
             effective_cadence_rpm=effective_cadence_rpm,
             cadence_anchor_status="measured",
         )
+
+    if metabolic_snapshot and metabolic_snapshot.get("status") == "success":
+        fatmax_report = build_model_fatmax_report(
+            metabolic_snapshot,
+            athlete_weight_kg=weight_kg,
+            gender=context.effective_gender(),
+            training_years=context.effective_training_years(),
+            discipline=context.effective_discipline(),
+        )
+        out["sections"]["fatmax"] = fatmax_report
 
     # =========================================================================
     # 2. ZONES (metabolic MLSS + Coggan power + Friel HR + Seiler polarization)
@@ -440,6 +451,13 @@ def build_workout_summary(
         at_10 = (sus.get("sustainable_steady_power_w") or {}).get("at_10pct_cp_loss") or {}
         if at_10.get("3h"):
             headline["mader_sustainable_3h_w"] = at_10["3h"]
+
+    fatmax_section = out["sections"].get("fatmax") or {}
+    if fatmax_section.get("status") == "success":
+        fatmax_summary = fatmax_section.get("summary") or {}
+        headline["fatmax_power_w"] = fatmax_summary.get("fatmax_power_w")
+        headline["mfo_g_min"] = fatmax_summary.get("mfo_g_min")
+        headline["fatmax_measurement_tier"] = fatmax_section.get("measurement_tier")
 
     out["physiological_resilience"] = build_physiological_resilience(
         mader_durability=mader_section if mader_section.get("status") == "success" else None,

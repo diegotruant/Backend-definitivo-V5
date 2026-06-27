@@ -10,11 +10,14 @@ from engines.metabolic.fatmax_engine import (
     _smooth_lab_fat_curve,
     build_lab_fatmax_report,
 )
+from engines.io.workout_summary import build_workout_summary
 from engines.recovery.explainability_engine import (
     ConfidenceLevel,
     calculate_fatmax_confidence,
     generate_fatmax_narrative,
+    generate_workout_summary_narrative,
 )
+from tests.fixtures.synthetic_fit import build_synthetic_fit_bytes, parse_synthetic_fit
 
 client = TestClient(app)
 
@@ -218,6 +221,45 @@ def test_fatmax_confidence_maps_high_scores() -> None:
         }
     )
     assert score.confidence_level.name in {"HIGH", "VERY_HIGH"}
+
+
+def test_build_workout_summary_attaches_model_fatmax_section() -> None:
+    raw = build_synthetic_fit_bytes(
+        [
+            (1_735_689_600 + i * 60, 220 + (i % 5) * 5, 140 + i % 3, 90)
+            for i in range(30)
+        ]
+    )
+    stream = parse_synthetic_fit(raw)
+    snapshot = {
+        "status": "success",
+        "fatmax_power_watts": 185.0,
+        "mlss_power_watts": 280.0,
+        "map_aerobic_watts": 360.0,
+        "estimated_vo2max": 58.0,
+        "estimated_vlamax_mmol_L_s": 0.42,
+    }
+    summary = build_workout_summary(stream, weight_kg=72.0, ftp=280.0, metabolic_snapshot=snapshot)
+    assert summary["sections"]["fatmax"]["status"] == "success"
+    assert summary["sections"]["fatmax"]["measurement_tier"] == "MODEL_ESTIMATE"
+    assert summary["headline"]["fatmax_power_w"] == 185.0
+    narrative = generate_workout_summary_narrative(summary)
+    assert "FATmax Assessment" in narrative
+
+
+def test_workout_summary_narrative_includes_fatmax_when_section_present() -> None:
+    report = build_lab_fatmax_report(_lab_points(), athlete_weight_kg=72, mlss_power_w=285)
+    text = generate_workout_summary_narrative(
+        {
+            "headline": {"workout_type": "Endurance", "tss": 95, "if_value": 0.68},
+            "stream_metadata": {"duration_s": 7200},
+            "sections": {
+                "fatmax": report,
+            },
+        }
+    )
+    assert "FATmax Assessment" in text
+    assert "LAB_MEASURED" in text
 
 
 def test_fatmax_narrative_for_failed_report() -> None:

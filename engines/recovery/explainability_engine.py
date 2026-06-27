@@ -495,6 +495,20 @@ def generate_acwr_narrative(
 # COMPREHENSIVE SUMMARY GENERATOR
 # =============================================================================
 
+def _fatmax_report_from_workout_summary(workout_summary: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Return an embedded FATmax report when the session summary carries one."""
+    sections = workout_summary.get("sections") or {}
+    for key in ("fatmax", "fatmax_report"):
+        report = sections.get(key)
+        if isinstance(report, dict) and report.get("status") == "success":
+            return report
+    for key in ("fatmax", "fatmax_report"):
+        report = workout_summary.get(key)
+        if isinstance(report, dict) and report.get("status") == "success":
+            return report
+    return None
+
+
 def generate_workout_summary_narrative(
     workout_summary: Dict[str, Any],
 ) -> str:
@@ -538,6 +552,22 @@ def generate_workout_summary_narrative(
         narrative += f"   VO2max: {meta['vo2max_ml_kg_min']:.1f} ml/kg/min\n"
         narrative += f"   VLamax: {meta['vlamax_mmol_l_s']:.2f} mmol/L/s\n"
         narrative += f"   MLSS: {meta['mlss_power_watts']:.0f}W\n\n"
+    elif sections.get("metabolic_snapshot", {}).get("estimated_vo2max") is not None:
+        meta = sections["metabolic_snapshot"]
+        narrative += "**Metabolic Profile**:\n"
+        if meta.get("estimated_vo2max") is not None:
+            narrative += f"   VO2max: {float(meta['estimated_vo2max']):.1f} ml/kg/min\n"
+        if meta.get("estimated_vlamax_mmol_L_s") is not None:
+            narrative += f"   VLamax: {float(meta['estimated_vlamax_mmol_L_s']):.2f} mmol/L/s\n"
+        if meta.get("mlss_power_watts") is not None:
+            narrative += f"   MLSS: {float(meta['mlss_power_watts']):.0f}W\n\n"
+
+    fatmax_report = _fatmax_report_from_workout_summary(workout_summary)
+    if fatmax_report is not None:
+        narrative += generate_fatmax_narrative(fatmax_report)
+        if not narrative.endswith("\n"):
+            narrative += "\n"
+        narrative += "\n"
     
     # HRV insights
     if sections.get('hrv', {}).get('vt1_detected'):
