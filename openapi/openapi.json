@@ -3320,6 +3320,168 @@
         ]
       }
     },
+    "/profile/fatmax/report": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Fatmax Report",
+        "operationId": "profileFatmaxReport",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FatmaxReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/profile/fatmax/lab": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Fatmax Lab",
+        "operationId": "profileFatmaxLab",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FatmaxLabRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
+    "/profile/fatmax/compare": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Fatmax Compare",
+        "operationId": "profileFatmaxCompare",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FatmaxCompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
     "/profile/kalman/trajectory": {
       "post": {
         "tags": [
@@ -9966,6 +10128,280 @@
           "summary"
         ],
         "title": "ExplainabilityWorkoutSummaryRequest"
+      },
+      "FatmaxCompareRequest": {
+        "properties": {
+          "previous_report": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Previous Report"
+          },
+          "current_report": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Current Report"
+          }
+        },
+        "type": "object",
+        "required": [
+          "previous_report",
+          "current_report"
+        ],
+        "title": "FatmaxCompareRequest"
+      },
+      "FatmaxLabPointModel": {
+        "properties": {
+          "power_w": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Power W"
+          },
+          "vo2_l_min": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Vo2 L Min"
+          },
+          "vco2_l_min": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Vco2 L Min"
+          },
+          "rer": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMaximum": 1.3,
+                "exclusiveMinimum": 0.6
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rer"
+          },
+          "heart_rate_bpm": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heart Rate Bpm"
+          }
+        },
+        "type": "object",
+        "required": [
+          "power_w",
+          "vo2_l_min",
+          "vco2_l_min"
+        ],
+        "title": "FatmaxLabPointModel"
+      },
+      "FatmaxLabRequest": {
+        "properties": {
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/FatmaxLabPointModel"
+            },
+            "type": "array",
+            "minItems": 3,
+            "title": "Points"
+          },
+          "athlete": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AthleteParams"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mlss_power_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mlss Power W"
+          },
+          "map_power_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Map Power W"
+          },
+          "threshold_fraction": {
+            "type": "number",
+            "exclusiveMaximum": 1.0,
+            "exclusiveMinimum": 0.5,
+            "title": "Threshold Fraction",
+            "default": 0.8
+          }
+        },
+        "type": "object",
+        "required": [
+          "points"
+        ],
+        "title": "FatmaxLabRequest"
+      },
+      "FatmaxReportRequest": {
+        "properties": {
+          "mmp": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Mmp"
+          },
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          },
+          "expected_eta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Eta"
+          },
+          "measured_lacap": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Lacap"
+          },
+          "effective_cadence_rpm": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 220.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Cadence Rpm"
+          },
+          "tau_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "skiba_default",
+                  "bartram_elite",
+                  "pugh_level_based",
+                  "individualized"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tau Model"
+          },
+          "clean_mmp_first": {
+            "type": "boolean",
+            "title": "Clean Mmp First",
+            "default": false
+          },
+          "metabolic_snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot",
+            "description": "Optional precomputed metabolic snapshot; if omitted the service builds one from MMP."
+          },
+          "previous_report": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Report",
+            "description": "Previous FATmax report for right/left shift comparison."
+          },
+          "recent_training_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recent Training Status"
+          },
+          "environment_context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment Context"
+          },
+          "nutrition_context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nutrition Context"
+          },
+          "threshold_fraction": {
+            "type": "number",
+            "exclusiveMaximum": 1.0,
+            "exclusiveMinimum": 0.5,
+            "title": "Threshold Fraction",
+            "default": 0.8
+          }
+        },
+        "type": "object",
+        "required": [
+          "mmp",
+          "athlete"
+        ],
+        "title": "FatmaxReportRequest"
       },
       "GlycolyticProfileRequest": {
         "properties": {

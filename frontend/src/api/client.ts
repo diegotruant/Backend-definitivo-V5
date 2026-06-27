@@ -475,6 +475,18 @@ export const api = {
   profileDetrainingApply: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/profile/detraining/apply', { method: 'POST', body: JSON.stringify(payload) }),
 
+  /** POST /profile/fatmax/compare */
+  profileFatmaxCompare: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/fatmax/compare', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /profile/fatmax/lab */
+  profileFatmaxLab: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/fatmax/lab', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /profile/fatmax/report */
+  profileFatmaxReport: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/fatmax/report', { method: 'POST', body: JSON.stringify(payload) }),
+
   /** POST /profile/glycolytic-profile */
   profileGlycolyticProfile: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/profile/glycolytic-profile', { method: 'POST', body: JSON.stringify(payload) }),
