@@ -1,6 +1,22 @@
 {
   "goal": "Release-grade perfection for Backend-definitivo-V5 — measurable, ratcheting, no masked failures.",
   "current_phase": 9,
+  "release_gate": {
+    "status": "closed",
+    "decision": "Phase 8+9 sufficient for production — merge to main; ratchet holds floor at 94.14/88.69.",
+    "blocker": "make check",
+    "achieved": {
+      "coverage_line_percent": 94.14,
+      "coverage_branch_percent": 88.69,
+      "tests_total": 1257,
+      "api_services_branch_percent": 94.62
+    },
+    "deferred": {
+      "literal_100_percent": "non_goal",
+      "global_95_branch": "optional_future_phase",
+      "stretch_branch_target": 92.0
+    }
+  },
   "phases": [
     {
       "id": 0,
@@ -211,9 +227,20 @@
         "High-yield batch2: neuromuscular, race_prediction, mmp_quality, pedaling_balance, activity_charts",
         "Coverage baseline ratchet to 94.14/88.69"
       ]
+    },
+    {
+      "id": 10,
+      "name": "coverage_stretch_optional",
+      "status": "deferred",
+      "notes": "Optional post-release stretch toward ~92% global branch. Not a release blocker; pursue only if numeric gate is required.",
+      "targets": {
+        "coverage_line_percent": 95.0,
+        "coverage_branch_percent": 92.0
+      }
     }
   ],
   "non_goals": [
+    "Literal 95–100% global branch coverage as a release prerequisite",
     "100% line coverage on dev-only scripts (audit.py, __main__ blocks)",
     "Testing third-party library internals",
     "Cosmetic refactors unrelated to correctness"
