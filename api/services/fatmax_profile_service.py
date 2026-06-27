@@ -4,6 +4,7 @@ from typing import Any, Dict
 
 from api.engine_schemas import FatmaxCompareRequest, FatmaxLabRequest, FatmaxReportRequest
 from api.services.engine_context import athlete_context_from_params, mmp_dict, profiler_from_athlete
+from api.services.profile_extended_service import ProfileExtendedService
 from engines.metabolic.fatmax_engine import (
     GasExchangePoint,
     build_lab_fatmax_report,
@@ -67,3 +68,20 @@ def fatmax_compare(req: FatmaxCompareRequest) -> Dict[str, Any]:
         "schema_version": "fatmax_shift.v1",
         "shift": compare_fatmax_reports(req.previous_report, req.current_report).to_dict(),
     }
+
+
+def _profile_fatmax_report(self: ProfileExtendedService, req: FatmaxReportRequest) -> Dict[str, Any]:
+    return fatmax_report(req)
+
+
+def _profile_fatmax_lab(self: ProfileExtendedService, req: FatmaxLabRequest) -> Dict[str, Any]:
+    return fatmax_lab(req)
+
+
+def _profile_fatmax_compare(self: ProfileExtendedService, req: FatmaxCompareRequest) -> Dict[str, Any]:
+    return fatmax_compare(req)
+
+
+ProfileExtendedService.fatmax_report = _profile_fatmax_report  # type: ignore[attr-defined]
+ProfileExtendedService.fatmax_lab = _profile_fatmax_lab  # type: ignore[attr-defined]
+ProfileExtendedService.fatmax_compare = _profile_fatmax_compare  # type: ignore[attr-defined]
