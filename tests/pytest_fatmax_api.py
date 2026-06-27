@@ -45,6 +45,17 @@ def test_profile_fatmax_report_endpoint_model_estimate() -> None:
     assert body["measurement_tier"] == "MODEL_ESTIMATE"
 
 
+def test_profile_fatmax_compare_endpoint_rejects_missing_summary() -> None:
+    response = client.post(
+        "/profile/fatmax/compare",
+        json={
+            "previous_report": {"curve": {}},
+            "current_report": {"summary": {"fatmax_power_w": 184}},
+        },
+    )
+    assert response.status_code == 422
+
+
 def test_profile_fatmax_compare_endpoint() -> None:
     response = client.post(
         "/profile/fatmax/compare",

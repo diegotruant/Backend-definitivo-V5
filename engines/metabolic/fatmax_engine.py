@@ -17,6 +17,40 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from engines.core.science_contracts import fatmax_contract_fields, fatmax_limitations
+
+# Scientific constants — see docs/FATMAX_PROTOCOL.md and docs/SCIENTIFIC_REFERENCES.md
+IC_FAT_VO2_COEF = 1.695
+IC_FAT_VCO2_COEF = 1.701
+IC_CHO_VCO2_COEF = 4.585
+IC_CHO_VO2_COEF = 3.226
+
+FATMAX_MLSS_RATIO = 0.68
+MAP_MLSS_RATIO = 1.35
+
+FATMAX_BASE_THRESHOLD_FRACTION_DEFAULT = 0.80
+
+FATMAX_SHIFT_RIGHT_THRESHOLD_W = 8.0
+FATMAX_SHIFT_LEFT_THRESHOLD_W = -8.0
+FATMAX_BASE_WIDTH_INCREASE_THRESHOLD_W = 10.0
+FATMAX_BASE_WIDTH_DECREASE_THRESHOLD_W = -10.0
+
+FATMAX_COACH_WIDTH_WIDE_W = 45.0
+FATMAX_COACH_WIDTH_MODERATE_W = 25.0
+FATMAX_WIDTH_WIDE_RATIO_MLSS = 0.22
+FATMAX_WIDTH_MODERATE_RATIO_MLSS = 0.12
+
+_CROSSOVER_LAB_METHOD = "indirect_calorimetry_g_min"
+_CROSSOVER_LAB_DESCRIPTION = (
+    "Power where carbohydrate oxidation (g/min) equals or exceeds fat oxidation (g/min) "
+    "from stepped VO2/VCO2 data."
+)
+_CROSSOVER_MODEL_METHOD = "model_proxy_fraction"
+_CROSSOVER_MODEL_DESCRIPTION = (
+    "Power where the model carbohydrate proxy equals or exceeds the fat proxy. "
+    "Not indirect calorimetry — do not present as a measured crossover."
+)
+
 MeasurementTier = str
 LAB_MEASURED: MeasurementTier = "LAB_MEASURED"
 MODEL_ESTIMATE: MeasurementTier = "MODEL_ESTIMATE"
@@ -84,8 +118,8 @@ def substrate_oxidation_from_vo2_vco2(vo2_l_min: float, vco2_l_min: float) -> Di
     vco2 = float(vco2_l_min)
     if vo2 <= 0 or vco2 <= 0 or not np.isfinite(vo2 + vco2):
         return {"status": "invalid_data", "fat_g_min": None, "carbohydrate_g_min": None, "rer": None}
-    fat = max(0.0, 1.695 * vo2 - 1.701 * vco2)
-    cho = max(0.0, 4.585 * vco2 - 3.226 * vo2)
+    fat = max(0.0, IC_FAT_VO2_COEF * vo2 - IC_FAT_VCO2_COEF * vco2)
+    cho = max(0.0, IC_CHO_VCO2_COEF * vco2 - IC_CHO_VO2_COEF * vo2)
     return {
         "status": "success",
         "fat_g_min": round(fat, 4),
@@ -134,13 +168,13 @@ def _fatmax_base_from_curve(
 
 def _interpret_base_width(width_w: float, mlss_power_w: Optional[float]) -> str:
     if not mlss_power_w or mlss_power_w <= 0:
-        return "Ampiezza FATmax calcolata; confrontare nel tempo sullo stesso protocollo."
+        return "FATmax base width computed; compare longitudinally on the same protocol."
     ratio = width_w / mlss_power_w
-    if ratio >= 0.22:
-        return "Ampiezza ampia: zona lipidica utile stabile su un range di potenza largo."
-    if ratio >= 0.12:
-        return "Ampiezza moderata: zona lipidica utilizzabile ma ancora migliorabile."
-    return "Ampiezza stretta: priorità a costruire base aerobica e tolleranza medio-bassa."
+    if ratio >= FATMAX_WIDTH_WIDE_RATIO_MLSS:
+        return "Wide base: useful lipid zone is stable across a broad power range."
+    if ratio >= FATMAX_WIDTH_MODERATE_RATIO_MLSS:
+        return "Moderate base: lipid zone is usable but can still be widened."
+    return "Narrow base: prioritize aerobic-base work and controlled validation."
 
 
 def _carb_crossover(points: Sequence[Dict[str, Any]], *, fat_key: str, carb_key: str) -> Optional[float]:
@@ -158,13 +192,32 @@ def _carb_crossover(points: Sequence[Dict[str, Any]], *, fat_key: str, carb_key:
     return None
 
 
+def _carbohydrate_crossover_block(
+    power_w: Optional[float],
+    *,
+    method: str,
+    description: str,
+) -> Dict[str, Any]:
+    rounded = _round_or_none(power_w, 1)
+    return {"power_w": rounded, "method": method, "description": description}
+
+
+def _finalize_fatmax_report(report: Dict[str, Any]) -> Dict[str, Any]:
+    tier = str(report.get("measurement_tier") or INSUFFICIENT_DATA)
+    report.update(fatmax_contract_fields(measurement_tier=tier))
+    contract_limits = fatmax_limitations(measurement_tier=tier)
+    existing = list(report.get("limitations") or [])
+    report["limitations"] = list(dict.fromkeys(existing + contract_limits))
+    return report
+
+
 def build_lab_fatmax_report(
     points: Sequence[GasExchangePoint],
     *,
     athlete_weight_kg: Optional[float] = None,
     mlss_power_w: Optional[float] = None,
     map_power_w: Optional[float] = None,
-    threshold_fraction: float = 0.80,
+    threshold_fraction: float = FATMAX_BASE_THRESHOLD_FRACTION_DEFAULT,
 ) -> Dict[str, Any]:
     """Build a measured FATmax report from VO2/VCO2 steps."""
     if len(points) < 3:
@@ -219,7 +272,7 @@ def build_lab_fatmax_report(
     if mfo <= 0:
         confidence = 0.35
 
-    return {
+    report = {
         "status": "success",
         "schema_version": "fatmax_report.v1",
         "measurement_tier": LAB_MEASURED,
@@ -232,7 +285,16 @@ def build_lab_fatmax_report(
             "mlss_power_w": _round_or_none(mlss_power_w, 1),
             "map_power_w": _round_or_none(map_power_w, 1),
         },
-        "curve": {"points": curve, "fatmax_base": base, "carbohydrate_crossover_w": _round_or_none(crossover, 1)},
+        "curve": {
+            "points": curve,
+            "fatmax_base": base,
+            "carbohydrate_crossover_w": _round_or_none(crossover, 1),
+            "carbohydrate_crossover": _carbohydrate_crossover_block(
+                crossover,
+                method=_CROSSOVER_LAB_METHOD,
+                description=_CROSSOVER_LAB_DESCRIPTION,
+            ),
+        },
         "coach_interpretation": _coach_interpretation(fatmax_power, mfo, base, LAB_MEASURED),
         "confidence_score": round(_clamp(confidence, 0.0, 0.95), 3),
         "data_sources": ["VO2", "VCO2", "power_steps"],
@@ -242,6 +304,7 @@ def build_lab_fatmax_report(
             "Lab values depend on protocol, step duration, analyzer calibration and pre-test nutrition.",
         ],
     }
+    return _finalize_fatmax_report(report)
 
 
 def build_model_fatmax_report(
@@ -255,7 +318,7 @@ def build_model_fatmax_report(
     environment_context: Optional[Dict[str, Any]] = None,
     nutrition_context: Optional[Dict[str, Any]] = None,
     previous_report: Optional[Dict[str, Any]] = None,
-    threshold_fraction: float = 0.80,
+    threshold_fraction: float = FATMAX_BASE_THRESHOLD_FRACTION_DEFAULT,
 ) -> Dict[str, Any]:
     """Build a model-estimated FATmax report from a metabolic snapshot."""
     snapshot = metabolic_snapshot or {}
@@ -266,11 +329,11 @@ def build_model_fatmax_report(
     vlamax = _finite_float(snapshot.get("estimated_vlamax_mmol_L_s"))
 
     if fatmax is None and mlss is not None:
-        fatmax = mlss * 0.68
+        fatmax = mlss * FATMAX_MLSS_RATIO
     if mlss is None and fatmax is not None:
-        mlss = fatmax / 0.68
+        mlss = fatmax / FATMAX_MLSS_RATIO
     if map_power is None and mlss is not None:
-        map_power = mlss * 1.35
+        map_power = mlss * MAP_MLSS_RATIO
     if fatmax is None or mlss is None or map_power is None or fatmax <= 0 or mlss <= 0:
         return {
             "status": "insufficient_data",
@@ -311,9 +374,9 @@ def build_model_fatmax_report(
         environment_context=environment_context,
         nutrition_context=nutrition_context,
     )
-    confidence = _model_confidence(snapshot, fatmax=deduplicate_value(fatmax), mlss=mlss, map_power=map_power, vlamax=vlamax)
+    confidence = _model_confidence(snapshot, fatmax=fatmax, mlss=mlss, map_power=map_power, vlamax=vlamax)
 
-    return {
+    report = {
         "status": "success",
         "schema_version": "fatmax_report.v1",
         "measurement_tier": MODEL_ESTIMATE,
@@ -328,7 +391,16 @@ def build_model_fatmax_report(
             "estimated_vo2max": _round_or_none(vo2max, 1),
             "estimated_vlamax_mmol_L_s": _round_or_none(vlamax, 3),
         },
-        "curve": {"points": curve, "fatmax_base": base, "carbohydrate_crossover_w": _round_or_none(crossover, 1)},
+        "curve": {
+            "points": curve,
+            "fatmax_base": base,
+            "carbohydrate_crossover_w": _round_or_none(crossover, 1),
+            "carbohydrate_crossover": _carbohydrate_crossover_block(
+                crossover,
+                method=_CROSSOVER_MODEL_METHOD,
+                description=_CROSSOVER_MODEL_DESCRIPTION,
+            ),
+        },
         "shift": shift.to_dict(),
         "influencing_factors": factors,
         "coach_interpretation": _coach_interpretation(fatmax, estimated_mfo, base, MODEL_ESTIMATE),
@@ -340,10 +412,7 @@ def build_model_fatmax_report(
             "Environmental effects are not applied unless supplied as context.",
         ],
     }
-
-
-def deduplicate_value(value: Optional[float]) -> Optional[float]:
-    return value
+    return _finalize_fatmax_report(report)
 
 
 def _estimate_mfo_g_min(
@@ -472,17 +541,17 @@ def _coach_interpretation(
     tier: MeasurementTier,
 ) -> Dict[str, Any]:
     width = _finite_float(base.get("width_w")) if base.get("available") else None
-    if width is not None and width >= 45:
+    if width is not None and width >= FATMAX_COACH_WIDTH_WIDE_W:
         goal = "maintain_or_right_shift"
-        msg = "La zona FATmax è relativamente ampia: lavorare sulla traslazione verso potenze più alte senza restringerla."
-    elif width is not None and width >= 25:
+        msg = "FATmax zone is relatively wide: shift it toward higher power without narrowing the base."
+    elif width is not None and width >= FATMAX_COACH_WIDTH_MODERATE_W:
         goal = "increase_base_width"
-        msg = "La priorità è rendere più ampia la zona lipidica utile, non solo alzare il picco."
+        msg = "Priority is to widen the useful lipid zone, not only raise the peak."
     else:
         goal = "build_aerobic_base"
-        msg = "La curva appare stretta o poco definita: costruire base aerobica e verificare con dati più controllati."
+        msg = "Curve appears narrow or poorly defined: build aerobic base and validate with controlled data."
     if tier == MODEL_ESTIMATE:
-        msg += " MFO e curva sono stime di modello, non misure da metabolimetro."
+        msg += " MFO and curve are model estimates, not metabolic-cart measurements."
     return {"primary_goal": goal, "message": msg, "fatmax_anchor_w": round(fatmax_power_w, 1), "mfo_g_min": round(mfo_g_min, 3)}
 
 
@@ -532,19 +601,19 @@ def compare_fatmax_reports(previous_report: Optional[Dict[str, Any]], current_re
     delta_fatmax = curr_fatmax - prev_fatmax
     delta_mfo = (curr_mfo - prev_mfo) if curr_mfo is not None and prev_mfo is not None else None
     delta_width = (curr_width - prev_width) if curr_width is not None and prev_width is not None else None
-    if delta_fatmax >= 8:
+    if delta_fatmax >= FATMAX_SHIFT_RIGHT_THRESHOLD_W:
         direction = "right_shift"
-        interpretation = "La FATmax si è spostata verso potenze più alte."
-    elif delta_fatmax <= -8:
+        interpretation = "FATmax shifted toward higher power."
+    elif delta_fatmax <= FATMAX_SHIFT_LEFT_THRESHOLD_W:
         direction = "left_shift"
-        interpretation = "La FATmax si è spostata verso potenze più basse; verificare fatica, nutrizione o perdita di base."
+        interpretation = "FATmax shifted toward lower power; check fatigue, nutrition, or aerobic-base loss."
     else:
         direction = "stable"
-        interpretation = "FATmax sostanzialmente stabile; valutare MFO e ampiezza base per capire l'adattamento."
-    if delta_width is not None and delta_width > 10:
-        interpretation += " L'ampiezza base è aumentata."
-    elif delta_width is not None and delta_width < -10:
-        interpretation += " L'ampiezza base si è ristretta."
+        interpretation = "FATmax is substantially stable; evaluate MFO and base width for adaptation."
+    if delta_width is not None and delta_width > FATMAX_BASE_WIDTH_INCREASE_THRESHOLD_W:
+        interpretation += " Base width increased."
+    elif delta_width is not None and delta_width < FATMAX_BASE_WIDTH_DECREASE_THRESHOLD_W:
+        interpretation += " Base width narrowed."
 
     return FatmaxShift(
         delta_fatmax_w=delta_fatmax,

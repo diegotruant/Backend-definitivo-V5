@@ -7,6 +7,9 @@ from api.engine_schemas import (
     BayesianSnapshotRequest,
     CrossValidateRequest,
     DetrainingApplyRequest,
+    FatmaxCompareRequest,
+    FatmaxLabRequest,
+    FatmaxReportRequest,
     GlycolyticProfileRequest,
     KalmanTrajectoryRequest,
     MetabolicCurrentRequest,
@@ -23,6 +26,12 @@ from engines.core.science_contracts import resolve_w_prime_tau
 from engines.metabolic.bayesian_profiler import bayesian_metabolic_snapshot
 from engines.metabolic.cross_validation_engine import cross_validate_metabolic_profile
 from engines.metabolic.detraining_engine import apply_detraining_model, calculate_ctl_atl_tsb
+from engines.metabolic.fatmax_engine import (
+    GasExchangePoint,
+    build_lab_fatmax_report,
+    build_model_fatmax_report,
+    compare_fatmax_reports,
+)
 from engines.metabolic.glycolytic_validation_engine import build_glycolytic_profile
 from engines.metabolic.metabolic_current import get_current_metabolic_status
 from engines.metabolic.metabolic_kalman import DailyInput, process_workout_history
@@ -262,6 +271,67 @@ class ProfileExtendedService:
             allrounder_max=all_max,
             sprint_power=req.sprint_power,
         )
+
+    def fatmax_report(self, req: FatmaxReportRequest) -> Dict[str, Any]:
+        snapshot = req.metabolic_snapshot
+        if snapshot is None:
+            profiler = profiler_from_athlete(req.athlete)
+            snapshot = profiler.generate_metabolic_snapshot(
+                mmp_dict(req.mmp),
+                expected_eta=req.expected_eta,
+                measured_lacap=req.measured_lacap,
+                effective_cadence_rpm=req.effective_cadence_rpm,
+                clean_mmp_first=req.clean_mmp_first,
+            )
+            if snapshot.get("status") != "success":
+                return {
+                    "status": "insufficient_data",
+                    "schema_version": "fatmax_report.v1",
+                    "measurement_tier": "INSUFFICIENT_DATA",
+                    "reason": "metabolic_snapshot_generation_failed",
+                    "source_snapshot": snapshot,
+                    "confidence_score": 0.0,
+                    "limitations": ["Metabolic snapshot could not be built from supplied MMP."],
+                }
+        ctx = athlete_context_from_params(req.athlete)
+        return build_model_fatmax_report(
+            snapshot,
+            athlete_weight_kg=req.athlete.weight_kg,
+            gender=ctx.effective_gender(),
+            training_years=ctx.effective_training_years(),
+            discipline=ctx.effective_discipline(),
+            recent_training_status=req.recent_training_status,
+            environment_context=req.environment_context,
+            nutrition_context=req.nutrition_context,
+            previous_report=req.previous_report,
+            threshold_fraction=req.threshold_fraction,
+        )
+
+    def fatmax_lab(self, req: FatmaxLabRequest) -> Dict[str, Any]:
+        points = [
+            GasExchangePoint(
+                power_w=row.power_w,
+                vo2_l_min=row.vo2_l_min,
+                vco2_l_min=row.vco2_l_min,
+                rer=row.rer,
+                heart_rate_bpm=row.heart_rate_bpm,
+            )
+            for row in req.points
+        ]
+        return build_lab_fatmax_report(
+            points,
+            athlete_weight_kg=req.athlete.weight_kg if req.athlete else None,
+            mlss_power_w=req.mlss_power_w,
+            map_power_w=req.map_power_w,
+            threshold_fraction=req.threshold_fraction,
+        )
+
+    def fatmax_compare(self, req: FatmaxCompareRequest) -> Dict[str, Any]:
+        return {
+            "status": "success",
+            "schema_version": "fatmax_shift.v1",
+            "shift": compare_fatmax_reports(req.previous_report, req.current_report).to_dict(),
+        }
 
     def w_prime_tau(
         self,

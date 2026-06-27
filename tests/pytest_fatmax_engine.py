@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from engines.metabolic.fatmax_engine import (
+    FATMAX_MLSS_RATIO,
     GasExchangePoint,
     build_lab_fatmax_report,
     build_model_fatmax_report,
@@ -41,6 +42,8 @@ def test_lab_fatmax_report_exposes_measured_mfo_and_base_width() -> None:
     assert report["summary"]["mfo_g_min"] > 0.5
     assert report["curve"]["fatmax_base"]["available"] is True
     assert report["confidence_score"] >= 0.75
+    assert report["mfo_is_measured"] is True
+    assert report["curve"]["carbohydrate_crossover"]["method"] == "indirect_calorimetry_g_min"
 
 
 def test_lab_fatmax_report_rejects_too_few_points() -> None:
@@ -114,7 +117,9 @@ def test_model_fatmax_report_derives_from_mlss_only() -> None:
         previous_report={"summary": {"fatmax_power_w": 180.0, "mfo_g_min": 0.5}},
     )
     assert report["status"] == "success"
-    assert report["summary"]["fatmax_power_w"] == round(280.0 * 0.68, 1)
+    assert report["summary"]["fatmax_power_w"] == round(280.0 * FATMAX_MLSS_RATIO, 1)
+    assert report["mfo_is_model_proxy"] is True
+    assert report["curve"]["carbohydrate_crossover"]["method"] == "model_proxy_fraction"
     assert report["shift"]["available"] is True
     assert report["influencing_factors"]["environment"]["available"] is True
     assert report["influencing_factors"]["nutrition"]["available"] is True
@@ -140,7 +145,7 @@ def test_fatmax_compare_detects_right_shift_and_width_change() -> None:
     assert shift["direction"] == "right_shift"
     assert shift["delta_fatmax_w"] == 18.0
     assert shift["delta_base_width_w"] == 16.0
-    assert "ampiezza base è aumentata" in shift["interpretation"]
+    assert "Base width increased" in shift["interpretation"]
 
 
 def test_fatmax_compare_left_shift_and_narrowing() -> None:
@@ -154,7 +159,7 @@ def test_fatmax_compare_left_shift_and_narrowing() -> None:
     }
     shift = compare_fatmax_reports(previous, current).to_dict()
     assert shift["direction"] == "left_shift"
-    assert "ristretta" in shift["interpretation"]
+    assert "narrowed" in shift["interpretation"]
 
 
 def test_fatmax_compare_stable_when_delta_small() -> None:
@@ -180,7 +185,7 @@ def test_lab_fatmax_report_without_mlss_uses_absolute_width_interpretation() -> 
     report = build_lab_fatmax_report(points, athlete_weight_kg=72)
     base = report["curve"]["fatmax_base"]
     assert base["available"] is True
-    assert "confrontare nel tempo" in base["interpretation"]
+    assert "compare longitudinally" in base["interpretation"]
 
 
 def test_lab_fatmax_report_rejects_when_too_many_invalid_gas_points() -> None:

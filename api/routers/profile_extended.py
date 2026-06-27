@@ -26,7 +26,6 @@ from api.engine_schemas import (
 from api.helpers import json_response
 from api.responses import EnginePayload
 from api.route_docs import ERRORS, JSON_OBJECT
-from api.services import fatmax_profile_service
 from api.services.profile_extended_service import ProfileExtendedService
 
 router = APIRouter(prefix="/profile", tags=["profile"])
@@ -71,8 +70,8 @@ def vlamax_from_power_series(
     response_model=EnginePayload,
     responses={200: JSON_OBJECT},
 )
-def fatmax_report(req: FatmaxReportRequest):
-    return json_response(fatmax_profile_service.fatmax_report(req))
+def fatmax_report(req: FatmaxReportRequest, service: ProfileExtendedService = Depends(get_profile_extended_service)):
+    return json_response(service.fatmax_report(req))
 
 
 @router.post(
@@ -81,8 +80,8 @@ def fatmax_report(req: FatmaxReportRequest):
     response_model=EnginePayload,
     responses={200: JSON_OBJECT},
 )
-def fatmax_lab(req: FatmaxLabRequest):
-    return json_response(fatmax_profile_service.fatmax_lab(req))
+def fatmax_lab(req: FatmaxLabRequest, service: ProfileExtendedService = Depends(get_profile_extended_service)):
+    return json_response(service.fatmax_lab(req))
 
 
 @router.post(
@@ -91,8 +90,8 @@ def fatmax_lab(req: FatmaxLabRequest):
     response_model=EnginePayload,
     responses={200: JSON_OBJECT},
 )
-def fatmax_compare(req: FatmaxCompareRequest):
-    return json_response(fatmax_profile_service.fatmax_compare(req))
+def fatmax_compare(req: FatmaxCompareRequest, service: ProfileExtendedService = Depends(get_profile_extended_service)):
+    return json_response(service.fatmax_compare(req))
 
 
 @router.post("/kalman/trajectory", operation_id="profileKalmanTrajectory", response_model=EnginePayload, responses={200: JSON_OBJECT})

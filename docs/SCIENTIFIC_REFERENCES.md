@@ -403,6 +403,7 @@ Mitochondrial function and metabolic flexibility.
 - Main modules:
   - `durability_engine.py`
   - `metabolic_flexibility_engine.py`
+  - `fatmax_engine.py` (dedicated FATmax report — see `docs/FATMAX_PROTOCOL.md`)
 
 ### Jeukendrup, A.; Achten, J.; Wallis, G. (2001, 2005)
 
@@ -412,8 +413,23 @@ Fat oxidation, FatMax, and substrate use during exercise.
 - Used for:
   - Fat oxidation estimate around FatMax.
   - Crossover between carbohydrate and fat metabolism.
+  - Non-protein indirect-calorimetry stoichiometry in `substrate_oxidation_from_vo2_vco2`.
 - Main modules:
   - `metabolic_flexibility_engine.py`
+  - `fatmax_engine.py`
+
+### FATmax report engine (lab vs model)
+
+- Status: **Explicit (lab stoichiometry) / Contextual (field ratios)**
+- Protocol doc: `docs/FATMAX_PROTOCOL.md`
+- Contracts: `engines/core/science_contracts.py` — `fatmax_contract_fields()`
+- Used for:
+  - Lab FATmax and MFO from stepped VO₂/VCO₂.
+  - Model FATmax/MFO proxy from metabolic snapshot.
+  - Longitudinal shift and base-width coaching semantics.
+- Main modules:
+  - `fatmax_engine.py`
+  - `profile_extended_service.py`
 
 ## 11. Lab anchoring and validation status
 

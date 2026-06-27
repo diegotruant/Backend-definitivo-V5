@@ -188,6 +188,15 @@ class FatmaxCompareRequest(BaseModel):
     previous_report: Dict[str, Any]
     current_report: Dict[str, Any]
 
+    @model_validator(mode="after")
+    def _validate_report_summaries(self) -> "FatmaxCompareRequest":
+        for field_name in ("previous_report", "current_report"):
+            report = getattr(self, field_name)
+            summary = report.get("summary") if isinstance(report, dict) else None
+            if not isinstance(summary, dict):
+                raise ValueError(f"{field_name}.summary must be an object with FATmax metrics.")
+        return self
+
 
 class LabTextParseRequest(BaseModel):
     text: str

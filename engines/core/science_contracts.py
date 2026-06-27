@@ -41,6 +41,46 @@ def vlamax_contract_fields() -> Dict[str, Any]:
     }
 
 
+_FATMAX_MODEL_LIMITATION = (
+    "FATmax power, MFO (g/min) and substrate curves from field/MMP snapshots are model "
+    "estimates unless measurement_tier is LAB_MEASURED from stepped VO2/VCO2 data."
+)
+
+_FATMAX_LAB_LIMITATION = (
+    "Lab FATmax and MFO are computed from non-protein indirect-calorimetry stoichiometry; "
+    "protein oxidation is assumed negligible and protocol quality affects validity."
+)
+
+
+def fatmax_contract_fields(*, measurement_tier: str) -> Dict[str, Any]:
+    """Coach-facing FATmax semantics — lab measurement vs model estimate."""
+    is_lab = measurement_tier == "LAB_MEASURED"
+    return {
+        "fatmax_measurement_tier": measurement_tier,
+        "mfo_is_measured": is_lab,
+        "mfo_is_model_proxy": not is_lab and measurement_tier == "MODEL_ESTIMATE",
+        "fatmax_interpretation": (
+            "FATmax power and MFO from stepped VO2/VCO2 indirect calorimetry."
+            if is_lab
+            else (
+                "FATmax power and MFO are model estimates from the metabolic snapshot "
+                "(Mader/MMP context). They are not indirect-calorimetry measurements."
+            )
+        ),
+        "crossover_semantics_note": (
+            "carbohydrate_crossover.method distinguishes g/min lab crossover from model proxy crossover."
+        ),
+    }
+
+
+def fatmax_limitations(*, measurement_tier: str) -> List[str]:
+    if measurement_tier == "LAB_MEASURED":
+        return [_FATMAX_LAB_LIMITATION]
+    if measurement_tier == "MODEL_ESTIMATE":
+        return [_FATMAX_MODEL_LIMITATION]
+    return ["Insufficient data to produce a FATmax report."]
+
+
 def vlamax_limitations(*, effective_cadence_rpm: Optional[float] = None) -> List[str]:
     limits = [_VLAMAX_LIMITATION]
     if effective_cadence_rpm is not None and effective_cadence_rpm < 130:

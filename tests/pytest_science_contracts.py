@@ -5,6 +5,8 @@ from __future__ import annotations
 from engines.core.science_contracts import (
     cp_anchor_warnings,
     derive_effective_cadence_rpm,
+    fatmax_contract_fields,
+    fatmax_limitations,
     resolve_w_prime_tau,
     vlamax_contract_fields,
 )
@@ -39,6 +41,17 @@ def test_cp_fit_no_warning_with_20min_anchor() -> None:
     result = fit_critical_power(mmp)
     assert result is not None
     assert result.get("warnings") == []
+
+
+def test_fatmax_contract_fields_distinguish_lab_and_model() -> None:
+    lab = fatmax_contract_fields(measurement_tier="LAB_MEASURED")
+    model = fatmax_contract_fields(measurement_tier="MODEL_ESTIMATE")
+    assert lab["mfo_is_measured"] is True
+    assert model["mfo_is_model_proxy"] is True
+    assert "indirect calorimetry" in lab["fatmax_interpretation"].lower()
+    assert "not indirect-calorimetry" in model["fatmax_interpretation"].lower()
+    assert fatmax_limitations(measurement_tier="LAB_MEASURED")
+    assert fatmax_limitations(measurement_tier="MODEL_ESTIMATE")
 
 
 def test_vlamax_contract_fields_on_snapshot() -> None:
