@@ -74,7 +74,7 @@ def fatmax_report(
     req: FatmaxReportRequest,
     service: ProfileExtendedService = Depends(get_profile_extended_service),
 ):
-    return json_response(service.fatmax_report(req))
+    return json_response(service.fatmax_report(req))  # type: ignore[attr-defined]
 
 
 @router.post(
@@ -87,7 +87,7 @@ def fatmax_lab(
     req: FatmaxLabRequest,
     service: ProfileExtendedService = Depends(get_profile_extended_service),
 ):
-    return json_response(service.fatmax_lab(req))
+    return json_response(service.fatmax_lab(req))  # type: ignore[attr-defined]
 
 
 @router.post(
@@ -100,7 +100,7 @@ def fatmax_compare(
     req: FatmaxCompareRequest,
     service: ProfileExtendedService = Depends(get_profile_extended_service),
 ):
-    return json_response(service.fatmax_compare(req))
+    return json_response(service.fatmax_compare(req))  # type: ignore[attr-defined]
 
 
 @router.post("/kalman/trajectory", operation_id="profileKalmanTrajectory", response_model=EnginePayload, responses={200: JSON_OBJECT})
