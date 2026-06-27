@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 import numpy as np
 
 from engines.core.metric_contracts import annotate_payload
+from engines.core.science_contracts import vlamax_contract_fields, vlamax_limitations
 
 if TYPE_CHECKING:
     from engines.metabolic.metabolic_profiler import MetabolicProfiler
@@ -186,6 +187,8 @@ def build_glycolytic_profile(
 
     vla = float(vlamax)
     prediction = predict_vlapeak_from_snapshot(snapshot, profiler=profiler, mmp=mmp)
+    contract = vlamax_contract_fields()
+    cadence_rpm = (snapshot.get("cadence_anchor") or {}).get("effective_cadence_rpm")
     profile: Dict[str, Any] = {
         "status": "success",
         "glycolytic_flux_index": glycolytic_flux_index(
@@ -195,11 +198,11 @@ def build_glycolytic_profile(
         ),
         "estimated_vlamax_mmol_l_s": round(vla, 4),
         "vlamax_semantics": "model_parameter_not_direct_measurement",
+        "vlamax_disclaimer": contract["vlamax_disclaimer"],
         "predicted_vlapeak": prediction,
-        "limitations": [
-            "VLamax is a Mader model parameter (vLamax_muscle), not a direct blood measurement.",
-            "Use capillary vLaPeak from a structured sprint test as an external validation anchor.",
-        ],
+        "limitations": vlamax_limitations(
+            effective_cadence_rpm=float(cadence_rpm) if cadence_rpm is not None else None,
+        ),
     }
 
     if sprint_power and profiler is not None:
