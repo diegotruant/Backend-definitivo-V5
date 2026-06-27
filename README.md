@@ -68,16 +68,32 @@ Use `sections.zones.systems_available` and `coach_note` in the UI. See `docs/REL
 
 ## Local setup
 
-Prerequisites: Python 3.10+, pip.
+Prerequisites: Python **3.10+** (CI uses 3.11), pip.
 
 ```bash
 make install
-cp .env.example .env   # optional
+cp .env.example .env   # optional — tune CORS, auth, limits
 make run               # http://127.0.0.1:8000
 ```
 
 Swagger UI: `http://localhost:8000/docs`  
 OpenAPI JSON: `http://localhost:8000/openapi.json`
+
+### Docker (production-style)
+
+```bash
+docker build -t digital-twin-api .
+docker run --rm -p 8000:8000 --env-file .env digital-twin-api
+# or pass overrides:
+docker run --rm -p 8000:8000 \
+  -e UVICORN_WORKERS=2 \
+  -e DIGITAL_TWIN_CORS_ORIGINS=https://app.example.com \
+  digital-twin-api
+curl -s http://localhost:8000/health
+```
+
+The image installs **production dependencies only** (`pip install .`), runs as non-root, and exposes `/health` for container probes. See [`docs/DEPLOY_BACKEND.md`](docs/DEPLOY_BACKEND.md) for TLS, workers, and auth.
+
 
 ## Development commands
 
@@ -125,6 +141,8 @@ make lint | format | typecheck
 ├── tests/
 ├── docs/                     # architecture, frontend guide, API index
 ├── scripts/export_openapi.py
+├── Dockerfile              # production image (pip install ., non-root)
+├── .env.example              # full runtime + security env template
 └── Makefile
 ```
 
@@ -140,7 +158,7 @@ make lint | format | typecheck
 | [`docs/FRONTEND_DEVELOPER_GUIDE.md`](docs/FRONTEND_DEVELOPER_GUIDE.md) | Frontend integration, TwinState, zones |
 | [`docs/OPENAPI_FRONTEND.md`](docs/OPENAPI_FRONTEND.md) | OpenAPI, TS codegen, `api.*` client |
 | [`docs/FRONTEND_CONNECT_NEXT_VERCEL.md`](docs/FRONTEND_CONNECT_NEXT_VERCEL.md) | Next/Vercel/v0 deployment |
-| [`docs/DEPLOY_BACKEND.md`](docs/DEPLOY_BACKEND.md) | Production uvicorn, workers, per-process rate limits |
+| [`docs/DEPLOY_BACKEND.md`](docs/DEPLOY_BACKEND.md) | Production uvicorn, Docker, workers, per-process rate limits |
 | [`docs/API_EXAMPLES.md`](docs/API_EXAMPLES.md) | Minimal JSON payloads |
 | [`CHANGELOG.md`](CHANGELOG.md) | Full version history |
 
