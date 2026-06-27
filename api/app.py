@@ -105,6 +105,16 @@ def _register_exception_handlers(application: FastAPI) -> None:
         return JSONResponse(status_code=exc.status_code, content={"detail": detail})
 
 
+def _resolve_cors_settings(cors_origins: list[str]) -> tuple[list[str], bool]:
+    """Validate CORS origins against credential rules enforced by browsers."""
+    if "*" in cors_origins:
+        raise ValueError(
+            "DIGITAL_TWIN_CORS_ORIGINS cannot include '*' while allow_credentials=True. "
+            "Browsers reject wildcard origins with credentials; list explicit origins instead."
+        )
+    return cors_origins, True
+
+
 def create_app() -> FastAPI:
     application = FastAPI(
         title=os.getenv("DIGITAL_TWIN_API_TITLE", "Digital Twin Fisiologico API"),
@@ -145,10 +155,11 @@ def create_app() -> FastAPI:
         if o.strip()
     ]
     if cors_origins:
+        resolved_origins, allow_credentials = _resolve_cors_settings(cors_origins)
         application.add_middleware(
             CORSMiddleware,
-            allow_origins=cors_origins,
-            allow_credentials=True,
+            allow_origins=resolved_origins,
+            allow_credentials=allow_credentials,
             allow_methods=["GET", "POST"],
             allow_headers=["*"],
         )
