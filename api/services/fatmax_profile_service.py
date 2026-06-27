@@ -82,6 +82,6 @@ def _profile_fatmax_compare(self: ProfileExtendedService, req: FatmaxCompareRequ
     return fatmax_compare(req)
 
 
-ProfileExtendedService.fatmax_report = _profile_fatmax_report  # type: ignore[attr-defined]
-ProfileExtendedService.fatmax_lab = _profile_fatmax_lab  # type: ignore[attr-defined]
-ProfileExtendedService.fatmax_compare = _profile_fatmax_compare  # type: ignore[attr-defined]
+ProfileExtendedService.fatmax_report = _profile_fatmax_report  # type: ignore[attr-defined,method-assign]
+ProfileExtendedService.fatmax_lab = _profile_fatmax_lab  # type: ignore[attr-defined,method-assign]
+ProfileExtendedService.fatmax_compare = _profile_fatmax_compare  # type: ignore[attr-defined,method-assign]
