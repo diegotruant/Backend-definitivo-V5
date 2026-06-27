@@ -140,7 +140,7 @@ make lint | format | typecheck
 | [`docs/FRONTEND_DEVELOPER_GUIDE.md`](docs/FRONTEND_DEVELOPER_GUIDE.md) | Frontend integration, TwinState, zones |
 | [`docs/OPENAPI_FRONTEND.md`](docs/OPENAPI_FRONTEND.md) | OpenAPI, TS codegen, `api.*` client |
 | [`docs/FRONTEND_CONNECT_NEXT_VERCEL.md`](docs/FRONTEND_CONNECT_NEXT_VERCEL.md) | Next/Vercel/v0 deployment |
-| [`docs/DEPLOY_BACKEND.md`](docs/DEPLOY_BACKEND.md) | Production uvicorn |
+| [`docs/DEPLOY_BACKEND.md`](docs/DEPLOY_BACKEND.md) | Production uvicorn, workers, per-process rate limits |
 | [`docs/API_EXAMPLES.md`](docs/API_EXAMPLES.md) | Minimal JSON payloads |
 | [`CHANGELOG.md`](CHANGELOG.md) | Full version history |
 

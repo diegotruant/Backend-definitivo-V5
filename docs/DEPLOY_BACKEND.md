@@ -39,8 +39,9 @@ curl -s http://localhost:8000/openapi.json | head
 | `MAX_JSON_DEPTH` | No | 64 | TwinState / calendar nesting |
 | `MAX_PROJECTION_DAYS` | No | 400 | Season projection bound |
 | `MAX_CALENDAR_EVENTS` | No | 1000 | Calendar plan bound |
+| `UVICORN_WORKERS` | No | `1` (dev) / `2+` (prod) | Uvicorn worker processes; see **Workers** below |
 | `DIGITAL_TWIN_RATE_LIMIT_ENABLED` | No | `true` | Enable in-memory rate limiting middleware |
-| `DIGITAL_TWIN_RATE_LIMIT_MAX_REQUESTS` | No | `120` | Max requests per `(IP, method, path)` window |
+| `DIGITAL_TWIN_RATE_LIMIT_MAX_REQUESTS` | No | `120` | Max requests per `(IP, method, path)` window **per worker** |
 | `DIGITAL_TWIN_RATE_LIMIT_WINDOW_S` | No | `60` | Sliding-window size in seconds |
 | `DIGITAL_TWIN_REQUIRE_ATHLETE_ID` | No | `false` | Enforce `X-Athlete-Id` on athlete-scoped routes |
 | `DIGITAL_TWIN_AUTH_MODE` | No | `none` | `none`, `api_key`, or `jwt` |
@@ -90,6 +91,8 @@ FIT uploads and `/profile/snapshot` can be slow — use **≥120s** read timeout
 - **CPU-bound** endpoints: `ride/summary`, `profile/snapshot`, FIT parse
 - Start with **2 workers** on a 2-vCPU VM; scale horizontally if latency grows
 - Stateless API — no sticky sessions required
+- **Rate limiting is per worker**: `_InMemoryRateLimiter` in `api/app.py` keeps counters in each process. With `--workers 2` and `DIGITAL_TWIN_RATE_LIMIT_MAX_REQUESTS=120`, a client can send roughly **240** requests per window before 429s (120 per worker), unless the load balancer pins traffic. Multiple API replicas multiply the ceiling further.
+- **Strict global limits**: set `DIGITAL_TWIN_RATE_LIMIT_ENABLED=false` and enforce at nginx/Caddy/Cloudflare, or add a Redis-backed limiter later. Do not assume in-app limits protect multi-worker or multi-instance deploys.
 
 ## Health checks
 
@@ -104,7 +107,7 @@ Use for load balancer probes. Do not use `/docs` for probes (heavier).
 - [ ] TLS terminated at reverse proxy
 - [ ] CORS allowlist set (not `*` in production unless intentional)
 - [ ] Upload limits left at defaults or tuned for your FIT sizes
-- [ ] Rate limiting configured for expected traffic profile
+- [ ] Rate limiting configured for expected traffic profile (account for `workers × replicas` if using in-app limiter)
 - [ ] Decide tenant policy: set `DIGITAL_TWIN_REQUIRE_ATHLETE_ID=true` when clients are ready
 - [ ] Production auth: set `DIGITAL_TWIN_AUTH_MODE=jwt` with OIDC JWKS (or `api_key` for integrations)
 - [ ] JWT claims must include `roles` and `athlete_ids` (or `athlete_id` for athlete role)

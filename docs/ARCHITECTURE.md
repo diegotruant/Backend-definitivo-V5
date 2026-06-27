@@ -89,10 +89,11 @@ See `docs/OPENAPI_FRONTEND.md` for integration details.
 ## API safeguards in `api/app.py`
 
 - **Body-size guard** (upload safety) via `MAX_UPLOAD_BYTES`/`MAX_UPLOAD_FILES`.
-- **Rate limiting** (in-memory sliding window):
+- **Rate limiting** (in-memory sliding window, **per process**):
   - `DIGITAL_TWIN_RATE_LIMIT_ENABLED` (default `true`)
   - `DIGITAL_TWIN_RATE_LIMIT_MAX_REQUESTS` (default `120`)
   - `DIGITAL_TWIN_RATE_LIMIT_WINDOW_S` (default `60`)
+  - With `uvicorn --workers N` or multiple replicas, effective allowance scales with process count; use edge/gateway limits for a single global cap (see `docs/DEPLOY_BACKEND.md`).
 - **Optional tenant gating**:
   - `DIGITAL_TWIN_REQUIRE_ATHLETE_ID=true` enforces header `X-Athlete-Id`
     on athlete-scoped endpoints (`/ride`, `/profile`, `/workouts`, `/twin`,

@@ -74,7 +74,17 @@ app: FastAPI
 
 
 class _InMemoryRateLimiter:
-    """Simple sliding-window limiter (per IP+path, single-process only)."""
+    """Sliding-window request limiter keyed by client identifier (IP + method + path).
+
+    Counter state lives in this process only. With ``uvicorn --workers N`` (N>1) or
+    multiple API replicas behind a load balancer, each process keeps separate buckets,
+    so the effective ceiling is roughly ``max_requests × workers`` (× replicas) unless
+    traffic is pinned to one worker.
+
+    For a single global limit across workers, disable in-app limiting
+    (``DIGITAL_TWIN_RATE_LIMIT_ENABLED=false``) and enforce at the reverse proxy /
+    API gateway, or use a shared store (e.g. Redis) instead of this class.
+    """
 
     def __init__(self, max_requests: int, window_seconds: float) -> None:
         self.max_requests = max(1, int(max_requests))
