@@ -3,7 +3,7 @@
   "current_phase": 9,
   "release_gate": {
     "status": "closed",
-    "decision": "Phase 8+9 sufficient for production — merge to main; ratchet holds floor at 94.14/88.69.",
+    "decision": "Phase 8+9 sufficient for production — backend V5 remains the active product on main; ratchet holds floor at 94.14/88.69.",
     "blocker": "make check",
     "achieved": {
       "coverage_line_percent": 94.14,
