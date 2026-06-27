@@ -54,6 +54,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from engines.core.athlete_context import AthleteContext
+from engines.core.tiers import tier_for
 from engines.performance.interval_detector import classify_session
 
 
@@ -250,6 +251,15 @@ def route_and_run(
 # ---------------------------------------------------------------------------
 # Engine helpers
 # ---------------------------------------------------------------------------
+def _dfa_tier_fields() -> Dict[str, str]:
+    tier = tier_for("hrv_engine")
+    return {
+        "method": "dfa_alpha1",
+        "tier": tier.value,
+        "tier_explanation": tier.explanation,
+    }
+
+
 def _hrv_thresholds(rr_samples, parr, elapsed_s, ctx) -> Dict[str, Any]:
     """VT1/VT2 in watts from DFA-alpha1 vs power (ramp test only)."""
     from engines.recovery.hrv_engine import analyze_rr_stream
@@ -272,7 +282,7 @@ def _hrv_thresholds(rr_samples, parr, elapsed_s, ctx) -> Dict[str, Any]:
             continue
         pts.append((a1, float(np.mean(pw))))
     if len(pts) < 8:
-        return {"status": "insufficient", "n_points": len(pts)}
+        return {"status": "insufficient", "n_points": len(pts), **_dfa_tier_fields()}
     arr = np.array(pts)
     a1v, pwv = arr[:, 0], arr[:, 1]
     # regression over the working band
@@ -293,6 +303,7 @@ def _hrv_thresholds(rr_samples, parr, elapsed_s, ctx) -> Dict[str, Any]:
         "note": ("Clean graded relationship." if reliable else
                  "Weak alpha1-power relationship; thresholds indicative only "
                  "(this is why free rides are not used for thresholds)."),
+        **_dfa_tier_fields(),
     }
 
 
@@ -306,7 +317,7 @@ def _hrv_durability(rr_samples, elapsed_s, ctx) -> Dict[str, Any]:
     status = Counter(w.get("status") for w in windows if w.get("status"))
     tot = sum(status.values()) or 1
     if not a1:
-        return {"status": "insufficient"}
+        return {"status": "insufficient", **_dfa_tier_fields()}
     # alpha1 drift: first third vs last third (durability signal)
     n = len(a1)
     first: float = float(np.mean(a1[: n // 3])) if n >= 3 else float(a1[0])
@@ -321,4 +332,5 @@ def _hrv_durability(rr_samples, elapsed_s, ctx) -> Dict[str, Any]:
         "note": ("Durability read: time-in-zone and alpha1 drift across the "
                  "session. Negative drift = HRV moving toward anaerobic as "
                  "fatigue accumulates."),
+        **_dfa_tier_fields(),
     }

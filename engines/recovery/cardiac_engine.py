@@ -36,6 +36,7 @@ from scipy.optimize import least_squares
 
 from engines.core.athlete_context import AthleteContext
 from engines.core.analysis import safe_dt
+from engines.core.tiers import tier_for
 
 
 # =============================================================================
@@ -629,6 +630,9 @@ def cross_validate_thresholds(
 
     # HR @ VT1 / VT2 from DFA-α1 timeline
     if hrv_timeline:
+        dfa_tier = tier_for("hrv_engine")
+        out["dfa_alpha1_tier"] = dfa_tier.value
+        out["dfa_alpha1_tier_explanation"] = dfa_tier.explanation
         last_aerobic_t: Optional[float] = None
         last_mixed_t: Optional[float] = None
         prev = None

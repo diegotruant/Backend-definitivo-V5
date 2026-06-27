@@ -46,6 +46,7 @@ import numpy as np
 from engines.core.analysis import clean_rr_intervals
 from engines.core.athlete_context import AthleteContext
 from engines.core.metric_contracts import annotate_payload
+from engines.core.tiers import tier_for
 
 
 # =============================================================================
@@ -685,6 +686,15 @@ def _detect_threshold_crossing(
 # PUBLIC API
 # =============================================================================
 
+def _annotate_dfa_output(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Attach canonical EXPERIMENTAL tier metadata for DFA-α₁ outputs."""
+    tier = tier_for("hrv_engine")
+    payload["tier"] = tier.value
+    payload["tier_explanation"] = tier.explanation
+    payload["method"] = payload.get("method") or "dfa_alpha1"
+    return payload
+
+
 def analyze_rr_stream(
     rr_samples: List[Dict[str, Any]],
     window_seconds: int = 120,
@@ -842,20 +852,20 @@ def calculate_dfa_alpha1(
 ) -> Dict[str, Any]:
     """Point estimate for short RR segments with quality gating + diagnostics."""
     if len(rr_intervals) < _MIN_BEATS_DFA:
-        return {
+        return _annotate_dfa_output({
             "alpha1": None,
             "status": "INSUFFICIENT_DATA",
             "confidence": "NONE",
             "interpretation": f"Minimum {_MIN_BEATS_DFA} beats required.",
             "metadata": {"r_squared": None}
-        }
+        })
 
     vt1, vt2 = _resolve_dfa_thresholds(context)
     confidence = _resolve_confidence(context)
 
     quality = _prepare_rr_quality(rr_intervals)
     if not quality["valid"]:
-        return {
+        return _annotate_dfa_output({
             "alpha1": None,
             "status": "INVALID_WINDOW",
             "confidence": "NONE",
@@ -867,7 +877,7 @@ def calculate_dfa_alpha1(
                 "sqi": quality["sqi"],
                 "rejected_reason": quality["rejected_reason"]
             }
-        }
+        })
 
     try:
         # clean_rr_intervals as an additional filter (removes residual outliers)
@@ -875,7 +885,7 @@ def calculate_dfa_alpha1(
         full = _dfa_alpha1_full(rr)
 
         if full["alpha1"] is None:
-            return {
+            return _annotate_dfa_output({
                 "alpha1": None,
                 "status": "ERROR",
                 "confidence": "NONE",
@@ -892,7 +902,7 @@ def calculate_dfa_alpha1(
                     "ci_high": full["ci_high"],
                     "n_scales_used": full["n_scales_used"],
                 }
-            }
+            })
 
         a1 = full["alpha1"]
         status = _classify(a1, vt1, vt2)
@@ -902,7 +912,7 @@ def calculate_dfa_alpha1(
         if quality["sqi"] < _MIN_SQI_FOR_HIGH_CONF:
             confidence = "MEDIUM" if confidence == "HIGH" else confidence
 
-        return {
+        return _annotate_dfa_output({
             "alpha1": a1,
             "status": status,
             "confidence": confidence,
@@ -920,11 +930,11 @@ def calculate_dfa_alpha1(
                 "ci_high": full["ci_high"],
                 "n_scales_used": full["n_scales_used"],
             }
-        }
+        })
 
     except Exception as exc:
         warnings.warn(f"Point DFA alpha-1 calculation failed: {exc}")
-        return {
+        return _annotate_dfa_output({
             "alpha1": None,
             "status": "ERROR",
             "confidence": "NONE",
@@ -935,7 +945,7 @@ def calculate_dfa_alpha1(
                 "artifact_ratio": quality["artifact_ratio"],
                 "sqi": quality["sqi"]
             }
-        }
+        })
 
 
 def detect_thresholds_from_activity(
