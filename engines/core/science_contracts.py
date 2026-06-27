@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Literal, Optional
 
 import numpy as np
 
+from engines.core.tiers import tier_for
+
 TauModel = Literal["skiba_default", "bartram_elite", "pugh_level_based", "individualized"]
 
 _CADENCE_COASTING_MIN_RPM = 40.0
@@ -27,9 +29,17 @@ _CADENCE_MODELING_WARNING = (
 )
 
 
+_VLAMAX_DISCLAIMER = (
+    "VLamax is an estimated maximal lactate accumulation rate from the Mader model "
+    "(vLamax_muscle), not a direct blood or muscle biopsy measurement."
+)
+
+
 def vlamax_contract_fields() -> Dict[str, Any]:
     """Coach-facing VLamax semantics — model estimate, not direct glycolytic rate."""
+    tier = tier_for("metabolic_profiler")
     return {
+        "vlamax_disclaimer": _VLAMAX_DISCLAIMER,
         "vlamax_label": "estimated_lactate_accumulation_rate",
         "vlamax_not_direct_glycolytic_rate": True,
         "vlamax_unit": "mmol/L/s",
@@ -38,6 +48,8 @@ def vlamax_contract_fields() -> Dict[str, Any]:
             "(vLamax_muscle); not a direct blood measurement. Compare to capillary "
             "vLaPeak (Wackerhage et al. 2025) only as an external validation benchmark."
         ),
+        "vlamax_tier": tier.value,
+        "vlamax_tier_explanation": tier.explanation,
     }
 
 
@@ -82,7 +94,7 @@ def fatmax_limitations(*, measurement_tier: str) -> List[str]:
 
 
 def vlamax_limitations(*, effective_cadence_rpm: Optional[float] = None) -> List[str]:
-    limits = [_VLAMAX_LIMITATION]
+    limits = [_VLAMAX_DISCLAIMER, _VLAMAX_LIMITATION]
     if effective_cadence_rpm is not None and effective_cadence_rpm < 130:
         limits.append(
             f"Sprint/profile cadence ({effective_cadence_rpm:.0f} rpm) is below typical "

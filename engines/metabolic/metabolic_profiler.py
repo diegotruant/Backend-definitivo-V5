@@ -770,7 +770,7 @@ class MetabolicProfiler:
         vla_hi = float(np.clip(_vlamax_for_tau(12.0), 0.05, 1.50))
         vla_lo = float(np.clip(_vlamax_for_tau(20.0), 0.05, 1.50))
 
-        return {
+        payload = {
             "status": "success",
             "vlamax_mmol_l_s": round(vlamax, 3),
             "vlamax_range": [round(min(vla_lo, vla_hi), 3), round(max(vla_lo, vla_hi), 3)],
@@ -792,7 +792,10 @@ class MetabolicProfiler:
                 "reflects tau_alactic 12-20 s. Delayed motor recruitment uses "
                 "the best 3–5 s rolling peak as the neuromuscular ceiling."
             ),
+            "limitations": vlamax_limitations(),
         }
+        payload.update(vlamax_contract_fields())
+        return payload
 
     def generate_metabolic_snapshot_segmented(
         self,
@@ -868,7 +871,12 @@ class MetabolicProfiler:
             "joint_vo2max": full_snap.get("estimated_vo2max") if full_snap.get("status") == "success" else None,
             "joint_mlss_power_watts": full_snap.get("mlss_power_watts") if full_snap.get("status") == "success" else None,
         }
-        return merged
+        return self._finalize_snapshot(
+            merged,
+            aero_snap.get("mmp_quality"),
+            effective_cadence_rpm=kwargs.get("effective_cadence_rpm"),
+            cadence_anchor_status=str(kwargs.get("cadence_anchor_status") or "unknown"),
+        )
 
     @staticmethod
     def _bimodality_ratio(mmp: Dict[int, float]) -> Optional[float]:

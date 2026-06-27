@@ -59,12 +59,34 @@ def test_vlamax_contract_fields_on_snapshot() -> None:
     mmp = {1: 900, 5: 800, 15: 700, 60: 500, 180: 380, 300: 340, 600: 310, 1200: 285}
     snap = profiler.generate_metabolic_snapshot(mmp, effective_cadence_rpm=120.0)
     assert snap["status"] == "success"
+    assert snap["vlamax_disclaimer"]
+    assert "not a direct blood" in snap["vlamax_disclaimer"].lower()
     assert snap["vlamax_label"] == "estimated_lactate_accumulation_rate"
     assert snap["vlamax_not_direct_glycolytic_rate"] is True
+    assert snap["vlamax_tier"] == "MODEL"
     assert snap["cadence_anchor"]["effective_cadence_rpm"] == 120.0
     limits = snap.get("limitations") or (snap.get("uncertainty") or {}).get("limitations") or []
     assert limits
     assert any("lactate accumulation" in str(lim).lower() for lim in limits)
+
+
+def test_segmented_snapshot_carries_vlamax_disclaimer() -> None:
+    profiler = MetabolicProfiler(weight=75.0)
+    mmp = {
+        5: 1100,
+        15: 950,
+        60: 500,
+        180: 380,
+        300: 340,
+        600: 310,
+        1200: 285,
+        3600: 260,
+    }
+    snap = profiler.generate_metabolic_snapshot_segmented(mmp, effective_cadence_rpm=125.0)
+    assert snap["status"] == "success"
+    assert snap.get("fit_method") == "segmented"
+    assert snap["vlamax_disclaimer"]
+    assert snap["vlamax_tier"] == "MODEL"
 
 
 def test_resolve_w_prime_tau_models() -> None:
