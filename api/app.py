@@ -11,7 +11,7 @@ import os
 import threading
 import time
 from typing import Any
-from collections import deque, defaultdict
+from collections import deque
 
 try:
     from fastapi import FastAPI, Request
@@ -76,25 +76,48 @@ app: FastAPI
 class _InMemoryRateLimiter:
     """Simple sliding-window limiter (per IP+path, single-process only)."""
 
+    _PRUNE_EVERY = 256
+
     def __init__(self, max_requests: int, window_seconds: float) -> None:
         self.max_requests = max(1, int(max_requests))
         self.window_seconds = max(1.0, float(window_seconds))
-        self._buckets: dict[str, deque[float]] = defaultdict(deque)
+        self._buckets: dict[str, deque[float]] = {}
         self._lock = threading.Lock()
+        self._calls = 0
+
+    def _prune_stale_buckets(self, cutoff: float) -> None:
+        """Drop keys whose newest timestamp fell outside the sliding window."""
+        stale_keys = [
+            key
+            for key, timestamps in self._buckets.items()
+            if not timestamps or timestamps[-1] < cutoff
+        ]
+        for key in stale_keys:
+            self._buckets.pop(key, None)
 
     def allow(self, key: str, now: float | None = None) -> bool:
         ts = time.monotonic() if now is None else now
         cutoff = ts - self.window_seconds
         with self._lock:
-            q = self._buckets[key]
-            while q and q[0] < cutoff:
-                q.popleft()
-            if len(q) >= self.max_requests:
+            self._calls += 1
+            if self._calls % self._PRUNE_EVERY == 0:
+                self._prune_stale_buckets(cutoff)
+
+            timestamps = self._buckets.get(key)
+            if timestamps is not None:
+                while timestamps and timestamps[0] < cutoff:
+                    timestamps.popleft()
+                if not timestamps:
+                    self._buckets.pop(key, None)
+                    timestamps = None
+
+            if timestamps is None:
+                timestamps = deque()
+                self._buckets[key] = timestamps
+
+            if len(timestamps) >= self.max_requests:
                 return False
-            q.append(ts)
-            # Prune empty buckets lazily when old keys cool down.
-            if not q:
-                self._buckets.pop(key, None)
+            timestamps.append(ts)
             return True
 
 
