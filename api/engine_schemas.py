@@ -153,6 +153,42 @@ class GlycolyticProfileRequest(MmpAthleteRequest):
     lactate_peak_mmol_l: Optional[float] = Field(default=None, ge=0)
 
 
+class FatmaxLabPointModel(BaseModel):
+    power_w: float = Field(..., gt=0)
+    vo2_l_min: float = Field(..., gt=0)
+    vco2_l_min: float = Field(..., gt=0)
+    rer: Optional[float] = Field(default=None, gt=0.6, lt=1.3)
+    heart_rate_bpm: Optional[float] = Field(default=None, gt=0)
+
+
+class FatmaxLabRequest(BaseModel):
+    points: List[FatmaxLabPointModel] = Field(..., min_length=3)
+    athlete: Optional[AthleteParams] = None
+    mlss_power_w: Optional[float] = Field(default=None, gt=0)
+    map_power_w: Optional[float] = Field(default=None, gt=0)
+    threshold_fraction: float = Field(default=0.80, gt=0.50, lt=1.0)
+
+
+class FatmaxReportRequest(MmpAthleteRequest):
+    metabolic_snapshot: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Optional precomputed metabolic snapshot; if omitted the service builds one from MMP.",
+    )
+    previous_report: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Previous FATmax report for right/left shift comparison.",
+    )
+    recent_training_status: Optional[str] = None
+    environment_context: Optional[Dict[str, Any]] = None
+    nutrition_context: Optional[Dict[str, Any]] = None
+    threshold_fraction: float = Field(default=0.80, gt=0.50, lt=1.0)
+
+
+class FatmaxCompareRequest(BaseModel):
+    previous_report: Dict[str, Any]
+    current_report: Dict[str, Any]
+
+
 class LabTextParseRequest(BaseModel):
     text: str
     source: str = "unknown"
