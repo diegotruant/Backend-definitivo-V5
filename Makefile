@@ -14,7 +14,7 @@ run:
 test:
 	$(PYTHON) -m pytest -q tests/pytest_smoke.py
 
-test-all:
+test-all: openapi
 	$(PYTHON) -m pytest -q tests/pytest_*.py pytest_script_suite.py
 
 hardening-test:
@@ -23,13 +23,13 @@ hardening-test:
 stress-test:
 	$(PYTHON) -m pytest -q -m "hardening and stress" tests/pytest_hardening_*.py
 
-lockdown-test:
+lockdown-test: openapi
 	$(PYTHON) -m pytest -q tests/pytest_engine_lockdown_v1.py tests/pytest_suite_integrity.py --tb=short
 
-integrity-test:
+integrity-test: openapi
 	$(PYTHON) -m pytest -q tests/pytest_suite_integrity.py --tb=short
 
-api-matrix-test:
+api-matrix-test: openapi
 	$(PYTHON) -m pytest -q tests/pytest_openapi_http_matrix.py --tb=short
 
 perfection-status:
@@ -38,13 +38,13 @@ perfection-status:
 perfection-gate:
 	$(PYTHON) scripts/perfection_gate.py
 
-perfection-test:
+perfection-test: openapi
 	$(PYTHON) -m pytest -q tests/pytest_engine_unit_hardening.py tests/pytest_perfection_http_strict.py tests/pytest_openapi_contract_hardening.py --tb=short
 
 golden-test:
 	$(PYTHON) -m pytest -q tests/pytest_golden_regression.py tests/pytest_golden_fit_parse.py tests/pytest_golden_scientific.py --tb=short
 
-coverage-test:
+coverage-test: openapi
 	$(PYTHON) -m pytest -q tests/pytest_*.py \
 		--cov=engines --cov=api --cov-branch \
 		--cov-report=term-missing:skip-covered \
