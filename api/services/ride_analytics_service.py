@@ -33,6 +33,7 @@ from engines.performance.physiological_resilience import build_physiological_res
 from engines.performance.power_engine import PowerEngine, estimate_ftp_from_mmp, fit_critical_power
 from engines.performance.w_prime_balance_engine import analyze_w_prime_usage, calculate_w_prime_balance
 from engines.recovery.cardiac_engine import ActivitySample, CardiacResponseAnalyzer
+from engines.core.tiers import tier_for
 from engines.recovery.hrv_engine import analyze_rr_stream
 from engines.recovery.pedaling_balance import analyze_pedaling_balance
 from engines.recovery.thermal_engine import analyze_heat_acclimation, analyze_thermal_session
@@ -156,7 +157,15 @@ class RideAnalyticsService:
             if stream.rr_intervals[i]
         ]
         timeline = analyze_rr_stream(rr_samples, window_seconds=window_seconds, step_seconds=step_seconds)
-        return {"status": "success", "timeline": timeline, "n_windows": len(timeline)}
+        tier = tier_for("hrv_engine")
+        return {
+            "status": "success",
+            "timeline": timeline,
+            "n_windows": len(timeline),
+            "method": "dfa_alpha1",
+            "tier": tier.value,
+            "tier_explanation": tier.explanation,
+        }
 
     def thermal_session(self, stream: Any, *, ftp: Optional[float]) -> Dict[str, Any]:
         n = int(getattr(stream, "n_samples", 0))

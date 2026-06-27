@@ -39,6 +39,7 @@ from engines.performance.power_engine import PowerEngine, estimate_ftp_from_mmp
 from engines.metabolic.zones_engine import ZonesEngine
 # hrv_engine imported lazily inside build_workout_summary() (see section 4).
 from engines.core.metric_contracts import annotate_payload, summarize_section_contracts
+from engines.core.tiers import tier_for
 from engines.performance.physiological_resilience import build_physiological_resilience
 from engines.io.activity_statistics import compute_activity_statistics
 from engines.metabolic.fatmax_engine import build_model_fatmax_report
@@ -283,6 +284,7 @@ def build_workout_summary(
                     step_seconds=adaptive_step,
                     context=context,
                 )
+                dfa_tier = tier_for("hrv_engine")
                 out["sections"]["hrv"] = {
                     "available": True,
                     "n_windows": len(hrv_timeline),
@@ -290,6 +292,9 @@ def build_workout_summary(
                     "window_seconds": hrv_window_seconds,
                     "step_seconds": round(float(adaptive_step), 3),
                     "adaptive_step_applied": bool(abs(float(adaptive_step) - float(base_step)) > 1e-9),
+                    "method": "dfa_alpha1",
+                    "tier": dfa_tier.value,
+                    "tier_explanation": dfa_tier.explanation,
                 }
             except Exception as exc:
                 out["sections"]["hrv"] = {

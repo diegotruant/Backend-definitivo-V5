@@ -12,7 +12,8 @@ A — REFERENCE: deterministic from input. Standard formulas (NP, IF, TSS, MMP,
 
 B — MODEL: physiological model with documented assumptions. The result is a
     prediction of a quantity that cannot be directly measured from the stream
-    (VO2max from MMP via Mader, DFA-α₁ thresholds, W' balance via Skiba).
+    (VO2max from MMP via Mader, W' balance via Skiba).
+    DFA-α₁ threshold detection is tier D (EXPERIMENTAL) — see hrv_engine.
     Backed by peer-reviewed literature, but values depend on model fidelity.
 
 C — HEURISTIC: rule-of-thumb thresholds, not validated against gold standards.
@@ -100,7 +101,7 @@ ENGINE_TIERS: Dict[str, Tier] = {
     "data_quality_engine":           Tier.REFERENCE,
     "efforts_analyzer":              Tier.REFERENCE,
     "workout_summary":               Tier.REFERENCE,  # aggregator inherits worst-of
-    "hrv_engine":                    Tier.MODEL,
+    "hrv_engine":                    Tier.EXPERIMENTAL,
     "metabolic_profiler":            Tier.MODEL,
     "cross_validation_engine":       Tier.MODEL,
     "lactate_validation_engine":     Tier.REFERENCE,
