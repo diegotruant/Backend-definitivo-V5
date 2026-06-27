@@ -20,6 +20,10 @@ from api.services.test_service import TestService
 from api.services.twin_service import TwinService
 from api.services.workout_service import WorkoutService
 
+# Registers FATmax extension methods on ProfileExtendedService without creating
+# a dependency from the core profile service to the new reporting module.
+import api.services.fatmax_profile_service as _fatmax_profile_service  # noqa: F401,E402
+
 __all__ = [
     "ExplainabilityService",
     "HistoryService",
