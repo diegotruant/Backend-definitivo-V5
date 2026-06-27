@@ -10,6 +10,9 @@ from api.engine_schemas import (
     CrossValidateRequest,
     CtlAtlTsbRequest,
     DetrainingApplyRequest,
+    FatmaxCompareRequest,
+    FatmaxLabRequest,
+    FatmaxReportRequest,
     GlycolyticProfileRequest,
     KalmanTrajectoryRequest,
     MetabolicCurrentRequest,
@@ -59,6 +62,45 @@ def vlamax_from_power_series(
     service: ProfileExtendedService = Depends(get_profile_extended_service),
 ):
     return json_response(service.vlamax_from_power_series(req))
+
+
+@router.post(
+    "/fatmax/report",
+    operation_id="profileFatmaxReport",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+)
+def fatmax_report(
+    req: FatmaxReportRequest,
+    service: ProfileExtendedService = Depends(get_profile_extended_service),
+):
+    return json_response(service.fatmax_report(req))
+
+
+@router.post(
+    "/fatmax/lab",
+    operation_id="profileFatmaxLab",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+)
+def fatmax_lab(
+    req: FatmaxLabRequest,
+    service: ProfileExtendedService = Depends(get_profile_extended_service),
+):
+    return json_response(service.fatmax_lab(req))
+
+
+@router.post(
+    "/fatmax/compare",
+    operation_id="profileFatmaxCompare",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+)
+def fatmax_compare(
+    req: FatmaxCompareRequest,
+    service: ProfileExtendedService = Depends(get_profile_extended_service),
+):
+    return json_response(service.fatmax_compare(req))
 
 
 @router.post("/kalman/trajectory", operation_id="profileKalmanTrajectory", response_model=EnginePayload, responses={200: JSON_OBJECT})
