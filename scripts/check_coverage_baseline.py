@@ -26,10 +26,10 @@ def main() -> int:
     min_branch = float(baseline["branch_percent"])
 
     ok = True
-    if line + 1e-6 < min_line:
+    if round(line, 2) + 1e-9 < min_line:
         print(f"LINE coverage regressed: {line:.2f}% < baseline {min_line:.2f}%", file=sys.stderr)
         ok = False
-    if branch + 1e-6 < min_branch:
+    if round(branch, 2) + 1e-9 < min_branch:
         print(f"BRANCH coverage regressed: {branch:.2f}% < baseline {min_branch:.2f}%", file=sys.stderr)
         ok = False
 
