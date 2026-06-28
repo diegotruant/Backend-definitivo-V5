@@ -105,6 +105,37 @@ def _extract_metabolic_metrics(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _extract_lactate_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Serialize measured lactate curve/thresholds into TwinState when available."""
+    direct = _as_dict(payload.get("lactate_state"))
+    if direct:
+        direct.setdefault("schema_version", "lactate_state.v1")
+        return direct
+
+    metabolic_curves = _as_dict(payload.get("metabolic_curves") or payload.get("curves_report"))
+    curves = _as_dict(metabolic_curves.get("curves"))
+    lactate_curve = _as_dict(payload.get("lactate_curve") or curves.get("lactate"))
+    if not lactate_curve:
+        return {}
+    points = _as_list(lactate_curve.get("points"))
+    thresholds = _as_dict(lactate_curve.get("thresholds"))
+    if not points and not thresholds:
+        return {}
+    return {
+        "schema_version": "lactate_state.v1",
+        "measurement_tier": lactate_curve.get("measurement_tier", "LAB_MEASURED"),
+        "latest_curve": lactate_curve,
+        "thresholds": thresholds,
+        "last_test_summary": {
+            "points_count": len(points),
+            "mlss_dmax_watts": thresholds.get("mlss_dmax_watts"),
+            "obla_4mmol_watts": thresholds.get("obla_4mmol_watts"),
+            "aerobic_2mmol_watts": thresholds.get("aerobic_2mmol_watts"),
+        },
+        "updated_at": payload.get("updated_at") or _now_iso(),
+    }
+
+
 def _confidence_from_sections(payload: Dict[str, Any]) -> Dict[str, Any]:
     snapshot = _as_dict(payload.get("metabolic_snapshot"))
     sensor_quality = _as_dict(payload.get("sensor_quality"))
@@ -148,6 +179,8 @@ def build_twin_state(payload: Dict[str, Any]) -> Dict[str, Any]:
         "measured_anchor": measured_anchor,
         "metabolic_snapshot": metabolic_snapshot,
         "metabolic_metrics": _extract_metabolic_metrics(metabolic_snapshot),
+        "metabolic_curves": _as_dict(payload.get("metabolic_curves") or payload.get("curves_report")),
+        "lactate_state": _extract_lactate_state(payload),
         "rolling_power_curve": rolling_power_curve,
         "load_state": _as_dict(payload.get("load_state")),
         "readiness_state": _as_dict(payload.get("readiness_state")),
