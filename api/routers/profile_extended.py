@@ -43,7 +43,7 @@ class MetabolicCurvesRequest(MmpAthleteRequest):
     )
     power_points: Optional[List[float]] = Field(
         default=None,
-        description="Optional watt values for x-axis points; otherwise generated from snapshot anchors.",
+        description="Optional watt values for metabolic x-axis points; otherwise generated from snapshot anchors.",
     )
     lactate_steps: Optional[List[Dict[str, Any]]] = Field(
         default=None,
@@ -53,9 +53,21 @@ class MetabolicCurvesRequest(MmpAthleteRequest):
         default=None,
         description="Optional durations for energy contribution curve.",
     )
+    power_series: Optional[List[float]] = Field(
+        default=None,
+        description="Optional session power stream for W' balance and durability curves.",
+    )
+    dt_s: float = Field(default=1.0, gt=0, description="Seconds per power sample in power_series.")
+    duration_s: Optional[float] = Field(default=None, gt=0, description="Optional total duration for power_series.")
+    cp_w: Optional[float] = Field(default=None, gt=0, description="Critical power for W' balance.")
+    w_prime_j: Optional[float] = Field(default=None, gt=0, description="W' capacity in joules.")
+    ftp_w: Optional[float] = Field(default=None, gt=0, description="FTP for durability percent anchors.")
     include_curves: Optional[List[str]] = Field(
         default=None,
-        description="Optional subset: vo2_demand, substrate_oxidation, lactate, energy_contribution_by_duration.",
+        description=(
+            "Optional subset: vo2_demand, substrate_oxidation, lactate, "
+            "energy_contribution_by_duration, w_prime_balance, durability_decay."
+        ),
     )
 
 
