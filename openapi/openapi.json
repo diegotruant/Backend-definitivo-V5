@@ -3320,6 +3320,60 @@
         ]
       }
     },
+    "/profile/metabolic/curves": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Metabolic Curves",
+        "operationId": "profileMetabolicCurves",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetabolicCurvesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
     "/profile/fatmax/report": {
       "post": {
         "tags": [
@@ -11616,6 +11670,232 @@
         ],
         "title": "MetabolicCurrentRequest"
       },
+      "MetabolicCurvesRequest": {
+        "properties": {
+          "mmp": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Mmp"
+          },
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteParams"
+          },
+          "expected_eta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Eta"
+          },
+          "measured_lacap": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Lacap"
+          },
+          "effective_cadence_rpm": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 220.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Cadence Rpm"
+          },
+          "tau_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "skiba_default",
+                  "bartram_elite",
+                  "pugh_level_based",
+                  "individualized"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tau Model"
+          },
+          "clean_mmp_first": {
+            "type": "boolean",
+            "title": "Clean Mmp First",
+            "default": false
+          },
+          "metabolic_snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot",
+            "description": "Optional precomputed metabolic snapshot; if omitted, it is built from MMP."
+          },
+          "power_points": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Points",
+            "description": "Optional watt values for metabolic x-axis points; otherwise generated from snapshot anchors."
+          },
+          "lactate_steps": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lactate Steps",
+            "description": "Optional measured lactate steps: {power_w, lactate_mmol, hr_mean?, cadence_mean?}."
+          },
+          "durations_s": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Durations S",
+            "description": "Optional durations for energy contribution curve."
+          },
+          "power_series": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Series",
+            "description": "Optional session power stream for W' balance and durability curves."
+          },
+          "dt_s": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Dt S",
+            "description": "Seconds per power sample in power_series.",
+            "default": 1.0
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S",
+            "description": "Optional total duration for power_series."
+          },
+          "cp_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cp W",
+            "description": "Critical power for W' balance."
+          },
+          "w_prime_j": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "W Prime J",
+            "description": "W' capacity in joules."
+          },
+          "ftp_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp W",
+            "description": "FTP for durability percent anchors."
+          },
+          "include_curves": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Include Curves",
+            "description": "Optional subset: vo2_demand, substrate_oxidation, lactate, energy_contribution_by_duration, session_fuel_demand, w_prime_balance, durability_decay, post_effort_recovery."
+          }
+        },
+        "type": "object",
+        "required": [
+          "mmp",
+          "athlete"
+        ],
+        "title": "MetabolicCurvesRequest",
+        "description": "Request for backend-generated coach curves ready for DB/frontend plotting."
+      },
       "MetabolicFlexibilityRequest": {
         "properties": {
           "snapshot": {
@@ -12632,6 +12912,54 @@
             ],
             "title": "Snapshot"
           },
+          "metabolic_curves": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Curves"
+          },
+          "curves_report": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Curves Report"
+          },
+          "lactate_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lactate State"
+          },
+          "lactate_curve": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lactate Curve"
+          },
           "rolling_power_curve": {
             "anyOf": [
               {
@@ -12772,6 +13100,21 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Metabolic Snapshot"
+          },
+          "metabolic_metrics": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metabolic Metrics"
+          },
+          "metabolic_curves": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metabolic Curves"
+          },
+          "lactate_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Lactate State"
           },
           "rolling_power_curve": {
             "additionalProperties": true,

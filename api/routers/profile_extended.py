@@ -66,7 +66,8 @@ class MetabolicCurvesRequest(MmpAthleteRequest):
         default=None,
         description=(
             "Optional subset: vo2_demand, substrate_oxidation, lactate, "
-            "energy_contribution_by_duration, w_prime_balance, durability_decay."
+            "energy_contribution_by_duration, session_fuel_demand, w_prime_balance, "
+            "durability_decay, post_effort_recovery."
         ),
     )
 

@@ -507,6 +507,10 @@ export const api = {
   profileMetabolicCurrent: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/profile/metabolic/current', { method: 'POST', body: JSON.stringify(payload) }),
 
+  /** POST /profile/metabolic/curves */
+  profileMetabolicCurves: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/profile/metabolic/curves', { method: 'POST', body: JSON.stringify(payload) }),
+
   /** POST /profile/mmp-quality */
   profileMmpQuality: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/profile/mmp-quality', { method: 'POST', body: JSON.stringify(payload) }),

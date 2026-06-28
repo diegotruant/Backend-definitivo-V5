@@ -754,6 +754,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/profile/metabolic/curves": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Metabolic Curves */
+        post: operations["profileMetabolicCurves"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/profile/fatmax/report": {
         parameters: {
             query?: never;
@@ -3379,6 +3396,90 @@ export interface components {
             /** As Of */
             as_of?: string | null;
         };
+        /**
+         * MetabolicCurvesRequest
+         * @description Request for backend-generated coach curves ready for DB/frontend plotting.
+         */
+        MetabolicCurvesRequest: {
+            /** Mmp */
+            mmp: {
+                [key: string]: number;
+            };
+            athlete: components["schemas"]["AthleteParams"];
+            /** Expected Eta */
+            expected_eta?: number | null;
+            /** Measured Lacap */
+            measured_lacap?: number | null;
+            /** Effective Cadence Rpm */
+            effective_cadence_rpm?: number | null;
+            /** Tau Model */
+            tau_model?: ("skiba_default" | "bartram_elite" | "pugh_level_based" | "individualized") | null;
+            /**
+             * Clean Mmp First
+             * @default false
+             */
+            clean_mmp_first: boolean;
+            /**
+             * Metabolic Snapshot
+             * @description Optional precomputed metabolic snapshot; if omitted, it is built from MMP.
+             */
+            metabolic_snapshot?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Power Points
+             * @description Optional watt values for metabolic x-axis points; otherwise generated from snapshot anchors.
+             */
+            power_points?: number[] | null;
+            /**
+             * Lactate Steps
+             * @description Optional measured lactate steps: {power_w, lactate_mmol, hr_mean?, cadence_mean?}.
+             */
+            lactate_steps?: {
+                [key: string]: unknown;
+            }[] | null;
+            /**
+             * Durations S
+             * @description Optional durations for energy contribution curve.
+             */
+            durations_s?: number[] | null;
+            /**
+             * Power Series
+             * @description Optional session power stream for W' balance and durability curves.
+             */
+            power_series?: number[] | null;
+            /**
+             * Dt S
+             * @description Seconds per power sample in power_series.
+             * @default 1
+             */
+            dt_s: number;
+            /**
+             * Duration S
+             * @description Optional total duration for power_series.
+             */
+            duration_s?: number | null;
+            /**
+             * Cp W
+             * @description Critical power for W' balance.
+             */
+            cp_w?: number | null;
+            /**
+             * W Prime J
+             * @description W' capacity in joules.
+             */
+            w_prime_j?: number | null;
+            /**
+             * Ftp W
+             * @description FTP for durability percent anchors.
+             */
+            ftp_w?: number | null;
+            /**
+             * Include Curves
+             * @description Optional subset: vo2_demand, substrate_oxidation, lactate, energy_contribution_by_duration, w_prime_balance, durability_decay.
+             */
+            include_curves?: string[] | null;
+        };
         /** MetabolicFlexibilityRequest */
         MetabolicFlexibilityRequest: {
             /** Snapshot */
@@ -3762,6 +3863,22 @@ export interface components {
             snapshot?: {
                 [key: string]: unknown;
             } | null;
+            /** Metabolic Curves */
+            metabolic_curves?: {
+                [key: string]: unknown;
+            } | null;
+            /** Curves Report */
+            curves_report?: {
+                [key: string]: unknown;
+            } | null;
+            /** Lactate State */
+            lactate_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Lactate Curve */
+            lactate_curve?: {
+                [key: string]: unknown;
+            } | null;
             /** Rolling Power Curve */
             rolling_power_curve?: {
                 [key: string]: unknown;
@@ -3825,6 +3942,18 @@ export interface components {
             };
             /** Metabolic Snapshot */
             metabolic_snapshot?: {
+                [key: string]: unknown;
+            };
+            /** Metabolic Metrics */
+            metabolic_metrics?: {
+                [key: string]: unknown;
+            };
+            /** Metabolic Curves */
+            metabolic_curves?: {
+                [key: string]: unknown;
+            };
+            /** Lactate State */
+            lactate_state?: {
                 [key: string]: unknown;
             };
             /** Rolling Power Curve */
@@ -6350,6 +6479,39 @@ export interface operations {
                          */
                         detail: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    profileMetabolicCurves: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetabolicCurvesRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
                 };
             };
             /** @description Validation Error */
