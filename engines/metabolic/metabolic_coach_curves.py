@@ -75,8 +75,8 @@ def _snapshot_value(snapshot: Dict[str, Any], *names: str) -> Optional[float]:
 
 def _default_power_points(snapshot: Dict[str, Any], explicit: Optional[Sequence[float]] = None) -> List[float]:
     if explicit:
-        values = sorted({_finite_float(v) for v in explicit})
-        return [float(v) for v in values if v is not None and v > 0]
+        values = {_finite_float(v) for v in explicit}
+        return sorted(float(v) for v in values if v is not None and v > 0)
 
     fatmax = _snapshot_value(snapshot, "fatmax_power_watts", "fatmax_power_w")
     mlss = _snapshot_value(snapshot, "mlss_power_watts", "mlss_power_w")
@@ -331,15 +331,15 @@ def build_lactate_curve(lactate_steps: Optional[Sequence[Dict[str, Any]]]) -> Di
 def _energy_contribution(duration_s: float, vlamax: Optional[float]) -> Dict[str, float]:
     d = max(float(duration_s), 1.0)
     vla = vlamax if vlamax is not None else 0.45
-    pcr = 100.0 * np.exp(-d / 7.0)
-    glycolytic_peak = 100.0 * (d / 35.0) * np.exp(1.0 - d / 35.0)
+    pcr = float(100.0 * np.exp(-d / 7.0))
+    glycolytic_peak = float(100.0 * (d / 35.0) * np.exp(1.0 - d / 35.0))
     glycolytic = glycolytic_peak * max(0.65, min(1.35, vla / 0.45))
     oxidative = max(0.0, (d / (d + 65.0)) * 100.0)
     total = max(pcr + glycolytic + oxidative, 1e-9)
     return {
-        "pcr_pct": round(pcr / total * 100.0, 1),
-        "glycolytic_pct": round(glycolytic / total * 100.0, 1),
-        "oxidative_pct": round(oxidative / total * 100.0, 1),
+        "pcr_pct": round(float(pcr / total * 100.0), 1),
+        "glycolytic_pct": round(float(glycolytic / total * 100.0), 1),
+        "oxidative_pct": round(float(oxidative / total * 100.0), 1),
     }
 
 
