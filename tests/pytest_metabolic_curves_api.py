@@ -32,6 +32,10 @@ def test_profile_metabolic_curves_endpoint_returns_curve_bundle() -> None:
                 {"power_w": 270, "lactate_mmol": 4.1},
                 {"power_w": 320, "lactate_mmol": 7.2},
             ],
+            "power_series": [150.0] * 60 + [360.0] * 90 + [140.0] * 120,
+            "cp_w": 280,
+            "w_prime_j": 18000,
+            "ftp_w": 280,
         },
     )
     body = assert_http_engine_json(response)
@@ -39,5 +43,7 @@ def test_profile_metabolic_curves_endpoint_returns_curve_bundle() -> None:
     assert "vo2_demand" in body["curves"]
     assert "substrate_oxidation" in body["curves"]
     assert "lactate" in body["available_curves"]
+    assert "w_prime_balance" in body["available_curves"]
+    assert "durability_decay" in body["curves"]
     assert body["curves"]["vo2_demand"]["points"]
     assert body["curves"]["vo2_demand"]["measurement_tier"] == "MODEL_ESTIMATE"
