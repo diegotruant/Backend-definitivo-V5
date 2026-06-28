@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, Depends
+from pydantic import Field
 
 from api.deps import get_profile_extended_service
 from api.engine_schemas import (
@@ -29,6 +32,31 @@ from api.route_docs import ERRORS, JSON_OBJECT
 from api.services.profile_extended_service import ProfileExtendedService
 
 router = APIRouter(prefix="/profile", tags=["profile"])
+
+
+class MetabolicCurvesRequest(MmpAthleteRequest):
+    """Request for backend-generated coach curves ready for DB/frontend plotting."""
+
+    metabolic_snapshot: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Optional precomputed metabolic snapshot; if omitted, it is built from MMP.",
+    )
+    power_points: Optional[List[float]] = Field(
+        default=None,
+        description="Optional watt values for x-axis points; otherwise generated from snapshot anchors.",
+    )
+    lactate_steps: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Optional measured lactate steps: {power_w, lactate_mmol, hr_mean?, cadence_mean?}.",
+    )
+    durations_s: Optional[List[float]] = Field(
+        default=None,
+        description="Optional durations for energy contribution curve.",
+    )
+    include_curves: Optional[List[str]] = Field(
+        default=None,
+        description="Optional subset: vo2_demand, substrate_oxidation, lactate, energy_contribution_by_duration.",
+    )
 
 
 @router.post("/snapshot/segmented", operation_id="profileSnapshotSegmented", response_model=EnginePayload, responses={200: JSON_OBJECT})
@@ -62,6 +90,19 @@ def vlamax_from_power_series(
     service: ProfileExtendedService = Depends(get_profile_extended_service),
 ):
     return json_response(service.vlamax_from_power_series(req))
+
+
+@router.post(
+    "/metabolic/curves",
+    operation_id="profileMetabolicCurves",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+)
+def metabolic_curves(
+    req: MetabolicCurvesRequest,
+    service: ProfileExtendedService = Depends(get_profile_extended_service),
+):
+    return json_response(service.metabolic_curves(req))
 
 
 @router.post(
