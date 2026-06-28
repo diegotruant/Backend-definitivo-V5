@@ -39,6 +39,7 @@ from engines.metabolic.metabolic_kalman import DailyInput, process_workout_histo
 from engines.metabolic.metabolic_profiler_phenotype import enhance_metabolic_snapshot_with_phenotype
 from engines.metabolic.power_vlamax_estimator import estimate_vlamax_from_power_series
 from engines.performance.mmp_quality import analyze_mmp_quality, clean_mmp
+from engines.performance.performance_coach_curves import build_session_performance_curves
 
 
 def _with_sprint_vlamax_confidence(result: Dict[str, Any]) -> Dict[str, Any]:
@@ -91,6 +92,34 @@ def _model_dump_list(rows: Optional[List[Any]]) -> List[Dict[str, Any]]:
         elif isinstance(row, dict):
             out.append(dict(row))
     return out
+
+
+def _merge_curve_bundle(report: Dict[str, Any], extra_curves: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    curves = dict(report.get("curves") or {})
+    curves.update(extra_curves)
+    available = [
+        name
+        for name, curve in curves.items()
+        if curve.get("measurement_tier") != "INSUFFICIENT_DATA" and curve.get("points")
+    ]
+    missing = [
+        {"curve": name, "reason": "; ".join(curve.get("limitations") or ["insufficient_data"])}
+        for name, curve in curves.items()
+        if name not in available
+    ]
+    confidences = [
+        float(curve.get("confidence_score", 0.0))
+        for curve in curves.values()
+        if curve.get("measurement_tier") != "INSUFFICIENT_DATA"
+    ]
+    merged = dict(report)
+    merged["curves"] = curves
+    merged["available_curves"] = available
+    merged["missing_curves"] = missing
+    merged["confidence_score"] = round(sum(confidences) / len(confidences), 3) if confidences else 0.0
+    merged["status"] = "success" if available else "insufficient_data"
+    merged["measurement_tier"] = "MIXED" if available else "INSUFFICIENT_DATA"
+    return merged
 
 
 class ProfileExtendedService:
@@ -304,7 +333,8 @@ class ProfileExtendedService:
                     "confidence_score": 0.0,
                 }
         ctx = athlete_context_from_params(req.athlete)
-        return build_metabolic_curves_report(
+        include_curves = getattr(req, "include_curves", None)
+        report = build_metabolic_curves_report(
             snapshot,
             weight_kg=req.athlete.weight_kg,
             gender=ctx.effective_gender(),
@@ -314,8 +344,18 @@ class ProfileExtendedService:
             power_points=getattr(req, "power_points", None),
             lactate_steps=_model_dump_list(getattr(req, "lactate_steps", None)),
             durations_s=getattr(req, "durations_s", None),
-            include_curves=getattr(req, "include_curves", None),
+            include_curves=include_curves,
         )
+        session_curves = build_session_performance_curves(
+            power_stream=getattr(req, "power_series", None),
+            cp_w=getattr(req, "cp_w", None),
+            w_prime_j=getattr(req, "w_prime_j", None),
+            ftp_w=getattr(req, "ftp_w", None),
+            dt_s=getattr(req, "dt_s", 1.0),
+            duration_s=getattr(req, "duration_s", None),
+            include_curves=include_curves,
+        )
+        return _merge_curve_bundle(report, session_curves)
 
     def fatmax_report(self, req: FatmaxReportRequest) -> Dict[str, Any]:
         snapshot = req.metabolic_snapshot
