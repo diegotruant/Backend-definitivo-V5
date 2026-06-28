@@ -7,7 +7,7 @@ here: points, anchors, units, measurement tier, confidence and limitations.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -21,6 +21,8 @@ INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
 
 O2_ENERGY_EQUIVALENT_J_PER_L = 20_900.0
 DEFAULT_GROSS_EFFICIENCY = 0.22
+KCAL_PER_G_CARBOHYDRATE = 4.0
+KCAL_PER_G_FAT = 9.0
 
 
 def _finite_float(value: Any) -> Optional[float]:
@@ -375,6 +377,155 @@ def build_energy_contribution_curve(metabolic_snapshot: Dict[str, Any], duration
     )
 
 
+def _clean_power(power_stream: Optional[Sequence[float]]) -> List[float]:
+    out: List[float] = []
+    for value in power_stream or []:
+        power = _finite_float(value)
+        if power is not None:
+            out.append(max(0.0, power))
+    return out
+
+
+def _interpolate_curve_value(curve_rows: Sequence[Dict[str, Any]], power_w: float, key: str) -> float:
+    pairs: List[Tuple[float, float]] = []
+    for row in curve_rows:
+        power = _finite_float(row.get("power_w"))
+        value = _finite_float(row.get(key))
+        if power is not None and value is not None:
+            pairs.append((power, value))
+    pairs.sort(key=lambda item: item[0])
+    if not pairs:
+        return 0.0
+    if power_w <= pairs[0][0]:
+        return pairs[0][1]
+    if power_w >= pairs[-1][0]:
+        return pairs[-1][1]
+    for (p0, v0), (p1, v1) in zip(pairs, pairs[1:]):
+        if p0 <= power_w <= p1:
+            if abs(p1 - p0) < 1e-9:
+                return v0
+            frac = (power_w - p0) / (p1 - p0)
+            return v0 + frac * (v1 - v0)
+    return pairs[-1][1]
+
+
+def build_session_fuel_demand_curve(
+    metabolic_snapshot: Dict[str, Any],
+    *,
+    power_stream: Optional[Sequence[float]],
+    weight_kg: Optional[float],
+    gender: Optional[str] = None,
+    training_years: Optional[float] = None,
+    discipline: Optional[str] = None,
+    dt_s: float = 1.0,
+) -> Dict[str, Any]:
+    """Estimate total CHO/FAT demand for a session from power and substrate curve.
+
+    Outputs cumulative grams for DB/frontend. This estimates substrate demand,
+    not actual intake and not direct calorimetry.
+    """
+    power = _clean_power(power_stream)
+    if len(power) < 2:
+        return _curve(
+            curve_id="session_fuel_demand",
+            title="Session CHO/FAT demand",
+            x_key="time_s",
+            x_unit="s",
+            y_keys=[{"key": "cumulative_carbohydrate_g", "unit": "g", "label": "CHO demand"}],
+            measurement_tier=INSUFFICIENT_DATA,
+            points=[],
+            confidence_score=0.0,
+            limitations=["Requires session power stream to estimate CHO/FAT demand."],
+        )
+    substrate_curve = build_substrate_curve(
+        metabolic_snapshot,
+        weight_kg=weight_kg,
+        gender=gender,
+        training_years=training_years,
+        discipline=discipline,
+    )
+    rows = substrate_curve.get("points") or []
+    if substrate_curve.get("measurement_tier") == INSUFFICIENT_DATA or not rows:
+        return _curve(
+            curve_id="session_fuel_demand",
+            title="Session CHO/FAT demand",
+            x_key="time_s",
+            x_unit="s",
+            y_keys=[{"key": "cumulative_carbohydrate_g", "unit": "g", "label": "CHO demand"}],
+            measurement_tier=INSUFFICIENT_DATA,
+            points=[],
+            confidence_score=0.0,
+            limitations=["Requires a usable substrate oxidation curve and session power stream."],
+        )
+
+    step_min = max(dt_s, 0.1) / 60.0
+    cumulative_cho = 0.0
+    cumulative_fat = 0.0
+    points: List[Dict[str, Any]] = []
+    sample_step = max(1, int(round(300.0 / max(dt_s, 0.1))))
+    base = substrate_curve.get("fatmax_base") or {}
+    lower = _finite_float(base.get("lower_w"))
+    upper = _finite_float(base.get("upper_w"))
+    crossover = None
+    for anchor in substrate_curve.get("anchors") or []:
+        if anchor.get("label") == "Carbohydrate crossover":
+            crossover = _finite_float(anchor.get("power_w"))
+    time_in_fatmax_s = 0.0
+    time_above_crossover_s = 0.0
+
+    for idx, watt in enumerate(power):
+        fat_g_min = max(0.0, _interpolate_curve_value(rows, watt, "fat_oxidation_g_min_est"))
+        cho_g_min = max(0.0, _interpolate_curve_value(rows, watt, "carbohydrate_oxidation_g_min_est"))
+        cumulative_fat += fat_g_min * step_min
+        cumulative_cho += cho_g_min * step_min
+        if lower is not None and upper is not None and lower <= watt <= upper:
+            time_in_fatmax_s += max(dt_s, 0.1)
+        if crossover is not None and watt >= crossover:
+            time_above_crossover_s += max(dt_s, 0.1)
+        if idx == 0 or idx == len(power) - 1 or idx % sample_step == 0:
+            points.append({
+                "time_s": round(idx * max(dt_s, 0.1), 1),
+                "power_w": round(watt, 1),
+                "fat_g_min_est": round(fat_g_min, 3),
+                "carbohydrate_g_min_est": round(cho_g_min, 3),
+                "cumulative_fat_g": round(cumulative_fat, 1),
+                "cumulative_carbohydrate_g": round(cumulative_cho, 1),
+            })
+
+    duration_s = len(power) * max(dt_s, 0.1)
+    summary = {
+        "duration_s": round(duration_s, 1),
+        "carbohydrate_g": round(cumulative_cho, 1),
+        "fat_g": round(cumulative_fat, 1),
+        "carbohydrate_kcal": round(cumulative_cho * KCAL_PER_G_CARBOHYDRATE, 0),
+        "fat_kcal": round(cumulative_fat * KCAL_PER_G_FAT, 0),
+        "time_in_fatmax_zone_s": round(time_in_fatmax_s, 1),
+        "time_above_carbohydrate_crossover_s": round(time_above_crossover_s, 1),
+    }
+    return _curve(
+        curve_id="session_fuel_demand",
+        title="Session CHO/FAT demand",
+        x_key="time_s",
+        x_unit="s",
+        y_keys=[
+            {"key": "cumulative_carbohydrate_g", "unit": "g", "label": "CHO demand"},
+            {"key": "cumulative_fat_g", "unit": "g", "label": "Fat demand"},
+        ],
+        measurement_tier=MODEL_ESTIMATE,
+        points=points,
+        anchors=[
+            {"label": "Total CHO demand", "carbohydrate_g": summary["carbohydrate_g"]},
+            {"label": "Total fat demand", "fat_g": summary["fat_g"]},
+        ],
+        confidence_score=max(0.35, min(0.78, float(substrate_curve.get("confidence_score", 0.55)) - 0.06)),
+        limitations=[
+            "Estimated from modeled substrate curve and power stream; not measured by indirect calorimetry.",
+            "This estimates demand, not carbohydrate intake or glycogen availability.",
+        ],
+        frontend_hint={"chart_type": "line", "show_anchors": True, "multi_series": True},
+    ) | {"summary": summary, "source_substrate_curve_confidence": substrate_curve.get("confidence_score")}
+
+
 def build_metabolic_curves_report(
     metabolic_snapshot: Dict[str, Any],
     *,
@@ -386,10 +537,18 @@ def build_metabolic_curves_report(
     power_points: Optional[Sequence[float]] = None,
     lactate_steps: Optional[Sequence[Dict[str, Any]]] = None,
     durations_s: Optional[Sequence[float]] = None,
+    power_stream: Optional[Sequence[float]] = None,
+    dt_s: float = 1.0,
     include_curves: Optional[Sequence[str]] = None,
 ) -> Dict[str, Any]:
     """Build all coach-critical metabolic curves with a stable frontend contract."""
-    include = set(include_curves or ["vo2_demand", "substrate_oxidation", "lactate", "energy_contribution_by_duration"])
+    include = set(include_curves or [
+        "vo2_demand",
+        "substrate_oxidation",
+        "lactate",
+        "energy_contribution_by_duration",
+        "session_fuel_demand",
+    ])
     curves: Dict[str, Dict[str, Any]] = {}
     if "vo2_demand" in include:
         curves["vo2_demand"] = build_vo2_demand_curve(
@@ -410,6 +569,16 @@ def build_metabolic_curves_report(
         curves["lactate"] = build_lactate_curve(lactate_steps)
     if "energy_contribution_by_duration" in include:
         curves["energy_contribution_by_duration"] = build_energy_contribution_curve(metabolic_snapshot, durations_s=durations_s)
+    if "session_fuel_demand" in include:
+        curves["session_fuel_demand"] = build_session_fuel_demand_curve(
+            metabolic_snapshot,
+            power_stream=power_stream,
+            weight_kg=weight_kg,
+            gender=gender,
+            training_years=training_years,
+            discipline=discipline,
+            dt_s=dt_s,
+        )
 
     available = [name for name, curve in curves.items() if curve.get("measurement_tier") != INSUFFICIENT_DATA and curve.get("points")]
     missing = [
