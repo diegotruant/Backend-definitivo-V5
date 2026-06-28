@@ -1,8 +1,8 @@
 """Coach-facing performance/session curves.
 
 Session curves that are indispensable for coach reports but are not metabolic
-snapshot curves: W' balance and durability decay.  The output follows the same
-frontend contract used by metabolic coach curves.
+snapshot curves: W' balance, durability decay and post-effort recovery estimate.
+The output follows the same frontend contract used by metabolic coach curves.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from engines.performance.durability_engine import generate_hourly_decay_curve
 from engines.performance.w_prime_balance_engine import analyze_w_prime_usage, calculate_w_prime_balance
 
 MODEL_ESTIMATE = "MODEL_ESTIMATE"
+HEURISTIC = "HEURISTIC"
 INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
 
 
@@ -70,6 +71,22 @@ def _downsample_indices(n: int, max_points: int = 500) -> List[int]:
         return list(range(n))
     step = max(1, int(np.ceil(n / max_points)))
     return list(range(0, n, step))
+
+
+def _session_load(power: Sequence[float], *, dt_s: float, anchor_w: Optional[float]) -> Dict[str, Any]:
+    if not power:
+        return {"duration_s": 0.0, "avg_power_w": None, "intensity_factor": None, "estimated_tss": None}
+    duration_s = len(power) * max(dt_s, 0.1)
+    avg_power = float(np.mean(power))
+    anchor = anchor_w if anchor_w and anchor_w > 0 else None
+    intensity = avg_power / anchor if anchor else None
+    estimated_tss = duration_s / 3600.0 * (intensity or 0.0) ** 2 * 100.0 if intensity is not None else None
+    return {
+        "duration_s": round(duration_s, 1),
+        "avg_power_w": round(avg_power, 1),
+        "intensity_factor": round(intensity, 3) if intensity is not None else None,
+        "estimated_tss": round(estimated_tss, 1) if estimated_tss is not None else None,
+    }
 
 
 def build_w_prime_balance_curve(
@@ -189,6 +206,105 @@ def build_durability_decay_curve(
     ) | {"summary": raw}
 
 
+def build_post_effort_recovery_curve(
+    power_stream: Optional[Sequence[float]],
+    *,
+    cp_w: Optional[float] = None,
+    w_prime_j: Optional[float] = None,
+    ftp_w: Optional[float] = None,
+    dt_s: float = 1.0,
+) -> Dict[str, Any]:
+    """Estimate recovery trajectory after a session.
+
+    This is a conservative coach-facing model estimate. It is not a biomarker
+    measurement and should be combined with readiness/HRV/soreness when available.
+    """
+    power = _clean_power(power_stream)
+    if len(power) < 2:
+        return _curve(
+            curve_id="post_effort_recovery",
+            title="Post-effort recovery",
+            x_key="hours_after_session",
+            x_unit="h",
+            y_keys=[{"key": "recovery_pct", "unit": "%", "label": "Estimated recovery"}],
+            measurement_tier=INSUFFICIENT_DATA,
+            points=[],
+            confidence_score=0.0,
+            limitations=["Requires a power stream to estimate post-effort recovery."],
+        )
+
+    anchor = _finite_float(ftp_w) or _finite_float(cp_w)
+    load = _session_load(power, dt_s=dt_s, anchor_w=anchor)
+    duration_h = float(load["duration_s"]) / 3600.0
+    intensity = float(load.get("intensity_factor") or 0.0)
+    estimated_tss = float(load.get("estimated_tss") or 0.0)
+
+    depletion_penalty_h = 0.0
+    w_prime = _finite_float(w_prime_j)
+    cp = _finite_float(cp_w)
+    if cp and w_prime and cp > 0 and w_prime > 0:
+        wbal = calculate_w_prime_balance(power, cp=cp, w_prime=w_prime, dt_s=max(dt_s, 0.1))
+        min_pct = min(wbal) / w_prime * 100.0 if len(wbal) else 100.0
+        if min_pct < 20:
+            depletion_penalty_h += 12.0
+        elif min_pct < 40:
+            depletion_penalty_h += 6.0
+    else:
+        min_pct = None
+
+    recovery_hours = 6.0 + duration_h * 8.0 + max(0.0, intensity - 0.55) * 26.0 + estimated_tss * 0.10 + depletion_penalty_h
+    recovery_hours = max(6.0, min(72.0, recovery_hours))
+    if recovery_hours < 18:
+        severity = "low"
+        next_session = "Endurance or skills work usually acceptable if subjective readiness is normal."
+    elif recovery_hours < 36:
+        severity = "moderate"
+        next_session = "Prefer endurance or recovery before another high-intensity session."
+    else:
+        severity = "high"
+        next_session = "Avoid high-intensity work until readiness and sensations recover."
+
+    points = []
+    for hour in [0, 6, 12, 18, 24, 36, 48, 72]:
+        recovery = 100.0 * (1.0 - np.exp(-float(hour) / max(recovery_hours / 2.2, 1.0)))
+        points.append({
+            "hours_after_session": hour,
+            "recovery_pct": round(min(100.0, recovery), 1),
+            "fatigue_remaining_pct": round(max(0.0, 100.0 - recovery), 1),
+        })
+
+    confidence = 0.54
+    confidence += 0.08 if anchor else 0.0
+    confidence += 0.08 if cp and w_prime else 0.0
+    return _curve(
+        curve_id="post_effort_recovery",
+        title="Post-effort recovery estimate",
+        x_key="hours_after_session",
+        x_unit="h",
+        y_keys=[
+            {"key": "recovery_pct", "unit": "%", "label": "Estimated recovery"},
+            {"key": "fatigue_remaining_pct", "unit": "%", "label": "Fatigue remaining"},
+        ],
+        measurement_tier=HEURISTIC,
+        points=points,
+        anchors=[{"label": "Estimated recovery time", "hours": round(recovery_hours, 1), "severity": severity}],
+        confidence_score=confidence,
+        limitations=[
+            "Estimated from power/load only; not a direct recovery measurement.",
+            "Use HRV, sleep, soreness and athlete feedback before making return-to-intensity decisions.",
+        ],
+        frontend_hint={"chart_type": "line", "show_anchors": True, "multi_series": True},
+    ) | {
+        "summary": {
+            "estimated_recovery_hours": round(recovery_hours, 1),
+            "recovery_severity": severity,
+            "recommended_next_session": next_session,
+            "session_load": load,
+            "min_w_prime_balance_pct": round(min_pct, 1) if min_pct is not None else None,
+        }
+    }
+
+
 def build_session_performance_curves(
     *,
     power_stream: Optional[Sequence[float]],
@@ -200,7 +316,7 @@ def build_session_performance_curves(
     include_curves: Optional[Sequence[str]] = None,
 ) -> Dict[str, Dict[str, Any]]:
     """Build optional session curves for the unified coach curve bundle."""
-    include = set(include_curves or ["w_prime_balance", "durability_decay"])
+    include = set(include_curves or ["w_prime_balance", "durability_decay", "post_effort_recovery"])
     curves: Dict[str, Dict[str, Any]] = {}
     if "w_prime_balance" in include:
         curves["w_prime_balance"] = build_w_prime_balance_curve(
@@ -214,5 +330,13 @@ def build_session_performance_curves(
             power_stream,
             duration_s=duration_s,
             ftp_w=ftp_w,
+        )
+    if "post_effort_recovery" in include:
+        curves["post_effort_recovery"] = build_post_effort_recovery_curve(
+            power_stream,
+            cp_w=cp_w,
+            w_prime_j=w_prime_j,
+            ftp_w=ftp_w,
+            dt_s=dt_s,
         )
     return curves
