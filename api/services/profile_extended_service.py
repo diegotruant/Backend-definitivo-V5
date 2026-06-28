@@ -33,6 +33,7 @@ from engines.metabolic.fatmax_engine import (
     compare_fatmax_reports,
 )
 from engines.metabolic.glycolytic_validation_engine import build_glycolytic_profile
+from engines.metabolic.metabolic_coach_curves import build_metabolic_curves_report
 from engines.metabolic.metabolic_current import get_current_metabolic_status
 from engines.metabolic.metabolic_kalman import DailyInput, process_workout_history
 from engines.metabolic.metabolic_profiler_phenotype import enhance_metabolic_snapshot_with_phenotype
@@ -80,6 +81,16 @@ def _with_sprint_vlamax_confidence(result: Dict[str, Any]) -> Dict[str, Any]:
     }
     result["quality_flags"] = sorted(set(quality_flags))
     return result
+
+
+def _model_dump_list(rows: Optional[List[Any]]) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    for row in rows or []:
+        if hasattr(row, "model_dump"):
+            out.append(row.model_dump())
+        elif isinstance(row, dict):
+            out.append(dict(row))
+    return out
 
 
 class ProfileExtendedService:
@@ -270,6 +281,40 @@ class ProfileExtendedService:
             endurance_max=end_max,
             allrounder_max=all_max,
             sprint_power=req.sprint_power,
+        )
+
+    def metabolic_curves(self, req: Any) -> Dict[str, Any]:
+        snapshot = getattr(req, "metabolic_snapshot", None)
+        if snapshot is None:
+            profiler = profiler_from_athlete(req.athlete)
+            snapshot = profiler.generate_metabolic_snapshot(
+                mmp_dict(req.mmp),
+                expected_eta=req.expected_eta,
+                measured_lacap=req.measured_lacap,
+                effective_cadence_rpm=req.effective_cadence_rpm,
+                clean_mmp_first=req.clean_mmp_first,
+            )
+            if snapshot.get("status") != "success":
+                return {
+                    "status": "insufficient_data",
+                    "schema_version": "metabolic_curves.v1",
+                    "measurement_tier": "INSUFFICIENT_DATA",
+                    "reason": "metabolic_snapshot_generation_failed",
+                    "source_snapshot": snapshot,
+                    "confidence_score": 0.0,
+                }
+        ctx = athlete_context_from_params(req.athlete)
+        return build_metabolic_curves_report(
+            snapshot,
+            weight_kg=req.athlete.weight_kg,
+            gender=ctx.effective_gender(),
+            training_years=ctx.effective_training_years(),
+            discipline=ctx.effective_discipline(),
+            eta=getattr(req, "expected_eta", None),
+            power_points=getattr(req, "power_points", None),
+            lactate_steps=_model_dump_list(getattr(req, "lactate_steps", None)),
+            durations_s=getattr(req, "durations_s", None),
+            include_curves=getattr(req, "include_curves", None),
         )
 
     def fatmax_report(self, req: FatmaxReportRequest) -> Dict[str, Any]:
