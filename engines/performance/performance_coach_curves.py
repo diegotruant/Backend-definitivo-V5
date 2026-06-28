@@ -1,8 +1,9 @@
 """Coach-facing performance/session curves.
 
 Session curves that are indispensable for coach reports but are not metabolic
-snapshot curves: W' balance, durability decay and post-effort recovery estimate.
-The output follows the same frontend contract used by metabolic coach curves.
+snapshot curves: W' balance, durability decay, session fuel demand and post-effort
+recovery estimate.  The output follows the same frontend contract used by
+metabolic coach curves.
 """
 
 from __future__ import annotations
@@ -17,6 +18,8 @@ from engines.performance.w_prime_balance_engine import analyze_w_prime_usage, ca
 MODEL_ESTIMATE = "MODEL_ESTIMATE"
 HEURISTIC = "HEURISTIC"
 INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
+KCAL_PER_G_CARBOHYDRATE = 4.0
+KCAL_PER_G_FAT = 9.0
 
 
 def _finite_float(value: Any) -> Optional[float]:
@@ -86,6 +89,19 @@ def _session_load(power: Sequence[float], *, dt_s: float, anchor_w: Optional[flo
         "avg_power_w": round(avg_power, 1),
         "intensity_factor": round(intensity, 3) if intensity is not None else None,
         "estimated_tss": round(estimated_tss, 1) if estimated_tss is not None else None,
+    }
+
+
+def _fuel_rates_from_relative_intensity(relative_intensity: float) -> Dict[str, float]:
+    rel = max(0.0, float(relative_intensity))
+    fat_g_min = 0.65 * float(np.exp(-0.5 * ((rel - 0.62) / 0.28) ** 2))
+    carbohydrate_g_min = 0.20 + 0.55 * rel + 1.85 * max(0.0, rel - 0.55) ** 2
+    if rel >= 0.95:
+        carbohydrate_g_min += (rel - 0.95) * 3.0
+        fat_g_min *= max(0.25, 1.0 - (rel - 0.95) * 1.4)
+    return {
+        "fat_g_min": max(0.0, fat_g_min),
+        "carbohydrate_g_min": max(0.0, carbohydrate_g_min),
     }
 
 
@@ -206,6 +222,89 @@ def build_durability_decay_curve(
     ) | {"summary": raw}
 
 
+def build_session_fuel_demand_curve(
+    power_stream: Optional[Sequence[float]],
+    *,
+    ftp_w: Optional[float] = None,
+    cp_w: Optional[float] = None,
+    dt_s: float = 1.0,
+) -> Dict[str, Any]:
+    """Fallback session CHO/FAT demand estimate from power and FTP/CP.
+
+    This is a fallback when a full metabolic substrate curve is not supplied. It
+    estimates demand, not intake, glycogen status or lab-measured oxidation.
+    """
+    power = _clean_power(power_stream)
+    anchor = _finite_float(ftp_w) or _finite_float(cp_w)
+    if len(power) < 2 or anchor is None or anchor <= 0:
+        return _curve(
+            curve_id="session_fuel_demand",
+            title="Session CHO/FAT demand",
+            x_key="time_s",
+            x_unit="s",
+            y_keys=[{"key": "cumulative_carbohydrate_g", "unit": "g", "label": "CHO demand"}],
+            measurement_tier=INSUFFICIENT_DATA,
+            points=[],
+            confidence_score=0.0,
+            limitations=["Requires power stream and FTP or CP for fallback CHO/FAT demand estimate."],
+        )
+
+    cumulative_cho = 0.0
+    cumulative_fat = 0.0
+    points: List[Dict[str, Any]] = []
+    step_min = max(dt_s, 0.1) / 60.0
+    sample_step = max(1, int(round(300.0 / max(dt_s, 0.1))))
+    time_above_threshold_s = 0.0
+    for idx, watt in enumerate(power):
+        rel = watt / anchor
+        rates = _fuel_rates_from_relative_intensity(rel)
+        cumulative_cho += rates["carbohydrate_g_min"] * step_min
+        cumulative_fat += rates["fat_g_min"] * step_min
+        if rel >= 0.90:
+            time_above_threshold_s += max(dt_s, 0.1)
+        if idx == 0 or idx == len(power) - 1 or idx % sample_step == 0:
+            points.append({
+                "time_s": round(idx * max(dt_s, 0.1), 1),
+                "power_w": round(watt, 1),
+                "relative_intensity": round(rel, 3),
+                "carbohydrate_g_min_est": round(rates["carbohydrate_g_min"], 3),
+                "fat_g_min_est": round(rates["fat_g_min"], 3),
+                "cumulative_carbohydrate_g": round(cumulative_cho, 1),
+                "cumulative_fat_g": round(cumulative_fat, 1),
+            })
+    summary = {
+        "duration_s": round(len(power) * max(dt_s, 0.1), 1),
+        "carbohydrate_g": round(cumulative_cho, 1),
+        "fat_g": round(cumulative_fat, 1),
+        "carbohydrate_kcal": round(cumulative_cho * KCAL_PER_G_CARBOHYDRATE, 0),
+        "fat_kcal": round(cumulative_fat * KCAL_PER_G_FAT, 0),
+        "time_above_90pct_anchor_s": round(time_above_threshold_s, 1),
+        "anchor_power_w": round(anchor, 1),
+    }
+    return _curve(
+        curve_id="session_fuel_demand",
+        title="Session CHO/FAT demand",
+        x_key="time_s",
+        x_unit="s",
+        y_keys=[
+            {"key": "cumulative_carbohydrate_g", "unit": "g", "label": "CHO demand"},
+            {"key": "cumulative_fat_g", "unit": "g", "label": "Fat demand"},
+        ],
+        measurement_tier=HEURISTIC,
+        points=points,
+        anchors=[
+            {"label": "Total CHO demand", "carbohydrate_g": summary["carbohydrate_g"]},
+            {"label": "Total fat demand", "fat_g": summary["fat_g"]},
+        ],
+        confidence_score=0.48,
+        limitations=[
+            "Fallback estimate from power and FTP/CP; prefer metabolic substrate curve when available.",
+            "This estimates substrate demand, not intake, gut absorption or glycogen availability.",
+        ],
+        frontend_hint={"chart_type": "line", "show_anchors": True, "multi_series": True},
+    ) | {"summary": summary}
+
+
 def build_post_effort_recovery_curve(
     power_stream: Optional[Sequence[float]],
     *,
@@ -316,7 +415,7 @@ def build_session_performance_curves(
     include_curves: Optional[Sequence[str]] = None,
 ) -> Dict[str, Dict[str, Any]]:
     """Build optional session curves for the unified coach curve bundle."""
-    include = set(include_curves or ["w_prime_balance", "durability_decay", "post_effort_recovery"])
+    include = set(include_curves or ["w_prime_balance", "durability_decay", "session_fuel_demand", "post_effort_recovery"])
     curves: Dict[str, Dict[str, Any]] = {}
     if "w_prime_balance" in include:
         curves["w_prime_balance"] = build_w_prime_balance_curve(
@@ -330,6 +429,13 @@ def build_session_performance_curves(
             power_stream,
             duration_s=duration_s,
             ftp_w=ftp_w,
+        )
+    if "session_fuel_demand" in include:
+        curves["session_fuel_demand"] = build_session_fuel_demand_curve(
+            power_stream,
+            ftp_w=ftp_w,
+            cp_w=cp_w,
+            dt_s=dt_s,
         )
     if "post_effort_recovery" in include:
         curves["post_effort_recovery"] = build_post_effort_recovery_curve(
