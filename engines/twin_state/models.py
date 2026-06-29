@@ -540,6 +540,10 @@ def build_twin_state(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not state["event_log"]:
         state["event_log"] = [{"type": "state_created", "at": now, "source": payload.get("source", "api")}]
     state["state_confidence"] = _as_dict(payload.get("state_confidence")) or _confidence_from_sections(state)
+    if payload.get("skip_metabolic_curves_sync") is not True:
+        from .metabolic_curves_sync import sync_profile_metabolic_curves
+
+        state = sync_profile_metabolic_curves(state)
     return validate_twin_state(state)
 
 

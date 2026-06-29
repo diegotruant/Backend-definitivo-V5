@@ -143,6 +143,18 @@ class TwinStateUpdateRideRequest(BaseModel):
     ingest_result: Optional[Dict[str, Any]] = Field(default=None, description="Output of POST /ride/ingest.")
     power_source_report: Optional[Dict[str, Any]] = None
     ride_id: Optional[str] = None
+    metabolic_snapshot: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Refreshed metabolic snapshot (e.g. after /ride/update-profile). Triggers metabolic_curves sync.",
+    )
+    lactate_steps: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Measured lactate steps from lab/Mader test; updates lactate_state when provided.",
+    )
+    sync_metabolic_curves: bool = Field(
+        default=True,
+        description="When metabolic_snapshot or lactate_steps are supplied, refresh TwinState curve sections.",
+    )
 
 
 class TwinStateUpdateWorkoutRequest(BaseModel):

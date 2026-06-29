@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 from engines.readiness.readiness_engine import update_load_state
 
@@ -29,6 +29,9 @@ def update_twin_state_from_ride(
     ingest_result: Optional[Dict[str, Any]] = None,
     power_source_report: Optional[Dict[str, Any]] = None,
     ride_id: Optional[str] = None,
+    metabolic_snapshot: Optional[Dict[str, Any]] = None,
+    lactate_steps: Optional[Sequence[Dict[str, Any]]] = None,
+    sync_metabolic_curves: bool = True,
 ) -> Dict[str, Any]:
     """Return a new TwinState with ride-derived sections updated."""
     state = build_twin_state(state_payload) if state_payload.get("schema_version") is None else validate_twin_state(state_payload)
@@ -68,12 +71,27 @@ def update_twin_state_from_ride(
             state.setdefault("warnings", []).extend(ride_summary.get("warnings") or [])
             state["warnings"] = state["warnings"][-100:]
 
+    profile_refresh = bool(ingest_result.get("profile_should_refresh"))
+    if metabolic_snapshot is not None:
+        from .metabolic_curves_sync import sync_lactate_state_from_steps, sync_twin_after_profile_refresh
+
+        if lactate_steps:
+            state = sync_twin_after_profile_refresh(state, metabolic_snapshot, lactate_steps=lactate_steps)
+        else:
+            state = sync_twin_after_profile_refresh(state, metabolic_snapshot)
+    elif lactate_steps and sync_metabolic_curves:
+        from .metabolic_curves_sync import sync_lactate_state_from_steps
+
+        state = sync_lactate_state_from_steps(state, lactate_steps)
+
     state["updated_at"] = now
     _append_event(state, {
         "type": "ride_ingested",
         "ride_id": ride_id,
         "has_summary": bool(ride_summary),
         "curve_updated": bool(ingest_result.get("curve")),
+        "profile_refreshed": profile_refresh and metabolic_snapshot is not None,
+        "metabolic_curves_synced": sync_metabolic_curves and metabolic_snapshot is not None,
     })
     return validate_twin_state(state)
 

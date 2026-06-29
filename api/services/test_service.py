@@ -56,7 +56,15 @@ class TestService:
             discipline=str(athlete.get("discipline") or "ENDURANCE"),
         )
         profiler = MetabolicProfiler(weight=weight, context=ctx)
-        return run_in_person_test(envelope, profiler=profiler)
+        result = run_in_person_test(envelope, profiler=profiler)
+        steps = (envelope.get("test_data") or {}).get("steps")
+        if isinstance(steps, list) and len(steps) >= 3:
+            from engines.twin_state.metabolic_curves_sync import build_lactate_persistence_bundle
+
+            bundle = build_lactate_persistence_bundle(steps)
+            if bundle.get("lactate_state"):
+                result["lactate_persistence"] = bundle
+        return result
 
     @staticmethod
     def _context_from_athlete(athlete: AthleteParams) -> AthleteContext:

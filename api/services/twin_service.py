@@ -40,6 +40,9 @@ class TwinService:
                 ingest_result=req.ingest_result,
                 power_source_report=req.power_source_report,
                 ride_id=req.ride_id,
+                metabolic_snapshot=req.metabolic_snapshot,
+                lactate_steps=req.lactate_steps,
+                sync_metabolic_curves=req.sync_metabolic_curves,
             )
         except ValueError as exc:
             raise ServiceError(str(exc), status_code=400, code="TWIN_UPDATE_RIDE") from exc

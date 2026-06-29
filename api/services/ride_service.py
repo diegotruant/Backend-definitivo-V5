@@ -89,7 +89,7 @@ class RideService:
             source=anchor_data.get("source", "field_test"),
         )
         ride_mmp = {int(k): float(v) for k, v in req.ride_mmp.items()}
-        return update_profile_from_ride(
+        snapshot = update_profile_from_ride(
             anchor,
             ride_mmp,
             weight_kg=req.athlete.weight_kg,
@@ -97,6 +97,17 @@ class RideService:
             load_factor=req.load_factor,
             context=ctx,
         )
+        from engines.twin_state.metabolic_curves_sync import build_profile_metabolic_curves_report
+
+        curves = build_profile_metabolic_curves_report(
+            snapshot,
+            weight_kg=req.athlete.weight_kg,
+            gender=ctx.effective_gender(),
+            training_years=ctx.effective_training_years(),
+            discipline=ctx.effective_discipline(),
+        )
+        snapshot["metabolic_curves"] = curves
+        return snapshot
 
     def build_summary(
         self,

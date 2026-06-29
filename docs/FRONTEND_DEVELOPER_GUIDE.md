@@ -329,7 +329,10 @@ Operational table derived from `FRONTEND_IMPLEMENTATION_BLUEPRINT.md`. Each line
 | | Accuracy graph | `validation_events` aggregation | pre/post test events |
 | **Athlete Digital Twin** | Header + confidence | TwinState | `twin_state` |
 | | Physiological KPIs (6 cards) | `/profile/snapshot` or snapshot in TwinState | `metabolic_snapshot` |
-| | Metabolic map / combustion | snapshot.`combustion_curve` | snapshot |
+| | VO₂ demand curve | TwinState.`metabolic_curves.curves.vo2_demand` | `metabolic_curves.v1` |
+| | Substrate oxidation curve | TwinState.`metabolic_curves.curves.substrate_oxidation` | `metabolic_curves.v1` |
+| | Measured lactate curve | TwinState.`lactate_state.latest_curve` | `lactate_state.v1` |
+| | Metabolic map / combustion (legacy raw) | snapshot.`combustion_curve` | prefer `substrate_oxidation` curve |
 | | Power duration curve | `rolling_power_curve` in TwinState | JSON curves |
 | | Expressiveness checklist | snapshot.`expressiveness` | snapshot |
 | | Traffic light cross-validation | snapshot.`cross_validation` | snapshot |
