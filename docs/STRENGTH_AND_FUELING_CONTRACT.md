@@ -56,6 +56,12 @@ This is **not** a meal plan, diet app or mental-health module.
     "glycogen_risk": "low",
     "hydration_priority": "normal"
   },
+  "estimated_demands": {
+    "session_carbohydrate_g": 142.0,
+    "session_fat_g": 38.0,
+    "estimated_recovery_hours": 18.5,
+    "recovery_estimation_method": "empirical_formula"
+  },
   "red_flags": [],
   "limitations": []
 }

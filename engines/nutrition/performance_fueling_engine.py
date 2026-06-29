@@ -92,7 +92,9 @@ def build_performance_fueling_targets(
     fuel_summary = _curve_summary(curves_report, "session_fuel_demand")
     recovery_summary = _curve_summary(curves_report, "post_effort_recovery")
     cho_g = _num(fuel_summary.get("carbohydrate_g"))
+    fat_g = _num(fuel_summary.get("fat_g"))
     recovery_h = _num(recovery_summary.get("estimated_recovery_hours"))
+    recovery_method = recovery_summary.get("estimation_method")
 
     safety = evaluate_prescription_safety(
         injury_flags=injury_flags,
@@ -162,19 +164,22 @@ def build_performance_fueling_targets(
         },
         "estimated_demands": {
             "session_carbohydrate_g": cho_g,
+            "session_fat_g": fat_g,
             "estimated_recovery_hours": recovery_h,
+            "recovery_estimation_method": recovery_method,
         },
         "coach_notes": coach_notes,
         "red_flags": red_flags,
         "decision_safety": safety,
         "limitations": [
             "Performance fueling targets only — no meal menus, macros by food or medical nutrition therapy.",
-            "CHO demand estimates depend on modeled substrate curves and power data when supplied.",
+            "CHO and fat demand estimates depend on modeled substrate curves and power data when supplied.",
+            "Recovery hours, when present, use an empirical heuristic — combine with HRV, sleep and soreness.",
         ],
     }
     return annotate_payload(
         payload,
         module_name="performance_fueling_engine",
         method="availability_targets",
-        confidence=0.64 if cho_g is not None else 0.52,
+        confidence=0.64 if cho_g is not None and fat_g is not None else (0.6 if cho_g is not None else 0.52),
     )

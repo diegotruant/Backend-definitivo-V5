@@ -62,6 +62,8 @@ def test_post_effort_recovery_curve_estimates_hours() -> None:
     )
     assert curve["measurement_tier"] == "HEURISTIC"
     assert curve["summary"]["estimated_recovery_hours"] >= 6
+    assert curve["summary"]["estimation_method"] == "empirical_formula"
+    assert curve["summary"]["confidence_tier"] == "HEURISTIC"
     assert curve["anchors"][0]["severity"] in {"low", "moderate", "high"}
     assert curve["points"][0]["recovery_pct"] == 0.0
 
@@ -108,6 +110,19 @@ def test_post_effort_recovery_adds_penalty_when_w_prime_depleted() -> None:
     assert curve["summary"]["estimated_recovery_hours"] >= 18
 
 
+def test_w_prime_balance_variable_power_depletes_more_than_steady() -> None:
+    """Behavior: intermittent supra-CP work drains W′ more than steady sub-CP riding."""
+    cp = 280.0
+    w_prime = 18000.0
+    duration_s = 300
+    steady = build_w_prime_balance_curve([250.0] * duration_s, cp_w=cp, w_prime_j=w_prime)
+    variable_power: list[float] = []
+    for _ in range(duration_s // 60):
+        variable_power.extend([150.0] * 30 + [400.0] * 30)
+    variable = build_w_prime_balance_curve(variable_power, cp_w=cp, w_prime_j=w_prime)
+    assert steady["summary"]["min_balance_pct"] > variable["summary"]["min_balance_pct"]
+
+
 def test_build_session_performance_curves_bundle() -> None:
     power = [220.0] * 3600 + [205.0] * 3600
     curves = build_session_performance_curves(
@@ -121,4 +136,5 @@ def test_build_session_performance_curves_bundle() -> None:
     assert curves["w_prime_balance"]["measurement_tier"] == "MODEL_ESTIMATE"
     assert curves["durability_decay"]["measurement_tier"] == "MODEL_ESTIMATE"
     assert curves["session_fuel_demand"]["summary"]["carbohydrate_g"] > 0
+    assert curves["session_fuel_demand"]["summary"]["fat_g"] > 0
     assert curves["post_effort_recovery"]["summary"]["estimated_recovery_hours"] >= 6

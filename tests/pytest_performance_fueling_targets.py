@@ -22,6 +22,21 @@ SNAPSHOT = {
 }
 
 
+def test_performance_fueling_includes_session_fat_g_with_power_stream() -> None:
+    """INSCYD parity: expose absolute CHO and FAT grams for the session."""
+    power = [220.0] * 180 + [300.0] * 60
+    out = build_performance_fueling_targets(
+        athlete={"weight_kg": 72, "gender": "MALE", "training_years": 10},
+        metabolic_snapshot=SNAPSHOT,
+        power_stream=power,
+    )
+    demands = out["estimated_demands"]
+    assert demands["session_carbohydrate_g"] is not None
+    assert demands["session_fat_g"] is not None
+    assert demands["session_fat_g"] >= 0
+    assert demands["session_carbohydrate_g"] > demands["session_fat_g"]
+
+
 def test_performance_fueling_targets_are_not_a_diet() -> None:
     out = build_performance_fueling_targets(
         athlete={"weight_kg": 72, "gender": "MALE", "training_years": 10},
@@ -67,6 +82,7 @@ def test_coach_nutrition_performance_targets_endpoint() -> None:
     assert body["schema_version"] == "performance_fueling_targets.v1"
     assert body["not_a_diet"] is True
     assert body["targets"]["carbohydrate_availability"] in {"moderate", "high"}
+    assert body["estimated_demands"]["session_fat_g"] is not None
 
 
 def test_twin_state_serializes_nutrition_performance_state() -> None:

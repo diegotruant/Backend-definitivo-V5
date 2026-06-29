@@ -400,6 +400,12 @@ def build_post_effort_recovery_curve(
             "recommended_next_session": next_session,
             "session_load": load,
             "min_w_prime_balance_pct": round(min_pct, 1) if min_pct is not None else None,
+            "estimation_method": "empirical_formula",
+            "confidence_tier": "HEURISTIC",
+            "formula_note": (
+                "Coach-facing heuristic: base 6 h + duration×8 h + intensity excess×26 h "
+                "+ TSS×0.10 h + W′ depletion penalty. Not a biomarker measurement."
+            ),
         }
     }
 

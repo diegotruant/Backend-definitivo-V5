@@ -282,6 +282,24 @@ class TestServiceContracts:
         )
         assert "low_energy_availability_risk" not in out.get("red_flags", [])
 
+    def test_coach_fueling_exposes_fat_g_with_power_series(self) -> None:
+        snapshot = {
+            "status": "success",
+            "fatmax_power_watts": 185.0,
+            "mlss_power_watts": 282.0,
+            "map_aerobic_watts": 392.0,
+            "estimated_vo2max": 60.0,
+            "estimated_vlamax_mmol_L_s": 0.42,
+        }
+        out = CoachService().performance_fueling_targets(
+            PerformanceFuelingRequest(
+                athlete=ATHLETE,
+                metabolic_snapshot=snapshot,
+                power_series=[220.0] * 120 + [280.0] * 60,
+            )
+        )
+        assert out["estimated_demands"]["session_fat_g"] is not None
+
     def test_workout_feasibility_missing_w_prime_insufficient(self) -> None:
         out = WorkoutService().analyze_feasibility(
             WorkoutFeasibilityRequest(
@@ -317,6 +335,22 @@ COACH_SEMANTIC_CASES = [
         "/coach/nutrition/performance-targets",
         {"athlete": ATHLETE, "readiness_state": {"readiness_score": 0.8}},
         lambda b: "low_energy_availability_risk" not in b.get("red_flags", []),
+    ),
+    (
+        "/coach/nutrition/performance-targets",
+        {
+            "athlete": ATHLETE,
+            "metabolic_snapshot": {
+                "status": "success",
+                "fatmax_power_watts": 185.0,
+                "mlss_power_watts": 282.0,
+                "map_aerobic_watts": 392.0,
+                "estimated_vo2max": 60.0,
+                "estimated_vlamax_mmol_L_s": 0.42,
+            },
+            "power_series": [220.0] * 120 + [280.0] * 60,
+        },
+        lambda b: b["estimated_demands"]["session_fat_g"] is not None,
     ),
     (
         "/coach/environment-adjustment",
