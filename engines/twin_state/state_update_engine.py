@@ -6,6 +6,8 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from engines.readiness.readiness_engine import update_load_state
+
 from .models import build_twin_state, validate_twin_state
 
 
@@ -52,6 +54,13 @@ def update_twin_state_from_ride(
             sensor_quality["last_power"] = sections["power"]
         if headline:
             sensor_quality["last_headline"] = headline
+            session_load = headline.get("training_load") or headline.get("tss") or headline.get("session_load")
+            try:
+                load_value = float(session_load) if session_load is not None else 0.0
+            except (TypeError, ValueError):
+                load_value = 0.0
+            if load_value > 0:
+                state["load_state"] = update_load_state(state.get("load_state"), load_value)
         if ride_summary.get("physiological_resilience"):
             state["physiological_resilience"] = ride_summary["physiological_resilience"]
         state["sensor_quality"] = sensor_quality

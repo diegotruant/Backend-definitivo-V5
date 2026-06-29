@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Any, Dict
 
 
+from engines.core.metric_contracts import normalize_readiness_score
+
+
 def generate_recommendation(
     *,
     session_load: Dict[str, Any],
@@ -19,7 +22,7 @@ def generate_recommendation(
     session_score = session_load.get("score")
     load_ratio = trend.get("load_ratio")
     tsb = trend.get("tsb")
-    readiness_score = readiness.get("score")
+    readiness_score = normalize_readiness_score(readiness.get("score") or readiness.get("readiness_score"))
     thermal = ((session_load.get("thermal_load") or {}).get("score"))
     autonomic = ((session_load.get("autonomic_load") or {}).get("autonomic_strain_score"))
 

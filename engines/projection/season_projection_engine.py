@@ -160,8 +160,14 @@ def project_season_from_plan(
     wprime = wprime0
     vo2 = vo20
     vla = vla0
-    ctl = _num((state.get("load_state") or {}).get("ctl")) or 40.0
-    atl = _num((state.get("load_state") or {}).get("atl")) or ctl
+    ctl = _num((state.get("load_state") or {}).get("ctl"))
+    if ctl is None:
+        ctl = _num((state.get("load_state") or {}).get("chronic_load"))
+    ctl = ctl if ctl is not None else 40.0
+    atl = _num((state.get("load_state") or {}).get("atl"))
+    if atl is None:
+        atl = _num((state.get("load_state") or {}).get("acute_load"))
+    atl = atl if atl is not None else ctl
 
     event_by_day: Dict[date, List[Dict[str, Any]]] = {}
     for d, raw in events:

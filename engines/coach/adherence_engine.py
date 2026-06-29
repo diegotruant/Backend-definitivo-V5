@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence
 
-from engines.core.metric_contracts import annotate_payload, compliance_score_value, unwrap_compliance_record
+from engines.core.metric_contracts import annotate_payload, compliance_score_value, readiness_score_from_state, unwrap_compliance_record
 from engines.workouts.compliance_engine import compare_workout_to_activity
 
 SCHEMA_VERSION = "adherence_report.v1"
@@ -36,7 +36,7 @@ def _reason_candidates(
     if classification in {"partially_completed", "not_completed_as_prescribed"}:
         reasons.append("structure_mismatch")
 
-    readiness = _num((readiness_state or {}).get("readiness_score") or (readiness_state or {}).get("score"))
+    readiness = readiness_score_from_state(readiness_state)
     if readiness is not None and readiness < 55:
         reasons.append("fatigue")
     if checkin:

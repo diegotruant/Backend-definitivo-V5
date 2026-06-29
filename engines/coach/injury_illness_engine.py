@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Sequence
 
 from engines.coach.prescription_safety import evaluate_prescription_safety
-from engines.core.metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload, readiness_score_from_state
 
 SCHEMA_VERSION = "training_safety.v1"
 RISK_MODEL = "RISK_MODEL"
@@ -76,7 +76,7 @@ def evaluate_training_safety(
     if load.get("acute_load_spike"):
         red_flags.append("acute_load_spike")
 
-    readiness_score = _num(readiness.get("readiness_score") or readiness.get("score"))
+    readiness_score = readiness_score_from_state(readiness)
     if readiness_score is not None and readiness_score < 50:
         red_flags.append("readiness_low")
 

@@ -700,7 +700,7 @@ class TestLoadTrendsClosure92N:
         assert high["acute_load"] > 0
 
         empty = compute_load_trends([])
-        assert empty["risk"] == "low"
+        assert empty["status"] == "insufficient_data"
         assert empty["acute_load"] == 0.0
 
 

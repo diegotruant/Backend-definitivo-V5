@@ -60,6 +60,22 @@ def _ewma(values: List[float], tau_days: float) -> float:
 
 
 def compute_load_trends(activities: List[Dict[str, Any]], *, as_of: Optional[str] = None) -> Dict[str, Any]:
+    if not activities:
+        payload = {
+            "status": "insufficient_data",
+            "schema_version": "1.0.0",
+            "reason": "no_activities",
+            "as_of": date.today().isoformat(),
+            "acute_load": 0.0,
+            "chronic_load": 0.0,
+            "load_balance": 0.0,
+            "last_7d_load": 0.0,
+            "previous_7d_load": 0.0,
+            "weekly_ramp_rate": 0.0,
+            "risk": "unknown",
+            "daily_loads_90d": [],
+        }
+        return annotate_payload(payload, module_name="load_trends", method="ewma_load_state", confidence=0.1)
     ref = _parse_date(as_of) or date.today()
     loads_90 = _daily_loads(activities, ref, 90)
     acute = _ewma(loads_90[-28:], 7.0)

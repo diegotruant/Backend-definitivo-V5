@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence
 
-from engines.core.metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload, readiness_score_from_state
 
 SCHEMA_VERSION = "pnei_context.v1"
 RISK_MODEL = "RISK_MODEL"
@@ -118,7 +118,7 @@ def classify_autonomic_strain(
         score += 0.2
         reasons.append("acute_load_spike")
 
-    readiness_score = _num(readiness.get("readiness_score") or readiness.get("score"))
+    readiness_score = readiness_score_from_state(readiness)
     if readiness_score is not None and readiness_score < 50:
         score += 0.2
         reasons.append("readiness_low")

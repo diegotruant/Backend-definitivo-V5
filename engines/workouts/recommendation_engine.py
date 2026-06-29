@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from engines.core.metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload, readiness_score_from_state
 from engines.core.model_safety import finalize_model_metadata
 from engines.workouts.progression_levels import compute_progression_levels
 
@@ -65,6 +65,9 @@ def recommend_workout(
     missing_inputs: list[str] = []
     readiness_score_raw = (readiness or {}).get("readiness_score")
     if readiness_score_raw is None:
+        readiness_score_raw = (readiness or {}).get("score")
+    normalized_readiness = readiness_score_from_state({"readiness_score": readiness_score_raw}) if readiness_score_raw is not None else None
+    if normalized_readiness is None:
         missing_inputs.append("readiness.readiness_score")
         payload = {
             "status": "insufficient_profile",
@@ -86,7 +89,7 @@ def recommend_workout(
             ),
         }
         return annotate_payload(payload, module_name="recommendation_engine", method="readiness_progression", confidence=0.35)
-    readiness_score = int(readiness_score_raw)
+    readiness_score = int(round(normalized_readiness))
     goal_type = str((goal or {}).get("focus") or "balanced").lower()
     progress = compute_progression_levels(athlete_profile, recent_workouts or [])
     levels = progress.get("levels", {})

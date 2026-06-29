@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from engines.coach.prescription_safety import evaluate_prescription_safety
-from engines.core.metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload, readiness_score_from_state
 
 PRESCRIPTION_MODEL = "PRESCRIPTION_MODEL"
 SCHEMA_VERSION = "strength_prescription.v1"
@@ -125,7 +125,7 @@ def _interference_risk(
     upcoming_bike_sessions: Sequence[Dict[str, Any]],
 ) -> str:
     tsb = _num(load_state.get("tsb") or load_state.get("training_stress_balance"))
-    readiness = _num(readiness_state.get("readiness_score") or readiness_state.get("score"))
+    readiness = readiness_score_from_state(readiness_state)
     key_sessions = [
         str(s.get("type") or s.get("session_type") or "").lower().replace(" ", "_")
         for s in upcoming_bike_sessions

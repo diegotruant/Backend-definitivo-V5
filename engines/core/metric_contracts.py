@@ -108,6 +108,16 @@ def compliance_score_value(entry: Any) -> Optional[float]:
     return None if normalized is None else normalized * 100.0
 
 
+def readiness_score_from_state(state: Optional[Dict[str, Any]]) -> Optional[float]:
+    """Read readiness on 0–100 scale from TwinState/readiness payloads."""
+    if not isinstance(state, dict):
+        return None
+    for key in ("readiness_score", "score", "overall"):
+        if state.get(key) is not None:
+            return normalize_readiness_score(state.get(key))
+    return None
+
+
 def confidence_level(score: Optional[float]) -> ConfidenceLevel:
     """Map a normalized confidence score to a common categorical level."""
     if score is None:

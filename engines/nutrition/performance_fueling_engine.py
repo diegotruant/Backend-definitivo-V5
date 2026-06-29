@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Sequence
 
 from engines.coach.prescription_safety import evaluate_prescription_safety
-from engines.core.metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload, readiness_score_from_state
 from engines.metabolic.metabolic_coach_curves import build_metabolic_curves_report
 
 SCHEMA_VERSION = "performance_fueling_targets.v1"
@@ -34,7 +34,7 @@ def _curve_summary(metabolic_curves: Dict[str, Any], curve_id: str) -> Dict[str,
 
 
 def _readiness_level(readiness_state: Dict[str, Any]) -> str:
-    score = _num(readiness_state.get("readiness_score") or readiness_state.get("score"))
+    score = readiness_score_from_state(readiness_state)
     if score is None:
         return "unknown"
     if score < 45:
