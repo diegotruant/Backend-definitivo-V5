@@ -67,6 +67,35 @@ This is **not** a meal plan, diet app or mental-health module.
 }
 ```
 
+### `estimated_demands` (INSCYD-style parity)
+
+| Field | Unit | Source | When null |
+|-------|------|--------|-----------|
+| `session_carbohydrate_g` | g | `metabolic_curves.session_fuel_demand.summary.carbohydrate_g` | No power stream / no substrate curve |
+| `session_fat_g` | g | Same curve `summary.fat_g` | Same |
+| `estimated_recovery_hours` | h | `post_effort_recovery.summary.estimated_recovery_hours` | No power stream |
+| `recovery_estimation_method` | string | `"empirical_formula"` when recovery curve used | No recovery curve |
+
+**Request:** pass `power_series` (1 Hz watts) on `POST /coach/nutrition/performance-targets`, or precompute `metabolic_curves` on TwinState.
+
+### Recovery formula (transparent heuristic)
+
+When `power_series` is supplied, recovery hours come from `engines/performance/performance_coach_curves.py` → `build_post_effort_recovery_curve`.
+
+The curve `summary` exposes:
+
+- `estimation_method: "empirical_formula"`
+- `confidence_tier: "HEURISTIC"`
+- `formula_note` — documents the coach-facing model
+
+Base formula: `6 h + duration_h×8 + max(0, IF−0.55)×26 + TSS×0.10 + W′ depletion penalty`, capped **6–72 h**.
+
+**UI rule:** label recovery hours as **estimated**, not measured. Combine with HRV, sleep and subjective check-in when available.
+
+### Readiness scale
+
+`readiness_state.readiness_score` may be sent as **0–1 fraction** or **0–100 percent**. The engine normalizes via `readiness_score_from_state()`.
+
 ## Safety statuses
 
 | Status | Meaning |
@@ -87,4 +116,11 @@ This is **not** a meal plan, diet app or mental-health module.
 - `engines/strength/strength_prescription_engine.py`
 - `engines/nutrition/performance_fueling_engine.py`
 - `engines/coach/prescription_safety.py`
-- `engines/metabolic/metabolic_coach_curves.py` (CHO demand / recovery inputs)
+- `engines/metabolic/metabolic_coach_curves.py` (substrate curve → CHO/FAT g)
+- `engines/performance/performance_coach_curves.py` (fallback fuel demand + recovery heuristic)
+
+## Tests
+
+- `tests/pytest_performance_fueling_targets.py` — `session_fat_g`, `not_a_diet`, HTTP endpoint
+- `tests/pytest_contract_full_codebase.py` — coach HTTP semantic contracts
+- `tests/pytest_engines_contract_all.py` — engine-level fueling readiness scale

@@ -1,4 +1,4 @@
-# Architecture — Backend Digital Twin V5.2
+# Architecture — Backend Digital Twin V5.2.3
 
 This document describes the **intended layering** after the professional refactor.
 It is the reference for new contributors.
@@ -47,8 +47,10 @@ engines/
   io/                 # FIT parser, workout summary, charts
   twin_state/         # Canonical TwinState v1
   workouts/           # Prescription, compliance, calendar
+  coach/              # Decision safety, attention, fueling, orchestrator
   projection/         # Season what-if
   load/               # Manual non-cycling load
+  nutrition/          # Performance fueling targets
 
 tests/
   pytest_*.py         # Fast pytest suite (smoke + hardening + contracts)
@@ -74,7 +76,7 @@ FastAPI exposes the contract at:
 
 Committed artifacts:
 
-- `openapi/openapi.json` — canonical spec (**106 paths**, v5.2.2)
+- `openapi/openapi.json` — canonical spec (**132 paths**, v5.2.3)
 - `frontend/src/api/generated/schema.ts` — TypeScript types (`make openapi-frontend`)
 - `frontend/src/api/client.ts` — typed client for all endpoints
 
@@ -98,7 +100,7 @@ See `docs/OPENAPI_FRONTEND.md` for integration details.
   - `DIGITAL_TWIN_REQUIRE_ATHLETE_ID=true` enforces header `X-Athlete-Id`
     on athlete-scoped endpoints (`/ride`, `/profile`, `/workouts`, `/twin`,
     `/projection`, `/performance`, `/load`, `/team`, `/history`, `/readiness`,
-    `/planning`, `/lab`, `/explainability`, `/race`, `/integrations`, `/meta`).
+    `/planning`, `/lab`, `/explainability`, `/race`, `/integrations`, `/meta`, `/coach`).
 - **Authentication** (`api/auth/`):
   - `DIGITAL_TWIN_AUTH_MODE=none|api_key|jwt` (default `none`)
   - **api_key**: static Bearer keys + optional per-key athlete prefix allowlist
@@ -113,10 +115,11 @@ The API is **stateless**. Persist `TwinState`, anchors, curves and calibration m
 
 ## Testing strategy
 
-1. **Unit/domain** — `tests/pytest_*.py`, `tests/integration/test_*.py` (engines)
-2. **HTTP contract** — `tests/integration/test_api_app.py`, `tests/pytest_hardening_api.py`
-3. **Robustness** — `pytest -m hardening`
-4. **Release gate** — `make check`
+1. **Contract-first** — `pytest_engines_contract_all.py`, `pytest_contract_full_codebase.py`, `pytest_contract_bug_hunt.py` (see `docs/CONTRACT_FIRST_TESTING.md`)
+2. **Unit/domain** — `tests/pytest_*.py`, `tests/integration/test_*.py` (engines)
+3. **HTTP contract** — `tests/integration/test_api_app.py`, `tests/pytest_hardening_api.py`, `pytest_frontend_client_contract.py`
+4. **Robustness** — `pytest -m hardening`
+5. **Release gate** — `make check`
 
 ## Legacy imports
 

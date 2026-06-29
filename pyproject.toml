@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "physiology-digital-twin"
-version = "5.2.2"
+version = "5.2.3"
 description = "Stateless analytics backend for endurance sports — metabolic profiling, HRV, training load, session classification, longitudinal tracking."
 readme = "README.md"
 requires-python = ">=3.10"

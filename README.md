@@ -2,7 +2,7 @@
 
 Python backend for physiological analysis and cycling performance (Digital Twin).
 
-Current version: **5.2.2** — power-series VLamax proxy + dual metabolic/Coggan zones (106 OpenAPI paths).
+Current version: **5.2.3** — coach layer (20 endpoints), contract-first testing, fueling CHO+FAT grams (132 OpenAPI paths).
 
 ## Overview
 
@@ -11,7 +11,7 @@ Current version: **5.2.2** — power-series VLamax proxy + dual metabolic/Coggan
 | **HTTP Entrypoint** | `api_app.py` | Compatible shim for `uvicorn api_app:app` |
 | **API package** | `api/` | Routers, services, schemas, upload, serialization |
 | **Physiological engines** | `engines/` | Algorithms, tiers, metric contracts |
-| **OpenAPI contract** | `openapi/openapi.json` | **106 documented endpoints** |
+| **OpenAPI contract** | `openapi/openapi.json` | **132 documented endpoints** |
 | **Frontend client** | `frontend/src/api/` | Generated TS types + `api.*` client (all paths) |
 | **Tests** | `tests/` | pytest smoke/hardening + `tests/integration/` |
 
@@ -20,13 +20,14 @@ Current version: **5.2.2** — power-series VLamax proxy + dual metabolic/Coggan
 | Tag | Paths | Examples |
 |-----|------:|----------|
 | ride | 32 | `/ride/summary`, `/ride/analytics/*`, `/ride/durability` |
-| profile | 15 | `/profile/snapshot`, `/profile/vlamax-from-power-series`, `/profile/glycolytic-profile` |
+| **coach** | **20** | `/coach/daily-brief`, `/coach/session-decision`, `/coach/nutrition/performance-targets` |
+| profile | 19 | `/profile/snapshot`, `/profile/metabolic/curves`, `/profile/vlamax-from-power-series` |
 | workouts | 9 | `/workouts/prescribe`, `/workouts/compare` |
 | lab | 7 | `/lab/lactate/validate-model`, `/lab/vlapeak/observed` |
-| explainability | 6 | `/explainability/vo2max-confidence` |
+| explainability | 8 | `/explainability/vo2max-confidence`, `/explainability/fatmax-narrative` |
 | twin | 6 | `/twin/state/build`, `/twin/state/validate` |
 | load | 5 | `/load/manual`, `/load/acwr` |
-| + history, performance, planning, readiness, test, integrations, meta, race, team, health | 20 | see index below |
+| + history, performance, planning, readiness, test, integrations, meta, race, team, health | 23 | see index below |
 
 Full inventory: [`docs/API_ENDPOINT_INDEX.md`](docs/API_ENDPOINT_INDEX.md)
 
@@ -115,10 +116,13 @@ make lint | format | typecheck
 |-------|---------|
 | Smoke (fast local) | `make test` |
 | Full | `make test-all` |
+| Contract-first (engines + API) | `pytest tests/pytest_engines_contract_all.py tests/pytest_contract_full_codebase.py -q` |
 | Engine API coverage | `pytest tests/pytest_engine_api_coverage.py` |
 | Metabolic zones | `pytest tests/pytest_metabolic_zones.py` |
 | Release gate | `make check` |
 | Metabolic typing | `make typecheck-metabolic` |
+
+See `docs/CONTRACT_FIRST_TESTING.md` for the product-contract methodology (~1843 tests in full suite).
 
 ## Repository structure
 
@@ -136,7 +140,7 @@ make lint | format | typecheck
 │   ├── workouts/             # prescription, compliance, calendar
 │   ├── projection/           # season what-if
 │   └── integrations/         # external activity normalize/dedupe
-├── openapi/openapi.json      # committed OpenAPI 3.1 (106 paths)
+├── openapi/openapi.json      # committed OpenAPI 3.1 (132 paths)
 ├── frontend/                 # Vite/React + api/client.ts
 ├── tests/
 ├── docs/                     # architecture, frontend guide, API index
@@ -150,7 +154,11 @@ make lint | format | typecheck
 
 | Document | Content |
 |----------|---------|
-| [`docs/API_ENDPOINT_INDEX.md`](docs/API_ENDPOINT_INDEX.md) | **All 106 endpoints** by tag |
+| [`docs/API_ENDPOINT_INDEX.md`](docs/API_ENDPOINT_INDEX.md) | **All 132 endpoints** by tag |
+| [`docs/RELEASE_NOTES_v5.2.3.md`](docs/RELEASE_NOTES_v5.2.3.md) | V5.2.3 — coach layer, contract testing, fueling fat_g |
+| [`docs/CONTRACT_FIRST_TESTING.md`](docs/CONTRACT_FIRST_TESTING.md) | Product-contract test methodology |
+| [`docs/COACH_DECISION_ENGINE.md`](docs/COACH_DECISION_ENGINE.md) | 20 coach decision-support endpoints |
+| [`docs/STRENGTH_AND_FUELING_CONTRACT.md`](docs/STRENGTH_AND_FUELING_CONTRACT.md) | Strength + fueling schemas (CHO/FAT g) |
 | [`docs/RELEASE_NOTES_v5.2.2.md`](docs/RELEASE_NOTES_v5.2.2.md) | V5.2.2 — power-series VLamax proxy |
 | [`docs/VLAMAX_POWER_PROXY_PROTOCOL.md`](docs/VLAMAX_POWER_PROXY_PROTOCOL.md) | Fixed T_PCr semantics, late-peak handling, coach UI wording |
 | [`docs/RELEASE_NOTES_v5.2.1.md`](docs/RELEASE_NOTES_v5.2.1.md) | V5.2.0 + V5.2.1 release notes |
@@ -183,9 +191,11 @@ Bug fixes and API additions require tests + `make check`. After router/schema ch
 
 ## What V5.2 includes
 
-- **106 OpenAPI endpoints** — full engine coverage over HTTP
+- **132 OpenAPI endpoints** — full engine + coach coverage over HTTP
+- **20 coach endpoints** — decision safety, daily brief, fueling, periodization, …
+- Contract-first test suites (`docs/CONTRACT_FIRST_TESTING.md`)
 - Metabolic snapshot, Kalman, bayesian profile, glycolytic/vLaPeak validation
-- Power-series VLamax proxy (`/profile/vlamax-from-power-series`)
+- Performance fueling targets with **session_carbohydrate_g** + **session_fat_g** (INSCYD-style grams)
 - Ride analytics (W′, durability, cardiac, HRV, session routing, …)
 - Lab parse/validate, explainability narratives, GPX race simulation
 - Dual **metabolic + Coggan** zone systems on activity reports
@@ -196,5 +206,5 @@ Bug fixes and API additions require tests + `make check`. After router/schema ch
 
 ## Branch
 
-- `main` — current backend (5.2.2)
+- `main` — current backend (5.2.3)
 - `old/main` — pre-architectural-refactor snapshot

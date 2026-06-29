@@ -1,11 +1,11 @@
 # OpenAPI contract — Digital Twin API
 
-**Version:** 5.2.2  
-**Paths:** 106
+**Version:** 5.2.3  
+**Paths:** 132
 
 | File | Description |
 |------|-------------|
-| `openapi.json` | Full OpenAPI 3.1 document (106 HTTP paths) |
+| `openapi.json` | Full OpenAPI 3.1 document (132 HTTP paths) |
 | `../docs/API_ENDPOINT_INDEX.md` | Human-readable index by tag |
 | `../docs/OPENAPI_FRONTEND.md` | Frontend integration guide |
 
@@ -30,3 +30,5 @@ Commit both files (and `frontend/src/api/client.ts` if you added routes manually
 ## Drift checks
 
 CI runs `tests/pytest_openapi_contract.py` — committed spec must match live export.
+
+`tests/pytest_frontend_client_contract.py` enforces **132 paths** in `client.ts` match OpenAPI 1:1.

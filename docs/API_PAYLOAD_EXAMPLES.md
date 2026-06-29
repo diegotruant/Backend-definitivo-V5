@@ -18,7 +18,7 @@ Response:
 {
   "status": "ok",
   "service": "digital-twin-api",
-  "version": "5.2.2"
+  "version": "5.2.3"
 }
 ```
 
@@ -347,3 +347,68 @@ Snapshot:
 ```
 
 The UI must show the correction audit, not only the final value.
+
+---
+
+## POST /coach/nutrition/performance-targets
+
+Performance fueling availability — **not a meal plan**. Requires `power_series` for CHO/FAT gram estimates (V5.2.3).
+
+```json
+{
+  "athlete": {
+    "weight_kg": 72,
+    "gender": "MALE",
+    "training_years": 10,
+    "discipline": "ENDURANCE"
+  },
+  "metabolic_snapshot": {
+    "status": "success",
+    "fatmax_power_watts": 185,
+    "mlss_power_watts": 282,
+    "map_aerobic_watts": 392,
+    "estimated_vo2max": 60,
+    "estimated_vlamax_mmol_L_s": 0.42
+  },
+  "session_context": "bike_endurance",
+  "power_series": [220, 220, 220, 280, 280, 280]
+}
+```
+
+Response excerpt:
+
+```json
+{
+  "schema_version": "performance_fueling_targets.v1",
+  "not_a_diet": true,
+  "targets": {
+    "carbohydrate_availability": "high",
+    "protein_recovery_priority": "normal",
+    "glycogen_risk": "low",
+    "hydration_priority": "normal"
+  },
+  "estimated_demands": {
+    "session_carbohydrate_g": 142.0,
+    "session_fat_g": 38.0,
+    "estimated_recovery_hours": 18.5,
+    "recovery_estimation_method": "empirical_formula"
+  }
+}
+```
+
+UI: show CHO + FAT grams together; label recovery as **estimated** when `recovery_estimation_method` is `empirical_formula`. See `docs/STRENGTH_AND_FUELING_CONTRACT.md`.
+
+---
+
+## POST /coach/daily-brief
+
+Minimal payload:
+
+```json
+{
+  "athlete_id": "rider_01",
+  "load_state": { "tsb": -12, "acute_load": 65, "chronic_load": 55 }
+}
+```
+
+Response always includes `coach_review_required: true` and `not_autonomous: true`. See `docs/COACH_DECISION_ENGINE.md`.

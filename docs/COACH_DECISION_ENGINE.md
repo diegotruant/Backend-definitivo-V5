@@ -56,6 +56,26 @@ Coach decision-support modules for strength, fueling, safety, attention, adheren
 15. **Equipment comfort** — position/comfort flags linked to performance patterns.
 16. **Female athlete context** — optional, never cycle-based auto-prescription.
 
+## Fueling — session substrate grams (V5.2.3)
+
+`POST /coach/nutrition/performance-targets` returns `estimated_demands`:
+
+- `session_carbohydrate_g` — absolute CHO oxidation estimate (grams)
+- `session_fat_g` — absolute fat oxidation estimate (grams)
+- `estimated_recovery_hours` — when `power_series` supplied
+- `recovery_estimation_method` — `"empirical_formula"` when recovery curve used
+
+Requires `power_series` or precomputed metabolic curves. Full contract: `docs/STRENGTH_AND_FUELING_CONTRACT.md`.
+
+## Scale conventions (V5.2.3)
+
+Engines normalize via `engines/core/metric_contracts.py`:
+
+- **Readiness** — accept 0–1 or 0–100; internally 0–100
+- **Compliance** — accept 0–1 or 0–100; coach attention uses percent threshold
+
+Frontend should pick one convention per form and document it; backend tolerates both.
+
 ## Context layers
 
 `decision_safety` considers `pnei_state`, `endocrine_context_state` and `training_safety_state` from TwinState.

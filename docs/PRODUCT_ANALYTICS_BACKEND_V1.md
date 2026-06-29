@@ -17,8 +17,9 @@ No endpoint, document, payload, or comment introduced in this increment uses ext
 | Workout intelligence | `engines/workouts/recommendation_engine.py`, `progression_levels.py`, `adaptive_planner.py` | `/workouts/recommend`, `/workouts/progression-levels`, `/workouts/adapt-plan` |
 | Workout export | `engines/workouts/exporters/` | `/workouts/export` |
 | Planning | `engines/planning/` | `/planning/create-season-plan`, `/planning/adapt-week`, `/planning/check-load-risk` |
-| Route/segment utilities | `engines/routes/` | engine available for future APIs |
-| Generic imports | `engines/integrations/` | normalization and deduplication available for future APIs |
+| Route/segment utilities | `engines/routes/` | `/ride/analytics/segments/*` |
+| Integrations | `engines/integrations/` | `/integrations/activity/normalize`, deduplicate |
+| Coach decision layer | `engines/coach/*`, `engines/nutrition/*` | 20× `/coach/*` — `docs/COACH_DECISION_ENGINE.md` |
 
 ## Architectural principle
 
@@ -49,12 +50,16 @@ The backend remains stateless:
 - season plan rule-based
 - planned load risk check
 
-## Validation performed
+## Validation performed (historical baseline — see V5.2.3)
+
+Current gate (V5.2.3):
+
+- `python scripts/export_openapi.py` → **132 paths**
+- `pytest tests/pytest_engines_contract_all.py tests/pytest_contract_full_codebase.py` → 254 contract tests
+- `pytest tests/pytest_*.py` → **~1843 passed**
+- `pytest tests/pytest_frontend_client_contract.py` — OpenAPI ↔ client.ts 1:1
+
+Original V1 increment validation:
 
 - `python -m compileall -q api engines`
-- `python scripts/export_openapi.py` → 106 paths
 - `python -m pytest -q tests/pytest_product_engines_v1.py` → 5 passed
-- `python -m pytest -q tests/pytest_frontend_client_contract.py tests/pytest_openapi_contract.py tests/pytest_product_engines_v1.py` → 20 passed
-- `python -m pytest -q tests/pytest_*.py` → 105 passed, 12 skipped
-
-`ruff` was not run in the sandbox because the package was not installed in the current environment.

@@ -5,6 +5,10 @@ catch crashes, runaway loops, non-JSON payloads, NaN/Inf leakage, malformed inpu
 handling regressions, and workload sizes that are realistic for a training
 product.
 
+**See also:** `docs/CONTRACT_FIRST_TESTING.md` for product-contract tests that
+validate semantics (readiness scale, fueling CHO/FAT grams, coach HTTP) — not
+just code coverage.
+
 ## Golden FIT assets
 
 Committed binaries under `tests/assets/fit/` with `*.expected_parse.json` snapshots.
@@ -56,6 +60,16 @@ Equivalent to:
 ```bash
 python -m pytest -q -m "hardening and stress" tests/pytest_hardening_*.py
 ```
+
+### Contract-first (product truth)
+
+Semantic tests — a failure means a production bug, not a stale test:
+
+```bash
+pytest tests/pytest_engines_contract_all.py tests/pytest_contract_full_codebase.py tests/pytest_contract_bug_hunt.py -q
+```
+
+Documentation: `docs/CONTRACT_FIRST_TESTING.md`.
 
 ### Full pytest package tests
 

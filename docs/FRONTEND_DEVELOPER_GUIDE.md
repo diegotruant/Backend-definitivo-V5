@@ -1,6 +1,6 @@
-# Frontend Developer Guide — Digital Twin Backend V5.2
+# Frontend Developer Guide — Digital Twin Backend V5.2.3
 
-Unified document for a **software developer** who needs to build the frontend connected to this backend, **with no background in endurance cycling**. It explains what the backend (v **5.2.2**) produces, how to interpret the metrics, how to draw them, how to design the main pages, and how to use **TwinState** as the central persistence model.
+Unified document for a **software developer** who needs to build the frontend connected to this backend, **with no background in endurance cycling**. It explains what the backend (v **5.2.3**) produces, how to interpret the metrics, how to draw them, how to design the main pages, and how to use **TwinState** as the central persistence model.
 
 **Related documents (read in this order)**
 
@@ -10,12 +10,15 @@ Unified document for a **software developer** who needs to build the frontend co
 | 2 | `docs/FRONTEND_IMPLEMENTATION_BLUEPRINT.md` | Detailed layout per page, design system, DoD |
 | 3 | `docs/API_PAYLOAD_EXAMPLES.md` | curl / TypeScript examples for each endpoint |
 | 3b | `docs/OPENAPI_FRONTEND.md` | OpenAPI, TS codegen, `api.*` client |
-| 3c | `openapi/openapi.json` | HTTP contract committed (**106 endpoints**) |
+| 3c | `openapi/openapi.json` | HTTP contract committed (**132 endpoints**) |
 | 3d | `docs/API_ENDPOINT_INDEX.md` | Full endpoint inventory by tag |
 | 4 | `docs/WORKOUT_SYSTEM_BACKEND_V1.md` | Prescription flow → compliance |
 | 5 | `docs/BACKEND_IMPLEMENTATIONS_V2.md` | TwinState, projection, neuromuscular |
 | 6 | `docs/COACH_UX_COPYBOOK.md` | Copy coach facing |
+| 6b | `docs/COACH_DECISION_ENGINE.md` | 20 coach endpoints, TwinState keys |
+| 6c | `docs/STRENGTH_AND_FUELING_CONTRACT.md` | Strength + fueling (CHO/FAT g) |
 | 7 | `docs/HARDENING_TESTS.md` | Robustness/stress suite |
+| 7b | `docs/CONTRACT_FIRST_TESTING.md` | Product-contract test methodology |
 | 8 | `CONTRACT_JSON_test.md` | In-person tablet test contract |
 
 **Code references**
@@ -143,7 +146,7 @@ flowchart TB
   end
 ```
 
-**Principle V5.2:** Use `TwinState` as the **canonical read model** for the Digital Twin page, Command Center, and seasonal projections. The API now exposes **106 paths** — use `docs/API_ENDPOINT_INDEX.md` for the full map; core coach flows remain in §6–7 below.
+**Principle V5.2:** Use `TwinState` as the **canonical read model** for the Digital Twin page, Command Center, and seasonal projections. The API now exposes **132 paths** — use `docs/API_ENDPOINT_INDEX.md` for the full map; core coach flows remain in §6–7 below.
 
 ---
 
@@ -245,21 +248,40 @@ Base URL example: `http://localhost:8000` (`make run` or `uvicorn api_app:app`).
 | POST | `/team/calibration/update` | Adds validated events to the team model |
 | POST | `/team/calibration/apply` | Apply fix to snapshot or single parameter |
 
-### 6.6 Extended engine API (V5.2 — 106 paths total)
+### 6.6 Extended engine API (V5.2 — 132 paths total)
 
 See `docs/API_ENDPOINT_INDEX.md` for every path. Summary by tag:
 
 | Tag | Paths | Coach / UI use |
 |-----|------:|----------------|
-| profile (extended) | +14 beyond `/profile/snapshot` | Kalman, bayesian snapshot, glycolytic profile, **power VLamax proxy**, MMP quality, detraining |
+| **coach** | **20** | Daily brief, session decision, fueling, safety, periodization — `docs/COACH_DECISION_ENGINE.md` |
+| profile | 19 | Kalman, bayesian snapshot, glycolytic profile, metabolic curves, fatmax, **power VLamax proxy**, MMP quality |
+| ride | 32 | Summary, ingest, analytics (W′, durability, cardiac, HRV, **dual zones**) |
 | lab | 7 | Lactate steps, vLaPeak observed vs model, lab text parse |
-| ride/analytics | 24 | W′ balance, durability suite, cardiac, HRV, session routing, **dual zones** |
-| load (extended) | +4 beyond `/load/manual` | ACWR, monotony/strain, adaptive trend |
-| explainability | 6 | Confidence badges + narrative copy for coaches |
+| load | 5 | Manual load, ACWR, monotony/strain, adaptive trend |
+| explainability | 8 | Confidence badges + narratives (incl. fatmax) |
 | race | 2 | GPX course analyze + race simulation |
 | integrations | 2 | External activity normalize / dedupe |
-| meta | 2 | Engine tiers, chart config for `chart_builder` |
-| twin | +1 | `/twin/state/validate` |
+| meta | 2 | Engine tiers, chart config |
+| twin | 6 | Build, validate, ride/workout updates, projection |
+
+### 6.6.1 Coach fueling UI (V5.2.3)
+
+`POST /coach/nutrition/performance-targets` returns availability targets **and** absolute session grams:
+
+```json
+"estimated_demands": {
+  "session_carbohydrate_g": 142.0,
+  "session_fat_g": 38.0,
+  "estimated_recovery_hours": 18.5,
+  "recovery_estimation_method": "empirical_formula"
+}
+```
+
+- Send `power_series` (1 Hz) to populate grams and recovery.
+- Show **CHO + FAT** together (INSCYD-style parity).
+- Label recovery hours as **estimated** when `recovery_estimation_method` is `empirical_formula`.
+- `not_a_diet: true` — never render as meal plan.
 
 ### 6.7 Zones — metabolic vs Coggan (V5.2.1)
 
@@ -276,7 +298,7 @@ UI pattern: toggle or side-by-side bars; read `systems_available` and `coach_not
 
 Payload details: `docs/API_PAYLOAD_EXAMPLES.md`.
 
-### 6.8 Power-derived VLamax (V5.2.2)
+### 6.8 Power-derived VLamax (V5.2.3)
 
 Three distinct VLamax-related values — never conflate them in the UI:
 
@@ -697,7 +719,7 @@ Reference SQL schema: `docs/workout_db_schema_v1.sql`.
 
 ## 16. Hardening and stress testing — been verified
 
-Run on **Backend V5.2.2** (2026-06-17).
+Run on **Backend V5.2.3** (2026-06-17).
 
 ### 16.1 Commands
 
@@ -810,4 +832,4 @@ from engines.io.chart_builder import chart_power_duration_curve, chart_metabolic
 
 ---
 
-*Unified documentation for Backend-definitivo-V5 **5.2.2** (106 OpenAPI paths). See `docs/API_ENDPOINT_INDEX.md` when adding new routes.*
+*Unified documentation for Backend-definitivo-V5 **5.2.3** (132 OpenAPI paths). See `docs/API_ENDPOINT_INDEX.md` when adding new routes.*

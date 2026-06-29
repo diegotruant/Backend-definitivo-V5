@@ -1,15 +1,16 @@
-# API endpoint index — Digital Twin API 5.2.2
+# API endpoint index — Digital Twin API 5.2.3
 
-Canonical inventory of **106 HTTP paths** from `openapi/openapi.json`.
+Canonical inventory of **132 HTTP paths** from `openapi/openapi.json`.
 Regenerate after API changes: `make openapi-frontend`.
 
 | Tag | Paths |
 |-----|------:|
 | ride | 32 |
-| profile | 15 |
+| coach | 20 |
+| profile | 19 |
 | workouts | 9 |
+| explainability | 8 |
 | lab | 7 |
-| explainability | 6 |
 | twin | 6 |
 | load | 5 |
 | history | 4 |
@@ -62,15 +63,44 @@ Regenerate after API changes: `make openapi-frontend`.
 | POST | `/ride/summary` | `rideSummary` |
 | POST | `/ride/update-profile` | `rideUpdateProfile` |
 
-### profile (15)
+### coach (20)
+
+| Method | Path | operationId |
+|--------|------|-------------|
+| POST | `/coach/adherence` | `coachAdherence` |
+| POST | `/coach/attention` | `coachAttention` |
+| POST | `/coach/attention/roster` | `coachRosterAttention` |
+| POST | `/coach/checkin` | `coachCheckin` |
+| POST | `/coach/communication-draft` | `coachCommunicationDraft` |
+| POST | `/coach/constraints` | `coachConstraints` |
+| POST | `/coach/daily-brief` | `coachDailyBrief` |
+| POST | `/coach/decision-safety` | `coachDecisionSafety` |
+| POST | `/coach/endocrine-context` | `coachEndocrineContext` |
+| POST | `/coach/environment-adjustment` | `coachEnvironmentAdjustment` |
+| POST | `/coach/equipment-comfort` | `coachEquipmentComfort` |
+| POST | `/coach/female-athlete-context` | `coachFemaleAthleteContext` |
+| POST | `/coach/nutrition/performance-targets` | `coachNutritionPerformanceTargets` |
+| POST | `/coach/periodization` | `coachPeriodization` |
+| POST | `/coach/pnei-context` | `coachPneiContext` |
+| POST | `/coach/race-execution` | `coachRaceExecution` |
+| POST | `/coach/session-decision` | `coachSessionDecision` |
+| POST | `/coach/strength/prescription` | `coachStrengthPrescription` |
+| POST | `/coach/testing-plan` | `coachTestingPlan` |
+| POST | `/coach/training-safety` | `coachTrainingSafety` |
+
+### profile (19)
 
 | Method | Path | operationId |
 |--------|------|-------------|
 | POST | `/profile/cross-validate` | `profileCrossValidate` |
 | POST | `/profile/detraining/apply` | `profileDetrainingApply` |
+| POST | `/profile/fatmax/compare` | `profileFatmaxCompare` |
+| POST | `/profile/fatmax/lab` | `profileFatmaxLab` |
+| POST | `/profile/fatmax/report` | `profileFatmaxReport` |
 | POST | `/profile/glycolytic-profile` | `profileGlycolyticProfile` |
 | POST | `/profile/kalman/trajectory` | `profileKalmanTrajectory` |
 | POST | `/profile/metabolic/current` | `profileMetabolicCurrent` |
+| POST | `/profile/metabolic/curves` | `profileMetabolicCurves` |
 | POST | `/profile/mmp-quality` | `profileMmpQuality` |
 | POST | `/profile/snapshot` | `profileSnapshot` |
 | POST | `/profile/snapshot/auto` | `profileSnapshotAuto` |
@@ -96,6 +126,19 @@ Regenerate after API changes: `make openapi-frontend`.
 | POST | `/workouts/recommend` | `workoutsRecommend` |
 | POST | `/workouts/validate` | `workoutsValidate` |
 
+### explainability (8)
+
+| Method | Path | operationId |
+|--------|------|-------------|
+| POST | `/explainability/acwr-narrative` | `explainabilityAcwrNarrative` |
+| POST | `/explainability/durability-confidence` | `explainabilityDurabilityConfidence` |
+| POST | `/explainability/durability-narrative` | `explainabilityDurabilityNarrative` |
+| POST | `/explainability/fatmax-confidence` | `explainabilityFatmaxConfidence` |
+| POST | `/explainability/fatmax-narrative` | `explainabilityFatmaxNarrative` |
+| POST | `/explainability/metric-narrative` | `explainabilityMetricNarrative` |
+| POST | `/explainability/vo2max-confidence` | `explainabilityVo2Confidence` |
+| POST | `/explainability/workout-summary-narrative` | `explainabilityWorkoutSummaryNarrative` |
+
 ### lab (7)
 
 | Method | Path | operationId |
@@ -107,17 +150,6 @@ Regenerate after API changes: `make openapi-frontend`.
 | POST | `/lab/validate-result` | `labValidateResult` |
 | POST | `/lab/vlapeak/observed` | `labVlapeakObserved` |
 | POST | `/lab/vlapeak/validate` | `labVlapeakValidate` |
-
-### explainability (6)
-
-| Method | Path | operationId |
-|--------|------|-------------|
-| POST | `/explainability/acwr-narrative` | `explainabilityAcwrNarrative` |
-| POST | `/explainability/durability-confidence` | `explainabilityDurabilityConfidence` |
-| POST | `/explainability/durability-narrative` | `explainabilityDurabilityNarrative` |
-| POST | `/explainability/metric-narrative` | `explainabilityMetricNarrative` |
-| POST | `/explainability/vo2max-confidence` | `explainabilityVo2Confidence` |
-| POST | `/explainability/workout-summary-narrative` | `explainabilityWorkoutSummaryNarrative` |
 
 ### twin (6)
 

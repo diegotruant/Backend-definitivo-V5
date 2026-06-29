@@ -1,5 +1,33 @@
 # Changelog
 
+## [5.2.3] — 2026-06-29
+
+Coach layer documentation, contract-first testing, fueling INSCYD parity, recovery transparency.
+
+### Added
+
+- **20 coach HTTP endpoints** — full decision-support layer (`docs/COACH_DECISION_ENGINE.md`)
+- `docs/CONTRACT_FIRST_TESTING.md` — product-contract test methodology
+- `docs/RELEASE_NOTES_v5.2.3.md`
+- `tests/pytest_engines_contract_all.py` (179 tests) — all `engines/` packages
+- `tests/pytest_contract_full_codebase.py` (75 tests) — API, services, coach HTTP
+- `estimated_demands.session_fat_g` on `performance_fueling_targets.v1`
+- `recovery_estimation_method` on fueling + recovery curve `estimation_method` / `confidence_tier`
+
+### Changed
+
+- OpenAPI surface **132 paths** (was 106 in 5.2.2 docs) — coach + profile/explainability growth
+- `engines/core/metric_contracts.py` — readiness/compliance scale normalization helpers
+- Twin ride ingest updates `load_state`; projection uses `chronic_load` when `ctl` missing
+- `compute_load_trends([])` → `insufficient_data`
+- All documentation aligned to 5.2.3 / 132 paths
+
+### Documentation
+
+- Regenerated `docs/API_ENDPOINT_INDEX.md` from `openapi/openapi.json`
+- Updated README, ARCHITECTURE, FRONTEND_DEVELOPER_GUIDE, OPENAPI_FRONTEND, HANDOFF, HARDENING_TESTS
+- `docs/STRENGTH_AND_FUELING_CONTRACT.md` — CHO/FAT grams, recovery heuristic, readiness scale
+
 ## [5.2.2] — 2026-06-17
 
 Power-series VLamax proxy (cLaMax_P) for metabolic profile.

@@ -35,7 +35,7 @@ curl -s http://localhost:8000/openapi.json | head
 | `UVICORN_WORKERS` | No | `1` (dev) / `2` (Docker) | Uvicorn worker processes; see **Workers** |
 | `DIGITAL_TWIN_CORS_ORIGINS` | For browser clients | empty | Comma-separated origins, e.g. `https://app.vercel.app` |
 | `DIGITAL_TWIN_API_TITLE` | No | Digital Twin Fisiologico API | OpenAPI title |
-| `DIGITAL_TWIN_API_VERSION` | No | 5.2.2 | OpenAPI version string |
+| `DIGITAL_TWIN_API_VERSION` | No | 5.2.3 | OpenAPI version string |
 | `MAX_UPLOAD_BYTES` | No | 41943040 (40 MB) | Per-file upload cap |
 | `MAX_UPLOAD_FILES` | No | 25 | Multi-file propose limit |
 | `MAX_GPX_BYTES` | No | 20971520 (20 MB) | GPX course string cap before XML parse |

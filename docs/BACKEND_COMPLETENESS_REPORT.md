@@ -1,6 +1,6 @@
-# Backend Completeness Report — V5.2.2
+# Backend Completeness Report — V5.2.3
 
-**OpenAPI:** 106 paths (see `docs/API_ENDPOINT_INDEX.md`). **Version:** 5.2.2.
+**OpenAPI:** 132 paths (see `docs/API_ENDPOINT_INDEX.md`). **Version:** 5.2.3.
 
 ## General status
 
@@ -12,7 +12,8 @@ This delivery does not include a database, authentication, or a job queue: those
 
 | Area | Status | Notes |
 |---|---|---|
-| FastAPI API | Ready | `api_app.py` |
+| FastAPI API | Ready | `api_app.py` — **132 paths** |
+| Coach decision layer | Ready | 20 `/coach/*` endpoints — `docs/COACH_DECISION_ENGINE.md` |
 | FIT ingest | Ready | parsing and power curve |
 | MMP / power curve | Ready | persistable curve updates |
 | Metabolic snapshot | Ready | VO2max, VLamax, MLSS, FatMax, MAP |
@@ -20,78 +21,42 @@ This delivery does not include a database, authentication, or a job queue: those
 | Workout summary | Ready | modular activity report |
 | Mader durability | Ready | mechanistic durability |
 | In-person testing | Ready | tablet envelope |
-| Lab/lactate validation | Present | to use in validated tests |
+| Lab/lactate validation | Present | validated tests |
 | Anchor profile flow | Ready | proposal → coach confirmation → anchor |
 | Kalman / Bayesian / lab / explainability / race APIs | Ready (HTTP) | V5.2.0 engine coverage |
 | Dual metabolic + Coggan zones on rides | Ready | V5.2.1 — coach chooses system |
 | Power-series VLamax proxy | Ready | V5.2.2 — `/profile/vlamax-from-power-series` |
+| Performance fueling CHO+FAT g | Ready | V5.2.3 — `session_fat_g`, recovery transparency |
+| Contract-first test suites | Ready | ~254 contract tests — `docs/CONTRACT_FIRST_TESTING.md` |
 | Team Learning Engine | Added | residual learning team/athlete/phenotype |
 | Frontend MVP | Present but not final | needs rebuild according to the blueprint |
 
+## Testing status (V5.2.3)
+
+| Suite | Count | Role |
+|-------|------:|------|
+| Full `pytest tests/pytest_*.py` | ~1843 | Release gate |
+| `pytest_engines_contract_all.py` | 179 | All engines packages |
+| `pytest_contract_full_codebase.py` | 75 | API + services + coach HTTP |
+| `pytest_frontend_client_contract.py` | — | OpenAPI ↔ client.ts (132 paths) |
+
 ## Available endpoints
+
+See `docs/API_ENDPOINT_INDEX.md` for the full inventory. Core coach flows:
 
 | Endpoint | Status | Frontend usage |
 |---|---|---|
-| `GET /health` | Ready | service monitoring |
-| `POST /test/propose` | Ready | upload FIT test |
-| `POST /test/confirm` | Ready | coach and anchor confirmation |
-| `POST /ride/ingest` | Ready | import activities and MMP curve |
-| `POST /ride/update-profile` | Ready | update profile from ride |
-| `POST /profile/snapshot` | Ready | metabolic profile dashboard |
-| `POST /ride/summary` | Ready | activity report |
-| `POST /ride/durability` | Ready | durability from snapshot |
-| `POST /test/in-person` | Ready | tablet/lactate/Mader test |
-| `POST /team/calibration/update` | Added | update team learning model |
-| `POST /team/calibration/apply` | Added | apply calibration to value/snapshot |
+| `POST /coach/daily-brief` | Ready | Command center morning view |
+| `POST /coach/session-decision` | Ready | Today's session recommendation |
+| `POST /coach/nutrition/performance-targets` | Ready | CHO/FAT g + availability targets |
+| `POST /coach/strength/prescription` | Ready | Gym blocks + bike interference |
+| `POST /coach/decision-safety` | Ready | Intensity gate before prescribe |
 
-## What’s missing for production
+## Documentation index
 
-These points are not backend bugs, but responsibilities of the product layer:
-
-1. Authentication and roles.
-2. Persistent database.
-3. FIT file storage.
-4. Job queue for parsing and heavy calculations.
-5. Audit log of access and models.
-6. GDPR and consent management.
-7. Model versioning in the DB.
-8. Error monitoring.
-9. Rate limiting.
-10. Backup and disaster recovery.
-
-## What the database must store
-
-Minimum required:
-
-- team;
-- athletes;
-- activity files;
-- curve MMP;
-- physiological anchors;
-- metabolic snapshots;
-- workout summary;
-- validation events;
-- team calibration model;
-- model version.
-
-## Recommended tests to run
-
-```bash
-PYTHONPATH=. pytest -q tests/pytest_smoke.py tests/test_team_learning_engine.py
-```
-
-Expected result:
-
-```text
-6 passed
-```
-
-## Technical positioning
-
-The backend should not be presented as generic AI. It should be presented as:
-
-> Physics/physiology-informed performance engine with audited residual learning.
-
-Example phrasing:
-
-> A physiology-based performance engine, validated by tests and with auditable residual learning.
+| Doc | Topic |
+|-----|-------|
+| `docs/RELEASE_NOTES_v5.2.3.md` | Latest release |
+| `docs/CONTRACT_FIRST_TESTING.md` | Test methodology |
+| `docs/COACH_DECISION_ENGINE.md` | Coach API |
+| `docs/STRENGTH_AND_FUELING_CONTRACT.md` | Fueling schema |
