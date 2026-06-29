@@ -151,3 +151,59 @@ class CoachEnvironmentAdjustmentRequest(BaseModel):
     metabolic_snapshot: Optional[Dict[str, Any]] = None
     session_context: Optional[Dict[str, Any]] = None
     thermal_state: Optional[Dict[str, Any]] = None
+
+
+class CoachPneiContextRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    athlete_id: Optional[str] = None
+    twin_state: Optional[Dict[str, Any]] = None
+    load_state: Optional[Dict[str, Any]] = None
+    readiness_state: Optional[Dict[str, Any]] = None
+    checkin: Optional[CheckinInput] = None
+    recent_checkins: List[Dict[str, Any]] = Field(default_factory=list)
+    sleep: Optional[Dict[str, Any]] = None
+    nutrition_energy: Optional[Dict[str, Any]] = None
+    performance: Optional[Dict[str, Any]] = None
+    illness_symptoms: Optional[bool] = None
+    endocrine_context: Optional[Dict[str, Any]] = None
+
+
+class CoachEndocrineContextRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    athlete_id: Optional[str] = None
+    twin_state: Optional[Dict[str, Any]] = None
+    nutrition_energy: Optional[Dict[str, Any]] = None
+    load_state: Optional[Dict[str, Any]] = None
+    readiness_state: Optional[Dict[str, Any]] = None
+    checkin: Optional[CheckinInput] = None
+    sleep: Optional[Dict[str, Any]] = None
+    performance: Optional[Dict[str, Any]] = None
+    weight_trend: Optional[str] = None
+    fuel_deficit_g: Optional[float] = None
+    cycle_context: Optional[Dict[str, Any]] = None
+    female_athlete_context: Optional[Dict[str, Any]] = None
+    biomarkers: Optional[Dict[str, Any]] = None
+
+
+class CoachConstraintsRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    athlete_id: Optional[str] = None
+    constraints: Optional[Dict[str, Any]] = None
+    season_phase: str = "build"
+    planned_weekly_hours: Optional[float] = Field(default=None, gt=0)
+
+
+class CoachTrainingSafetyRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    athlete_id: Optional[str] = None
+    twin_state: Optional[Dict[str, Any]] = None
+    injury_flags: List[str] = Field(default_factory=list)
+    illness_symptoms: Optional[bool] = None
+    checkin: Optional[CheckinInput] = None
+    recent_checkins: List[Dict[str, Any]] = Field(default_factory=list)
+    load_state: Optional[Dict[str, Any]] = None
+    readiness_state: Optional[Dict[str, Any]] = None

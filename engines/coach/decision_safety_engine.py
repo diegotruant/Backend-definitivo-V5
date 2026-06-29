@@ -11,6 +11,70 @@ from engines.core.metric_contracts import annotate_payload
 SCHEMA_VERSION = "decision_safety.v1"
 PRESCRIPTION_MODEL = "PRESCRIPTION_MODEL"
 
+_LEVEL_RANK = {
+    "ok_to_auto_suggest": 0,
+    "coach_review_recommended": 1,
+    "professional_review_recommended": 2,
+}
+
+
+def _escalate_level(current: str, target: str) -> str:
+    if _LEVEL_RANK.get(target, 0) > _LEVEL_RANK.get(current, 0):
+        return target
+    return current
+
+
+def _context_escalation(
+    *,
+    pnei_context: Optional[Dict[str, Any]],
+    endocrine_context: Optional[Dict[str, Any]],
+    training_safety: Optional[Dict[str, Any]],
+) -> tuple[str, List[str], bool]:
+    reasons: List[str] = []
+    level = "ok_to_auto_suggest"
+    escalate = False
+
+    pnei = pnei_context or {}
+    if isinstance(pnei.get("pnei_context"), dict):
+        pnei = pnei["pnei_context"]
+    pnei_status = str(pnei.get("status") or "")
+    if pnei_status == "professional_review":
+        level = _escalate_level(level, "professional_review_recommended")
+        reasons.extend(pnei.get("reasons") or ["pnei_professional_review"])
+        escalate = True
+    elif pnei_status in {"human_review", "caution"}:
+        level = _escalate_level(level, "coach_review_recommended")
+        reasons.extend(pnei.get("reasons") or [f"pnei_{pnei_status}"])
+        escalate = True
+
+    endo = endocrine_context or {}
+    if isinstance(endo.get("endocrine_context"), dict):
+        endo = endo["endocrine_context"]
+    endo_status = str(endo.get("status") or "")
+    if endo_status == "professional_review":
+        level = _escalate_level(level, "professional_review_recommended")
+        reasons.append("endocrine_professional_review")
+        escalate = True
+    elif endo_status == "caution":
+        level = _escalate_level(level, "coach_review_recommended")
+        reasons.append("endocrine_caution")
+        escalate = True
+
+    safety = training_safety or {}
+    if isinstance(safety.get("training_safety"), dict):
+        safety = safety["training_safety"]
+    safety_status = str(safety.get("status") or "")
+    if safety_status == "stop":
+        level = _escalate_level(level, "professional_review_recommended")
+        reasons.extend(safety.get("red_flags") or ["training_safety_stop"])
+        escalate = True
+    elif safety_status == "caution":
+        level = _escalate_level(level, "coach_review_recommended")
+        reasons.extend(safety.get("red_flags") or ["training_safety_caution"])
+        escalate = True
+
+    return level, sorted(set(reasons)), escalate
+
 
 def _compliance_score(last_compliance: Optional[Dict[str, Any]]) -> Optional[float]:
     if not last_compliance:
@@ -47,6 +111,9 @@ def evaluate_decision_safety(
     checkin: Optional[Dict[str, Any]] = None,
     recent_checkins: Optional[Sequence[Dict[str, Any]]] = None,
     upcoming_key_session: Optional[bool] = None,
+    pnei_context: Optional[Dict[str, Any]] = None,
+    endocrine_context: Optional[Dict[str, Any]] = None,
+    training_safety: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Unified safety envelope for intensity, gym and fueling decisions."""
     twin = twin_state or {}
@@ -92,7 +159,26 @@ def evaluate_decision_safety(
     if upcoming_key_session:
         extra_reasons.append("planned_key_session_tomorrow")
 
+    ctx_level, ctx_reasons, ctx_escalate = _context_escalation(
+        pnei_context=pnei_context or twin.get("pnei_state"),
+        endocrine_context=endocrine_context or twin.get("endocrine_context_state"),
+        training_safety=training_safety or twin.get("training_safety_state"),
+    )
+    extra_reasons.extend(ctx_reasons)
+    if ctx_escalate:
+        escalate = True
+
     merged = _merge_level(base, extra_reasons, escalate)
+    if _LEVEL_RANK.get(ctx_level, 0) > _LEVEL_RANK.get(merged.get("level", "ok_to_auto_suggest"), 0):
+        merged["level"] = ctx_level
+        if ctx_level == "professional_review_recommended":
+            merged["status"] = "requires_professional_review"
+            merged["algorithm_action"] = "do_not_prescribe_heavy_load"
+            merged["human_action"] = "coach_or_medical_review"
+        elif ctx_level == "coach_review_recommended":
+            merged["status"] = "caution"
+            merged["algorithm_action"] = "do_not_auto_progress"
+            merged["human_action"] = "coach_check_in"
 
     if merged.get("level") == "professional_review_recommended":
         intensity_gate = "do_not_prescribe_intensity"
@@ -117,6 +203,11 @@ def evaluate_decision_safety(
             "safe_output": merged.get("safe_output"),
         },
         "psychological_support_flag": psych_flag,
+        "context_layers": {
+            "pnei_considered": bool(pnei_context or twin.get("pnei_state")),
+            "endocrine_considered": bool(endocrine_context or twin.get("endocrine_context_state")),
+            "training_safety_considered": bool(training_safety or twin.get("training_safety_state")),
+        },
         "limitations": [
             "Safety recommendations only — not medical advice or mental-health diagnosis.",
             "Coach must confirm before changing training load or gym prescription.",

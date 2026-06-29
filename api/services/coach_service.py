@@ -9,12 +9,16 @@ from api.coach_schemas import (
     CoachAttentionRequest,
     CoachCheckinRequest,
     CoachCommunicationDraftRequest,
+    CoachConstraintsRequest,
     CoachDecisionSafetyRequest,
+    CoachEndocrineContextRequest,
     CoachEnvironmentAdjustmentRequest,
     CoachPeriodizationRequest,
+    CoachPneiContextRequest,
     CoachRaceExecutionRequest,
     CoachRosterAttentionRequest,
     CoachTestingPlanRequest,
+    CoachTrainingSafetyRequest,
 )
 from api.nutrition_schemas import PerformanceFuelingRequest
 from api.strength_schemas import StrengthPrescriptionRequest
@@ -22,7 +26,11 @@ from engines.coach.adherence_engine import evaluate_adherence
 from engines.coach.attention_engine import evaluate_athlete_attention, evaluate_roster_attention
 from engines.coach.checkin_engine import process_checkin
 from engines.coach.decision_safety_engine import evaluate_decision_safety
+from engines.coach.constraints_engine import evaluate_constraints
 from engines.coach.communication_draft_engine import build_communication_draft
+from engines.coach.injury_illness_engine import evaluate_training_safety
+from engines.coach.pnei_context_engine import build_pnei_context
+from engines.endocrine.endocrine_context_engine import build_endocrine_context
 from engines.coach.environment_adjustment_engine import build_environment_adjustment
 from engines.coach.periodization_engine import review_periodization
 from engines.coach.race_execution_engine import build_race_execution_plan
@@ -91,16 +99,20 @@ class CoachService:
         )
 
     def decision_safety(self, req: CoachDecisionSafetyRequest) -> Dict[str, Any]:
+        twin = req.twin_state or {}
         return evaluate_decision_safety(
             athlete_id=_athlete_id(req),
-            twin_state=req.twin_state,
-            load_state=req.load_state,
-            readiness_state=req.readiness_state,
+            twin_state=twin,
+            load_state=req.load_state or twin.get("load_state"),
+            readiness_state=req.readiness_state or twin.get("readiness_state"),
             last_compliance=req.last_compliance,
             injury_flags=req.injury_flags,
             checkin=_checkin_dict(req.checkin),
             recent_checkins=req.recent_checkins,
             upcoming_key_session=req.upcoming_key_session,
+            pnei_context=getattr(req, "pnei_context", None),
+            endocrine_context=getattr(req, "endocrine_context", None),
+            training_safety=getattr(req, "training_safety", None),
         )
 
     def attention(self, req: CoachAttentionRequest) -> Dict[str, Any]:
@@ -206,4 +218,59 @@ class CoachService:
             session_context=req.session_context,
             thermal_state=req.thermal_state,
             twin_state=twin,
+        )
+
+    def pnei_context(self, req: CoachPneiContextRequest) -> Dict[str, Any]:
+        twin = req.twin_state or {}
+        return build_pnei_context(
+            athlete_id=_athlete_id(req),
+            twin_state=twin,
+            load_state=req.load_state or twin.get("load_state"),
+            readiness_state=req.readiness_state or twin.get("readiness_state"),
+            checkin=_checkin_dict(req.checkin),
+            recent_checkins=req.recent_checkins,
+            sleep=req.sleep,
+            nutrition_energy=req.nutrition_energy or twin.get("nutrition_performance_state"),
+            performance=req.performance,
+            illness_symptoms=req.illness_symptoms,
+            endocrine_context=req.endocrine_context or twin.get("endocrine_context_state"),
+        )
+
+    def endocrine_context(self, req: CoachEndocrineContextRequest) -> Dict[str, Any]:
+        twin = req.twin_state or {}
+        return build_endocrine_context(
+            athlete_id=_athlete_id(req),
+            twin_state=twin,
+            nutrition_energy=req.nutrition_energy or twin.get("nutrition_performance_state"),
+            load_state=req.load_state or twin.get("load_state"),
+            readiness_state=req.readiness_state or twin.get("readiness_state"),
+            checkin=_checkin_dict(req.checkin),
+            sleep=req.sleep,
+            performance=req.performance,
+            weight_trend=req.weight_trend,
+            fuel_deficit_g=req.fuel_deficit_g,
+            cycle_context=req.cycle_context,
+            female_athlete_context=req.female_athlete_context,
+            biomarkers=req.biomarkers,
+        )
+
+    def constraints(self, req: CoachConstraintsRequest) -> Dict[str, Any]:
+        return evaluate_constraints(
+            athlete_id=_athlete_id(req),
+            constraints=req.constraints,
+            season_phase=req.season_phase,
+            planned_weekly_hours=req.planned_weekly_hours,
+        )
+
+    def training_safety(self, req: CoachTrainingSafetyRequest) -> Dict[str, Any]:
+        twin = req.twin_state or {}
+        return evaluate_training_safety(
+            athlete_id=_athlete_id(req),
+            twin_state=twin,
+            injury_flags=req.injury_flags,
+            illness_symptoms=req.illness_symptoms,
+            checkin=_checkin_dict(req.checkin),
+            recent_checkins=req.recent_checkins,
+            load_state=req.load_state or twin.get("load_state"),
+            readiness_state=req.readiness_state or twin.get("readiness_state"),
         )

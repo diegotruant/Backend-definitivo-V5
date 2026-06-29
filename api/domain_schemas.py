@@ -236,6 +236,14 @@ class TwinStateBuildPayload(BaseModel):
     communication_draft: Optional[Dict[str, Any]] = None
     environment_state: Optional[Dict[str, Any]] = None
     environment_adjustment: Optional[Dict[str, Any]] = None
+    pnei_state: Optional[Dict[str, Any]] = None
+    pnei_context: Optional[Dict[str, Any]] = None
+    endocrine_context_state: Optional[Dict[str, Any]] = None
+    endocrine_context: Optional[Dict[str, Any]] = None
+    training_safety_state: Optional[Dict[str, Any]] = None
+    training_safety: Optional[Dict[str, Any]] = None
+    constraints_state: Optional[Dict[str, Any]] = None
+    constraints_adaptation: Optional[Dict[str, Any]] = None
     rolling_power_curve: Optional[Dict[str, Any]] = None
     curve: Optional[Dict[str, Any]] = None
     load_state: Optional[Dict[str, Any]] = None
@@ -275,6 +283,10 @@ class TwinStateDocument(BaseModel):
     periodization_state: Dict[str, Any] = Field(default_factory=dict)
     communication_draft_state: Dict[str, Any] = Field(default_factory=dict)
     environment_state: Dict[str, Any] = Field(default_factory=dict)
+    pnei_state: Dict[str, Any] = Field(default_factory=dict)
+    endocrine_context_state: Dict[str, Any] = Field(default_factory=dict)
+    training_safety_state: Dict[str, Any] = Field(default_factory=dict)
+    constraints_state: Dict[str, Any] = Field(default_factory=dict)
     rolling_power_curve: Dict[str, Any] = Field(default_factory=dict)
     load_state: Dict[str, Any] = Field(default_factory=dict)
     readiness_state: Dict[str, Any] = Field(default_factory=dict)

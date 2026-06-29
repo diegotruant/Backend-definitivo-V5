@@ -2202,6 +2202,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/coach/pnei-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** PNEI risk context — systemic strain, not diagnosis */
+        post: operations["coachPneiContext"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coach/endocrine-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Endocrine energy and recovery risk context
+         * @description Proxy-based risk layer — not clinical hormone interpretation.
+         */
+        post: operations["coachEndocrineContext"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coach/constraints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lifestyle constraints adaptation hints */
+        post: operations["coachConstraints"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coach/training-safety": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Injury and illness prudential red flags */
+        post: operations["coachTrainingSafety"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3076,6 +3147,24 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** CoachConstraintsRequest */
+        CoachConstraintsRequest: {
+            /** Athlete Id */
+            athlete_id?: string | null;
+            /** Constraints */
+            constraints?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Season Phase
+             * @default build
+             */
+            season_phase: string;
+            /** Planned Weekly Hours */
+            planned_weekly_hours?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** CoachDecisionSafetyRequest */
         CoachDecisionSafetyRequest: {
             /** Athlete Id */
@@ -3108,6 +3197,54 @@ export interface components {
              * @default false
              */
             upcoming_key_session: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /** CoachEndocrineContextRequest */
+        CoachEndocrineContextRequest: {
+            /** Athlete Id */
+            athlete_id?: string | null;
+            /** Twin State */
+            twin_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Nutrition Energy */
+            nutrition_energy?: {
+                [key: string]: unknown;
+            } | null;
+            /** Load State */
+            load_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Readiness State */
+            readiness_state?: {
+                [key: string]: unknown;
+            } | null;
+            checkin?: components["schemas"]["CheckinInput"] | null;
+            /** Sleep */
+            sleep?: {
+                [key: string]: unknown;
+            } | null;
+            /** Performance */
+            performance?: {
+                [key: string]: unknown;
+            } | null;
+            /** Weight Trend */
+            weight_trend?: string | null;
+            /** Fuel Deficit G */
+            fuel_deficit_g?: number | null;
+            /** Cycle Context */
+            cycle_context?: {
+                [key: string]: unknown;
+            } | null;
+            /** Female Athlete Context */
+            female_athlete_context?: {
+                [key: string]: unknown;
+            } | null;
+            /** Biomarkers */
+            biomarkers?: {
+                [key: string]: unknown;
+            } | null;
         } & {
             [key: string]: unknown;
         };
@@ -3183,6 +3320,48 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** CoachPneiContextRequest */
+        CoachPneiContextRequest: {
+            /** Athlete Id */
+            athlete_id?: string | null;
+            /** Twin State */
+            twin_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Load State */
+            load_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Readiness State */
+            readiness_state?: {
+                [key: string]: unknown;
+            } | null;
+            checkin?: components["schemas"]["CheckinInput"] | null;
+            /** Recent Checkins */
+            recent_checkins?: {
+                [key: string]: unknown;
+            }[];
+            /** Sleep */
+            sleep?: {
+                [key: string]: unknown;
+            } | null;
+            /** Nutrition Energy */
+            nutrition_energy?: {
+                [key: string]: unknown;
+            } | null;
+            /** Performance */
+            performance?: {
+                [key: string]: unknown;
+            } | null;
+            /** Illness Symptoms */
+            illness_symptoms?: boolean | null;
+            /** Endocrine Context */
+            endocrine_context?: {
+                [key: string]: unknown;
+            } | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** CoachRaceExecutionRequest */
         CoachRaceExecutionRequest: {
             /** Athlete Id */
@@ -3241,6 +3420,34 @@ export interface components {
             season_phase: string;
             /** Days Since Last Lactate Test */
             days_since_last_lactate_test?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** CoachTrainingSafetyRequest */
+        CoachTrainingSafetyRequest: {
+            /** Athlete Id */
+            athlete_id?: string | null;
+            /** Twin State */
+            twin_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Injury Flags */
+            injury_flags?: string[];
+            /** Illness Symptoms */
+            illness_symptoms?: boolean | null;
+            checkin?: components["schemas"]["CheckinInput"] | null;
+            /** Recent Checkins */
+            recent_checkins?: {
+                [key: string]: unknown;
+            }[];
+            /** Load State */
+            load_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Readiness State */
+            readiness_state?: {
+                [key: string]: unknown;
+            } | null;
         } & {
             [key: string]: unknown;
         };
@@ -4629,6 +4836,38 @@ export interface components {
             environment_adjustment?: {
                 [key: string]: unknown;
             } | null;
+            /** Pnei State */
+            pnei_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Pnei Context */
+            pnei_context?: {
+                [key: string]: unknown;
+            } | null;
+            /** Endocrine Context State */
+            endocrine_context_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Endocrine Context */
+            endocrine_context?: {
+                [key: string]: unknown;
+            } | null;
+            /** Training Safety State */
+            training_safety_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Training Safety */
+            training_safety?: {
+                [key: string]: unknown;
+            } | null;
+            /** Constraints State */
+            constraints_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Constraints Adaptation */
+            constraints_adaptation?: {
+                [key: string]: unknown;
+            } | null;
             /** Rolling Power Curve */
             rolling_power_curve?: {
                 [key: string]: unknown;
@@ -4748,6 +4987,22 @@ export interface components {
             };
             /** Environment State */
             environment_state?: {
+                [key: string]: unknown;
+            };
+            /** Pnei State */
+            pnei_state?: {
+                [key: string]: unknown;
+            };
+            /** Endocrine Context State */
+            endocrine_context_state?: {
+                [key: string]: unknown;
+            };
+            /** Training Safety State */
+            training_safety_state?: {
+                [key: string]: unknown;
+            };
+            /** Constraints State */
+            constraints_state?: {
                 [key: string]: unknown;
             };
             /** Rolling Power Curve */
@@ -10570,6 +10825,138 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CoachEnvironmentAdjustmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    coachPneiContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachPneiContextRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    coachEndocrineContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachEndocrineContextRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    coachConstraints: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachConstraintsRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    coachTrainingSafety: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachTrainingSafetyRequest"];
             };
         };
         responses: {

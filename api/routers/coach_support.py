@@ -9,12 +9,16 @@ from api.coach_schemas import (
     CoachAttentionRequest,
     CoachCheckinRequest,
     CoachCommunicationDraftRequest,
+    CoachConstraintsRequest,
     CoachDecisionSafetyRequest,
+    CoachEndocrineContextRequest,
     CoachEnvironmentAdjustmentRequest,
     CoachPeriodizationRequest,
+    CoachPneiContextRequest,
     CoachRaceExecutionRequest,
     CoachRosterAttentionRequest,
     CoachTestingPlanRequest,
+    CoachTrainingSafetyRequest,
 )
 from api.deps import get_coach_service
 from api.helpers import json_response
@@ -203,3 +207,60 @@ def coach_environment_adjustment(
     service: CoachService = Depends(get_coach_service),
 ):
     return json_response(service.environment_adjustment(req))
+
+
+@router.post(
+    "/pnei-context",
+    operation_id="coachPneiContext",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+    summary="PNEI risk context — systemic strain, not diagnosis",
+)
+def coach_pnei_context(
+    req: CoachPneiContextRequest,
+    service: CoachService = Depends(get_coach_service),
+):
+    return json_response(service.pnei_context(req))
+
+
+@router.post(
+    "/endocrine-context",
+    operation_id="coachEndocrineContext",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+    summary="Endocrine energy and recovery risk context",
+    description="Proxy-based risk layer — not clinical hormone interpretation.",
+)
+def coach_endocrine_context(
+    req: CoachEndocrineContextRequest,
+    service: CoachService = Depends(get_coach_service),
+):
+    return json_response(service.endocrine_context(req))
+
+
+@router.post(
+    "/constraints",
+    operation_id="coachConstraints",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+    summary="Lifestyle constraints adaptation hints",
+)
+def coach_constraints(
+    req: CoachConstraintsRequest,
+    service: CoachService = Depends(get_coach_service),
+):
+    return json_response(service.constraints(req))
+
+
+@router.post(
+    "/training-safety",
+    operation_id="coachTrainingSafety",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+    summary="Injury and illness prudential red flags",
+)
+def coach_training_safety(
+    req: CoachTrainingSafetyRequest,
+    service: CoachService = Depends(get_coach_service),
+):
+    return json_response(service.training_safety(req))

@@ -8293,6 +8293,191 @@
           }
         }
       }
+    },
+    "/coach/pnei-context": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "PNEI risk context — systemic strain, not diagnosis",
+        "operationId": "coachPneiContext",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoachPneiContextRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coach/endocrine-context": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Endocrine energy and recovery risk context",
+        "description": "Proxy-based risk layer — not clinical hormone interpretation.",
+        "operationId": "coachEndocrineContext",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoachEndocrineContextRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coach/constraints": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Lifestyle constraints adaptation hints",
+        "operationId": "coachConstraints",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoachConstraintsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coach/training-safety": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Injury and illness prudential red flags",
+        "operationId": "coachTrainingSafety",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoachTrainingSafetyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -10780,6 +10965,53 @@
         "type": "object",
         "title": "CoachCommunicationDraftRequest"
       },
+      "CoachConstraintsRequest": {
+        "properties": {
+          "athlete_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Id"
+          },
+          "constraints": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Constraints"
+          },
+          "season_phase": {
+            "type": "string",
+            "title": "Season Phase",
+            "default": "build"
+          },
+          "planned_weekly_hours": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Weekly Hours"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "CoachConstraintsRequest"
+      },
       "CoachDecisionSafetyRequest": {
         "properties": {
           "athlete_id": {
@@ -10875,6 +11107,164 @@
         "additionalProperties": true,
         "type": "object",
         "title": "CoachDecisionSafetyRequest"
+      },
+      "CoachEndocrineContextRequest": {
+        "properties": {
+          "athlete_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Id"
+          },
+          "twin_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin State"
+          },
+          "nutrition_energy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nutrition Energy"
+          },
+          "load_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load State"
+          },
+          "readiness_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readiness State"
+          },
+          "checkin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckinInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sleep": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sleep"
+          },
+          "performance": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Performance"
+          },
+          "weight_trend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Trend"
+          },
+          "fuel_deficit_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fuel Deficit G"
+          },
+          "cycle_context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cycle Context"
+          },
+          "female_athlete_context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Female Athlete Context"
+          },
+          "biomarkers": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Biomarkers"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "CoachEndocrineContextRequest"
       },
       "CoachEnvironmentAdjustmentRequest": {
         "properties": {
@@ -11069,6 +11459,137 @@
         "type": "object",
         "title": "CoachPeriodizationRequest"
       },
+      "CoachPneiContextRequest": {
+        "properties": {
+          "athlete_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Id"
+          },
+          "twin_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin State"
+          },
+          "load_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load State"
+          },
+          "readiness_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readiness State"
+          },
+          "checkin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckinInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recent_checkins": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Recent Checkins"
+          },
+          "sleep": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sleep"
+          },
+          "nutrition_energy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nutrition Energy"
+          },
+          "performance": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Performance"
+          },
+          "illness_symptoms": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Illness Symptoms"
+          },
+          "endocrine_context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endocrine Context"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "CoachPneiContextRequest"
+      },
       "CoachRaceExecutionRequest": {
         "properties": {
           "athlete_id": {
@@ -11239,6 +11760,96 @@
         "additionalProperties": true,
         "type": "object",
         "title": "CoachTestingPlanRequest"
+      },
+      "CoachTrainingSafetyRequest": {
+        "properties": {
+          "athlete_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Id"
+          },
+          "twin_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin State"
+          },
+          "injury_flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Injury Flags"
+          },
+          "illness_symptoms": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Illness Symptoms"
+          },
+          "checkin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckinInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recent_checkins": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Recent Checkins"
+          },
+          "load_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load State"
+          },
+          "readiness_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readiness State"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "CoachTrainingSafetyRequest"
       },
       "CompareSegmentsRequest": {
         "properties": {
@@ -15010,6 +15621,102 @@
             ],
             "title": "Environment Adjustment"
           },
+          "pnei_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pnei State"
+          },
+          "pnei_context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pnei Context"
+          },
+          "endocrine_context_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endocrine Context State"
+          },
+          "endocrine_context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endocrine Context"
+          },
+          "training_safety_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training Safety State"
+          },
+          "training_safety": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training Safety"
+          },
+          "constraints_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Constraints State"
+          },
+          "constraints_adaptation": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Constraints Adaptation"
+          },
           "rolling_power_curve": {
             "anyOf": [
               {
@@ -15220,6 +15927,26 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Environment State"
+          },
+          "pnei_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Pnei State"
+          },
+          "endocrine_context_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Endocrine Context State"
+          },
+          "training_safety_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Training Safety State"
+          },
+          "constraints_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Constraints State"
           },
           "rolling_power_curve": {
             "additionalProperties": true,

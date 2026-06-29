@@ -1,7 +1,7 @@
 # Coach decision engine
 
-Coach decision-support modules for strength, fueling, safety, attention, adherence, testing, race execution, periodization, communication drafts and environment adjustments.
-**Not** mental-health diagnosis, meal plans or autonomous coaching.
+Coach decision-support modules for strength, fueling, safety, attention, adherence, testing, race execution, periodization, communication, environment, PNEI context, endocrine context, constraints and training safety.
+**Not** mental-health diagnosis, meal plans, hormone therapy or autonomous coaching.
 
 ## Endpoints
 
@@ -19,6 +19,10 @@ Coach decision-support modules for strength, fueling, safety, attention, adheren
 | POST | `/coach/periodization` | `periodization_review.v1` |
 | POST | `/coach/communication-draft` | `communication_draft.v1` |
 | POST | `/coach/environment-adjustment` | `environment_adjustment.v1` |
+| POST | `/coach/pnei-context` | `pnei_context.v1` |
+| POST | `/coach/endocrine-context` | `endocrine_context.v1` |
+| POST | `/coach/constraints` | `constraints_adaptation.v1` |
+| POST | `/coach/training-safety` | `training_safety.v1` |
 
 ## TwinState keys
 
@@ -26,6 +30,7 @@ Coach decision-support modules for strength, fueling, safety, attention, adheren
 - `checkin_state`, `decision_safety_state`, `coach_attention_state`
 - `adherence_state`, `testing_plan_state`, `race_execution_state`
 - `periodization_state`, `communication_draft_state`, `environment_state`
+- `pnei_state`, `endocrine_context_state`, `training_safety_state`, `constraints_state`
 
 ## Principles
 
@@ -38,6 +43,14 @@ Coach decision-support modules for strength, fueling, safety, attention, adheren
 7. **Periodization** — macro coherence, load-risk and gym/bike conflict hints.
 8. **Communication draft** — editable message text; `coach_review_required` and `not_autonomous`.
 9. **Environment** — heat, humidity and altitude caps for session planning.
+10. **PNEI context** — systemic strain from proxy signals (`RISK_MODEL`), not diagnosis.
+11. **Endocrine context** — energy availability and recovery risk; optional biomarkers with professional interpretation.
+12. **Training safety** — injury/illness prudence layer.
+13. **Constraints** — lifestyle adaptation for real athletes.
+
+## Context layers
+
+`decision_safety` considers `pnei_state`, `endocrine_context_state` and `training_safety_state` from TwinState.
 
 ## Engines
 
@@ -53,3 +66,7 @@ Coach decision-support modules for strength, fueling, safety, attention, adheren
 - `engines/coach/periodization_engine.py`
 - `engines/coach/communication_draft_engine.py`
 - `engines/coach/environment_adjustment_engine.py`
+- `engines/coach/pnei_context_engine.py`
+- `engines/endocrine/endocrine_context_engine.py`
+- `engines/coach/constraints_engine.py`
+- `engines/coach/injury_illness_engine.py`

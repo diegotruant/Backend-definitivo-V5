@@ -322,6 +322,70 @@ def _extract_environment_state(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {}
 
 
+def _extract_pnei_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("pnei_state"))
+    if direct:
+        direct.setdefault("schema_version", "pnei_state.v1")
+        return direct
+    ctx = _as_dict(payload.get("pnei_context") or payload.get("pnei_context_response"))
+    if ctx.get("schema_version") == "pnei_context.v1":
+        return {
+            "schema_version": "pnei_state.v1",
+            "latest_context": ctx,
+            "pnei_context": _as_dict(ctx.get("pnei_context")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    return {}
+
+
+def _extract_endocrine_context_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("endocrine_context_state"))
+    if direct:
+        direct.setdefault("schema_version", "endocrine_context_state.v1")
+        return direct
+    ctx = _as_dict(payload.get("endocrine_context") or payload.get("endocrine_context_response"))
+    if ctx.get("schema_version") == "endocrine_context.v1":
+        return {
+            "schema_version": "endocrine_context_state.v1",
+            "latest_context": ctx,
+            "endocrine_context": _as_dict(ctx.get("endocrine_context")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    return {}
+
+
+def _extract_training_safety_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("training_safety_state"))
+    if direct:
+        direct.setdefault("schema_version", "training_safety_state.v1")
+        return direct
+    safety = _as_dict(payload.get("training_safety") or payload.get("training_safety_response"))
+    if safety.get("schema_version") == "training_safety.v1":
+        return {
+            "schema_version": "training_safety_state.v1",
+            "latest_safety": safety,
+            "training_safety": _as_dict(safety.get("training_safety")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    return {}
+
+
+def _extract_constraints_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("constraints_state"))
+    if direct:
+        direct.setdefault("schema_version", "constraints_state.v1")
+        return direct
+    adaptation = _as_dict(payload.get("constraints_adaptation") or payload.get("constraints_response"))
+    if adaptation.get("schema_version") == "constraints_adaptation.v1":
+        return {
+            "schema_version": "constraints_state.v1",
+            "latest_adaptation": adaptation,
+            "adaptation": _as_dict(adaptation.get("adaptation")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    return {}
+
+
 def _confidence_from_sections(payload: Dict[str, Any]) -> Dict[str, Any]:
     snapshot = _as_dict(payload.get("metabolic_snapshot"))
     sensor_quality = _as_dict(payload.get("sensor_quality"))
@@ -378,6 +442,10 @@ def build_twin_state(payload: Dict[str, Any]) -> Dict[str, Any]:
         "periodization_state": _extract_periodization_state(payload),
         "communication_draft_state": _extract_communication_draft_state(payload),
         "environment_state": _extract_environment_state(payload),
+        "pnei_state": _extract_pnei_state(payload),
+        "endocrine_context_state": _extract_endocrine_context_state(payload),
+        "training_safety_state": _extract_training_safety_state(payload),
+        "constraints_state": _extract_constraints_state(payload),
         "rolling_power_curve": rolling_power_curve,
         "load_state": _as_dict(payload.get("load_state")),
         "readiness_state": _as_dict(payload.get("readiness_state")),
