@@ -207,3 +207,56 @@ class CoachTrainingSafetyRequest(BaseModel):
     recent_checkins: List[Dict[str, Any]] = Field(default_factory=list)
     load_state: Optional[Dict[str, Any]] = None
     readiness_state: Optional[Dict[str, Any]] = None
+
+
+class CoachEquipmentComfortRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    athlete_id: Optional[str] = None
+    twin_state: Optional[Dict[str, Any]] = None
+    equipment_state: Optional[Dict[str, Any]] = None
+    comfort_notes: List[str] = Field(default_factory=list)
+    position_change_log: List[Dict[str, Any]] = Field(default_factory=list)
+    session_history: List[Dict[str, Any]] = Field(default_factory=list)
+    checkin: Optional[CheckinInput] = None
+
+
+class CoachFemaleAthleteContextRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    athlete_id: Optional[str] = None
+    twin_state: Optional[Dict[str, Any]] = None
+    context: Optional[Dict[str, Any]] = None
+    checkin: Optional[CheckinInput] = None
+
+
+class CoachDailyBriefRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    athlete_id: str = Field(..., min_length=1)
+    twin_state: Optional[Dict[str, Any]] = None
+    load_state: Optional[Dict[str, Any]] = None
+    readiness_state: Optional[Dict[str, Any]] = None
+    checkin: Optional[CheckinInput] = None
+    recent_checkins: List[Dict[str, Any]] = Field(default_factory=list)
+    last_compliance: Optional[Dict[str, Any]] = None
+    upcoming_key_session: bool = False
+    constraints: Optional[Dict[str, Any]] = None
+    equipment_state: Optional[Dict[str, Any]] = None
+    comfort_notes: List[str] = Field(default_factory=list)
+    female_athlete_context: Optional[Dict[str, Any]] = None
+    metabolic_snapshot: Optional[Dict[str, Any]] = None
+    include_communication_draft: bool = True
+
+
+class CoachSessionDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    athlete_id: str = Field(..., min_length=1)
+    planned_session: Dict[str, Any]
+    twin_state: Optional[Dict[str, Any]] = None
+    load_state: Optional[Dict[str, Any]] = None
+    readiness_state: Optional[Dict[str, Any]] = None
+    checkin: Optional[CheckinInput] = None
+    recent_checkins: List[Dict[str, Any]] = Field(default_factory=list)
+    environment_context: Optional[Dict[str, Any]] = None

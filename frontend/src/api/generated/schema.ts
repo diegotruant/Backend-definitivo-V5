@@ -2273,6 +2273,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/coach/equipment-comfort": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Equipment and comfort performance links */
+        post: operations["coachEquipmentComfort"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coach/female-athlete-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Optional female athlete context — not cycle-based prescription */
+        post: operations["coachFemaleAthleteContext"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coach/daily-brief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unified coach daily brief — attention, safety, PNEI, actions */
+        post: operations["coachDailyBrief"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coach/session-decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Planned session vs physiology and context layers */
+        post: operations["coachSessionDecision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3165,6 +3233,62 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** CoachDailyBriefRequest */
+        CoachDailyBriefRequest: {
+            /** Athlete Id */
+            athlete_id: string;
+            /** Twin State */
+            twin_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Load State */
+            load_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Readiness State */
+            readiness_state?: {
+                [key: string]: unknown;
+            } | null;
+            checkin?: components["schemas"]["CheckinInput"] | null;
+            /** Recent Checkins */
+            recent_checkins?: {
+                [key: string]: unknown;
+            }[];
+            /** Last Compliance */
+            last_compliance?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Upcoming Key Session
+             * @default false
+             */
+            upcoming_key_session: boolean;
+            /** Constraints */
+            constraints?: {
+                [key: string]: unknown;
+            } | null;
+            /** Equipment State */
+            equipment_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Comfort Notes */
+            comfort_notes?: string[];
+            /** Female Athlete Context */
+            female_athlete_context?: {
+                [key: string]: unknown;
+            } | null;
+            /** Metabolic Snapshot */
+            metabolic_snapshot?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Include Communication Draft
+             * @default true
+             */
+            include_communication_draft: boolean;
+        } & {
+            [key: string]: unknown;
+        };
         /** CoachDecisionSafetyRequest */
         CoachDecisionSafetyRequest: {
             /** Athlete Id */
@@ -3272,6 +3396,48 @@ export interface components {
             thermal_state?: {
                 [key: string]: unknown;
             } | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** CoachEquipmentComfortRequest */
+        CoachEquipmentComfortRequest: {
+            /** Athlete Id */
+            athlete_id?: string | null;
+            /** Twin State */
+            twin_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Equipment State */
+            equipment_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Comfort Notes */
+            comfort_notes?: string[];
+            /** Position Change Log */
+            position_change_log?: {
+                [key: string]: unknown;
+            }[];
+            /** Session History */
+            session_history?: {
+                [key: string]: unknown;
+            }[];
+            checkin?: components["schemas"]["CheckinInput"] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** CoachFemaleAthleteContextRequest */
+        CoachFemaleAthleteContextRequest: {
+            /** Athlete Id */
+            athlete_id?: string | null;
+            /** Twin State */
+            twin_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Context */
+            context?: {
+                [key: string]: unknown;
+            } | null;
+            checkin?: components["schemas"]["CheckinInput"] | null;
         } & {
             [key: string]: unknown;
         };
@@ -3396,6 +3562,38 @@ export interface components {
         CoachRosterAttentionRequest: {
             /** Roster */
             roster: components["schemas"]["RosterAttentionEntry"][];
+        };
+        /** CoachSessionDecisionRequest */
+        CoachSessionDecisionRequest: {
+            /** Athlete Id */
+            athlete_id: string;
+            /** Planned Session */
+            planned_session: {
+                [key: string]: unknown;
+            };
+            /** Twin State */
+            twin_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Load State */
+            load_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Readiness State */
+            readiness_state?: {
+                [key: string]: unknown;
+            } | null;
+            checkin?: components["schemas"]["CheckinInput"] | null;
+            /** Recent Checkins */
+            recent_checkins?: {
+                [key: string]: unknown;
+            }[];
+            /** Environment Context */
+            environment_context?: {
+                [key: string]: unknown;
+            } | null;
+        } & {
+            [key: string]: unknown;
         };
         /** CoachTestingPlanRequest */
         CoachTestingPlanRequest: {
@@ -4868,6 +5066,38 @@ export interface components {
             constraints_adaptation?: {
                 [key: string]: unknown;
             } | null;
+            /** Equipment State */
+            equipment_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Equipment Comfort Review */
+            equipment_comfort_review?: {
+                [key: string]: unknown;
+            } | null;
+            /** Female Athlete Context State */
+            female_athlete_context_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Female Athlete Context */
+            female_athlete_context?: {
+                [key: string]: unknown;
+            } | null;
+            /** Daily Brief State */
+            daily_brief_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Coach Daily Brief */
+            coach_daily_brief?: {
+                [key: string]: unknown;
+            } | null;
+            /** Session Decision State */
+            session_decision_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Session Decision */
+            session_decision?: {
+                [key: string]: unknown;
+            } | null;
             /** Rolling Power Curve */
             rolling_power_curve?: {
                 [key: string]: unknown;
@@ -5003,6 +5233,22 @@ export interface components {
             };
             /** Constraints State */
             constraints_state?: {
+                [key: string]: unknown;
+            };
+            /** Equipment State */
+            equipment_state?: {
+                [key: string]: unknown;
+            };
+            /** Female Athlete Context State */
+            female_athlete_context_state?: {
+                [key: string]: unknown;
+            };
+            /** Daily Brief State */
+            daily_brief_state?: {
+                [key: string]: unknown;
+            };
+            /** Session Decision State */
+            session_decision_state?: {
                 [key: string]: unknown;
             };
             /** Rolling Power Curve */
@@ -10957,6 +11203,138 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CoachTrainingSafetyRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    coachEquipmentComfort: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachEquipmentComfortRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    coachFemaleAthleteContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachFemaleAthleteContextRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    coachDailyBrief: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachDailyBriefRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    coachSessionDecision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachSessionDecisionRequest"];
             };
         };
         responses: {

@@ -386,6 +386,72 @@ def _extract_constraints_state(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {}
 
 
+def _extract_equipment_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("equipment_state"))
+    if direct and direct.get("schema_version"):
+        direct.setdefault("schema_version", "equipment_state.v1")
+        return direct
+    review = _as_dict(payload.get("equipment_comfort_review") or payload.get("equipment_comfort_response"))
+    if review.get("schema_version") == "equipment_comfort_review.v1":
+        return {
+            "schema_version": "equipment_state.v1",
+            "latest_review": review,
+            "equipment_comfort_review": _as_dict(review.get("equipment_comfort_review")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    if direct:
+        return {"schema_version": "equipment_state.v1", **direct, "updated_at": payload.get("updated_at") or _now_iso()}
+    return {}
+
+
+def _extract_female_athlete_context_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("female_athlete_context_state"))
+    if direct:
+        direct.setdefault("schema_version", "female_athlete_context_state.v1")
+        return direct
+    ctx = _as_dict(payload.get("female_athlete_context") or payload.get("female_athlete_context_response"))
+    if ctx.get("schema_version") == "female_athlete_context.v1":
+        return {
+            "schema_version": "female_athlete_context_state.v1",
+            "latest_context": ctx,
+            "female_athlete_context": _as_dict(ctx.get("female_athlete_context")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    return {}
+
+
+def _extract_daily_brief_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("daily_brief_state") or payload.get("coach_daily_brief_state"))
+    if direct:
+        direct.setdefault("schema_version", "daily_brief_state.v1")
+        return direct
+    brief = _as_dict(payload.get("coach_daily_brief") or payload.get("daily_brief_response"))
+    if brief.get("schema_version") == "coach_daily_brief.v1":
+        return {
+            "schema_version": "daily_brief_state.v1",
+            "latest_brief": brief,
+            "coach_daily_brief": _as_dict(brief.get("coach_daily_brief")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    return {}
+
+
+def _extract_session_decision_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("session_decision_state"))
+    if direct:
+        direct.setdefault("schema_version", "session_decision_state.v1")
+        return direct
+    decision = _as_dict(payload.get("session_decision") or payload.get("session_decision_response"))
+    if decision.get("schema_version") == "coach_session_decision.v1":
+        return {
+            "schema_version": "session_decision_state.v1",
+            "latest_decision": decision,
+            "session_decision": _as_dict(decision.get("session_decision")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    return {}
+
+
 def _confidence_from_sections(payload: Dict[str, Any]) -> Dict[str, Any]:
     snapshot = _as_dict(payload.get("metabolic_snapshot"))
     sensor_quality = _as_dict(payload.get("sensor_quality"))
@@ -446,6 +512,10 @@ def build_twin_state(payload: Dict[str, Any]) -> Dict[str, Any]:
         "endocrine_context_state": _extract_endocrine_context_state(payload),
         "training_safety_state": _extract_training_safety_state(payload),
         "constraints_state": _extract_constraints_state(payload),
+        "equipment_state": _extract_equipment_state(payload),
+        "female_athlete_context_state": _extract_female_athlete_context_state(payload),
+        "daily_brief_state": _extract_daily_brief_state(payload),
+        "session_decision_state": _extract_session_decision_state(payload),
         "rolling_power_curve": rolling_power_curve,
         "load_state": _as_dict(payload.get("load_state")),
         "readiness_state": _as_dict(payload.get("readiness_state")),

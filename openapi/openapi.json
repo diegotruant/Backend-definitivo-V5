@@ -8478,6 +8478,190 @@
           }
         }
       }
+    },
+    "/coach/equipment-comfort": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Equipment and comfort performance links",
+        "operationId": "coachEquipmentComfort",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoachEquipmentComfortRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coach/female-athlete-context": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Optional female athlete context — not cycle-based prescription",
+        "operationId": "coachFemaleAthleteContext",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoachFemaleAthleteContextRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coach/daily-brief": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Unified coach daily brief — attention, safety, PNEI, actions",
+        "operationId": "coachDailyBrief",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoachDailyBriefRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coach/session-decision": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Planned session vs physiology and context layers",
+        "operationId": "coachSessionDecision",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoachSessionDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -11012,6 +11196,152 @@
         "type": "object",
         "title": "CoachConstraintsRequest"
       },
+      "CoachDailyBriefRequest": {
+        "properties": {
+          "athlete_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Athlete Id"
+          },
+          "twin_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin State"
+          },
+          "load_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load State"
+          },
+          "readiness_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readiness State"
+          },
+          "checkin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckinInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recent_checkins": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Recent Checkins"
+          },
+          "last_compliance": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Compliance"
+          },
+          "upcoming_key_session": {
+            "type": "boolean",
+            "title": "Upcoming Key Session",
+            "default": false
+          },
+          "constraints": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Constraints"
+          },
+          "equipment_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment State"
+          },
+          "comfort_notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Comfort Notes"
+          },
+          "female_athlete_context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Female Athlete Context"
+          },
+          "metabolic_snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot"
+          },
+          "include_communication_draft": {
+            "type": "boolean",
+            "title": "Include Communication Draft",
+            "default": true
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "athlete_id"
+        ],
+        "title": "CoachDailyBriefRequest"
+      },
       "CoachDecisionSafetyRequest": {
         "properties": {
           "athlete_id": {
@@ -11343,6 +11673,133 @@
         "additionalProperties": true,
         "type": "object",
         "title": "CoachEnvironmentAdjustmentRequest"
+      },
+      "CoachEquipmentComfortRequest": {
+        "properties": {
+          "athlete_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Id"
+          },
+          "twin_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin State"
+          },
+          "equipment_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment State"
+          },
+          "comfort_notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Comfort Notes"
+          },
+          "position_change_log": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Position Change Log"
+          },
+          "session_history": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Session History"
+          },
+          "checkin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckinInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "CoachEquipmentComfortRequest"
+      },
+      "CoachFemaleAthleteContextRequest": {
+        "properties": {
+          "athlete_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Id"
+          },
+          "twin_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin State"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "checkin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckinInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "CoachFemaleAthleteContextRequest"
       },
       "CoachPeriodizationRequest": {
         "properties": {
@@ -11689,6 +12146,93 @@
           "roster"
         ],
         "title": "CoachRosterAttentionRequest"
+      },
+      "CoachSessionDecisionRequest": {
+        "properties": {
+          "athlete_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Athlete Id"
+          },
+          "planned_session": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Planned Session"
+          },
+          "twin_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin State"
+          },
+          "load_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load State"
+          },
+          "readiness_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readiness State"
+          },
+          "checkin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckinInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recent_checkins": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Recent Checkins"
+          },
+          "environment_context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment Context"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "athlete_id",
+          "planned_session"
+        ],
+        "title": "CoachSessionDecisionRequest"
       },
       "CoachTestingPlanRequest": {
         "properties": {
@@ -15717,6 +16261,102 @@
             ],
             "title": "Constraints Adaptation"
           },
+          "equipment_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment State"
+          },
+          "equipment_comfort_review": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment Comfort Review"
+          },
+          "female_athlete_context_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Female Athlete Context State"
+          },
+          "female_athlete_context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Female Athlete Context"
+          },
+          "daily_brief_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Brief State"
+          },
+          "coach_daily_brief": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coach Daily Brief"
+          },
+          "session_decision_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Decision State"
+          },
+          "session_decision": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Decision"
+          },
           "rolling_power_curve": {
             "anyOf": [
               {
@@ -15947,6 +16587,26 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Constraints State"
+          },
+          "equipment_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Equipment State"
+          },
+          "female_athlete_context_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Female Athlete Context State"
+          },
+          "daily_brief_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Daily Brief State"
+          },
+          "session_decision_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Session Decision State"
           },
           "rolling_power_curve": {
             "additionalProperties": true,

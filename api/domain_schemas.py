@@ -244,6 +244,14 @@ class TwinStateBuildPayload(BaseModel):
     training_safety: Optional[Dict[str, Any]] = None
     constraints_state: Optional[Dict[str, Any]] = None
     constraints_adaptation: Optional[Dict[str, Any]] = None
+    equipment_state: Optional[Dict[str, Any]] = None
+    equipment_comfort_review: Optional[Dict[str, Any]] = None
+    female_athlete_context_state: Optional[Dict[str, Any]] = None
+    female_athlete_context: Optional[Dict[str, Any]] = None
+    daily_brief_state: Optional[Dict[str, Any]] = None
+    coach_daily_brief: Optional[Dict[str, Any]] = None
+    session_decision_state: Optional[Dict[str, Any]] = None
+    session_decision: Optional[Dict[str, Any]] = None
     rolling_power_curve: Optional[Dict[str, Any]] = None
     curve: Optional[Dict[str, Any]] = None
     load_state: Optional[Dict[str, Any]] = None
@@ -287,6 +295,10 @@ class TwinStateDocument(BaseModel):
     endocrine_context_state: Dict[str, Any] = Field(default_factory=dict)
     training_safety_state: Dict[str, Any] = Field(default_factory=dict)
     constraints_state: Dict[str, Any] = Field(default_factory=dict)
+    equipment_state: Dict[str, Any] = Field(default_factory=dict)
+    female_athlete_context_state: Dict[str, Any] = Field(default_factory=dict)
+    daily_brief_state: Dict[str, Any] = Field(default_factory=dict)
+    session_decision_state: Dict[str, Any] = Field(default_factory=dict)
     rolling_power_curve: Dict[str, Any] = Field(default_factory=dict)
     load_state: Dict[str, Any] = Field(default_factory=dict)
     readiness_state: Dict[str, Any] = Field(default_factory=dict)

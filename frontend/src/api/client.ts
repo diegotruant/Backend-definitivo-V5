@@ -421,6 +421,31 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  /** POST /coach/equipment-comfort */
+  coachEquipmentComfort: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/coach/equipment-comfort', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** POST /coach/female-athlete-context */
+  coachFemaleAthleteContext: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/coach/female-athlete-context', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** POST /coach/daily-brief */
+  coachDailyBrief: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/coach/daily-brief', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /coach/session-decision */
+  coachSessionDecision: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/coach/session-decision', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
   /** POST /history/summary */
   historySummary: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/history/summary', { method: 'POST', body: JSON.stringify(payload) }),

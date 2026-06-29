@@ -10,13 +10,17 @@ from api.coach_schemas import (
     CoachCheckinRequest,
     CoachCommunicationDraftRequest,
     CoachConstraintsRequest,
+    CoachDailyBriefRequest,
     CoachDecisionSafetyRequest,
     CoachEndocrineContextRequest,
     CoachEnvironmentAdjustmentRequest,
+    CoachEquipmentComfortRequest,
+    CoachFemaleAthleteContextRequest,
     CoachPeriodizationRequest,
     CoachPneiContextRequest,
     CoachRaceExecutionRequest,
     CoachRosterAttentionRequest,
+    CoachSessionDecisionRequest,
     CoachTestingPlanRequest,
     CoachTrainingSafetyRequest,
 )
@@ -264,3 +268,59 @@ def coach_training_safety(
     service: CoachService = Depends(get_coach_service),
 ):
     return json_response(service.training_safety(req))
+
+
+@router.post(
+    "/equipment-comfort",
+    operation_id="coachEquipmentComfort",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+    summary="Equipment and comfort performance links",
+)
+def coach_equipment_comfort(
+    req: CoachEquipmentComfortRequest,
+    service: CoachService = Depends(get_coach_service),
+):
+    return json_response(service.equipment_comfort(req))
+
+
+@router.post(
+    "/female-athlete-context",
+    operation_id="coachFemaleAthleteContext",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+    summary="Optional female athlete context — not cycle-based prescription",
+)
+def coach_female_athlete_context(
+    req: CoachFemaleAthleteContextRequest,
+    service: CoachService = Depends(get_coach_service),
+):
+    return json_response(service.female_athlete_context(req))
+
+
+@router.post(
+    "/daily-brief",
+    operation_id="coachDailyBrief",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+    summary="Unified coach daily brief — attention, safety, PNEI, actions",
+)
+def coach_daily_brief(
+    req: CoachDailyBriefRequest,
+    service: CoachService = Depends(get_coach_service),
+):
+    return json_response(service.daily_brief(req))
+
+
+@router.post(
+    "/session-decision",
+    operation_id="coachSessionDecision",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+    summary="Planned session vs physiology and context layers",
+)
+def coach_session_decision(
+    req: CoachSessionDecisionRequest,
+    service: CoachService = Depends(get_coach_service),
+):
+    return json_response(service.session_decision(req))

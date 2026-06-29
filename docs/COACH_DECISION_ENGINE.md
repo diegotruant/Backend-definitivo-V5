@@ -23,6 +23,10 @@ Coach decision-support modules for strength, fueling, safety, attention, adheren
 | POST | `/coach/endocrine-context` | `endocrine_context.v1` |
 | POST | `/coach/constraints` | `constraints_adaptation.v1` |
 | POST | `/coach/training-safety` | `training_safety.v1` |
+| POST | `/coach/equipment-comfort` | `equipment_comfort_review.v1` |
+| POST | `/coach/female-athlete-context` | `female_athlete_context.v1` |
+| POST | `/coach/daily-brief` | `coach_daily_brief.v1` |
+| POST | `/coach/session-decision` | `coach_session_decision.v1` |
 
 ## TwinState keys
 
@@ -31,6 +35,7 @@ Coach decision-support modules for strength, fueling, safety, attention, adheren
 - `adherence_state`, `testing_plan_state`, `race_execution_state`
 - `periodization_state`, `communication_draft_state`, `environment_state`
 - `pnei_state`, `endocrine_context_state`, `training_safety_state`, `constraints_state`
+- `equipment_state`, `female_athlete_context_state`, `daily_brief_state`, `session_decision_state`
 
 ## Principles
 
@@ -47,6 +52,9 @@ Coach decision-support modules for strength, fueling, safety, attention, adheren
 11. **Endocrine context** — energy availability and recovery risk; optional biomarkers with professional interpretation.
 12. **Training safety** — injury/illness prudence layer.
 13. **Constraints** — lifestyle adaptation for real athletes.
+14. **Orchestrator** — `daily-brief` and `session-decision` unify all context layers.
+15. **Equipment comfort** — position/comfort flags linked to performance patterns.
+16. **Female athlete context** — optional, never cycle-based auto-prescription.
 
 ## Context layers
 
@@ -70,3 +78,6 @@ Coach decision-support modules for strength, fueling, safety, attention, adheren
 - `engines/endocrine/endocrine_context_engine.py`
 - `engines/coach/constraints_engine.py`
 - `engines/coach/injury_illness_engine.py`
+- `engines/coach/coach_orchestrator.py`
+- `engines/coach/equipment_comfort_engine.py`
+- `engines/coach/female_athlete_context_engine.py`
