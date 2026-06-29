@@ -32,8 +32,9 @@ def calculate_manual_load(
     muscle_damage_factor: Optional[float] = None,
     notes: Optional[str] = None,
 ) -> Dict[str, Any]:
-    duration_min = max(0.0, float(duration_min))
-    rpe = max(0.0, min(10.0, float(rpe)))
+    duration_min = max(0.0, _num(duration_min, 0.0) or 0.0)
+    resolved_rpe = _num(rpe, 0.0)
+    rpe = max(0.0, min(10.0, resolved_rpe if resolved_rpe is not None else 0.0))
     modality_l = (modality or "other").lower()
     modality_factor = {
         "cycling": 1.00,

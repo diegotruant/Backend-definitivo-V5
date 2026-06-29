@@ -239,6 +239,14 @@ def build_daily_brief(
 
     attn = attention.get("athlete_attention") or {}
     safety_gate = (safety.get("decision_safety") or {}).get("intensity_gate", "ok_to_auto_suggest")
+    has_context = bool(
+        load_state
+        or twin.get("load_state")
+        or readiness_state
+        or twin.get("readiness_state")
+        or checkin
+        or twin.get("checkin_state")
+    )
 
     payload = {
         "status": "success",
@@ -263,7 +271,11 @@ def build_daily_brief(
                 "female_athlete_context": female_ctx,
                 "communication_draft": draft,
             },
-            "coach_review_required": safety_gate != "ok_to_auto_suggest" or attn.get("priority") == "high",
+            "coach_review_required": (
+                safety_gate != "ok_to_auto_suggest"
+                or attn.get("priority") in {"high", "medium"}
+                or not has_context
+            ),
             "not_autonomous": True,
         },
         "limitations": [

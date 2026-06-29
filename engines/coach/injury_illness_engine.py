@@ -84,11 +84,26 @@ def evaluate_training_safety(
     status = "ok"
     safe_recommendation = "Training may proceed per plan if coach agrees."
 
-    if base.get("level") == "professional_review_recommended" or "illness_symptoms_reported" in red_flags:
-        status = "stop"
+    persisted = twin.get("training_safety_state") or {}
+    if isinstance(persisted, dict):
+        persisted_review = persisted.get("training_safety") or {}
+        if isinstance(persisted_review, dict):
+            red_flags = sorted(set(red_flags + list(persisted_review.get("red_flags") or [])))
+            persisted_status = persisted_review.get("status")
+            if persisted_status == "stop":
+                status = "stop"
+            elif persisted_status == "caution" and status == "ok":
+                status = "caution"
+
+    if status == "ok":
+        if base.get("level") == "professional_review_recommended" or "illness_symptoms_reported" in red_flags:
+            status = "stop"
+        elif len(red_flags) >= 2 or base.get("level") == "coach_review_recommended":
+            status = "caution"
+
+    if status == "stop":
         safe_recommendation = "No high-intensity or heavy gym today. Professional or coach review required."
-    elif len(red_flags) >= 2 or base.get("level") == "coach_review_recommended":
-        status = "caution"
+    elif status == "caution":
         safe_recommendation = "No high-intensity or heavy gym today. Coach review required."
 
     payload = {

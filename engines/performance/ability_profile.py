@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from engines.core.metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload, normalize_compliance_score
 from engines.core.model_safety import finalize_model_metadata
 
 
@@ -91,7 +91,8 @@ def build_ability_profile(
                 pass
         if vals:
             compliance_score = sum(vals) / len(vals)
-            levels["execution_consistency"] = round(max(0.0, min(1.0, compliance_score)) * 10, 1)
+            mean_norm = normalize_compliance_score(compliance_score) or 0.0
+            levels["execution_consistency"] = round(mean_norm * 10, 1)
     phenotype = max(levels, key=levels.get)
     wkg_payload = {
         "5s": round(sprint, 2) if sprint else None,

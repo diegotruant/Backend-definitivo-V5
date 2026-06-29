@@ -61,6 +61,13 @@ def normalize_confidence(value: Any) -> Optional[float]:
     return max(0.0, min(1.0, score))
 
 
+def normalize_compliance_score(value: Any, *, default: Optional[float] = None) -> Optional[float]:
+    """Normalize compliance from 0–100 (API/compare) or 0–1 to a 0–1 fraction."""
+    if value is None:
+        return default
+    return normalize_confidence(value)
+
+
 def confidence_level(score: Optional[float]) -> ConfidenceLevel:
     """Map a normalized confidence score to a common categorical level."""
     if score is None:

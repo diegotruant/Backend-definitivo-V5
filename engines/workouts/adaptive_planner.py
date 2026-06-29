@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from engines.core.metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload, normalize_compliance_score
 
 _VERY_HIGH_INTENSITY_TYPES = frozenset({"vo2", "vo2max", "anaerobic", "hiit"})
 
@@ -39,6 +39,18 @@ def _adapt_session_type(session_type: str, reason: str) -> Tuple[str, Optional[s
     return session_type, None
 
 
+def _resolve_compliance(last_compliance: Optional[Dict[str, Any]]) -> float:
+    if not last_compliance:
+        return 0.8
+    raw = last_compliance.get("compliance_score")
+    if raw is None:
+        raw = last_compliance.get("score")
+    if raw is None:
+        return 0.8
+    normalized = normalize_compliance_score(raw)
+    return 0.8 if normalized is None else normalized
+
+
 def adapt_plan(
     plan: List[Dict[str, Any]],
     *,
@@ -46,11 +58,7 @@ def adapt_plan(
     last_compliance: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     score = int((readiness or {}).get("readiness_score") or 70)
-    compliance = float(
-        (last_compliance or {}).get("compliance_score")
-        or (last_compliance or {}).get("score")
-        or 0.8
-    )
+    compliance = _resolve_compliance(last_compliance)
     intensity_factor, volume_factor, reason = _compute_factors(score, compliance)
     load_factor = round((intensity_factor + volume_factor) / 2.0, 4)
 
