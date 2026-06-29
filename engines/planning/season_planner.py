@@ -122,6 +122,19 @@ def create_season_plan(
         )
     start = _parse_date(start_date, date.today())
     target = _parse_date(target_date, start + timedelta(days=84))
+    if target < start:
+        payload = {
+            "status": "invalid_input",
+            "schema_version": "1.0.0",
+            "error": "target_date_before_start_date",
+            "weeks": [],
+        }
+        return annotate_payload(
+            payload,
+            module_name="season_planner",
+            method="rule_based_periodization",
+            confidence=0.2,
+        )
     total_days = max(7, (target - start).days)
     weeks = max(1, total_days // 7)
     profile_ctx = _profile_context(athlete_profile, goal)
@@ -277,6 +290,14 @@ def _week_workouts(
 
 
 def check_load_risk(plan: List[Dict[str, Any]], *, chronic_load: float = 50.0) -> Dict[str, Any]:
+    if not plan:
+        payload = {
+            "status": "insufficient_data",
+            "risk": "unknown",
+            "weekly_loads": [],
+            "warnings": [{"warning": "empty_plan"}],
+        }
+        return annotate_payload(payload, module_name="season_planner", method="load_risk_check", confidence=0.2)
     weekly = []
     for week in plan:
         load = float(week.get("target_load", 0.0) or 0.0)

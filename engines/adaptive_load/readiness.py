@@ -37,7 +37,10 @@ def _score_temp(status: DailyStatus) -> Optional[float]:
 def _score_sleep(status: DailyStatus) -> Optional[float]:
     if status.sleep_score is None:
         return None
-    return score_from_low_is_bad(status.sleep_score, bad=35.0, good=90.0)
+    sleep_score = float(status.sleep_score)
+    if 0.0 <= sleep_score <= 1.0:
+        sleep_score *= 100.0
+    return score_from_low_is_bad(sleep_score, bad=35.0, good=90.0)
 
 
 def _score_inverse_1_to_5(value: Optional[float]) -> Optional[float]:

@@ -8,6 +8,7 @@ attach without changing existing fields.
 
 from dataclasses import dataclass, field
 from enum import Enum
+import math
 from typing import Any, Dict, Optional, Sequence, Tuple
 
 from engines.core.tiers import tier_for
@@ -66,6 +67,45 @@ def normalize_compliance_score(value: Any, *, default: Optional[float] = None) -
     if value is None:
         return default
     return normalize_confidence(value)
+
+
+def normalize_readiness_score(value: Any, *, default: Optional[float] = None) -> Optional[float]:
+    """Normalize readiness to 0–100 whether callers send percent or 0–1 fraction."""
+    if value is None:
+        return default
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        return default
+    if not math.isfinite(score):
+        return default
+    if 0.0 <= score <= 1.0:
+        score *= 100.0
+    return max(0.0, min(100.0, score))
+
+
+def unwrap_compliance_record(entry: Any) -> Optional[Dict[str, Any]]:
+    """Unwrap TwinState last_compliance_results rows to a flat compliance dict."""
+    if not isinstance(entry, dict):
+        return None
+    if any(key in entry for key in ("compliance_score", "score", "classification", "summary")):
+        return entry
+    inner = entry.get("result")
+    return inner if isinstance(inner, dict) else None
+
+
+def compliance_score_value(entry: Any) -> Optional[float]:
+    """Return compliance on 0–100 scale from a flat or wrapped record."""
+    record = unwrap_compliance_record(entry)
+    if not isinstance(record, dict):
+        return None
+    raw = record.get("compliance_score")
+    if raw is None:
+        raw = record.get("score")
+    if raw is None:
+        return None
+    normalized = normalize_compliance_score(raw)
+    return None if normalized is None else normalized * 100.0
 
 
 def confidence_level(score: Optional[float]) -> ConfidenceLevel:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence
 
-from engines.core.metric_contracts import annotate_payload
+from engines.core.metric_contracts import annotate_payload, compliance_score_value, unwrap_compliance_record
 from engines.workouts.compliance_engine import compare_workout_to_activity
 
 SCHEMA_VERSION = "adherence_report.v1"
@@ -100,13 +100,14 @@ def evaluate_adherence(
             confidence=0.0,
         )
 
-    score = _num(compliance.get("compliance_score") or compliance.get("score"))
-    classification = compliance.get("classification")
-    summary = compliance.get("summary") if isinstance(compliance.get("summary"), dict) else {}
+    score = compliance_score_value(compliance)
+    compliance_record = unwrap_compliance_record(compliance) or (compliance if isinstance(compliance, dict) else {})
+    classification = compliance_record.get("classification")
+    summary = compliance_record.get("summary") if isinstance(compliance_record.get("summary"), dict) else {}
     missed_key = bool(summary.get("planned_key_intervals")) and (
         summary.get("completed_key_intervals", 0) < summary.get("planned_key_intervals", 0)
     )
-    if compliance.get("missed_key_work"):
+    if compliance_record.get("missed_key_work"):
         missed_key = True
 
     reasons = _reason_candidates(
@@ -119,9 +120,8 @@ def evaluate_adherence(
 
     trend = "stable"
     history_scores = [
-        _num(row.get("compliance_score") or row.get("score"))
+        compliance_score_value(row)
         for row in (compliance_history or [])
-        if isinstance(row, dict)
     ]
     history_scores = [s for s in history_scores if s is not None]
     if len(history_scores) >= 3:

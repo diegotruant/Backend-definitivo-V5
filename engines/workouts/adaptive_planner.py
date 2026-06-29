@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from engines.core.metric_contracts import annotate_payload, normalize_compliance_score
+from engines.core.metric_contracts import annotate_payload, normalize_compliance_score, normalize_readiness_score
 
 _VERY_HIGH_INTENSITY_TYPES = frozenset({"vo2", "vo2max", "anaerobic", "hiit"})
 
@@ -57,7 +57,12 @@ def adapt_plan(
     readiness: Optional[Dict[str, Any]] = None,
     last_compliance: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    score = int((readiness or {}).get("readiness_score") or 70)
+    readiness_payload = readiness or {}
+    raw_score = readiness_payload.get("readiness_score")
+    if raw_score is None:
+        raw_score = readiness_payload.get("score")
+    normalized_readiness = normalize_readiness_score(raw_score, default=70.0)
+    score = int(round(normalized_readiness or 70.0))
     compliance = _resolve_compliance(last_compliance)
     intensity_factor, volume_factor, reason = _compute_factors(score, compliance)
     load_factor = round((intensity_factor + volume_factor) / 2.0, 4)

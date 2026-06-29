@@ -6,7 +6,12 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from engines.coach.checkin_engine import process_checkin
 from engines.coach.prescription_safety import evaluate_prescription_safety
-from engines.core.metric_contracts import annotate_payload
+from engines.core.metric_contracts import (
+    annotate_payload,
+    compliance_score_value,
+    normalize_readiness_score,
+    unwrap_compliance_record,
+)
 
 SCHEMA_VERSION = "coach_attention.v1"
 PRESCRIPTION_MODEL = "PRESCRIPTION_MODEL"
@@ -39,7 +44,8 @@ def _score_attention(
 
     readiness = readiness_state.get("readiness_score") or readiness_state.get("score")
     try:
-        if readiness is not None and float(readiness) < 50:
+        readiness_norm = normalize_readiness_score(readiness)
+        if readiness_norm is not None and readiness_norm < 50:
             score += 20
             reasons.append("readiness_drop")
     except (TypeError, ValueError):
@@ -50,19 +56,18 @@ def _score_attention(
         reasons.append("planned_key_session_tomorrow")
 
     if last_compliance:
-        try:
-            c_score = float(last_compliance.get("compliance_score") or last_compliance.get("score"))
-            if c_score < 65:
-                score += 15
-                reasons.append("high_fatigue_low_compliance")
-        except (TypeError, ValueError):
-            pass
-        if last_compliance.get("missed_key_work"):
+        compliance_record = unwrap_compliance_record(last_compliance) or last_compliance
+        c_score = compliance_score_value(compliance_record)
+        if c_score is not None and c_score < 65:
+            score += 15
+            reasons.append("high_fatigue_low_compliance")
+        if compliance_record.get("missed_key_work"):
             score += 20
             reasons.append("missed_key_work")
 
     if checkin:
-        processed = process_checkin(recent_checkins=recent_checkins, **checkin)
+        checkin_payload = {k: v for k, v in checkin.items() if k not in {"athlete_id", "recent_checkins"}}
+        processed = process_checkin(recent_checkins=recent_checkins, **checkin_payload)
         psych = processed.get("psychological_support_flag") or {}
         if psych.get("human_check_recommended"):
             score += 25
@@ -98,7 +103,7 @@ def evaluate_athlete_attention(
     readiness = readiness_state or twin.get("readiness_state") or {}
     compliance = last_compliance
     if compliance is None and isinstance(twin.get("last_compliance_results"), list) and twin["last_compliance_results"]:
-        compliance = twin["last_compliance_results"][0]
+        compliance = unwrap_compliance_record(twin["last_compliance_results"][0])
 
     score, reasons, priority, action = _score_attention(
         twin_state=twin,

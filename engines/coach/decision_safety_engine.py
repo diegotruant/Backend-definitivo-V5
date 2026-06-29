@@ -6,7 +6,11 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from engines.coach.checkin_engine import process_checkin
 from engines.coach.prescription_safety import evaluate_prescription_safety
-from engines.core.metric_contracts import annotate_payload
+from engines.core.metric_contracts import (
+    annotate_payload,
+    compliance_score_value,
+    unwrap_compliance_record,
+)
 
 SCHEMA_VERSION = "decision_safety.v1"
 PRESCRIPTION_MODEL = "PRESCRIPTION_MODEL"
@@ -79,12 +83,7 @@ def _context_escalation(
 def _compliance_score(last_compliance: Optional[Dict[str, Any]]) -> Optional[float]:
     if not last_compliance:
         return None
-    for key in ("compliance_score", "score"):
-        try:
-            return float(last_compliance.get(key))
-        except (TypeError, ValueError):
-            continue
-    return None
+    return compliance_score_value(last_compliance)
 
 
 def _merge_level(base: Dict[str, Any], extra_reasons: List[str], escalate: bool) -> Dict[str, Any]:
@@ -119,11 +118,9 @@ def evaluate_decision_safety(
     twin = twin_state or {}
     load = load_state or twin.get("load_state") or {}
     readiness = readiness_state or twin.get("readiness_state") or {}
-    compliance = last_compliance or (
-        twin.get("last_compliance_results")[0]
-        if isinstance(twin.get("last_compliance_results"), list) and twin.get("last_compliance_results")
-        else None
-    )
+    compliance = last_compliance
+    if compliance is None and isinstance(twin.get("last_compliance_results"), list) and twin.get("last_compliance_results"):
+        compliance = unwrap_compliance_record(twin["last_compliance_results"][0])
 
     base = evaluate_prescription_safety(
         injury_flags=injury_flags,
@@ -148,11 +145,12 @@ def evaluate_decision_safety(
         for flag in processed.get("pain_flags") or []:
             extra_reasons.append(flag)
 
-    score = _compliance_score(compliance if isinstance(compliance, dict) else None)
+    compliance_record = unwrap_compliance_record(compliance) if isinstance(compliance, dict) else None
+    score = _compliance_score(compliance_record or compliance)
     if score is not None and score < 60:
         extra_reasons.append("low_compliance")
         escalate = True
-    if isinstance(compliance, dict) and compliance.get("missed_key_work"):
+    if isinstance(compliance_record, dict) and compliance_record.get("missed_key_work"):
         extra_reasons.append("missed_key_work")
         escalate = True
 

@@ -146,15 +146,21 @@ def calculate_external_load(power_metrics: Dict[str, Any]) -> Dict[str, Any]:
     if tss is not None:
         score = clamp(tss)
         source = "tss"
+        capped = tss > 100.0
     elif work_kj is not None:
-        score = clamp(work_kj / 10.0)  # 1000 kJ ~= 100 load points fallback
+        raw_work = work_kj / 10.0
+        score = clamp(raw_work)
         source = "work_kj_fallback"
+        capped = raw_work > 100.0
     elif duration_s is not None:
-        score = clamp(duration_s / 36.0)  # 60 min ~= 100 fallback for no power
+        raw_duration = duration_s / 36.0
+        score = clamp(raw_duration)
         source = "duration_fallback"
+        capped = raw_duration > 100.0
     else:
         score = None
         source = "unavailable"
+        capped = False
 
     return {
         "available": score is not None,
@@ -162,6 +168,7 @@ def calculate_external_load(power_metrics: Dict[str, Any]) -> Dict[str, Any]:
         "source": source,
         "tss": tss,
         "work_kj": work_kj,
+        "capped": capped,
     }
 
 

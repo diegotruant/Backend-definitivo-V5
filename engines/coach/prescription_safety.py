@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence
 
+from engines.core.metric_contracts import normalize_readiness_score
+
 MEDICAL_REVIEW_FLAGS = frozenset({
     "injury",
     "acute_pain",
@@ -39,10 +41,12 @@ def _readiness_score(readiness_state: Optional[Dict[str, Any]]) -> Optional[floa
         return None
     for key in ("readiness_score", "score", "overall"):
         try:
-            value = float(readiness_state.get(key))
+            value = readiness_state.get(key)
         except (TypeError, ValueError):
             continue
-        return value
+        normalized = normalize_readiness_score(value)
+        if normalized is not None:
+            return normalized
     return None
 
 

@@ -95,9 +95,14 @@ def _extract_metabolic_metrics(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     estimates = _as_dict(snapshot.get("estimates"))
     metrics = _as_dict(snapshot.get("metrics"))
     flat = {**snapshot, **estimates, **metrics}
+    w_j = _first_num(flat, ("w_prime_j", "wprime_j", "w_prime"))
+    if w_j is None:
+        w_kj = _first_num(flat, ("w_prime_kj", "wprime_kj"))
+        if w_kj is not None:
+            w_j = w_kj * 1000.0
     return {
         "cp_w": _first_num(flat, ("cp_w", "critical_power_w", "mlss_w", "mlss", "mlss_watts")),
-        "w_prime_j": _first_num(flat, ("w_prime_j", "wprime_j", "w_prime", "w_prime_kj")),
+        "w_prime_j": w_j,
         "vo2max_ml_kg_min": _first_num(flat, ("vo2max", "vo2max_ml_kg_min", "vo2max_estimate")),
         "vlamax_mmol_l_s": _first_num(flat, ("vlamax", "vlamax_mmol_l_s")),
         "fatmax_w": _first_num(flat, ("fatmax_w", "fatmax")),
@@ -552,4 +557,8 @@ def validate_twin_state(state: Dict[str, Any]) -> Dict[str, Any]:
         raise ValueError("TwinState.warnings must be an array")
     if not isinstance(state.get("event_log"), list):
         raise ValueError("TwinState.event_log must be an array")
+    readiness = _as_dict(state.get("readiness_state"))
+    readiness_score = _num(readiness.get("readiness_score") or readiness.get("score"))
+    if readiness_score is not None and (readiness_score < 0 or readiness_score > 100):
+        raise ValueError("TwinState.readiness_state.readiness_score must be between 0 and 100")
     return state
