@@ -13,6 +13,7 @@ class PlanningService:
             target_date=req.target_date,
             weekly_hours=req.weekly_hours,
             goal=req.goal,
+            athlete_profile=req.athlete_profile,
         )
 
     def adapt_week(self, req) -> Dict[str, Any]:

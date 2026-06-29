@@ -530,6 +530,49 @@ Dedicated endpoint: `POST /ride/durability` (requires valid `metabolic_snapshot_
 | `compliance` | `/workouts/compare` | Score + discrepancies |
 | `calendar_fsm` | `/workouts/calendar/transition` | Assignment status |
 
+#### 11.3.1 Prescription progression feedback loop (required API contract)
+
+`POST /workouts/recommend` and `POST /performance/progression-levels` call `progression_levels`, which **only** adjusts zone levels when historical workouts include **both**:
+
+| Field | Required | Example |
+|-------|----------|---------|
+| `target_zone` (or `zone`) | yes | `"vo2"`, `"threshold"`, `"anaerobic"`, `"endurance"`, `"sprint"` |
+| `compliance_score` (or `score`) | yes | `0–100` from `/workouts/compare` (percent scale) |
+
+**Minimum payload per historical workout** (last 30 entries used):
+
+```json
+{
+  "date": "2026-06-10",
+  "target_zone": "threshold",
+  "compliance_score": 78
+}
+```
+
+If either field is missing, that workout is **silently skipped** and levels stay anchored to `ability_profile` only — the feedback loop is **inactive**.
+
+**Frontend obligations**
+
+1. After each `/workouts/compare`, persist `compliance_score` and the prescribed `target_zone` on the assignment record.
+2. When calling `/workouts/recommend`, pass `recent_workouts` (or equivalent history array) with the fields above.
+3. Surface `progression_levels` in the UI only when at least 3 history rows contain both fields; otherwise show a banner: *"Compliance feedback inactive — log target zone + score per session."*
+4. Store the same history fragments in TwinState (`last_compliance_results` is not enough alone unless each row includes `target_zone`).
+
+#### 11.3.2 Load / readiness EWMA warm-up (`confidence_valid_from_date`)
+
+`POST /load/state/update` and `POST /readiness/today` expose EWMA warm-up metadata so coaches know **when load-based numbers become trustworthy**:
+
+| Field | Meaning |
+|-------|---------|
+| `ewma_tracking_started_at` | First session that started load tracking (ISO date) |
+| `confidence_valid_from_date` | Date from which **chronic load / TSB-style** interpretation is reliable (~42 days after start) |
+| `acute_trust_from_date` | Earlier date (~14 days) when acute load is moderately reliable |
+| `ewma_trust_level` | `cold` → `warming` → `stable` |
+| `ewma_warmup_complete` | `true` when chronic EWMA warm-up is complete |
+| `ewma_warmup_weeks_remaining` | Weeks left before full trust |
+
+**UI rule:** until `date.today() >= confidence_valid_from_date`, show readiness/load KPIs with a **low-confidence** badge and do not use them for automatic progression gates. Persist `load_state` from `/load/state/update` in TwinState including these fields.
+
 ---
 
 ## 12. Digital Twin page — functional specification

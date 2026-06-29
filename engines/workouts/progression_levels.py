@@ -37,6 +37,7 @@ def compute_progression_levels(athlete_profile: Dict[str, Any], workout_history:
     for zone, vals in zone_success.items():
         if vals:
             mean = sum(vals) / len(vals)
-            adjusted[zone] = round(max(0.0, min(10.0, adjusted.get(zone, 5.0) + (mean - 0.75) * 2.0)), 1)
+            mean_norm = mean / 100.0 if mean > 1.0 else mean
+            adjusted[zone] = round(max(0.0, min(10.0, adjusted.get(zone, 5.0) + (mean_norm - 0.75) * 2.0)), 1)
     payload = {"status": "success", "schema_version": "1.0.0", "levels": adjusted, "ability_profile": ability}
     return annotate_payload(payload, module_name="progression_levels", method="ability_plus_compliance", confidence=0.75)

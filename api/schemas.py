@@ -322,6 +322,7 @@ class CreateSeasonPlanRequest(BaseModel):
     target_date: Optional[str] = None
     weekly_hours: float = Field(default=8.0, ge=1, le=40)
     goal: Optional[Dict[str, Any]] = None
+    athlete_profile: Optional[Dict[str, Any]] = None
 
     @model_validator(mode="after")
     def dates_required(self) -> "CreateSeasonPlanRequest":

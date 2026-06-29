@@ -99,11 +99,16 @@ def review_periodization(
     twin = twin_state or {}
     plan_weeks = list(season_plan or [])
     if not plan_weeks and (start_date or target_date or goal):
+        profile = twin.get("athlete_profile") or {}
+        snap = twin.get("metabolic_snapshot") or {}
+        if snap:
+            profile = {**snap, **profile, "metabolic_snapshot": snap}
         generated = create_season_plan(
             start_date=start_date,
             target_date=target_date,
             weekly_hours=weekly_hours,
             goal=goal,
+            athlete_profile=profile or None,
         )
         plan_weeks = generated.get("weeks") or []
 
