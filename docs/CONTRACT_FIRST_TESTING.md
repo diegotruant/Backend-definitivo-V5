@@ -18,6 +18,7 @@ This document describes the **product-contract test methodology** used to harden
 | `tests/pytest_workout_pipeline_perfection.py` | Workout validate → prescribe → feasibility → compare | `pytest tests/pytest_workout_pipeline_perfection.py` |
 | `tests/pytest_product_perfection_full.py` | End-to-end product chains, all 20 coach endpoints | `pytest tests/pytest_product_perfection_full.py` |
 | `tests/pytest_science_contracts.py` | Scientific tier labels, fatmax/vlamax disclaimers | `pytest tests/pytest_science_contracts.py` |
+| `tests/pytest_mader_bimodal_behavior.py` | Bimodal MMP → segmented fit; Mader ODE CP-loss semantics | `pytest tests/pytest_mader_bimodal_behavior.py` |
 | `tests/pytest_performance_coach_curves.py` | W′ balance, fuel demand, recovery behavior (not just output presence) | `pytest tests/pytest_performance_coach_curves.py` |
 | `tests/pytest_frontend_client_contract.py` | OpenAPI ↔ `client.ts` 1:1 (132 paths) | `pytest tests/pytest_frontend_client_contract.py` |
 | `tests/pytest_openapi_contract.py` | Committed spec ↔ live `app.openapi()` | `pytest tests/pytest_openapi_contract.py` |
@@ -51,7 +52,7 @@ Coverage tests are **not useless** — they exercise edge branches. Contract tes
 These areas have explicit **behavior** assertions:
 
 - **W′ depletion** — `pytest_performance_coach_curves.py`: variable power vs steady; recovery penalty when `min_w_prime_balance_pct < 40`
-- **Mader / glycolytic** — `pytest_phase5_test_protocols_port.py`, `pytest_golden_scientific.py`, `pytest_fatmax_engine.py`
+- **Mader / glycolytic** — `pytest_mader_bimodal_behavior.py` (bimodal segmented routing + forward ODE CP loss), `pytest_phase5_test_protocols_port.py`, `pytest_golden_scientific.py`, `pytest_fatmax_engine.py`
 - **Workout pipeline** — partial prescribe resolution, compare without perfect score without power
 - **Coach HTTP** — semantic contracts on all 20 `/coach/*` paths in `pytest_contract_full_codebase.py`
 
