@@ -110,3 +110,44 @@ class CoachRaceExecutionRequest(BaseModel):
     target_event: str = "granfondo"
     race_simulation: Optional[Dict[str, Any]] = None
     duration_h: Optional[float] = Field(default=None, gt=0)
+
+
+class CoachPeriodizationRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    athlete_id: Optional[str] = None
+    twin_state: Optional[Dict[str, Any]] = None
+    season_plan: List[Dict[str, Any]] = Field(default_factory=list)
+    start_date: Optional[str] = None
+    target_date: Optional[str] = None
+    weekly_hours: float = Field(default=8.0, gt=0)
+    goal: Optional[Dict[str, Any]] = None
+    season_phase: str = "base"
+    strength_prescription: Optional[Dict[str, Any]] = None
+    upcoming_bike_sessions: List[Dict[str, Any]] = Field(default_factory=list)
+    load_state: Optional[Dict[str, Any]] = None
+
+
+class CoachCommunicationDraftRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    athlete_id: Optional[str] = None
+    athlete: Optional[AthleteProfileSnippet] = None
+    twin_state: Optional[Dict[str, Any]] = None
+    decision_safety: Optional[Dict[str, Any]] = None
+    attention: Optional[Dict[str, Any]] = None
+    adherence_report: Optional[Dict[str, Any]] = None
+    checkin: Optional[CheckinInput] = None
+    tone: str = "supportive"
+    channel: str = "message"
+
+
+class CoachEnvironmentAdjustmentRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    athlete_id: Optional[str] = None
+    twin_state: Optional[Dict[str, Any]] = None
+    environment_context: Optional[Dict[str, Any]] = None
+    metabolic_snapshot: Optional[Dict[str, Any]] = None
+    session_context: Optional[Dict[str, Any]] = None
+    thermal_state: Optional[Dict[str, Any]] = None

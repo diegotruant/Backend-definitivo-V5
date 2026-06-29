@@ -8,7 +8,10 @@ from api.coach_schemas import (
     CoachAdherenceRequest,
     CoachAttentionRequest,
     CoachCheckinRequest,
+    CoachCommunicationDraftRequest,
     CoachDecisionSafetyRequest,
+    CoachEnvironmentAdjustmentRequest,
+    CoachPeriodizationRequest,
     CoachRaceExecutionRequest,
     CoachRosterAttentionRequest,
     CoachTestingPlanRequest,
@@ -157,3 +160,46 @@ def coach_race_execution(
     service: CoachService = Depends(get_coach_service),
 ):
     return json_response(service.race_execution(req))
+
+
+@router.post(
+    "/periodization",
+    operation_id="coachPeriodization",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+    summary="Macro plan coherence and conflict review",
+)
+def coach_periodization(
+    req: CoachPeriodizationRequest,
+    service: CoachService = Depends(get_coach_service),
+):
+    return json_response(service.periodization(req))
+
+
+@router.post(
+    "/communication-draft",
+    operation_id="coachCommunicationDraft",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+    summary="Supportive coach message draft for human review",
+    description="Generates editable message text — not autonomous coaching or diagnosis.",
+)
+def coach_communication_draft(
+    req: CoachCommunicationDraftRequest,
+    service: CoachService = Depends(get_coach_service),
+):
+    return json_response(service.communication_draft(req))
+
+
+@router.post(
+    "/environment-adjustment",
+    operation_id="coachEnvironmentAdjustment",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+    summary="Heat, humidity and altitude session adjustments",
+)
+def coach_environment_adjustment(
+    req: CoachEnvironmentAdjustmentRequest,
+    service: CoachService = Depends(get_coach_service),
+):
+    return json_response(service.environment_adjustment(req))

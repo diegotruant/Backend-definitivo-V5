@@ -274,6 +274,54 @@ def _extract_race_execution_state(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {}
 
 
+def _extract_periodization_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("periodization_state"))
+    if direct:
+        direct.setdefault("schema_version", "periodization_state.v1")
+        return direct
+    review = _as_dict(payload.get("periodization_review") or payload.get("periodization_response"))
+    if review.get("schema_version") == "periodization_review.v1":
+        return {
+            "schema_version": "periodization_state.v1",
+            "latest_review": review,
+            "periodization_review": _as_dict(review.get("periodization_review")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    return {}
+
+
+def _extract_communication_draft_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("communication_draft_state"))
+    if direct:
+        direct.setdefault("schema_version", "communication_draft_state.v1")
+        return direct
+    draft = _as_dict(payload.get("communication_draft") or payload.get("communication_draft_response"))
+    if draft.get("schema_version") == "communication_draft.v1":
+        return {
+            "schema_version": "communication_draft_state.v1",
+            "latest_draft": draft,
+            "communication_draft": _as_dict(draft.get("communication_draft")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    return {}
+
+
+def _extract_environment_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("environment_state"))
+    if direct:
+        direct.setdefault("schema_version", "environment_state.v1")
+        return direct
+    adjustment = _as_dict(payload.get("environment_adjustment") or payload.get("environment_adjustment_response"))
+    if adjustment.get("schema_version") == "environment_adjustment.v1":
+        return {
+            "schema_version": "environment_state.v1",
+            "latest_adjustment": adjustment,
+            "environment_adjustment": _as_dict(adjustment.get("environment_adjustment")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    return {}
+
+
 def _confidence_from_sections(payload: Dict[str, Any]) -> Dict[str, Any]:
     snapshot = _as_dict(payload.get("metabolic_snapshot"))
     sensor_quality = _as_dict(payload.get("sensor_quality"))
@@ -327,6 +375,9 @@ def build_twin_state(payload: Dict[str, Any]) -> Dict[str, Any]:
         "adherence_state": _extract_adherence_state(payload),
         "testing_plan_state": _extract_testing_plan_state(payload),
         "race_execution_state": _extract_race_execution_state(payload),
+        "periodization_state": _extract_periodization_state(payload),
+        "communication_draft_state": _extract_communication_draft_state(payload),
+        "environment_state": _extract_environment_state(payload),
         "rolling_power_curve": rolling_power_curve,
         "load_state": _as_dict(payload.get("load_state")),
         "readiness_state": _as_dict(payload.get("readiness_state")),

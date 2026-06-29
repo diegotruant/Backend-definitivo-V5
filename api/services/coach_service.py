@@ -8,7 +8,10 @@ from api.coach_schemas import (
     CoachAdherenceRequest,
     CoachAttentionRequest,
     CoachCheckinRequest,
+    CoachCommunicationDraftRequest,
     CoachDecisionSafetyRequest,
+    CoachEnvironmentAdjustmentRequest,
+    CoachPeriodizationRequest,
     CoachRaceExecutionRequest,
     CoachRosterAttentionRequest,
     CoachTestingPlanRequest,
@@ -19,6 +22,9 @@ from engines.coach.adherence_engine import evaluate_adherence
 from engines.coach.attention_engine import evaluate_athlete_attention, evaluate_roster_attention
 from engines.coach.checkin_engine import process_checkin
 from engines.coach.decision_safety_engine import evaluate_decision_safety
+from engines.coach.communication_draft_engine import build_communication_draft
+from engines.coach.environment_adjustment_engine import build_environment_adjustment
+from engines.coach.periodization_engine import review_periodization
 from engines.coach.race_execution_engine import build_race_execution_plan
 from engines.coach.testing_scheduler_engine import build_testing_plan
 from engines.nutrition.performance_fueling_engine import build_performance_fueling_targets
@@ -158,4 +164,46 @@ class CoachService:
             twin_state=twin,
             race_simulation=req.race_simulation,
             duration_h=req.duration_h,
+        )
+
+    def periodization(self, req: CoachPeriodizationRequest) -> Dict[str, Any]:
+        twin = req.twin_state or {}
+        return review_periodization(
+            athlete_id=_athlete_id(req),
+            season_plan=req.season_plan or None,
+            start_date=req.start_date,
+            target_date=req.target_date,
+            weekly_hours=req.weekly_hours,
+            goal=req.goal,
+            season_phase=req.season_phase,
+            strength_prescription=req.strength_prescription or twin.get("strength_state"),
+            upcoming_bike_sessions=req.upcoming_bike_sessions,
+            load_state=req.load_state or twin.get("load_state"),
+            twin_state=twin,
+        )
+
+    def communication_draft(self, req: CoachCommunicationDraftRequest) -> Dict[str, Any]:
+        twin = req.twin_state or {}
+        profile = (req.athlete.model_dump(exclude_none=True) if req.athlete else None) or twin.get("athlete_profile")
+        return build_communication_draft(
+            athlete_id=_athlete_id(req),
+            athlete_profile=profile,
+            twin_state=twin,
+            decision_safety=req.decision_safety,
+            attention=req.attention,
+            adherence_report=req.adherence_report,
+            checkin=_checkin_dict(req.checkin),
+            tone=req.tone,
+            channel=req.channel,
+        )
+
+    def environment_adjustment(self, req: CoachEnvironmentAdjustmentRequest) -> Dict[str, Any]:
+        twin = req.twin_state or {}
+        return build_environment_adjustment(
+            athlete_id=_athlete_id(req),
+            environment_context=req.environment_context,
+            metabolic_snapshot=req.metabolic_snapshot or twin.get("metabolic_snapshot"),
+            session_context=req.session_context,
+            thermal_state=req.thermal_state,
+            twin_state=twin,
         )

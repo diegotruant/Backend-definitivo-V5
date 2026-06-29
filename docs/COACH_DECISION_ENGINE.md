@@ -1,6 +1,6 @@
 # Coach decision engine
 
-Coach decision-support modules for strength, fueling, safety, attention, adherence, testing and race execution.
+Coach decision-support modules for strength, fueling, safety, attention, adherence, testing, race execution, periodization, communication drafts and environment adjustments.
 **Not** mental-health diagnosis, meal plans or autonomous coaching.
 
 ## Endpoints
@@ -16,12 +16,16 @@ Coach decision-support modules for strength, fueling, safety, attention, adheren
 | POST | `/coach/adherence` | `adherence_report.v1` |
 | POST | `/coach/testing-plan` | `testing_plan.v1` |
 | POST | `/coach/race-execution` | `race_execution_plan.v1` |
+| POST | `/coach/periodization` | `periodization_review.v1` |
+| POST | `/coach/communication-draft` | `communication_draft.v1` |
+| POST | `/coach/environment-adjustment` | `environment_adjustment.v1` |
 
 ## TwinState keys
 
 - `strength_state`, `nutrition_performance_state`
 - `checkin_state`, `decision_safety_state`, `coach_attention_state`
 - `adherence_state`, `testing_plan_state`, `race_execution_state`
+- `periodization_state`, `communication_draft_state`, `environment_state`
 
 ## Principles
 
@@ -31,6 +35,9 @@ Coach decision-support modules for strength, fueling, safety, attention, adheren
 4. **Adherence** — planned vs done with reason candidates, not just a score.
 5. **Testing scheduler** — recommends calibration tests when model confidence is weak.
 6. **Race execution** — pacing, fueling targets and failure modes for coach review.
+7. **Periodization** — macro coherence, load-risk and gym/bike conflict hints.
+8. **Communication draft** — editable message text; `coach_review_required` and `not_autonomous`.
+9. **Environment** — heat, humidity and altitude caps for session planning.
 
 ## Engines
 
@@ -43,3 +50,6 @@ Coach decision-support modules for strength, fueling, safety, attention, adheren
 - `engines/coach/adherence_engine.py`
 - `engines/coach/testing_scheduler_engine.py`
 - `engines/coach/race_execution_engine.py`
+- `engines/coach/periodization_engine.py`
+- `engines/coach/communication_draft_engine.py`
+- `engines/coach/environment_adjustment_engine.py`

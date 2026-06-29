@@ -8154,6 +8154,145 @@
           }
         }
       }
+    },
+    "/coach/periodization": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Macro plan coherence and conflict review",
+        "operationId": "coachPeriodization",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoachPeriodizationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coach/communication-draft": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Supportive coach message draft for human review",
+        "description": "Generates editable message text — not autonomous coaching or diagnosis.",
+        "operationId": "coachCommunicationDraft",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoachCommunicationDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coach/environment-adjustment": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Heat, humidity and altitude session adjustments",
+        "operationId": "coachEnvironmentAdjustment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoachEnvironmentAdjustmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -10545,6 +10684,102 @@
         ],
         "title": "CoachCheckinRequest"
       },
+      "CoachCommunicationDraftRequest": {
+        "properties": {
+          "athlete_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Id"
+          },
+          "athlete": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AthleteProfileSnippet"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "twin_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin State"
+          },
+          "decision_safety": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Safety"
+          },
+          "attention": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attention"
+          },
+          "adherence_report": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adherence Report"
+          },
+          "checkin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckinInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tone": {
+            "type": "string",
+            "title": "Tone",
+            "default": "supportive"
+          },
+          "channel": {
+            "type": "string",
+            "title": "Channel",
+            "default": "message"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "CoachCommunicationDraftRequest"
+      },
       "CoachDecisionSafetyRequest": {
         "properties": {
           "athlete_id": {
@@ -10640,6 +10875,199 @@
         "additionalProperties": true,
         "type": "object",
         "title": "CoachDecisionSafetyRequest"
+      },
+      "CoachEnvironmentAdjustmentRequest": {
+        "properties": {
+          "athlete_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Id"
+          },
+          "twin_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin State"
+          },
+          "environment_context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment Context"
+          },
+          "metabolic_snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot"
+          },
+          "session_context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Context"
+          },
+          "thermal_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thermal State"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "CoachEnvironmentAdjustmentRequest"
+      },
+      "CoachPeriodizationRequest": {
+        "properties": {
+          "athlete_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Id"
+          },
+          "twin_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin State"
+          },
+          "season_plan": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Season Plan"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "target_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Date"
+          },
+          "weekly_hours": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Weekly Hours",
+            "default": 8.0
+          },
+          "goal": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal"
+          },
+          "season_phase": {
+            "type": "string",
+            "title": "Season Phase",
+            "default": "base"
+          },
+          "strength_prescription": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strength Prescription"
+          },
+          "upcoming_bike_sessions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Upcoming Bike Sessions"
+          },
+          "load_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load State"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "CoachPeriodizationRequest"
       },
       "CoachRaceExecutionRequest": {
         "properties": {
@@ -14510,6 +14938,78 @@
             ],
             "title": "Race Execution Plan"
           },
+          "periodization_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Periodization State"
+          },
+          "periodization_review": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Periodization Review"
+          },
+          "communication_draft_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Communication Draft State"
+          },
+          "communication_draft": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Communication Draft"
+          },
+          "environment_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment State"
+          },
+          "environment_adjustment": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment Adjustment"
+          },
           "rolling_power_curve": {
             "anyOf": [
               {
@@ -14705,6 +15205,21 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Race Execution State"
+          },
+          "periodization_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Periodization State"
+          },
+          "communication_draft_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Communication Draft State"
+          },
+          "environment_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Environment State"
           },
           "rolling_power_curve": {
             "additionalProperties": true,

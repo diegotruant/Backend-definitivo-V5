@@ -381,6 +381,24 @@ export const api = {
   coachTestingPlan: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/coach/testing-plan', { method: 'POST', body: JSON.stringify(payload) }),
 
+  /** POST /coach/periodization */
+  coachPeriodization: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/coach/periodization', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /coach/communication-draft */
+  coachCommunicationDraft: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/coach/communication-draft', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** POST /coach/environment-adjustment */
+  coachEnvironmentAdjustment: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/coach/environment-adjustment', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
   /** POST /history/summary */
   historySummary: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/history/summary', { method: 'POST', body: JSON.stringify(payload) }),
