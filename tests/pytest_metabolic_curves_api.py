@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from api.routers.profile_extended import MetabolicCurvesRequest
+from api.services.profile_extended_service import ProfileExtendedService
 from api_app import app
 from tests.conftest import assert_http_engine_json
 
@@ -47,3 +49,17 @@ def test_profile_metabolic_curves_endpoint_returns_curve_bundle() -> None:
     assert "durability_decay" in body["curves"]
     assert body["curves"]["vo2_demand"]["points"]
     assert body["curves"]["vo2_demand"]["measurement_tier"] == "MODEL_ESTIMATE"
+
+
+def test_metabolic_curves_service_returns_insufficient_data_when_snapshot_fails() -> None:
+    service = ProfileExtendedService()
+    body = service.metabolic_curves(
+        MetabolicCurvesRequest.model_validate(
+            {
+                "athlete": {"weight_kg": 72, "gender": "MALE", "training_years": 5, "discipline": "ROAD"},
+                "mmp": {},
+            }
+        )
+    )
+    assert body["status"] == "insufficient_data"
+    assert body["reason"] == "metabolic_snapshot_generation_failed"

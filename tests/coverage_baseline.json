@@ -1,5 +1,5 @@
 {
-  "line_percent": 94.17,
-  "branch_percent": 88.62,
-  "note": "FATmax explainability endpoints, lab curve smoothing, workout-summary FATmax integration. Line 94.17%; branch floor after workout narrative branches."
+  "line_percent": 94.18,
+  "branch_percent": 88.60,
+  "note": "Metabolic/performance coach curves (VO2, substrate, lactate, session fuel, W' balance, recovery). Line 94.18%; branch floor after new curve engine branches."
 }
