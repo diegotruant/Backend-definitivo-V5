@@ -137,8 +137,19 @@ def compare_workout_to_activity(
         target_range = None
         time_in_target_pct: Optional[float] = None
         actual_mean: Optional[float] = None
+        intensity_unverifiable = False
 
-        if power_target and has_power:
+        if power_target and not has_power:
+            intensity_unverifiable = True
+            target_used = "power"
+            target_range = power_target
+            time_in_target_pct = 0.0
+        elif hr_target and not has_hr:
+            intensity_unverifiable = True
+            target_used = "heart_rate"
+            target_range = hr_target
+            time_in_target_pct = 0.0
+        elif power_target and has_power:
             segment = power[start:end]
             target_used = "power"
             target_range = power_target
@@ -163,13 +174,25 @@ def compare_workout_to_activity(
             time_in_target_pct = _in_range_pct(segment, target_range[0], target_range[1])
 
         dur_score = _duration_score(actual_duration, step.duration_s, duration_tolerance_pct)
-        int_score = _intensity_score(time_in_target_pct, actual_mean, target_range)
-        if target_used is None:
-            step_score = dur_score * 0.75 + 25.0
+        if intensity_unverifiable:
+            int_score = 0.0
+            step_score = 0.35 * dur_score
+            discrepancies.append({
+                "severity": "high" if is_key else "medium",
+                "type": "intensity_unverifiable",
+                "step_id": step.step_id,
+                "message": (
+                    f"Step {step.step_id}: {target_used} target prescribed but sensor data unavailable."
+                ),
+            })
         else:
-            step_score = 0.35 * dur_score + 0.65 * int_score
-            time_in_target_weighted += (time_in_target_pct or 0.0) * weight
-            time_in_target_weight += weight
+            int_score = _intensity_score(time_in_target_pct, actual_mean, target_range)
+            if target_used is None:
+                step_score = dur_score * 0.75 + 25.0
+            else:
+                step_score = 0.35 * dur_score + 0.65 * int_score
+                time_in_target_weighted += (time_in_target_pct or 0.0) * weight
+                time_in_target_weight += weight
 
         if is_key and step_score >= 70:
             matched_key += 1

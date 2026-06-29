@@ -159,6 +159,37 @@ def _bool(value: Any, default: bool = False) -> bool:
     return bool(value)
 
 
+def _step_declares_power_target(step: WorkoutStep) -> bool:
+    return any(
+        getattr(step, field) is not None
+        for field in (
+            "target_w",
+            "target_min_w",
+            "target_max_w",
+            "target_pct_cp",
+            "target_min_pct_cp",
+            "target_max_pct_cp",
+            "target_pct_ftp",
+            "target_min_pct_ftp",
+            "target_max_pct_ftp",
+        )
+    )
+
+
+def _step_declares_hr_target(step: WorkoutStep) -> bool:
+    return any(getattr(step, field) is not None for field in ("target_hr", "target_min_hr", "target_max_hr"))
+
+
+def _step_declares_measurable_target(step: WorkoutStep) -> bool:
+    if _step_declares_power_target(step) or _step_declares_hr_target(step):
+        return True
+    return step.cadence_min_rpm is not None and step.cadence_max_rpm is not None
+
+
+def _step_is_key(step: WorkoutStep) -> bool:
+    return step.is_key_step or step.type.lower() in {"work", "interval"}
+
+
 def normalize_workout(payload: Dict[str, Any]) -> WorkoutDefinition:
     """Convert a JSON-like workout payload into a validated WorkoutDefinition.
 
@@ -221,9 +252,17 @@ def normalize_workout(payload: Dict[str, Any]) -> WorkoutDefinition:
 def validate_workout_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     workout = normalize_workout(payload)
     warnings: List[str] = []
-    key_steps = [s for s in workout.steps if s.is_key_step or s.type.lower() in {"work", "interval"}]
+    key_steps = [s for s in workout.steps if _step_is_key(s)]
     if not key_steps:
         warnings.append("No key/work intervals detected; compliance will be duration-focused.")
+    for step in key_steps:
+        if not _step_declares_measurable_target(step):
+            warnings.append(
+                f"Step {step.step_id} has no measurable target (power/HR/cadence); compliance will be duration-only."
+            )
+    step_ids = [s.step_id for s in workout.steps]
+    if len(step_ids) != len(set(step_ids)):
+        warnings.append("Duplicate step_id values detected; compliance alignment may be ambiguous.")
     if workout.duration_s < 300:
         warnings.append("Workout duration is very short (<5 min).")
     return {
@@ -242,11 +281,24 @@ def materialize_workout(payload: Dict[str, Any], athlete_profile: Dict[str, Any]
     """Resolve percentage/zone-style targets into athlete-specific watts when possible."""
     workout = normalize_workout(payload)
     out = workout.to_dict(athlete_profile)
-    unresolved = []
-    for step in out["steps"]:
-        target_type = str(step.get("target_type", "free")).lower()
-        if target_type not in {"free", "open", "rest"} and "resolved_target_w" not in step and "resolved_target_min_hr" not in step:
+    unresolved: List[str] = []
+    prescription_warnings: List[str] = []
+    for model_step, step in zip(workout.steps, out["steps"]):
+        declares_measurable = _step_declares_measurable_target(model_step)
+        typed_target = model_step.target_type.lower() not in {"free", "open", "rest"}
+        if not declares_measurable and not typed_target:
+            continue
+        power_ok = not _step_declares_power_target(model_step) or "resolved_target_w" in step
+        hr_ok = not _step_declares_hr_target(model_step) or "resolved_target_min_hr" in step
+        if typed_target and not declares_measurable:
             unresolved.append(step["step_id"])
+        elif not (power_ok and hr_ok):
+            unresolved.append(step["step_id"])
+    if unresolved:
+        prescription_warnings.append(
+            "Some steps could not be resolved to concrete watts/HR; provide CP/FTP (and HR zones when needed) in athlete profile."
+        )
     out["prescription_status"] = "resolved" if not unresolved else "partially_resolved"
     out["unresolved_steps"] = unresolved
+    out["prescription_warnings"] = prescription_warnings
     return out

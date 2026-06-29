@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime, timedelta
 from typing import Any, List, Optional
 
@@ -15,6 +16,16 @@ try:
     from fastapi import HTTPException, UploadFile
 except ImportError:  # pragma: no cover
     raise ImportError("FastAPI is required for the API layer: pip install fastapi uvicorn")
+
+
+def _sanitize_power_sample(value: Any) -> int:
+    try:
+        sample = float(value)
+    except (TypeError, ValueError):
+        return 0
+    if not math.isfinite(sample):
+        return 0
+    return int(max(0.0, sample))
 
 
 def stream_from_power(
@@ -35,7 +46,7 @@ def stream_from_power(
     for i, p in enumerate(power):
         rec: dict[str, Any] = {
             "timestamp": base + timedelta(seconds=i),
-            "power": int(max(0, float(p))),
+            "power": _sanitize_power_sample(p),
         }
         if heart_rate is not None and i < len(heart_rate):
             rec["heart_rate"] = int(max(0, float(heart_rate[i])))
@@ -92,5 +103,5 @@ async def load_activity_stream(
                     },
                 )
             hr_values = [float(v) for v in parsed_hr]
-        return stream_from_power([float(p) for p in power], heart_rate=hr_values)
+        return stream_from_power([_sanitize_power_sample(p) for p in power], heart_rate=hr_values)
     raise HTTPException(status_code=400, detail="Provide either a FIT file or power_json.")
