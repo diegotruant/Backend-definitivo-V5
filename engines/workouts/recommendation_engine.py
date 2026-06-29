@@ -8,6 +8,51 @@ from engines.core.metric_contracts import annotate_payload
 from engines.core.model_safety import finalize_model_metadata
 from engines.workouts.progression_levels import compute_progression_levels
 
+PHENOTYPE_ZONE_PRIORITY: Dict[str, List[str]] = {
+    "sprint": ["anaerobic", "vo2", "threshold"],
+    "anaerobic": ["anaerobic", "vo2", "threshold"],
+    "vo2": ["vo2", "anaerobic", "threshold"],
+    "threshold": ["threshold", "vo2", "endurance"],
+    "endurance": ["endurance", "threshold", "vo2"],
+    "durability": ["endurance", "threshold"],
+}
+
+
+def _normalize_dominant(dominant: Optional[str]) -> str:
+    value = str(dominant or "balanced").strip().lower()
+    if value == "sprint":
+        return "anaerobic"
+    return value or "balanced"
+
+
+def _select_focus_and_intensity(
+    *,
+    goal_type: str,
+    levels: Dict[str, Any],
+    dominant_ability: Optional[str],
+    readiness_score: int,
+) -> tuple[str, str, str]:
+    """Pick session focus using phenotype band, goal and weakest progression level."""
+    if readiness_score < 45:
+        return "recovery", "low", "readiness_recovery"
+    if readiness_score < 65:
+        return "endurance", "moderate_low", "readiness_moderate"
+
+    dominant = _normalize_dominant(dominant_ability)
+    if goal_type != "balanced":
+        pool = [goal_type]
+        strategy = "goal_directed"
+    else:
+        pool = PHENOTYPE_ZONE_PRIORITY.get(dominant, ["threshold", "vo2", "anaerobic", "endurance"])
+        strategy = "phenotype_aware_limiter"
+
+    focus = min(pool, key=lambda zone: levels.get(zone, 5.0))
+    if focus not in {"recovery", "threshold", "vo2", "anaerobic", "endurance"}:
+        focus = "anaerobic" if dominant in {"sprint", "anaerobic"} else "endurance"
+
+    intensity = "quality" if readiness_score >= 75 else "moderate"
+    return focus, intensity, strategy
+
 
 def recommend_workout(
     athlete_profile: Dict[str, Any],
@@ -45,16 +90,14 @@ def recommend_workout(
     goal_type = str((goal or {}).get("focus") or "balanced").lower()
     progress = compute_progression_levels(athlete_profile, recent_workouts or [])
     levels = progress.get("levels", {})
-    if readiness_score < 45:
-        focus = "recovery"
-        intensity = "low"
-    elif readiness_score < 65:
-        focus = "endurance"
-        intensity = "moderate_low"
-    else:
-        candidates = ["threshold", "vo2", "anaerobic", "endurance"] if goal_type == "balanced" else [goal_type]
-        focus = min(candidates, key=lambda z: levels.get(z, 5.0)) if candidates else "endurance"
-        intensity = "quality" if readiness_score >= 75 else "moderate"
+    ability = progress.get("ability_profile") or {}
+    dominant = ability.get("dominant_ability") or athlete_profile.get("dominant_ability")
+    focus, intensity, selection_strategy = _select_focus_and_intensity(
+        goal_type=goal_type,
+        levels=levels,
+        dominant_ability=dominant,
+        readiness_score=readiness_score,
+    )
     template = _template_for_focus(focus, athlete_profile, intensity)
     if template.get("status") != "success":
         payload = {
@@ -64,7 +107,7 @@ def recommend_workout(
                 "focus": focus,
                 "intensity": intensity,
                 "readiness_score": readiness_score,
-                "rationale": _rationale(focus, readiness_score, levels),
+                "rationale": _rationale(focus, readiness_score, levels, dominant, selection_strategy),
                 "workout": None,
                 "next_step": "provide_cp_or_ftp",
             },
@@ -86,8 +129,12 @@ def recommend_workout(
             "focus": focus,
             "intensity": intensity,
             "readiness_score": readiness_score,
-            "rationale": _rationale(focus, readiness_score, levels),
+            "rationale": _rationale(focus, readiness_score, levels, dominant, selection_strategy),
             "workout": workout,
+            "ability_context": {
+                "dominant_ability": dominant,
+                "selection_strategy": selection_strategy,
+            },
         },
         "progression_levels": progress,
         "model_metadata": finalize_model_metadata(
@@ -125,8 +172,18 @@ def _template_for_focus(focus: str, profile: Dict[str, Any], intensity: str) -> 
     }
 
 
-def _rationale(focus: str, readiness_score: int, levels: Dict[str, Any]) -> List[str]:
+def _rationale(
+    focus: str,
+    readiness_score: int,
+    levels: Dict[str, Any],
+    dominant_ability: Optional[str] = None,
+    selection_strategy: Optional[str] = None,
+) -> List[str]:
     notes = [f"readiness_{readiness_score}", f"selected_focus_{focus}"]
+    if dominant_ability:
+        notes.append(f"phenotype_{_normalize_dominant(dominant_ability)}")
+    if selection_strategy:
+        notes.append(f"strategy_{selection_strategy}")
     if focus in levels:
         notes.append(f"progression_level_{focus}_{levels[focus]}")
     return notes

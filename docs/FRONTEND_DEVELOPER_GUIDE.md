@@ -558,6 +558,8 @@ If either field is missing, that workout is **silently skipped** and levels stay
 3. Surface `progression_levels` in the UI only when at least 3 history rows contain both fields; otherwise show a banner: *"Compliance feedback inactive — log target zone + score per session."*
 4. Store the same history fragments in TwinState (`last_compliance_results` is not enough alone unless each row includes `target_zone`).
 
+`POST /workouts/recommend` uses `ability_profile.dominant_ability` when `goal.focus` is `balanced`: it selects the **weakest zone within the phenotype band** (e.g. sprinter → anaerobic/vo2 before endurance). Check `recommendation.ability_context.selection_strategy` (`phenotype_aware_limiter` vs `goal_directed`).
+
 #### 11.3.2 Load / readiness EWMA warm-up (`confidence_valid_from_date`)
 
 `POST /load/state/update` and `POST /readiness/today` expose EWMA warm-up metadata so coaches know **when load-based numbers become trustworthy**:

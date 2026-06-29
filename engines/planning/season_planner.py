@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
 from engines.core.metric_contracts import annotate_payload
+from engines.performance.ability_profile import build_ability_profile
 
 EWMA_CHRONIC_TRUST_DAYS = 42
 EWMA_ACUTE_TRUST_DAYS = 14
@@ -32,7 +33,12 @@ def _profile_context(
     goal: Optional[Dict[str, Any]],
 ) -> Dict[str, Any]:
     """Derive planning hints from athlete profile, metabolic snapshot and goal."""
-    profile = athlete_profile or {}
+    profile = dict(athlete_profile or {})
+    if not profile.get("dominant_ability") and (profile.get("mmp") or profile.get("power_curve") or profile.get("rolling_power_curve")):
+        ability = build_ability_profile(profile)
+        if ability.get("dominant_ability"):
+            profile["dominant_ability"] = ability["dominant_ability"]
+            profile["ability_levels"] = ability.get("levels")
     goal_focus = str((goal or {}).get("focus") or "balanced").strip().lower()
 
     snap = profile.get("metabolic_snapshot") if isinstance(profile.get("metabolic_snapshot"), dict) else {}
@@ -145,6 +151,8 @@ def create_season_plan(
     confidence = 0.55
     if athlete_profile and (profile_ctx.get("cp_w") or profile_ctx.get("vlamax") or profile_ctx.get("phenotype") != "balanced"):
         confidence = 0.62
+    if profile_ctx.get("ability_levels"):
+        confidence = min(0.68, confidence + 0.04)
 
     payload = {
         "status": "success",
