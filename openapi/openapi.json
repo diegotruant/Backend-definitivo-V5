@@ -7737,6 +7737,100 @@
           }
         ]
       }
+    },
+    "/coach/strength/prescription": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Physiology-first strength prescription",
+        "description": "Generate strength blocks, interference rules and expected adaptations from TwinState physiology — not a generic gym template.",
+        "operationId": "coachStrengthPrescription",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StrengthPrescriptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coach/nutrition/performance-targets": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Performance fueling availability targets",
+        "description": "Return carbohydrate availability, recovery priorities and red flags. Not a diet or meal plan.",
+        "operationId": "coachNutritionPerformanceTargets",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PerformanceFuelingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -12025,6 +12119,121 @@
         ],
         "title": "MonotonyStrainRequest"
       },
+      "PerformanceFuelingRequest": {
+        "properties": {
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteProfileSnippet"
+          },
+          "twin_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin State"
+          },
+          "metabolic_snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot"
+          },
+          "metabolic_curves": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Curves"
+          },
+          "load_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load State"
+          },
+          "readiness_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readiness State"
+          },
+          "strength_prescription": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strength Prescription",
+            "description": "Optional output from strength prescription to align fueling with gym load."
+          },
+          "session_context": {
+            "type": "string",
+            "title": "Session Context",
+            "description": "e.g. bike_endurance, gym_strength, gym_strength + bike_endurance",
+            "default": "bike_endurance"
+          },
+          "injury_flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Injury Flags"
+          },
+          "power_series": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Series",
+            "description": "Optional power stream to estimate session CHO demand when curves are not precomputed."
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "athlete"
+        ],
+        "title": "PerformanceFuelingRequest",
+        "description": "Performance fueling availability targets linked to TwinState."
+      },
       "PowerDurationPoint": {
         "properties": {
           "power_w": {
@@ -12683,6 +12892,165 @@
         ],
         "title": "SnapshotRequest"
       },
+      "StrengthPrescriptionRequest": {
+        "properties": {
+          "athlete": {
+            "$ref": "#/components/schemas/AthleteProfileSnippet"
+          },
+          "twin_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin State"
+          },
+          "metabolic_snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot"
+          },
+          "metabolic_curves": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Curves"
+          },
+          "load_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load State"
+          },
+          "readiness_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readiness State"
+          },
+          "mmp": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mmp",
+            "description": "Optional MMP for torque/sprint classification."
+          },
+          "goal": {
+            "type": "string",
+            "enum": [
+              "climbing",
+              "sprint",
+              "time_trial",
+              "granfondo",
+              "general_performance"
+            ],
+            "title": "Goal",
+            "default": "general_performance"
+          },
+          "season_phase": {
+            "type": "string",
+            "enum": [
+              "off_season",
+              "base",
+              "build",
+              "race",
+              "taper"
+            ],
+            "title": "Season Phase",
+            "default": "base"
+          },
+          "gym_experience": {
+            "type": "string",
+            "enum": [
+              "novice",
+              "intermediate",
+              "advanced"
+            ],
+            "title": "Gym Experience",
+            "default": "intermediate"
+          },
+          "equipment": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Equipment"
+          },
+          "days_available": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Days Available",
+            "default": 2
+          },
+          "injury_flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Injury Flags"
+          },
+          "body_mass_strategy": {
+            "type": "string",
+            "enum": [
+              "maintain",
+              "reduce",
+              "increase"
+            ],
+            "title": "Body Mass Strategy",
+            "default": "maintain"
+          },
+          "upcoming_bike_sessions": {
+            "items": {
+              "$ref": "#/components/schemas/UpcomingBikeSession"
+            },
+            "type": "array",
+            "title": "Upcoming Bike Sessions"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "athlete"
+        ],
+        "title": "StrengthPrescriptionRequest",
+        "description": "Physiology-first strength prescription for cyclists."
+      },
       "TeamCalibrationApplyRequest": {
         "properties": {
           "calibration_model": {
@@ -12960,6 +13328,54 @@
             ],
             "title": "Lactate Curve"
           },
+          "strength_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strength State"
+          },
+          "strength_prescription": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strength Prescription"
+          },
+          "nutrition_performance_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nutrition Performance State"
+          },
+          "performance_fueling_targets": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Performance Fueling Targets"
+          },
           "rolling_power_curve": {
             "anyOf": [
               {
@@ -13115,6 +13531,16 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Lactate State"
+          },
+          "strength_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Strength State"
+          },
+          "nutrition_performance_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Nutrition Performance State"
           },
           "rolling_power_curve": {
             "additionalProperties": true,
@@ -13288,6 +13714,47 @@
           "twin_state"
         ],
         "title": "TwinValidateRequest"
+      },
+      "UpcomingBikeSession": {
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type",
+            "description": "e.g. vo2max, race, endurance"
+          },
+          "session_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Type"
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled At"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "UpcomingBikeSession"
       },
       "UpdateProfileRequest": {
         "properties": {

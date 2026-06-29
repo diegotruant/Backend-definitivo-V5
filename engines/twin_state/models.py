@@ -136,6 +136,46 @@ def _extract_lactate_state(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _extract_strength_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("strength_state"))
+    if direct:
+        direct.setdefault("schema_version", "strength_state.v1")
+        return direct
+    prescription = _as_dict(payload.get("strength_prescription"))
+    if not prescription or prescription.get("schema_version") != "strength_prescription.v1":
+        return {}
+    return {
+        "schema_version": "strength_state.v1",
+        "measurement_tier": prescription.get("measurement_tier", "PRESCRIPTION_MODEL"),
+        "latest_prescription": prescription,
+        "primary_need": prescription.get("primary_need"),
+        "primary_goal": prescription.get("primary_goal"),
+        "weekly_frequency": prescription.get("weekly_frequency"),
+        "interference_risk": prescription.get("interference_risk"),
+        "decision_safety": _as_dict(prescription.get("decision_safety")),
+        "updated_at": payload.get("updated_at") or _now_iso(),
+    }
+
+
+def _extract_nutrition_performance_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("nutrition_performance_state"))
+    if direct:
+        direct.setdefault("schema_version", "nutrition_performance_state.v1")
+        return direct
+    fueling = _as_dict(payload.get("performance_fueling_targets") or payload.get("nutrition_targets"))
+    if not fueling or fueling.get("schema_version") != "performance_fueling_targets.v1":
+        return {}
+    return {
+        "schema_version": "nutrition_performance_state.v1",
+        "measurement_tier": fueling.get("measurement_tier", "PRESCRIPTION_MODEL"),
+        "latest_targets": fueling,
+        "targets": _as_dict(fueling.get("targets")),
+        "red_flags": _as_list(fueling.get("red_flags")),
+        "not_a_diet": fueling.get("not_a_diet", True),
+        "updated_at": payload.get("updated_at") or _now_iso(),
+    }
+
+
 def _confidence_from_sections(payload: Dict[str, Any]) -> Dict[str, Any]:
     snapshot = _as_dict(payload.get("metabolic_snapshot"))
     sensor_quality = _as_dict(payload.get("sensor_quality"))
@@ -181,6 +221,8 @@ def build_twin_state(payload: Dict[str, Any]) -> Dict[str, Any]:
         "metabolic_metrics": _extract_metabolic_metrics(metabolic_snapshot),
         "metabolic_curves": _as_dict(payload.get("metabolic_curves") or payload.get("curves_report")),
         "lactate_state": _extract_lactate_state(payload),
+        "strength_state": _extract_strength_state(payload),
+        "nutrition_performance_state": _extract_nutrition_performance_state(payload),
         "rolling_power_curve": rolling_power_curve,
         "load_state": _as_dict(payload.get("load_state")),
         "readiness_state": _as_dict(payload.get("readiness_state")),

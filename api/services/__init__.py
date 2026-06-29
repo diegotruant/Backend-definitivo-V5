@@ -1,5 +1,6 @@
 """Application services — orchestrate engines without HTTP concerns."""
 
+from api.services.coach_service import CoachService
 from api.services.explainability_service import ExplainabilityService
 from api.services.history_service import HistoryService
 from api.services.integration_service import IntegrationService
@@ -21,6 +22,7 @@ from api.services.twin_service import TwinService
 from api.services.workout_service import WorkoutService
 
 __all__ = [
+    "CoachService",
     "ExplainabilityService",
     "HistoryService",
     "IntegrationService",

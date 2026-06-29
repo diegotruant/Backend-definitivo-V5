@@ -216,6 +216,10 @@ class TwinStateBuildPayload(BaseModel):
     curves_report: Optional[Dict[str, Any]] = None
     lactate_state: Optional[Dict[str, Any]] = None
     lactate_curve: Optional[Dict[str, Any]] = None
+    strength_state: Optional[Dict[str, Any]] = None
+    strength_prescription: Optional[Dict[str, Any]] = None
+    nutrition_performance_state: Optional[Dict[str, Any]] = None
+    performance_fueling_targets: Optional[Dict[str, Any]] = None
     rolling_power_curve: Optional[Dict[str, Any]] = None
     curve: Optional[Dict[str, Any]] = None
     load_state: Optional[Dict[str, Any]] = None
@@ -244,6 +248,8 @@ class TwinStateDocument(BaseModel):
     metabolic_metrics: Dict[str, Any] = Field(default_factory=dict)
     metabolic_curves: Dict[str, Any] = Field(default_factory=dict)
     lactate_state: Dict[str, Any] = Field(default_factory=dict)
+    strength_state: Dict[str, Any] = Field(default_factory=dict)
+    nutrition_performance_state: Dict[str, Any] = Field(default_factory=dict)
     rolling_power_curve: Dict[str, Any] = Field(default_factory=dict)
     load_state: Dict[str, Any] = Field(default_factory=dict)
     readiness_state: Dict[str, Any] = Field(default_factory=dict)

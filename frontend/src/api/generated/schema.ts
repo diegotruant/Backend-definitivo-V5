@@ -1986,6 +1986,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/coach/strength/prescription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Physiology-first strength prescription
+         * @description Generate strength blocks, interference rules and expected adaptations from TwinState physiology — not a generic gym template.
+         */
+        post: operations["coachStrengthPrescription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coach/nutrition/performance-targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Performance fueling availability targets
+         * @description Return carbohydrate availability, recovery priorities and red flags. Not a diet or meal plan.
+         */
+        post: operations["coachNutritionPerformanceTargets"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3476,7 +3516,7 @@ export interface components {
             ftp_w?: number | null;
             /**
              * Include Curves
-             * @description Optional subset: vo2_demand, substrate_oxidation, lactate, energy_contribution_by_duration, w_prime_balance, durability_decay.
+             * @description Optional subset: vo2_demand, substrate_oxidation, lactate, energy_contribution_by_duration, session_fuel_demand, w_prime_balance, durability_decay, post_effort_recovery.
              */
             include_curves?: string[] | null;
         };
@@ -3524,6 +3564,55 @@ export interface components {
         MonotonyStrainRequest: {
             /** Daily Tss */
             daily_tss: number[];
+        };
+        /**
+         * PerformanceFuelingRequest
+         * @description Performance fueling availability targets linked to TwinState.
+         */
+        PerformanceFuelingRequest: {
+            athlete: components["schemas"]["AthleteProfileSnippet"];
+            /** Twin State */
+            twin_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Metabolic Snapshot */
+            metabolic_snapshot?: {
+                [key: string]: unknown;
+            } | null;
+            /** Metabolic Curves */
+            metabolic_curves?: {
+                [key: string]: unknown;
+            } | null;
+            /** Load State */
+            load_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Readiness State */
+            readiness_state?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Strength Prescription
+             * @description Optional output from strength prescription to align fueling with gym load.
+             */
+            strength_prescription?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Session Context
+             * @description e.g. bike_endurance, gym_strength, gym_strength + bike_endurance
+             * @default bike_endurance
+             */
+            session_context: string;
+            /** Injury Flags */
+            injury_flags?: string[];
+            /**
+             * Power Series
+             * @description Optional power stream to estimate session CHO demand when curves are not precomputed.
+             */
+            power_series?: number[] | null;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * PowerDurationPoint
@@ -3775,6 +3864,77 @@ export interface components {
              */
             tau_model?: ("skiba_default" | "bartram_elite" | "pugh_level_based" | "individualized") | null;
         };
+        /**
+         * StrengthPrescriptionRequest
+         * @description Physiology-first strength prescription for cyclists.
+         */
+        StrengthPrescriptionRequest: {
+            athlete: components["schemas"]["AthleteProfileSnippet"];
+            /** Twin State */
+            twin_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Metabolic Snapshot */
+            metabolic_snapshot?: {
+                [key: string]: unknown;
+            } | null;
+            /** Metabolic Curves */
+            metabolic_curves?: {
+                [key: string]: unknown;
+            } | null;
+            /** Load State */
+            load_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Readiness State */
+            readiness_state?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Mmp
+             * @description Optional MMP for torque/sprint classification.
+             */
+            mmp?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Goal
+             * @default general_performance
+             * @enum {string}
+             */
+            goal: "climbing" | "sprint" | "time_trial" | "granfondo" | "general_performance";
+            /**
+             * Season Phase
+             * @default base
+             * @enum {string}
+             */
+            season_phase: "off_season" | "base" | "build" | "race" | "taper";
+            /**
+             * Gym Experience
+             * @default intermediate
+             * @enum {string}
+             */
+            gym_experience: "novice" | "intermediate" | "advanced";
+            /** Equipment */
+            equipment?: string[];
+            /**
+             * Days Available
+             * @default 2
+             */
+            days_available: number;
+            /** Injury Flags */
+            injury_flags?: string[];
+            /**
+             * Body Mass Strategy
+             * @default maintain
+             * @enum {string}
+             */
+            body_mass_strategy: "maintain" | "reduce" | "increase";
+            /** Upcoming Bike Sessions */
+            upcoming_bike_sessions?: components["schemas"]["UpcomingBikeSession"][];
+        } & {
+            [key: string]: unknown;
+        };
         /** TeamCalibrationApplyRequest */
         TeamCalibrationApplyRequest: {
             /** Calibration Model */
@@ -3879,6 +4039,22 @@ export interface components {
             lactate_curve?: {
                 [key: string]: unknown;
             } | null;
+            /** Strength State */
+            strength_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Strength Prescription */
+            strength_prescription?: {
+                [key: string]: unknown;
+            } | null;
+            /** Nutrition Performance State */
+            nutrition_performance_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Performance Fueling Targets */
+            performance_fueling_targets?: {
+                [key: string]: unknown;
+            } | null;
             /** Rolling Power Curve */
             rolling_power_curve?: {
                 [key: string]: unknown;
@@ -3954,6 +4130,14 @@ export interface components {
             };
             /** Lactate State */
             lactate_state?: {
+                [key: string]: unknown;
+            };
+            /** Strength State */
+            strength_state?: {
+                [key: string]: unknown;
+            };
+            /** Nutrition Performance State */
+            nutrition_performance_state?: {
                 [key: string]: unknown;
             };
             /** Rolling Power Curve */
@@ -4036,6 +4220,20 @@ export interface components {
             twin_state: {
                 [key: string]: unknown;
             };
+        };
+        /** UpcomingBikeSession */
+        UpcomingBikeSession: {
+            /**
+             * Type
+             * @description e.g. vo2max, race, endurance
+             */
+            type?: string | null;
+            /** Session Type */
+            session_type?: string | null;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+        } & {
+            [key: string]: unknown;
         };
         /** UpdateProfileRequest */
         UpdateProfileRequest: {
@@ -9376,6 +9574,72 @@ export interface operations {
                          */
                         detail: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    coachStrengthPrescription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StrengthPrescriptionRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    coachNutritionPerformanceTargets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PerformanceFuelingRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
                 };
             };
             /** @description Validation Error */

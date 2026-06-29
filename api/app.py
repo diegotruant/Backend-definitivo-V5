@@ -27,6 +27,7 @@ from api.auth import authenticate_request, load_auth_config
 from api.errors import ServiceError
 from api.openapi import enrich_openapi_schema
 from api.routers import (
+    coach_support,
     explainability,
     health,
     history,
@@ -253,6 +254,7 @@ def create_app() -> FastAPI:
         history.router,
         readiness.router,
         planning.router,
+        coach_support.router,
     ):
         application.include_router(router)
 

@@ -1,5 +1,5 @@
 {
-  "line_percent": 94.18,
-  "branch_percent": 88.60,
-  "note": "Metabolic/performance coach curves (VO2, substrate, lactate, session fuel, W' balance, recovery). Line 94.18%; branch floor after new curve engine branches."
+  "line_percent": 93.93,
+  "branch_percent": 88.24,
+  "note": "Strength prescription + performance fueling coach engines (phase 1). Line 93.93%; branch floor after prescription_safety and coach endpoints."
 }

@@ -8,6 +8,7 @@ from fastapi import Request
 
 from api.auth.principal import Principal
 from api.services import (
+    CoachService,
     ExplainabilityService,
     HistoryService,
     IntegrationService,
@@ -28,6 +29,11 @@ from api.services import (
     TwinService,
     WorkoutService,
 )
+
+
+@lru_cache
+def get_coach_service() -> CoachService:
+    return CoachService()
 
 
 @lru_cache

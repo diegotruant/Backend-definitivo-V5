@@ -342,6 +342,17 @@ export const api = {
   readinessToday: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/readiness/today', { method: 'POST', body: JSON.stringify(payload) }),
 
+  /** POST /coach/strength/prescription */
+  coachStrengthPrescription: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/coach/strength/prescription', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /coach/nutrition/performance-targets */
+  coachNutritionPerformanceTargets: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/coach/nutrition/performance-targets', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
   /** POST /history/summary */
   historySummary: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/history/summary', { method: 'POST', body: JSON.stringify(payload) }),
