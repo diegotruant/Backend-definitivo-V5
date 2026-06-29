@@ -176,6 +176,56 @@ def _extract_nutrition_performance_state(payload: Dict[str, Any]) -> Dict[str, A
     }
 
 
+def _extract_checkin_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("checkin_state") or payload.get("athlete_checkin_state"))
+    if direct:
+        direct.setdefault("schema_version", "athlete_checkin.v1")
+        return direct
+    checkin = _as_dict(payload.get("checkin") or payload.get("checkin_response"))
+    if checkin.get("schema_version") == "athlete_checkin.v1":
+        return {
+            "schema_version": "athlete_checkin.v1",
+            "latest_checkin": checkin,
+            "checkin_summary": _as_dict(checkin.get("checkin_summary")),
+            "psychological_support_flag": _as_dict(checkin.get("psychological_support_flag")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    return {}
+
+
+def _extract_decision_safety_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("decision_safety_state"))
+    if direct:
+        direct.setdefault("schema_version", "decision_safety_state.v1")
+        return direct
+    safety = _as_dict(payload.get("decision_safety_response") or payload.get("decision_safety"))
+    if safety.get("schema_version") == "decision_safety.v1":
+        return {
+            "schema_version": "decision_safety_state.v1",
+            "latest_evaluation": safety,
+            "decision_safety": _as_dict(safety.get("decision_safety")),
+            "psychological_support_flag": _as_dict(safety.get("psychological_support_flag")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    return {}
+
+
+def _extract_coach_attention_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("coach_attention_state"))
+    if direct:
+        direct.setdefault("schema_version", "coach_attention_state.v1")
+        return direct
+    attention = _as_dict(payload.get("coach_attention") or payload.get("attention_response"))
+    if attention.get("schema_version") == "coach_attention.v1":
+        return {
+            "schema_version": "coach_attention_state.v1",
+            "latest_attention": attention,
+            "athlete_attention": _as_dict(attention.get("athlete_attention")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    return {}
+
+
 def _confidence_from_sections(payload: Dict[str, Any]) -> Dict[str, Any]:
     snapshot = _as_dict(payload.get("metabolic_snapshot"))
     sensor_quality = _as_dict(payload.get("sensor_quality"))
@@ -223,6 +273,9 @@ def build_twin_state(payload: Dict[str, Any]) -> Dict[str, Any]:
         "lactate_state": _extract_lactate_state(payload),
         "strength_state": _extract_strength_state(payload),
         "nutrition_performance_state": _extract_nutrition_performance_state(payload),
+        "checkin_state": _extract_checkin_state(payload),
+        "decision_safety_state": _extract_decision_safety_state(payload),
+        "coach_attention_state": _extract_coach_attention_state(payload),
         "rolling_power_curve": rolling_power_curve,
         "load_state": _as_dict(payload.get("load_state")),
         "readiness_state": _as_dict(payload.get("readiness_state")),

@@ -220,6 +220,10 @@ class TwinStateBuildPayload(BaseModel):
     strength_prescription: Optional[Dict[str, Any]] = None
     nutrition_performance_state: Optional[Dict[str, Any]] = None
     performance_fueling_targets: Optional[Dict[str, Any]] = None
+    checkin_state: Optional[Dict[str, Any]] = None
+    checkin: Optional[Dict[str, Any]] = None
+    decision_safety_state: Optional[Dict[str, Any]] = None
+    coach_attention_state: Optional[Dict[str, Any]] = None
     rolling_power_curve: Optional[Dict[str, Any]] = None
     curve: Optional[Dict[str, Any]] = None
     load_state: Optional[Dict[str, Any]] = None
@@ -250,6 +254,9 @@ class TwinStateDocument(BaseModel):
     lactate_state: Dict[str, Any] = Field(default_factory=dict)
     strength_state: Dict[str, Any] = Field(default_factory=dict)
     nutrition_performance_state: Dict[str, Any] = Field(default_factory=dict)
+    checkin_state: Dict[str, Any] = Field(default_factory=dict)
+    decision_safety_state: Dict[str, Any] = Field(default_factory=dict)
+    coach_attention_state: Dict[str, Any] = Field(default_factory=dict)
     rolling_power_curve: Dict[str, Any] = Field(default_factory=dict)
     load_state: Dict[str, Any] = Field(default_factory=dict)
     readiness_state: Dict[str, Any] = Field(default_factory=dict)
