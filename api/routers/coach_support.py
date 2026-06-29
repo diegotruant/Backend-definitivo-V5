@@ -5,10 +5,13 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from api.coach_schemas import (
+    CoachAdherenceRequest,
     CoachAttentionRequest,
     CoachCheckinRequest,
     CoachDecisionSafetyRequest,
+    CoachRaceExecutionRequest,
     CoachRosterAttentionRequest,
+    CoachTestingPlanRequest,
 )
 from api.deps import get_coach_service
 from api.helpers import json_response
@@ -112,3 +115,45 @@ def coach_roster_attention(
     service: CoachService = Depends(get_coach_service),
 ):
     return json_response(service.roster_attention(req))
+
+
+@router.post(
+    "/adherence",
+    operation_id="coachAdherence",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+    summary="Planned vs performed adherence analysis",
+)
+def coach_adherence(
+    req: CoachAdherenceRequest,
+    service: CoachService = Depends(get_coach_service),
+):
+    return json_response(service.adherence(req))
+
+
+@router.post(
+    "/testing-plan",
+    operation_id="coachTestingPlan",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+    summary="Recommend priority calibration tests",
+)
+def coach_testing_plan(
+    req: CoachTestingPlanRequest,
+    service: CoachService = Depends(get_coach_service),
+):
+    return json_response(service.testing_plan(req))
+
+
+@router.post(
+    "/race-execution",
+    operation_id="coachRaceExecution",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT},
+    summary="Race pacing, fueling and failure-mode plan",
+)
+def coach_race_execution(
+    req: CoachRaceExecutionRequest,
+    service: CoachService = Depends(get_coach_service),
+):
+    return json_response(service.race_execution(req))

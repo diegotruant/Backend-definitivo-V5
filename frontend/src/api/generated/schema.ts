@@ -2097,6 +2097,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/coach/adherence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Planned vs performed adherence analysis */
+        post: operations["coachAdherence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coach/testing-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recommend priority calibration tests */
+        post: operations["coachTestingPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coach/race-execution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Race pacing, fueling and failure-mode plan */
+        post: operations["coachRaceExecution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2861,6 +2912,35 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** CoachAdherenceRequest */
+        CoachAdherenceRequest: {
+            /** Athlete Id */
+            athlete_id?: string | null;
+            athlete?: components["schemas"]["AthleteProfileSnippet"] | null;
+            /** Planned Workout */
+            planned_workout?: {
+                [key: string]: unknown;
+            } | null;
+            /** Performed Compliance */
+            performed_compliance?: {
+                [key: string]: unknown;
+            } | null;
+            /** Compliance History */
+            compliance_history?: {
+                [key: string]: unknown;
+            }[];
+            /** Readiness State */
+            readiness_state?: {
+                [key: string]: unknown;
+            } | null;
+            checkin?: components["schemas"]["CheckinInput"] | null;
+            /** Twin State */
+            twin_state?: {
+                [key: string]: unknown;
+            } | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** CoachAttentionRequest */
         CoachAttentionRequest: {
             /** Athlete Id */
@@ -2942,10 +3022,66 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** CoachRaceExecutionRequest */
+        CoachRaceExecutionRequest: {
+            /** Athlete Id */
+            athlete_id?: string | null;
+            /** Twin State */
+            twin_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Metabolic Snapshot */
+            metabolic_snapshot?: {
+                [key: string]: unknown;
+            } | null;
+            /** Metabolic Curves */
+            metabolic_curves?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Target Event
+             * @default granfondo
+             */
+            target_event: string;
+            /** Race Simulation */
+            race_simulation?: {
+                [key: string]: unknown;
+            } | null;
+            /** Duration H */
+            duration_h?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** CoachRosterAttentionRequest */
         CoachRosterAttentionRequest: {
             /** Roster */
             roster: components["schemas"]["RosterAttentionEntry"][];
+        };
+        /** CoachTestingPlanRequest */
+        CoachTestingPlanRequest: {
+            /** Athlete Id */
+            athlete_id?: string | null;
+            /** Twin State */
+            twin_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Metabolic Snapshot */
+            metabolic_snapshot?: {
+                [key: string]: unknown;
+            } | null;
+            /** Lactate State */
+            lactate_state?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Season Phase
+             * @default base
+             */
+            season_phase: string;
+            /** Days Since Last Lactate Test */
+            days_since_last_lactate_test?: number | null;
+        } & {
+            [key: string]: unknown;
         };
         /** CompareSegmentsRequest */
         CompareSegmentsRequest: {
@@ -4284,6 +4420,30 @@ export interface components {
             coach_attention_state?: {
                 [key: string]: unknown;
             } | null;
+            /** Adherence State */
+            adherence_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Adherence Report */
+            adherence_report?: {
+                [key: string]: unknown;
+            } | null;
+            /** Testing Plan State */
+            testing_plan_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Testing Plan */
+            testing_plan?: {
+                [key: string]: unknown;
+            } | null;
+            /** Race Execution State */
+            race_execution_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Race Execution Plan */
+            race_execution_plan?: {
+                [key: string]: unknown;
+            } | null;
             /** Rolling Power Curve */
             rolling_power_curve?: {
                 [key: string]: unknown;
@@ -4379,6 +4539,18 @@ export interface components {
             };
             /** Coach Attention State */
             coach_attention_state?: {
+                [key: string]: unknown;
+            };
+            /** Adherence State */
+            adherence_state?: {
+                [key: string]: unknown;
+            };
+            /** Testing Plan State */
+            testing_plan_state?: {
+                [key: string]: unknown;
+            };
+            /** Race Execution State */
+            race_execution_state?: {
                 [key: string]: unknown;
             };
             /** Rolling Power Curve */
@@ -10003,6 +10175,105 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CoachRosterAttentionRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    coachAdherence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachAdherenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    coachTestingPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachTestingPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    coachRaceExecution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachRaceExecutionRequest"];
             };
         };
         responses: {

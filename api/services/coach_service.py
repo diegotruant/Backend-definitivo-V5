@@ -5,16 +5,22 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from api.coach_schemas import (
+    CoachAdherenceRequest,
     CoachAttentionRequest,
     CoachCheckinRequest,
     CoachDecisionSafetyRequest,
+    CoachRaceExecutionRequest,
     CoachRosterAttentionRequest,
+    CoachTestingPlanRequest,
 )
 from api.nutrition_schemas import PerformanceFuelingRequest
 from api.strength_schemas import StrengthPrescriptionRequest
+from engines.coach.adherence_engine import evaluate_adherence
 from engines.coach.attention_engine import evaluate_athlete_attention, evaluate_roster_attention
 from engines.coach.checkin_engine import process_checkin
 from engines.coach.decision_safety_engine import evaluate_decision_safety
+from engines.coach.race_execution_engine import build_race_execution_plan
+from engines.coach.testing_scheduler_engine import build_testing_plan
 from engines.nutrition.performance_fueling_engine import build_performance_fueling_targets
 from engines.strength.strength_prescription_engine import prescribe_strength
 
@@ -117,3 +123,39 @@ class CoachService:
                 "recent_checkins": entry.recent_checkins,
             })
         return evaluate_roster_attention(roster)
+
+    def adherence(self, req: CoachAdherenceRequest) -> Dict[str, Any]:
+        twin = req.twin_state or {}
+        return evaluate_adherence(
+            athlete_id=_athlete_id(req),
+            planned_workout=req.planned_workout,
+            performed_compliance=req.performed_compliance,
+            athlete_profile=(req.athlete.model_dump(exclude_none=True) if req.athlete else None)
+            or twin.get("athlete_profile"),
+            compliance_history=req.compliance_history or twin.get("last_compliance_results"),
+            readiness_state=req.readiness_state or twin.get("readiness_state"),
+            checkin=_checkin_dict(req.checkin),
+        )
+
+    def testing_plan(self, req: CoachTestingPlanRequest) -> Dict[str, Any]:
+        twin = req.twin_state or {}
+        return build_testing_plan(
+            athlete_id=_athlete_id(req),
+            metabolic_snapshot=req.metabolic_snapshot or twin.get("metabolic_snapshot"),
+            lactate_state=req.lactate_state or twin.get("lactate_state"),
+            twin_state=twin,
+            season_phase=req.season_phase,
+            days_since_last_lactate_test=req.days_since_last_lactate_test,
+        )
+
+    def race_execution(self, req: CoachRaceExecutionRequest) -> Dict[str, Any]:
+        twin = req.twin_state or {}
+        return build_race_execution_plan(
+            athlete_id=_athlete_id(req),
+            target_event=req.target_event,
+            metabolic_snapshot=req.metabolic_snapshot or twin.get("metabolic_snapshot"),
+            metabolic_curves=req.metabolic_curves or twin.get("metabolic_curves"),
+            twin_state=twin,
+            race_simulation=req.race_simulation,
+            duration_h=req.duration_h,
+        )

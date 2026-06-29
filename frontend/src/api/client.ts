@@ -369,6 +369,18 @@ export const api = {
   coachRosterAttention: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/coach/attention/roster', { method: 'POST', body: JSON.stringify(payload) }),
 
+  /** POST /coach/race-execution */
+  coachRaceExecution: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/coach/race-execution', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /coach/adherence */
+  coachAdherence: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/coach/adherence', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** POST /coach/testing-plan */
+  coachTestingPlan: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/coach/testing-plan', { method: 'POST', body: JSON.stringify(payload) }),
+
   /** POST /history/summary */
   historySummary: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/history/summary', { method: 'POST', body: JSON.stringify(payload) }),

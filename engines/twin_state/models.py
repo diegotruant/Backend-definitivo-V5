@@ -226,6 +226,54 @@ def _extract_coach_attention_state(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {}
 
 
+def _extract_adherence_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("adherence_state"))
+    if direct:
+        direct.setdefault("schema_version", "adherence_state.v1")
+        return direct
+    report = _as_dict(payload.get("adherence_report") or payload.get("adherence"))
+    if report.get("schema_version") == "adherence_report.v1":
+        return {
+            "schema_version": "adherence_state.v1",
+            "latest_report": report,
+            "compliance": _as_dict(report.get("compliance")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    return {}
+
+
+def _extract_testing_plan_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("testing_plan_state"))
+    if direct:
+        direct.setdefault("schema_version", "testing_plan_state.v1")
+        return direct
+    plan = _as_dict(payload.get("testing_plan") or payload.get("testing_plan_response"))
+    if plan.get("schema_version") == "testing_plan.v1":
+        return {
+            "schema_version": "testing_plan_state.v1",
+            "latest_plan": plan,
+            "testing_recommendation": _as_dict(plan.get("testing_recommendation")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    return {}
+
+
+def _extract_race_execution_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("race_execution_state"))
+    if direct:
+        direct.setdefault("schema_version", "race_execution_state.v1")
+        return direct
+    plan = _as_dict(payload.get("race_execution_plan") or payload.get("race_execution_response"))
+    if plan.get("schema_version") == "race_execution_plan.v1":
+        return {
+            "schema_version": "race_execution_state.v1",
+            "latest_plan": plan,
+            "race_execution_plan": _as_dict(plan.get("race_execution_plan")),
+            "updated_at": payload.get("updated_at") or _now_iso(),
+        }
+    return {}
+
+
 def _confidence_from_sections(payload: Dict[str, Any]) -> Dict[str, Any]:
     snapshot = _as_dict(payload.get("metabolic_snapshot"))
     sensor_quality = _as_dict(payload.get("sensor_quality"))
@@ -276,6 +324,9 @@ def build_twin_state(payload: Dict[str, Any]) -> Dict[str, Any]:
         "checkin_state": _extract_checkin_state(payload),
         "decision_safety_state": _extract_decision_safety_state(payload),
         "coach_attention_state": _extract_coach_attention_state(payload),
+        "adherence_state": _extract_adherence_state(payload),
+        "testing_plan_state": _extract_testing_plan_state(payload),
+        "race_execution_state": _extract_race_execution_state(payload),
         "rolling_power_curve": rolling_power_curve,
         "load_state": _as_dict(payload.get("load_state")),
         "readiness_state": _as_dict(payload.get("readiness_state")),

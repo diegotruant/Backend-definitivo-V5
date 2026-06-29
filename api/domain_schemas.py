@@ -224,6 +224,12 @@ class TwinStateBuildPayload(BaseModel):
     checkin: Optional[Dict[str, Any]] = None
     decision_safety_state: Optional[Dict[str, Any]] = None
     coach_attention_state: Optional[Dict[str, Any]] = None
+    adherence_state: Optional[Dict[str, Any]] = None
+    adherence_report: Optional[Dict[str, Any]] = None
+    testing_plan_state: Optional[Dict[str, Any]] = None
+    testing_plan: Optional[Dict[str, Any]] = None
+    race_execution_state: Optional[Dict[str, Any]] = None
+    race_execution_plan: Optional[Dict[str, Any]] = None
     rolling_power_curve: Optional[Dict[str, Any]] = None
     curve: Optional[Dict[str, Any]] = None
     load_state: Optional[Dict[str, Any]] = None
@@ -257,6 +263,9 @@ class TwinStateDocument(BaseModel):
     checkin_state: Dict[str, Any] = Field(default_factory=dict)
     decision_safety_state: Dict[str, Any] = Field(default_factory=dict)
     coach_attention_state: Dict[str, Any] = Field(default_factory=dict)
+    adherence_state: Dict[str, Any] = Field(default_factory=dict)
+    testing_plan_state: Dict[str, Any] = Field(default_factory=dict)
+    race_execution_state: Dict[str, Any] = Field(default_factory=dict)
     rolling_power_curve: Dict[str, Any] = Field(default_factory=dict)
     load_state: Dict[str, Any] = Field(default_factory=dict)
     readiness_state: Dict[str, Any] = Field(default_factory=dict)

@@ -74,3 +74,39 @@ class RosterAttentionEntry(BaseModel):
 
 class CoachRosterAttentionRequest(BaseModel):
     roster: List[RosterAttentionEntry] = Field(..., min_length=1)
+
+
+class CoachAdherenceRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    athlete_id: Optional[str] = None
+    athlete: Optional[AthleteProfileSnippet] = None
+    planned_workout: Optional[Dict[str, Any]] = None
+    performed_compliance: Optional[Dict[str, Any]] = None
+    compliance_history: List[Dict[str, Any]] = Field(default_factory=list)
+    readiness_state: Optional[Dict[str, Any]] = None
+    checkin: Optional[CheckinInput] = None
+    twin_state: Optional[Dict[str, Any]] = None
+
+
+class CoachTestingPlanRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    athlete_id: Optional[str] = None
+    twin_state: Optional[Dict[str, Any]] = None
+    metabolic_snapshot: Optional[Dict[str, Any]] = None
+    lactate_state: Optional[Dict[str, Any]] = None
+    season_phase: str = "base"
+    days_since_last_lactate_test: Optional[int] = Field(default=None, ge=0)
+
+
+class CoachRaceExecutionRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    athlete_id: Optional[str] = None
+    twin_state: Optional[Dict[str, Any]] = None
+    metabolic_snapshot: Optional[Dict[str, Any]] = None
+    metabolic_curves: Optional[Dict[str, Any]] = None
+    target_event: str = "granfondo"
+    race_simulation: Optional[Dict[str, Any]] = None
+    duration_h: Optional[float] = Field(default=None, gt=0)

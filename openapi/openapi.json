@@ -8016,6 +8016,144 @@
           }
         }
       }
+    },
+    "/coach/adherence": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Planned vs performed adherence analysis",
+        "operationId": "coachAdherence",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoachAdherenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coach/testing-plan": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Recommend priority calibration tests",
+        "operationId": "coachTestingPlan",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoachTestingPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coach/race-execution": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Race pacing, fueling and failure-mode plan",
+        "operationId": "coachRaceExecution",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoachRaceExecutionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -10185,6 +10323,100 @@
         "type": "object",
         "title": "CheckinInput"
       },
+      "CoachAdherenceRequest": {
+        "properties": {
+          "athlete_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Id"
+          },
+          "athlete": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AthleteProfileSnippet"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "planned_workout": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Workout"
+          },
+          "performed_compliance": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Performed Compliance"
+          },
+          "compliance_history": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Compliance History"
+          },
+          "readiness_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readiness State"
+          },
+          "checkin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckinInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "twin_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin State"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "CoachAdherenceRequest"
+      },
       "CoachAttentionRequest": {
         "properties": {
           "athlete_id": {
@@ -10409,6 +10641,89 @@
         "type": "object",
         "title": "CoachDecisionSafetyRequest"
       },
+      "CoachRaceExecutionRequest": {
+        "properties": {
+          "athlete_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Id"
+          },
+          "twin_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin State"
+          },
+          "metabolic_snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot"
+          },
+          "metabolic_curves": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Curves"
+          },
+          "target_event": {
+            "type": "string",
+            "title": "Target Event",
+            "default": "granfondo"
+          },
+          "race_simulation": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Race Simulation"
+          },
+          "duration_h": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration H"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "CoachRaceExecutionRequest"
+      },
       "CoachRosterAttentionRequest": {
         "properties": {
           "roster": {
@@ -10425,6 +10740,77 @@
           "roster"
         ],
         "title": "CoachRosterAttentionRequest"
+      },
+      "CoachTestingPlanRequest": {
+        "properties": {
+          "athlete_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete Id"
+          },
+          "twin_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin State"
+          },
+          "metabolic_snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot"
+          },
+          "lactate_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lactate State"
+          },
+          "season_phase": {
+            "type": "string",
+            "title": "Season Phase",
+            "default": "base"
+          },
+          "days_since_last_lactate_test": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Since Last Lactate Test"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "CoachTestingPlanRequest"
       },
       "CompareSegmentsRequest": {
         "properties": {
@@ -14052,6 +14438,78 @@
             ],
             "title": "Coach Attention State"
           },
+          "adherence_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adherence State"
+          },
+          "adherence_report": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adherence Report"
+          },
+          "testing_plan_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Testing Plan State"
+          },
+          "testing_plan": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Testing Plan"
+          },
+          "race_execution_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Race Execution State"
+          },
+          "race_execution_plan": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Race Execution Plan"
+          },
           "rolling_power_curve": {
             "anyOf": [
               {
@@ -14232,6 +14690,21 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Coach Attention State"
+          },
+          "adherence_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Adherence State"
+          },
+          "testing_plan_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Testing Plan State"
+          },
+          "race_execution_state": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Race Execution State"
           },
           "rolling_power_curve": {
             "additionalProperties": true,
