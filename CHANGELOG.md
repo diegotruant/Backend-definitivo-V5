@@ -1,5 +1,21 @@
 # Changelog
 
+## [5.2.6] — 2026-06-17
+
+Chart roadmap items: ACWR, readiness, durability, race overlay, Kalman, PMC forecast, dashboard snapshot.
+
+### Added
+
+- 9 new chart types: `acwr_trend`, `monotony_strain`, `readiness_trend`, `durability_fingerprint`, `race_simulation_overlay`, `kalman_trajectory`, `pmc_forecast`, `segment_history`, `eddington_consistency`
+- `engines/performance/consistency_engine.py` — Eddington number + segment history aggregation
+- `api/chart_schemas.py` — Pydantic `ChartConfigEnvelope` validation on `/meta/chart-config`
+- `POST /dashboard/athlete-snapshot` — readiness, load risk, ACWR, twin highlights, chart hints
+- `tests/pytest_chart_roadmap_items.py`
+
+### Changed
+
+- API version **5.2.6**; chart catalog now **42** types
+
 ## [5.2.5] — 2026-06-30
 
 Wire all chart builders to `/meta/chart-config`; metabolic/W′/fuel partitioning charts.

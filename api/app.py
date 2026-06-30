@@ -28,6 +28,7 @@ from api.errors import ServiceError
 from api.openapi import enrich_openapi_schema
 from api.routers import (
     coach_support,
+    dashboard,
     explainability,
     health,
     history,
@@ -64,6 +65,7 @@ OPENAPI_TAGS = [
     {"name": "explainability", "description": "Confidence scores and coach narratives."},
     {"name": "race", "description": "GPX course analysis and race simulation."},
     {"name": "integrations", "description": "External activity normalization and deduplication."},
+    {"name": "dashboard", "description": "Coach dashboard snapshots and aggregated athlete home data."},
     {"name": "meta", "description": "Engine tiers and chart configuration."},
     {"name": "team", "description": "Team learning calibration."},
     {"name": "history", "description": "Athlete history, power-curve records and load trends."},
@@ -152,7 +154,7 @@ def _resolve_cors_settings(cors_origins: list[str]) -> tuple[list[str], bool]:
 def create_app() -> FastAPI:
     application = FastAPI(
         title=os.getenv("DIGITAL_TWIN_API_TITLE", "Digital Twin Fisiologico API"),
-        version=os.getenv("DIGITAL_TWIN_API_VERSION", "5.2.5"),
+        version=os.getenv("DIGITAL_TWIN_API_VERSION", "5.2.6"),
         description=(
             "Stateless physiology analytics API. HTTP routers are thin; "
             "application services orchestrate engines under `engines/`."
@@ -255,6 +257,7 @@ def create_app() -> FastAPI:
         readiness.router,
         planning.router,
         coach_support.router,
+        dashboard.router,
     ):
         application.include_router(router)
 

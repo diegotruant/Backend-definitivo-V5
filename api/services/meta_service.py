@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from api.chart_schemas import validate_chart_envelope
 from api.engine_schemas import ChartConfigRequest
 from api.errors import ServiceError
 from engines.io.chart_registry import ChartBuildError, build_chart_config, list_chart_types
@@ -28,7 +29,8 @@ class MetaService:
 
     def chart_config(self, req: ChartConfigRequest) -> Dict[str, Any]:
         try:
-            return build_chart_config(req.chart_type, dict(req.payload))
+            result = build_chart_config(req.chart_type, dict(req.payload))
+            return validate_chart_envelope(result)
         except ChartBuildError as exc:
             raise ServiceError(
                 message=exc.message,

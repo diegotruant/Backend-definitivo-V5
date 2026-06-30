@@ -123,6 +123,190 @@ def _build_session_fuel_partitioning(payload: Dict[str, Any]) -> Dict[str, Any]:
     return chart_session_fuel_partitioning(curve.get("points") or [], summary=curve.get("summary"))
 
 
+def _preprocess_dates(payload: Dict[str, Any]) -> Dict[str, Any]:
+    payload = dict(payload)
+    if "dates" in payload:
+        payload["dates"] = [
+            date.fromisoformat(str(item).split("T")[0]) if not isinstance(item, date) else item
+            for item in payload["dates"]
+        ]
+    return payload
+
+
+def _build_acwr_trend(payload: Dict[str, Any]) -> Dict[str, Any]:
+    from engines.io.chart_builder import chart_acwr_trend
+    from engines.performance.training_variability_engine import calculate_acwr
+
+    if payload.get("acwr_values"):
+        processed = _preprocess_dates(payload)
+        return chart_acwr_trend(processed["dates"], processed["acwr_values"], risk_zones=payload.get("risk_zones"))
+    dates = payload.get("dates") or []
+    atl = payload.get("atl_values") or []
+    ctl = payload.get("ctl_values") or []
+    acwr_values = []
+    for a, c in zip(atl, ctl):
+        out = calculate_acwr(float(a), float(c))
+        acwr_values.append(out.get("acwr") if out.get("status") == "success" else None)
+    processed = _preprocess_dates({**payload, "dates": dates, "acwr_values": acwr_values})
+    return chart_acwr_trend(processed["dates"], acwr_values, risk_zones=payload.get("risk_zones"))
+
+
+def _build_monotony_strain(payload: Dict[str, Any]) -> Dict[str, Any]:
+    from engines.io.chart_builder import chart_monotony_strain
+    from engines.performance.training_variability_engine import calculate_monotony_strain
+
+    if payload.get("week_labels"):
+        return chart_monotony_strain(
+            payload["week_labels"],
+            payload.get("monotony_values") or [],
+            payload.get("strain_values") or [],
+        )
+    daily = payload.get("daily_tss") or []
+    out = calculate_monotony_strain(daily)
+    label = payload.get("week_label") or "Current week"
+    return chart_monotony_strain(
+        [label],
+        [out.get("monotony")],
+        [out.get("strain")],
+    )
+
+
+def _build_readiness_trend(payload: Dict[str, Any]) -> Dict[str, Any]:
+    from engines.io.chart_builder import chart_readiness_trend
+
+    processed = _preprocess_dates(payload)
+    return chart_readiness_trend(
+        processed["dates"],
+        processed["readiness_scores"],
+        load_component=payload.get("load_component"),
+        hrv_component=payload.get("hrv_component"),
+        sleep_component=payload.get("sleep_component"),
+        subjective_component=payload.get("subjective_component"),
+    )
+
+
+def _build_durability_fingerprint(payload: Dict[str, Any]) -> Dict[str, Any]:
+    from engines.io.chart_builder import chart_durability_fingerprint
+    from engines.performance.durability_engine import (
+        calculate_durability_index,
+        calculate_np_drift,
+        calculate_tte_sustainability,
+        generate_hourly_decay_curve,
+    )
+
+    metrics = dict(payload.get("metrics") or {})
+    if payload.get("power") and not metrics:
+        power = payload["power"]
+        duration_s = int(payload.get("duration_s") or len(power))
+        threshold = float(payload.get("threshold_power") or payload.get("ftp_w") or 250)
+        di = calculate_durability_index(power, duration_s)
+        if di.get("status") == "success":
+            metrics.update(di)
+        np_drift = calculate_np_drift(power, duration_s)
+        if np_drift.get("status") == "success":
+            metrics.update(np_drift)
+        tte = calculate_tte_sustainability(power, threshold)
+        if tte.get("status") == "success":
+            metrics.update(tte)
+        hourly = generate_hourly_decay_curve(power, duration_s)
+        if hourly.get("status") == "success":
+            metrics["decay_rate_watts_per_hour"] = hourly.get("decay_rate_watts_per_hour")
+    return chart_durability_fingerprint(metrics)
+
+
+def _build_race_simulation_overlay(payload: Dict[str, Any]) -> Dict[str, Any]:
+    from engines.io.chart_builder import chart_race_simulation_overlay
+    from engines.performance.race_prediction_engine import parse_gpx_course, simulate_gpx_race
+
+    if payload.get("simulation"):
+        sim = payload["simulation"]
+        plan = sim.get("pacing_plan") or []
+        distance_km = payload.get("distance_km") or []
+        elevation_m = payload.get("elevation_m") or []
+        if not distance_km and plan:
+            distance_km = [seg.get("start_km", 0) for seg in plan] + [plan[-1].get("end_km", 0)]
+            elevation_m = [0.0] * len(distance_km)
+        return chart_race_simulation_overlay(distance_km, elevation_m, plan)
+    if payload.get("gpx"):
+        points = parse_gpx_course(payload["gpx"])
+        sim = simulate_gpx_race(
+            payload["gpx"],
+            weight_kg=float(payload["weight_kg"]),
+            ftp_w=float(payload["ftp_w"]),
+            metabolic_snapshot=payload.get("metabolic_snapshot"),
+        )
+        plan = sim.get("pacing_plan") or []
+        distance_km = [p.distance_m / 1000.0 for p in points]
+        elevation_m = [p.ele_m for p in points]
+        return chart_race_simulation_overlay(distance_km, elevation_m, plan)
+    return chart_race_simulation_overlay(
+        payload["distance_km"],
+        payload["elevation_m"],
+        payload["pacing_plan"],
+    )
+
+
+def _build_kalman_trajectory(payload: Dict[str, Any]) -> Dict[str, Any]:
+    from engines.io.chart_builder import chart_kalman_trajectory
+
+    states = payload.get("states") or (payload.get("trajectory") or {}).get("states") or []
+    return chart_kalman_trajectory(states, metric=payload.get("metric", "vo2max"))
+
+
+def _build_pmc_forecast(payload: Dict[str, Any]) -> Dict[str, Any]:
+    from engines.io.chart_builder import chart_pmc_forecast
+    from engines.projection.season_projection_engine import project_season_from_plan
+
+    if payload.get("projection"):
+        series = payload["projection"].get("time_series") or []
+        dates = [date.fromisoformat(row["date"]) for row in series]
+        ctl = [row.get("ctl", 0) for row in series]
+        atl = [row.get("atl", 0) for row in series]
+        tsb = [row.get("form", row.get("ctl", 0) - row.get("atl", 0)) for row in series]
+        split = int(payload.get("forecast_start_index") or payload.get("history_days") or 0)
+        return chart_pmc_forecast(dates, ctl, atl, tsb, forecast_start_index=split)
+    if payload.get("twin_state") and payload.get("calendar_plan"):
+        proj = project_season_from_plan(payload["twin_state"], payload["calendar_plan"])
+        series = proj.get("time_series") or []
+        dates = [date.fromisoformat(row["date"]) for row in series]
+        ctl = [row.get("ctl", 0) for row in series]
+        atl = [row.get("atl", 0) for row in series]
+        tsb = [row.get("form", 0) for row in series]
+        split = int(payload.get("history_days") or max(0, len(series) // 4))
+        return chart_pmc_forecast(dates, ctl, atl, tsb, forecast_start_index=split)
+    processed = _preprocess_training_load(payload)
+    return chart_pmc_forecast(
+        processed["dates"],
+        processed["ctl_values"],
+        processed["atl_values"],
+        processed["tsb_values"],
+        forecast_start_index=payload.get("forecast_start_index"),
+    )
+
+
+def _build_segment_history(payload: Dict[str, Any]) -> Dict[str, Any]:
+    from engines.io.chart_builder import chart_segment_history
+    from engines.performance.consistency_engine import build_segment_history
+
+    metric_key = payload.get("metric_key", "elapsed_s")
+    if payload.get("segments"):
+        return chart_segment_history(payload["segments"], metric_key=metric_key)
+    built = build_segment_history(payload.get("segment_history") or [], metric_key=metric_key)
+    return chart_segment_history(built.get("segments") or [], metric_key=metric_key)
+
+
+def _build_eddington_consistency(payload: Dict[str, Any]) -> Dict[str, Any]:
+    from engines.io.chart_builder import chart_eddington_consistency
+    from engines.performance.consistency_engine import calculate_eddington_number
+
+    values = payload.get("activity_values") or payload.get("values") or []
+    if payload.get("eddington_result"):
+        result = payload["eddington_result"]
+    else:
+        result = calculate_eddington_number(values, threshold=payload.get("threshold"), unit=payload.get("unit", "duration_h"))
+    return chart_eddington_consistency(result, activity_values=values or None)
+
+
 def _build_w_prime_balance(payload: Dict[str, Any]) -> Dict[str, Any]:
     from engines.io.chart_builder import chart_w_prime_balance
     from engines.performance.performance_coach_curves import build_w_prime_balance_curve
@@ -187,6 +371,15 @@ def _chart_registry() -> Dict[str, ChartSpec]:
         ChartSpec("session_fuel_demand", _build_session_fuel_demand, ("metabolic_snapshot", "power", "weight_kg"), "session", "Cumulative CHO/fat session demand", payload_dict=True),
         ChartSpec("session_fuel_partitioning", _build_session_fuel_partitioning, ("metabolic_snapshot", "power"), "session", "CHO vs fat rate + cumulative demand", payload_dict=True),
         ChartSpec("w_prime_balance", _build_w_prime_balance, ("power", "cp_w", "w_prime_j"), "session", "W′ balance over time", payload_dict=True),
+        ChartSpec("acwr_trend", _build_acwr_trend, ("dates", "atl_values", "ctl_values"), "load", "ACWR trend with risk bands", payload_dict=True),
+        ChartSpec("monotony_strain", _build_monotony_strain, ("daily_tss",), "load", "Weekly monotony and strain", payload_dict=True),
+        ChartSpec("readiness_trend", _build_readiness_trend, ("dates", "readiness_scores"), "readiness", "Readiness score and components over time", payload_dict=True),
+        ChartSpec("durability_fingerprint", _build_durability_fingerprint, ("metrics",), "profile", "Durability radar fingerprint", payload_dict=True),
+        ChartSpec("race_simulation_overlay", _build_race_simulation_overlay, ("distance_km", "elevation_m", "pacing_plan"), "race", "Elevation + target power overlay", payload_dict=True),
+        ChartSpec("kalman_trajectory", _build_kalman_trajectory, ("states",), "profile", "Kalman VO2max/VLa trajectory with CI", payload_dict=True),
+        ChartSpec("pmc_forecast", _build_pmc_forecast, ("dates", "ctl_values", "atl_values", "tsb_values"), "load", "PMC with forecast segment", payload_dict=True),
+        ChartSpec("segment_history", _build_segment_history, ("segment_history",), "session", "Recurring segment best vs latest", payload_dict=True),
+        ChartSpec("eddington_consistency", _build_eddington_consistency, ("activity_values",), "profile", "Eddington consistency histogram", payload_dict=True),
     ]
 
     activity_map = {
@@ -274,6 +467,22 @@ def build_chart_config(chart_type: str, payload: Dict[str, Any]) -> Dict[str, An
         effective_required = ("points",)
     if chart_type == "w_prime_balance" and payload.get("time_s"):
         effective_required = ("time_s", "w_prime_balance_pct")
+    if chart_type == "acwr_trend" and (payload.get("acwr_values") or payload.get("atl_values")):
+        effective_required = ("dates",) if payload.get("acwr_values") else ("dates", "atl_values", "ctl_values")
+    if chart_type == "monotony_strain" and payload.get("week_labels"):
+        effective_required = ("week_labels", "monotony_values", "strain_values")
+    if chart_type == "durability_fingerprint" and payload.get("power"):
+        effective_required = ("power",)
+    if chart_type == "race_simulation_overlay" and (payload.get("gpx") or payload.get("simulation")):
+        effective_required = ("gpx", "weight_kg", "ftp_w") if payload.get("gpx") else ()
+    if chart_type == "kalman_trajectory" and payload.get("trajectory"):
+        effective_required = ()
+    if chart_type == "pmc_forecast" and (payload.get("projection") or payload.get("twin_state")):
+        effective_required = ()
+    if chart_type == "segment_history" and payload.get("segments"):
+        effective_required = ("segments",)
+    if chart_type == "eddington_consistency" and payload.get("eddington_result"):
+        effective_required = ()
 
     missing = _missing_keys(payload, effective_required)
     if missing:

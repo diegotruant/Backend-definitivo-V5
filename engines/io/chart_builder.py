@@ -1115,6 +1115,345 @@ def chart_w_prime_balance(
 
 
 # =============================================================================
+# LOAD / READINESS / FORECAST CHARTS
+# =============================================================================
+
+def chart_acwr_trend(
+    dates: List[date],
+    acwr_values: List[float],
+    *,
+    risk_zones: Optional[Dict[str, float]] = None,
+) -> Dict[str, Any]:
+    """ACWR trend with Gabbett-style risk bands."""
+    zones = risk_zones or {"detraining": 0.8, "optimal_high": 1.3, "high_risk": 1.5}
+    date_strings = [d.isoformat() if isinstance(d, date) else str(d) for d in dates]
+
+    return {
+        "schema_version": CHART_CONFIG_SCHEMA_VERSION,
+        "type": "line_multi",
+        "title": "ACWR trend",
+        "description": "Acute:chronic workload ratio over time",
+        "measurement_tier": "MODEL_ESTIMATE",
+        "x_axis": {"label": "Date", "type": "date", "format": "%b %d"},
+        "y_axis": {"label": "ACWR", "format": ".2f"},
+        "series": [
+            {
+                "name": "ACWR",
+                "x": date_strings,
+                "y": acwr_values,
+                "color": COLORS["primary"],
+            }
+        ],
+        "reference_bands": [
+            {"y_min": zones["detraining"], "y_max": zones["optimal_high"], "label": "Optimal zone", "color": COLORS["success"], "opacity": 0.15},
+            {"y_min": zones["optimal_high"], "y_max": zones["high_risk"], "label": "Caution", "color": COLORS["warning"], "opacity": 0.12},
+            {"y_min": zones["high_risk"], "y_max": 2.5, "label": "High risk", "color": COLORS["danger"], "opacity": 0.1},
+        ],
+        "reference_lines": [
+            {"y": zones["detraining"], "label": "Detraining", "color": COLORS["gray"], "dash": "dot"},
+            {"y": zones["high_risk"], "label": "High risk", "color": COLORS["danger"], "dash": "dash"},
+        ],
+    }
+
+
+def chart_monotony_strain(
+    week_labels: List[str],
+    monotony_values: List[Optional[float]],
+    strain_values: List[Optional[float]],
+) -> Dict[str, Any]:
+    """Weekly monotony (line) and strain (bars) chart."""
+    return {
+        "schema_version": CHART_CONFIG_SCHEMA_VERSION,
+        "type": "combo",
+        "title": "Training monotony & strain",
+        "description": "Foster monotony and strain by week",
+        "measurement_tier": "MODEL_ESTIMATE",
+        "x_axis": {"label": "Week", "categories": week_labels},
+        "y_axes": [
+            {"id": "monotony", "label": "Monotony", "format": ".2f"},
+            {"id": "strain", "label": "Strain", "format": ".0f"},
+        ],
+        "series": [
+            {"name": "Monotony", "type": "line", "y_axis_id": "monotony", "x": week_labels, "y": monotony_values, "color": COLORS["warning"]},
+            {"name": "Strain", "type": "bar", "y_axis_id": "strain", "x": week_labels, "y": strain_values, "color": COLORS["secondary"], "opacity": 0.7},
+        ],
+        "reference_lines": [
+            {"y": 1.5, "label": "Moderate", "color": COLORS["warning"], "y_axis_id": "monotony", "dash": "dot"},
+            {"y": 2.0, "label": "High risk", "color": COLORS["danger"], "y_axis_id": "monotony", "dash": "dash"},
+        ],
+    }
+
+
+def chart_readiness_trend(
+    dates: List[date],
+    readiness_scores: List[float],
+    *,
+    load_component: Optional[List[float]] = None,
+    hrv_component: Optional[List[float]] = None,
+    sleep_component: Optional[List[float]] = None,
+    subjective_component: Optional[List[float]] = None,
+) -> Dict[str, Any]:
+    """Composite readiness score with optional component overlays."""
+    date_strings = [d.isoformat() if isinstance(d, date) else str(d) for d in dates]
+    series: List[Dict[str, Any]] = [
+        {"name": "Readiness", "x": date_strings, "y": readiness_scores, "color": COLORS["primary"], "stroke_width": 2.5},
+    ]
+    component_specs = [
+        ("Load", load_component, COLORS["ctl"]),
+        ("HRV", hrv_component, COLORS["success"]),
+        ("Sleep", sleep_component, COLORS["secondary"]),
+        ("Subjective", subjective_component, COLORS["warning"]),
+    ]
+    for name, values, color in component_specs:
+        if values:
+            series.append({
+                "name": name,
+                "x": date_strings,
+                "y": [round(v * 100, 1) if v <= 1.0 else round(v, 1) for v in values],
+                "color": color,
+                "opacity": 0.55,
+                "y_axis_id": "components",
+            })
+
+    y_axes = [{"id": "score", "label": "Readiness", "domain": [0, 100]}]
+    if any(v for _, v, _ in component_specs if v):
+        y_axes.append({"id": "components", "label": "Components", "domain": [0, 100]})
+
+    return {
+        "schema_version": CHART_CONFIG_SCHEMA_VERSION,
+        "type": "line_multi",
+        "title": "Readiness trend",
+        "description": "Daily readiness score and contributing signals",
+        "measurement_tier": "MODEL_ESTIMATE",
+        "x_axis": {"label": "Date", "type": "date"},
+        "y_axes": y_axes,
+        "series": series,
+        "reference_bands": [
+            {"y_min": 0, "y_max": 45, "label": "Recovery", "color": COLORS["danger"], "opacity": 0.08, "y_axis_id": "score"},
+            {"y_min": 45, "y_max": 65, "label": "Moderate", "color": COLORS["warning"], "opacity": 0.08, "y_axis_id": "score"},
+            {"y_min": 65, "y_max": 100, "label": "Ready", "color": COLORS["success"], "opacity": 0.08, "y_axis_id": "score"},
+        ],
+    }
+
+
+def chart_durability_fingerprint(
+    metrics: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Radar fingerprint from durability engine outputs."""
+    di = float(metrics.get("durability_index") or metrics.get("durability_index_pct") or 0)
+    np_drift = float(metrics.get("np_drift_pct") or 0)
+    tte = float(metrics.get("tte_minutes") or 0)
+    decay_rate = abs(float(metrics.get("decay_rate_watts_per_hour") or metrics.get("decay_watts_per_hour") or 0))
+
+    di_score = min(100.0, max(0.0, di))
+    np_score = min(100.0, max(0.0, 100.0 + np_drift * 2.0))
+    tte_score = min(100.0, tte / 60.0 * 100.0)
+    decay_score = min(100.0, max(0.0, 100.0 - decay_rate * 3.0))
+
+    categories = ["Durability index", "NP stability", "TTE @ threshold", "Decay resistance"]
+    values = [round(di_score, 1), round(np_score, 1), round(tte_score, 1), round(decay_score, 1)]
+
+    return {
+        "schema_version": CHART_CONFIG_SCHEMA_VERSION,
+        "type": "radar",
+        "title": "Durability fingerprint",
+        "description": metrics.get("classification") or metrics.get("interpretation") or "Fatigue resistance profile",
+        "measurement_tier": "MODEL_ESTIMATE",
+        "categories": categories,
+        "series": [
+            {"name": "Athlete", "values": values, "color": COLORS["primary"], "fill_opacity": 0.25},
+            {"name": "Reference (good)", "values": [93, 95, 70, 80], "color": COLORS["gray"], "dash": "dash", "fill_opacity": 0},
+        ],
+        "domain": [0, 100],
+        "raw_metrics": {
+            "durability_index": di,
+            "np_drift_pct": np_drift,
+            "tte_minutes": tte,
+            "decay_rate_watts_per_hour": decay_rate,
+        },
+    }
+
+
+def chart_race_simulation_overlay(
+    distance_km: List[float],
+    elevation_m: List[float],
+    pacing_plan: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Elevation profile with simulated target power overlay."""
+    power_by_km: Dict[float, float] = {}
+    for seg in pacing_plan:
+        start = float(seg.get("start_km", 0))
+        end = float(seg.get("end_km", start))
+        power = float(seg.get("target_power_w", 0))
+        mid = (start + end) / 2.0
+        power_by_km[mid] = power
+
+    power_x = sorted(power_by_km.keys())
+    power_y = [power_by_km[k] for k in power_x]
+
+    return {
+        "schema_version": CHART_CONFIG_SCHEMA_VERSION,
+        "type": "line_multi",
+        "title": "Race simulation overlay",
+        "description": "Course elevation with predicted target power",
+        "measurement_tier": "MODEL_ESTIMATE",
+        "x_axis": {"label": "Distance", "unit": "km"},
+        "y_axes": [
+            {"id": "elevation", "label": "Elevation", "unit": "m"},
+            {"id": "power", "label": "Target power", "unit": "W"},
+        ],
+        "series": [
+            {"name": "Elevation", "x": distance_km, "y": elevation_m, "color": COLORS["gray"], "y_axis_id": "elevation", "fill": True, "opacity": 0.35},
+            {"name": "Target power", "x": power_x, "y": power_y, "color": COLORS["danger"], "y_axis_id": "power", "stroke_width": 2},
+        ],
+    }
+
+
+def chart_kalman_trajectory(
+    states: List[Dict[str, Any]],
+    *,
+    metric: str = "vo2max",
+) -> Dict[str, Any]:
+    """Kalman state trajectory with 95% confidence bands."""
+    dates = [s.get("date") for s in states]
+    values = [float(s.get(metric, 0) or 0) for s in states]
+    std_key = f"{metric}_std"
+    ci_key = f"{metric}_ci95"
+    lower: List[float] = []
+    upper: List[float] = []
+    for s in states:
+        if ci_key in s and isinstance(s[ci_key], (list, tuple)) and len(s[ci_key]) == 2:
+            lower.append(float(s[ci_key][0]))
+            upper.append(float(s[ci_key][1]))
+        else:
+            std = float(s.get(std_key, 0) or 0)
+            val = float(s.get(metric, 0) or 0)
+            lower.append(val - 1.96 * std)
+            upper.append(val + 1.96 * std)
+
+    label = "VO2max" if metric == "vo2max" else metric.replace("_", " ").title()
+    unit = "ml/kg/min" if metric == "vo2max" else ""
+
+    return {
+        "schema_version": CHART_CONFIG_SCHEMA_VERSION,
+        "type": "line_band",
+        "title": f"{label} trajectory",
+        "description": "Kalman-filtered metabolic state with 95% CI",
+        "measurement_tier": "MODEL_ESTIMATE",
+        "x_axis": {"label": "Date", "type": "date"},
+        "y_axis": {"label": label, "unit": unit},
+        "series": [
+            {"name": label, "x": dates, "y": values, "color": COLORS["primary"]},
+            {"name": "95% CI lower", "x": dates, "y": lower, "color": COLORS["primary"], "opacity": 0.2, "fill": False},
+            {"name": "95% CI upper", "x": dates, "y": upper, "color": COLORS["primary"], "opacity": 0.2, "fill_between": "95% CI lower"},
+        ],
+    }
+
+
+def chart_pmc_forecast(
+    dates: List[date],
+    ctl_values: List[float],
+    atl_values: List[float],
+    tsb_values: List[float],
+    *,
+    forecast_start_index: Optional[int] = None,
+) -> Dict[str, Any]:
+    """PMC with optional forecast segment styling."""
+    date_strings = [d.isoformat() if isinstance(d, date) else str(d) for d in dates]
+    split = forecast_start_index if forecast_start_index is not None else len(dates)
+
+    def _segment(values: List[float], start: int, end: int) -> List[Optional[float]]:
+        out: List[Optional[float]] = [None] * len(values)
+        for i in range(start, min(end, len(values))):
+            out[i] = values[i]
+        return out
+
+    series = [
+        {"name": "CTL (Fitness)", "x": date_strings, "y": _segment(ctl_values, 0, split), "color": COLORS["ctl"]},
+        {"name": "ATL (Fatigue)", "x": date_strings, "y": _segment(atl_values, 0, split), "color": COLORS["atl"]},
+        {"name": "TSB (Form)", "x": date_strings, "y": _segment(tsb_values, 0, split), "color": COLORS["tsb"]},
+    ]
+    if split < len(dates):
+        series.extend([
+            {"name": "CTL forecast", "x": date_strings, "y": _segment(ctl_values, split, len(dates)), "color": COLORS["ctl"], "dash": "dash"},
+            {"name": "ATL forecast", "x": date_strings, "y": _segment(atl_values, split, len(dates)), "color": COLORS["atl"], "dash": "dash"},
+            {"name": "TSB forecast", "x": date_strings, "y": _segment(tsb_values, split, len(dates)), "color": COLORS["tsb"], "dash": "dash"},
+        ])
+
+    return {
+        "schema_version": CHART_CONFIG_SCHEMA_VERSION,
+        "type": "line_multi",
+        "title": "PMC forecast",
+        "description": "Performance management chart with planned-load projection",
+        "measurement_tier": "MODEL_ESTIMATE",
+        "x_axis": {"label": "Date", "type": "date"},
+        "y_axis": {"label": "TSS/day"},
+        "series": series,
+        "forecast_start_date": date_strings[split] if split < len(date_strings) else None,
+    }
+
+
+def chart_segment_history(
+    segments: List[Dict[str, Any]],
+    *,
+    metric_key: str = "elapsed_s",
+) -> Dict[str, Any]:
+    """Bar chart of best vs latest segment attempts."""
+    labels = [str(s.get("segment_id") or s.get("name") or f"Seg {i+1}") for i, s in enumerate(segments)]
+    best = [s.get("best") for s in segments]
+    latest = [s.get("latest") for s in segments]
+
+    return {
+        "schema_version": CHART_CONFIG_SCHEMA_VERSION,
+        "type": "bar_grouped",
+        "title": "Segment history",
+        "description": f"Best vs latest {metric_key}",
+        "measurement_tier": "FIELD_MEASURED",
+        "x_axis": {"label": "Segment", "categories": labels},
+        "y_axis": {"label": metric_key},
+        "series": [
+            {"name": "Best", "x": labels, "y": best, "color": COLORS["success"]},
+            {"name": "Latest", "x": labels, "y": latest, "color": COLORS["primary"]},
+        ],
+    }
+
+
+def chart_eddington_consistency(
+    eddington_result: Dict[str, Any],
+    *,
+    activity_values: Optional[List[float]] = None,
+) -> Dict[str, Any]:
+    """Histogram-style consistency chart for Eddington analysis."""
+    values = activity_values or []
+    unit = eddington_result.get("unit", "duration_h")
+    eddington = int(eddington_result.get("eddington_number") or 0)
+
+    bins = sorted(values, reverse=True) if values else []
+    labels = [str(i + 1) for i in range(len(bins))]
+
+    return {
+        "schema_version": CHART_CONFIG_SCHEMA_VERSION,
+        "type": "bar",
+        "title": "Eddington consistency",
+        "description": f"Eddington number = {eddington} ({eddington_result.get('consistency_band', 'n/a')})",
+        "measurement_tier": "FIELD_MEASURED",
+        "x_axis": {"label": "Activity rank", "categories": labels or ["—"]},
+        "y_axis": {"label": unit},
+        "series": [
+            {"name": "Activity value", "x": labels, "y": bins or [0], "color": COLORS["primary"]},
+        ],
+        "reference_lines": [
+            {"y": eddington, "label": f"Eddington = {eddington}", "color": COLORS["warning"], "dash": "dash"},
+        ],
+        "summary": {
+            "eddington_number": eddington,
+            "consistency_band": eddington_result.get("consistency_band"),
+            "n_activities": eddington_result.get("n_activities"),
+        },
+    }
+
+
+# =============================================================================
 # HELPER: Generate all charts for a workout
 # =============================================================================
 

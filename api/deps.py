@@ -9,6 +9,7 @@ from fastapi import Request
 from api.auth.principal import Principal
 from api.services import (
     CoachService,
+    DashboardService,
     ExplainabilityService,
     HistoryService,
     IntegrationService,
@@ -124,6 +125,11 @@ def get_race_service() -> RaceService:
 @lru_cache
 def get_integration_service() -> IntegrationService:
     return IntegrationService()
+
+
+@lru_cache
+def get_dashboard_service() -> DashboardService:
+    return DashboardService()
 
 
 @lru_cache

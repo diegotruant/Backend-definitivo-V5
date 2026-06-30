@@ -38,7 +38,7 @@ The backend is the **only** chart computation layer. The frontend requests a `ch
 }
 ```
 
-## Catalog (33 chart types)
+## Catalog (42 chart types)
 
 ### Profile / load (`chart_builder.py`)
 
@@ -74,6 +74,20 @@ The backend is the **only** chart computation layer. The frontend requests a `ch
 | `session_fuel_partitioning` | `metabolic_snapshot`, `power` | **CHO vs fat rate (g/min) + cumulative** |
 | `w_prime_balance` | `power`, `cp_w`, `w_prime_j` | W′ % over time |
 
+### Load / readiness / forecast
+
+| `chart_type` | Required payload keys | Notes |
+|--------------|----------------------|-------|
+| `acwr_trend` | `dates`, `atl_values`, `ctl_values` | Or pass `acwr_values` directly |
+| `monotony_strain` | `daily_tss` | Or `week_labels` + `monotony_values` + `strain_values` |
+| `readiness_trend` | `dates`, `readiness_scores` | Optional component series |
+| `pmc_forecast` | `dates`, `ctl_values`, `atl_values`, `tsb_values` | Or `twin_state` + `calendar_plan` |
+| `durability_fingerprint` | `metrics` | Or `power` + `duration_s` to compute |
+| `race_simulation_overlay` | `distance_km`, `elevation_m`, `pacing_plan` | Or `gpx`, `weight_kg`, `ftp_w` |
+| `kalman_trajectory` | `states` | Kalman `states[]` with `vo2max_ci95` |
+| `segment_history` | `segment_history` | Or pre-aggregated `segments` |
+| `eddington_consistency` | `activity_values` | Duration (h), distance (km), or TSS |
+
 Prefer reading precomputed curves from `twin_state.metabolic_curves` and passing `payload.curve` to avoid recomputation.
 
 ### Activity stream (`activity_charts.py`)
@@ -96,11 +110,16 @@ await api.metaChartConfig({
 });
 ```
 
+## Dashboard snapshot
+
+`POST /dashboard/athlete-snapshot` aggregates readiness, load risk, ACWR, monotony/strain (when `daily_tss` provided), twin highlights, and `chart_hints` for coach home tiles. Stateless — pass current `twin_state` / `load_state` from your DB.
+
 ## Registry
 
 Implementation: `engines/io/chart_registry.py`  
 Stream coercion: `engines/io/chart_stream.py`  
-Tests: `tests/pytest_chart_config_registry.py`
+Pydantic validation: `api/chart_schemas.py`  
+Tests: `tests/pytest_chart_config_registry.py`, `tests/pytest_chart_roadmap_items.py`
 
 ## Related
 
