@@ -2,7 +2,7 @@
 
 Python backend for physiological analysis and cycling performance (Digital Twin).
 
-Current version: **5.2.3** — coach layer (20 endpoints), contract-first testing, fueling CHO+FAT grams (132 OpenAPI paths).
+Current version: **5.2.4** — TwinState metabolic curves, ingest pipeline architecture, Mader bimodal contracts (132 OpenAPI paths).
 
 ## Overview
 
@@ -155,6 +155,9 @@ See `docs/CONTRACT_FIRST_TESTING.md` for the product-contract methodology (~1843
 | Document | Content |
 |----------|---------|
 | [`docs/API_ENDPOINT_INDEX.md`](docs/API_ENDPOINT_INDEX.md) | **All 132 endpoints** by tag |
+| [`docs/RELEASE_NOTES_v5.2.4.md`](docs/RELEASE_NOTES_v5.2.4.md) | V5.2.4 — TwinState curves, ingest pipeline architecture |
+| [`docs/INGEST_PIPELINE_ARCHITECTURE.md`](docs/INGEST_PIPELINE_ARCHITECTURE.md) | S3 → VPS worker → Postgres → coach UI |
+| [`docs/METABOLIC_CURVES_TWIN_CONTRACT.md`](docs/METABOLIC_CURVES_TWIN_CONTRACT.md) | VO₂/lactate curves on TwinState (frontend/DB) |
 | [`docs/RELEASE_NOTES_v5.2.3.md`](docs/RELEASE_NOTES_v5.2.3.md) | V5.2.3 — coach layer, contract testing, fueling fat_g |
 | [`docs/CONTRACT_FIRST_TESTING.md`](docs/CONTRACT_FIRST_TESTING.md) | Product-contract test methodology |
 | [`docs/COACH_DECISION_ENGINE.md`](docs/COACH_DECISION_ENGINE.md) | 20 coach decision-support endpoints |

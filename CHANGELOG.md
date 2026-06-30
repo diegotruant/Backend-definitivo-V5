@@ -1,5 +1,24 @@
 # Changelog
 
+## [5.2.4] — 2026-06-30
+
+TwinState metabolic curves persistence, Mader bimodal contracts, ingest pipeline architecture doc.
+
+### Added
+
+- `engines/twin_state/metabolic_curves_sync.py` — auto-sync `metabolic_curves.v1` and `lactate_state.v1` on twin build/profile refresh
+- `docs/METABOLIC_CURVES_TWIN_CONTRACT.md` — frontend/DB contract for VO₂ demand, substrate, lactate curves
+- `docs/INGEST_PIPELINE_ARCHITECTURE.md` — S3 → VPS worker → Postgres → coach UI
+- `tests/pytest_mader_bimodal_behavior.py` — explicit bimodal MMP + Mader ODE behavior contracts (7 tests)
+- `tests/pytest_metabolic_curves_twin_sync.py` — twin curve sync contracts (6 tests)
+- `POST /test/in-person` returns `lactate_persistence` bundle when Mader steps present
+- `POST /ride/update-profile` returns `metabolic_curves` with refreshed snapshot
+
+### Changed
+
+- `build_twin_state()` auto-populates profile metabolic curves (`skip_metabolic_curves_sync: true` to opt out)
+- `POST /twin/state/update-from-ride` accepts `metabolic_snapshot` and `lactate_steps` for curve refresh
+
 ## [5.2.3] — 2026-06-29
 
 Coach layer documentation, contract-first testing, fueling INSCYD parity, recovery transparency.

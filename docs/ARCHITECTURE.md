@@ -1,4 +1,4 @@
-# Architecture — Backend Digital Twin V5.2.3
+# Architecture — Backend Digital Twin V5.2.4
 
 This document describes the **intended layering** after the professional refactor.
 It is the reference for new contributors.
@@ -112,6 +112,8 @@ See `docs/OPENAPI_FRONTEND.md` for integration details.
 ## State
 
 The API is **stateless**. Persist `TwinState`, anchors, curves and calibration models in your database; round-trip them on each call.
+
+**Production ingest** (S3 → worker → Postgres) is specified in `docs/INGEST_PIPELINE_ARCHITECTURE.md`. Profile curves on twin: `docs/METABOLIC_CURVES_TWIN_CONTRACT.md`.
 
 ## Testing strategy
 
