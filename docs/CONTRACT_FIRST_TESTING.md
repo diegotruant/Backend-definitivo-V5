@@ -18,7 +18,8 @@ This document describes the **product-contract test methodology** used to harden
 | `tests/pytest_workout_pipeline_perfection.py` | Workout validate → prescribe → feasibility → compare | `pytest tests/pytest_workout_pipeline_perfection.py` |
 | `tests/pytest_product_perfection_full.py` | End-to-end product chains, all 20 coach endpoints | `pytest tests/pytest_product_perfection_full.py` |
 | `tests/pytest_science_contracts.py` | Scientific tier labels, fatmax/vlamax disclaimers | `pytest tests/pytest_science_contracts.py` |
-| `tests/pytest_chart_config_registry.py` | All 33 chart types wired to `/meta/chart-config` | `pytest tests/pytest_chart_config_registry.py` |
+| `tests/pytest_chart_output_quality.py` | **All 42 chart types** — minimal payload, no `null` in `series`, Pydantic envelope | `pytest tests/pytest_chart_output_quality.py` |
+| `tests/pytest_chart_config_registry.py` | Chart registry wiring and spot checks | `pytest tests/pytest_chart_config_registry.py` |
 | `tests/pytest_performance_coach_curves.py` | W′ balance, fuel demand, recovery behavior (not just output presence) | `pytest tests/pytest_performance_coach_curves.py` |
 | `tests/pytest_frontend_client_contract.py` | OpenAPI ↔ `client.ts` 1:1 (134 paths) | `pytest tests/pytest_frontend_client_contract.py` |
 | `tests/pytest_openapi_contract.py` | Committed spec ↔ live `app.openapi()` | `pytest tests/pytest_openapi_contract.py` |
@@ -35,6 +36,7 @@ This document describes the **product-contract test methodology** used to harden
 | Recovery honesty | `estimation_method: empirical_formula` on recovery curve |
 | W′ behavior | Variable supra-CP power depletes W′ more than steady sub-CP |
 | JSON safety | HTTP responses never contain `NaN` or `Infinity` |
+| Chart series | No `null` entries in `series[]`; each item has `name` + plottable `x`/`y`/`data`/`values`/`r` |
 
 ## Coverage tests vs contract tests
 

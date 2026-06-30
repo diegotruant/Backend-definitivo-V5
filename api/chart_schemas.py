@@ -23,7 +23,11 @@ class ChartSeriesSchema(BaseModel):
     x: Optional[List[Any]] = None
     y: Optional[List[Any]] = None
     values: Optional[List[float]] = None
+    data: Optional[Any] = None
+    r: Optional[Any] = None
     color: Optional[str] = None
+
+    model_config = {"extra": "allow"}
 
 
 class ChartConfigBody(BaseModel):
@@ -69,4 +73,4 @@ class ChartConfigEnvelope(BaseModel):
 
 def validate_chart_envelope(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Validate and normalize a chart config response dict."""
-    return ChartConfigEnvelope.model_validate(payload).model_dump()
+    return ChartConfigEnvelope.model_validate(payload).model_dump(exclude_none=True)

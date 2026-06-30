@@ -119,7 +119,7 @@ await api.metaChartConfig({
 Implementation: `engines/io/chart_registry.py`  
 Stream coercion: `engines/io/chart_stream.py`  
 Pydantic validation: `api/chart_schemas.py`  
-Tests: `tests/pytest_chart_config_registry.py`, `tests/pytest_chart_roadmap_items.py`
+Tests: `tests/pytest_chart_config_registry.py`, `tests/pytest_chart_output_quality.py` (quality gate on all 42 types)
 
 ## Related
 

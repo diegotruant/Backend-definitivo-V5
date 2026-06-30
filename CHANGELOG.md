@@ -18,6 +18,8 @@ Chart roadmap items: ACWR, readiness, durability, race overlay, Kalman, PMC fore
 - API version **5.2.6**; chart catalog **42** types; OpenAPI **134** paths
 - Full repo version alignment: `VERSION`, `pyproject.toml`, `.env.example`, README, docs, `openapi/openapi.json`, frontend `client.ts`
 - `chart_power_duration_curve` / HR charts no longer emit `null` entries in `series` when optional overlays are omitted
+- `tests/pytest_chart_output_quality.py` — quality gate on all 42 chart types (minimal payload + HTTP + Pydantic)
+- `ChartSeriesSchema` preserves `data`/`r` fields; activity `_na()` returns `type: unavailable`
 
 ## [5.2.5] — 2026-06-30
 

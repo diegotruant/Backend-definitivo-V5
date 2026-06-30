@@ -43,7 +43,12 @@ _POINT_BUDGET = 1000
 
 
 def _na(reason: str) -> Dict[str, Any]:
-    return {"available": False, "reason": reason}
+    return {
+        "schema_version": "chart_config.v1",
+        "type": "unavailable",
+        "available": False,
+        "reason": reason,
+    }
 
 
 def _valid(arr: Any) -> bool:
@@ -408,7 +413,8 @@ def chart_time_in_power_zone(stream: Any, zones: List[Dict[str, Any]]) -> Dict[s
     }
 
 
-def chart_time_in_intensity(hrv_durability: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def chart_time_in_intensity(stream: Any, hrv_durability: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    _ = stream
     if not hrv_durability or "time_in_intensity" not in hrv_durability:
         return _na("HRV durability metrics / metabolic intensity estimate not computed")
     # Directly map predefined structure
