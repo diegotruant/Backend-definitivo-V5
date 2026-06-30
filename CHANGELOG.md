@@ -10,7 +10,10 @@ Chart roadmap items: ACWR, readiness, durability, race overlay, Kalman, PMC fore
 - `engines/performance/consistency_engine.py` — Eddington number + segment history aggregation
 - `api/chart_schemas.py` — Pydantic `ChartConfigEnvelope` validation on `/meta/chart-config`
 - `POST /dashboard/athlete-snapshot` — readiness, load risk, ACWR, twin highlights, chart hints
-- `tests/pytest_chart_roadmap_items.py`
+- `tests/pytest_chart_output_quality.py` — quality gate on all 42 chart types (minimal payload + HTTP + Pydantic)
+- `tests/pytest_product_output_quality.py` — product gate on all **134** API paths (`make quality-gate`)
+- `tests/pytest_engine_output_quality.py` — engine entry-point product gate (readiness, load, twin, charts, coach)
+- `tests/product_quality.py` — shared invariants (finite floats, no null in named lists, semantic validators)
 - `docs/RELEASE_NOTES_v5.2.6.md`
 
 ### Changed

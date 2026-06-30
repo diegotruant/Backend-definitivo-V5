@@ -26,7 +26,10 @@ stress-test:
 lockdown-test: openapi
 	$(PYTHON) -m pytest -q tests/pytest_engine_lockdown_v1.py tests/pytest_suite_integrity.py --tb=short
 
-integrity-test: openapi
+quality-gate: openapi
+	$(PYTHON) -m pytest -q tests/pytest_chart_output_quality.py tests/pytest_product_output_quality.py tests/pytest_engine_output_quality.py --tb=short
+
+integrity-test: openapi quality-gate
 	$(PYTHON) -m pytest -q tests/pytest_suite_integrity.py --tb=short
 
 api-matrix-test: openapi

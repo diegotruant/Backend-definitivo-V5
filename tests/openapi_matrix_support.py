@@ -376,6 +376,23 @@ JSON_PAYLOAD_OVERRIDES: Dict[str, Any] = {
         "parameter": "mlss",
         "predicted_value": 280,
     },
+    "profileFatmaxCompare": {
+        "previous_report": {"summary": {"fatmax_power_w": 170}},
+        "current_report": {"summary": {"fatmax_power_w": 184}},
+    },
+    "coachStrengthPrescription": {"athlete": ATHLETE_PROFILE},
+    "coachNutritionPerformanceTargets": {
+        "athlete": ATHLETE_PROFILE,
+        "session_context": "90min endurance ride",
+    },
+    "coachAdherence": {
+        "athlete_id": "matrix_athlete",
+        "performed_compliance": {"compliance_score": 72},
+    },
+    "coachCommunicationDraft": {
+        "athlete": ATHLETE_PROFILE,
+        "context": {"topic": "weekly_review", "tone": "supportive"},
+    },
 }
 
 
