@@ -60,6 +60,11 @@ COLORS = {
 }
 
 
+def _chart_series(*entries: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Build a chart series list, omitting optional overlays that were not provided."""
+    return [entry for entry in entries if entry is not None]
+
+
 # =============================================================================
 # 1. POWER DURATION CURVE (MMP)
 # =============================================================================
@@ -88,7 +93,7 @@ def chart_power_duration_curve(
     duration_minutes = [d / 60 for d in durations]
     
     # Generate CP model curve if provided
-    cp_curve = None
+    cp_curve: Optional[Dict[str, Any]] = None
     if cp_model:
         cp = cp_model['cp']
         w_prime = cp_model['w_prime']
@@ -105,6 +110,17 @@ def chart_power_duration_curve(
             "type": "line",
             "color": COLORS["secondary"],
             "dash": "dash",
+        }
+
+    ftp_curve: Optional[Dict[str, Any]] = None
+    if ftp is not None:
+        ftp_curve = {
+            "name": "FTP",
+            "type": "line",
+            "x": [0.1, 100],
+            "y": [ftp, ftp],
+            "color": COLORS["warning"],
+            "dash": "dot",
         }
     
     return {
@@ -125,7 +141,7 @@ def chart_power_duration_curve(
             "format": ".0f",
         },
         
-        "series": [
+        "series": _chart_series(
             {
                 "name": "MMP",
                 "type": "scatter",
@@ -134,16 +150,9 @@ def chart_power_duration_curve(
                 "color": COLORS["primary"],
                 "marker": {"size": 8, "symbol": "circle"},
             },
-            cp_curve,  # Can be None
-            {
-                "name": "FTP",
-                "type": "line",
-                "x": [0.1, 100],
-                "y": [ftp, ftp] if ftp else None,
-                "color": COLORS["warning"],
-                "dash": "dot",
-            } if ftp else None,
-        ],
+            cp_curve,
+            ftp_curve,
+        ),
         
         "legend": {"position": "top-right"},
     }
@@ -805,7 +814,7 @@ def chart_hr_kinetics(
             "format": ".0f",
         },
         
-        "series": [
+        "series": _chart_series(
             {
                 "name": "Actual HR",
                 "type": "scatter",
@@ -815,7 +824,7 @@ def chart_hr_kinetics(
                 "marker": {"size": 4},
             },
             fit_curve,
-        ],
+        ),
     }
 
 
@@ -875,7 +884,7 @@ def chart_power_hr_scatter(
             "format": ".0f",
         },
         
-        "series": [
+        "series": _chart_series(
             {
                 "name": "Data Points",
                 "x": power_values,
@@ -890,7 +899,7 @@ def chart_power_hr_scatter(
                 "color": COLORS["danger"],
                 "marker": {"size": 12, "symbol": "star"},
             } if mlss_power and mlss_hr else None,
-        ],
+        ),
     }
 
 

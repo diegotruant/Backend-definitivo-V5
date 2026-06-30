@@ -43,6 +43,13 @@ class ChartConfigBody(BaseModel):
 
     model_config = {"extra": "allow"}
 
+    @field_validator("series", mode="before")
+    @classmethod
+    def drop_null_series_entries(cls, value: Any) -> Any:
+        if not isinstance(value, list):
+            return value
+        return [item for item in value if item is not None]
+
 
 class ChartConfigEnvelope(BaseModel):
     """Response envelope from build_chart_config / POST /meta/chart-config."""

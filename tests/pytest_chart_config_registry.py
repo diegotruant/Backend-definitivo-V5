@@ -114,6 +114,26 @@ def test_chart_config_lactate_from_steps() -> None:
     assert out["config"]["measurement_tier"] == "LAB_MEASURED"
 
 
+def test_chart_config_mmp_without_optional_overlays_has_no_null_series() -> None:
+    mmp = {60: 400, 300: 320, 1200: 280}
+    out = build_chart_config("mmp", {"mmp": mmp})
+    series = out["config"]["series"]
+    assert None not in series
+    assert len(series) == 1
+    assert series[0]["name"] == "MMP"
+
+
+def test_chart_config_mmp_with_cp_and_ftp_series() -> None:
+    mmp = {60: 400, 300: 320, 1200: 280}
+    out = build_chart_config(
+        "mmp",
+        {"mmp": mmp, "cp_model": {"cp": 270, "w_prime": 20000}, "ftp": 250},
+    )
+    names = {s["name"] for s in out["config"]["series"]}
+    assert names == {"MMP", "CP Model Fit", "FTP"}
+    assert None not in out["config"]["series"]
+
+
 def test_meta_chart_config_http_vo2_demand() -> None:
     response = client.post(
         "/meta/chart-config",
