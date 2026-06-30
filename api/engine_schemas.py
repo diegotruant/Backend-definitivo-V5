@@ -321,14 +321,9 @@ class AdaptiveLoadRequest(BaseModel):
 
 
 class ChartConfigRequest(BaseModel):
-    chart_type: Literal[
-        "mmp",
-        "zones",
-        "hrv",
-        "training_load",
-        "detraining",
-        "power_duration",
-    ]
+    chart_type: str = Field(
+        description="Chart identifier. Use GET /meta/chart-types for the full catalog.",
+    )
     payload: Dict[str, Any] = Field(default_factory=dict)
 
 

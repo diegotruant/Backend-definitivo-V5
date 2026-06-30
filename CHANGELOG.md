@@ -1,5 +1,22 @@
 # Changelog
 
+## [5.2.5] — 2026-06-30
+
+Wire all chart builders to `/meta/chart-config`; metabolic/W′/fuel partitioning charts.
+
+### Added
+
+- `engines/io/chart_registry.py` — 33 chart types (13 `chart_builder` + 14 `activity_charts` + 6 metabolic/session)
+- `GET /meta/chart-types` — catalog with `required_keys` per chart
+- `chart_config.v1` schema on metabolic curve outputs (`chart_from_metabolic_curve`)
+- `session_fuel_partitioning` chart — CHO vs fat rate (g/min) + cumulative series
+- `w_prime_balance`, `vo2_demand`, `lactate` chart types on meta endpoint
+- `docs/CHART_CONFIG_CONTRACT.md`
+
+### Changed
+
+- `/meta/chart-config` `chart_type` is an open string validated against registry (was 6-type Literal)
+
 ## [5.2.4] — 2026-06-30
 
 TwinState metabolic curves persistence, Mader bimodal contracts, ingest pipeline architecture doc.

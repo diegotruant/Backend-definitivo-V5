@@ -19,6 +19,11 @@ def engine_tiers(service: MetaService = Depends(get_meta_service)):
     return json_response(service.engine_tiers())
 
 
+@router.get("/chart-types", operation_id="metaChartTypes", response_model=EnginePayload, responses={200: JSON_OBJECT})
+def chart_types(service: MetaService = Depends(get_meta_service)):
+    return json_response(service.chart_types())
+
+
 @router.post("/chart-config", operation_id="metaChartConfig", response_model=EnginePayload, responses={200: JSON_OBJECT})
 def chart_config(req: ChartConfigRequest, service: MetaService = Depends(get_meta_service)):
     return json_response(service.chart_config(req))

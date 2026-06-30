@@ -953,6 +953,168 @@ def chart_hr_recovery(
 
 
 # =============================================================================
+# METABOLIC / SESSION CURVES (coach curve contract → chart config)
+# =============================================================================
+
+CHART_CONFIG_SCHEMA_VERSION = "chart_config.v1"
+
+
+def chart_from_metabolic_curve(curve: Dict[str, Any]) -> Dict[str, Any]:
+    """Wrap a metabolic_coach_curves single-curve dict into a chart config envelope."""
+    if not isinstance(curve, dict) or not curve.get("points"):
+        return {
+            "schema_version": CHART_CONFIG_SCHEMA_VERSION,
+            "type": "unavailable",
+            "available": False,
+            "reason": "empty_or_missing_curve",
+            "curve_id": curve.get("curve_id") if isinstance(curve, dict) else None,
+        }
+
+    x_axis = curve.get("x_axis") or {}
+    x_key = x_axis.get("key", "x")
+    y_defs = curve.get("y_axis") or []
+    points = curve["points"]
+
+    series: List[Dict[str, Any]] = []
+    palette = [COLORS["primary"], COLORS["fat"], COLORS["carb"], COLORS["secondary"]]
+    for idx, y_def in enumerate(y_defs):
+        y_key = y_def.get("key")
+        if not y_key:
+            continue
+        series.append({
+            "name": y_def.get("label", y_key),
+            "x": [p.get(x_key) for p in points],
+            "y": [p.get(y_key) for p in points],
+            "color": palette[idx % len(palette)],
+        })
+
+    hint = curve.get("frontend_hint") or {}
+    return {
+        "schema_version": CHART_CONFIG_SCHEMA_VERSION,
+        "type": hint.get("chart_type", "line"),
+        "title": curve.get("title", curve.get("curve_id", "Curve")),
+        "description": "; ".join(curve.get("limitations") or []),
+        "curve_id": curve.get("curve_id"),
+        "measurement_tier": curve.get("measurement_tier"),
+        "confidence_score": curve.get("confidence_score"),
+        "x_axis": {"label": x_key, "unit": x_axis.get("unit", "")},
+        "y_axes": y_defs,
+        "series": series,
+        "anchors": curve.get("anchors") or [],
+        "multi_series": bool(hint.get("multi_series")),
+        "show_anchors": bool(hint.get("show_anchors", True)),
+        "summary": curve.get("summary"),
+    }
+
+
+def chart_session_fuel_partitioning(
+    points: List[Dict[str, Any]],
+    *,
+    summary: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """CHO vs fat oxidation rate (g/min) and cumulative demand over the session."""
+    if not points:
+        return {
+            "schema_version": CHART_CONFIG_SCHEMA_VERSION,
+            "type": "unavailable",
+            "available": False,
+            "reason": "empty_session_fuel_points",
+        }
+
+    time_s = [p.get("time_s") for p in points]
+    return {
+        "schema_version": CHART_CONFIG_SCHEMA_VERSION,
+        "type": "line_multi",
+        "title": "Session fuel partitioning",
+        "description": "Estimated CHO and fat oxidation rates and cumulative demand (model, not calorimetry).",
+        "measurement_tier": "MODEL_ESTIMATE",
+        "x_axis": {"label": "Time", "unit": "s", "data": time_s},
+        "y_axes": [
+            {"id": "rate", "label": "Oxidation rate", "unit": "g/min"},
+            {"id": "cumulative", "label": "Cumulative demand", "unit": "g"},
+        ],
+        "series": [
+            {
+                "name": "CHO rate",
+                "y_axis_id": "rate",
+                "x": time_s,
+                "y": [p.get("carbohydrate_g_min_est") for p in points],
+                "color": COLORS["carb"],
+            },
+            {
+                "name": "Fat rate",
+                "y_axis_id": "rate",
+                "x": time_s,
+                "y": [p.get("fat_g_min_est") for p in points],
+                "color": COLORS["fat"],
+            },
+            {
+                "name": "Cumulative CHO",
+                "y_axis_id": "cumulative",
+                "x": time_s,
+                "y": [p.get("cumulative_carbohydrate_g") for p in points],
+                "color": COLORS["warning"],
+                "dash": "dash",
+            },
+            {
+                "name": "Cumulative fat",
+                "y_axis_id": "cumulative",
+                "x": time_s,
+                "y": [p.get("cumulative_fat_g") for p in points],
+                "color": COLORS["success"],
+                "dash": "dash",
+            },
+        ],
+        "summary": summary or {},
+    }
+
+
+def chart_w_prime_balance(
+    time_s: List[float],
+    w_prime_balance_pct: List[float],
+    *,
+    w_prime_balance_j: Optional[List[float]] = None,
+    cp_w: Optional[float] = None,
+) -> Dict[str, Any]:
+    """W′ balance depletion/recovery over a session."""
+    series: List[Dict[str, Any]] = [
+        {
+            "name": "W′ balance %",
+            "x": time_s,
+            "y": w_prime_balance_pct,
+            "color": COLORS["primary"],
+            "y_axis_id": "pct",
+        }
+    ]
+    if w_prime_balance_j:
+        series.append({
+            "name": "W′ balance (J)",
+            "x": time_s,
+            "y": w_prime_balance_j,
+            "color": COLORS["secondary"],
+            "y_axis_id": "joules",
+            "opacity": 0.5,
+        })
+
+    return {
+        "schema_version": CHART_CONFIG_SCHEMA_VERSION,
+        "type": "line_multi",
+        "title": "W′ balance",
+        "description": f"Anaerobic work capacity relative to CP={cp_w:.0f} W" if cp_w else "W′ depletion and recovery",
+        "measurement_tier": "MODEL_ESTIMATE",
+        "x_axis": {"label": "Time", "unit": "s"},
+        "y_axes": [
+            {"id": "pct", "label": "W′ remaining", "unit": "%"},
+            {"id": "joules", "label": "W′ remaining", "unit": "J"},
+        ],
+        "series": series,
+        "reference_lines": [
+            {"y": 40, "label": "Low W′ warning", "color": COLORS["warning"], "y_axis_id": "pct"},
+        ],
+    }
+
+
+# =============================================================================
 # HELPER: Generate all charts for a workout
 # =============================================================================
 
