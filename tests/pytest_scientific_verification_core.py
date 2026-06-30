@@ -12,8 +12,15 @@ import pytest
 
 from api.chart_schemas import validate_chart_envelope
 from engines.io.chart_registry import build_chart_config, get_chart_registry
-from engines.performance.training_variability_engine import calculate_acwr, calculate_monotony_strain
-from engines.readiness.readiness_engine import compute_load_risk, compute_readiness_today, update_load_state
+from engines.performance.training_variability_engine import (
+    calculate_acwr,
+    calculate_monotony_strain,
+)
+from engines.readiness.readiness_engine import (
+    compute_load_risk,
+    compute_readiness_today,
+    update_load_state,
+)
 from tests.chart_output_quality import minimal_chart_payloads
 from tests.product_quality import assert_finite_json_tree, assert_no_null_in_named_lists
 
@@ -97,13 +104,13 @@ def test_high_load_risk_penalizes_readiness_and_adds_warning() -> None:
 
 
 def test_acwr_is_monotonic_with_acute_load_when_chronic_load_is_fixed() -> None:
-    low = calculate_acwr(acute_load=40.0, chronic_load=60.0)
-    high = calculate_acwr(acute_load=90.0, chronic_load=60.0)
+    low = calculate_acwr(atl=40.0, ctl=60.0)
+    high = calculate_acwr(atl=90.0, ctl=60.0)
 
     assert low["status"] == "success"
     assert high["status"] == "success"
     assert low["acwr"] < high["acwr"]
-    assert low["risk_zone"] != high["risk_zone"] or high["acwr"] >= 1.0
+    assert low["risk_level"] != high["risk_level"] or high["acwr"] >= 1.0
     assert_finite_json_tree(low, path="acwr_low")
     assert_finite_json_tree(high, path="acwr_high")
 
