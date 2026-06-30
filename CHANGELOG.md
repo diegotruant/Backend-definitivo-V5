@@ -11,10 +11,12 @@ Chart roadmap items: ACWR, readiness, durability, race overlay, Kalman, PMC fore
 - `api/chart_schemas.py` — Pydantic `ChartConfigEnvelope` validation on `/meta/chart-config`
 - `POST /dashboard/athlete-snapshot` — readiness, load risk, ACWR, twin highlights, chart hints
 - `tests/pytest_chart_roadmap_items.py`
+- `docs/RELEASE_NOTES_v5.2.6.md`
 
 ### Changed
 
-- API version **5.2.6**; chart catalog now **42** types
+- API version **5.2.6**; chart catalog **42** types; OpenAPI **134** paths
+- Full repo version alignment: `VERSION`, `pyproject.toml`, `.env.example`, README, docs, `openapi/openapi.json`, frontend `client.ts`
 
 ## [5.2.5] — 2026-06-30
 

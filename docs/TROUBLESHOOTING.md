@@ -70,7 +70,7 @@ Common issues when running or integrating the Digital Twin API.
 |---------|-----|
 | TS type errors after pull | `make openapi-frontend` in backend repo, copy new `schema.ts` |
 | `client.ts` path not in spec | Regenerate OpenAPI; paths must match current documented endpoints (see `openapi/openapi.json`) |
-| `pytest_frontend_client_contract` fails | Align client + openapi in same commit (132 paths must match) |
+| `pytest_frontend_client_contract` fails | Align client + openapi in same commit (134 paths must match) |
 | Contract-first test fails | Fix engine/service per `docs/CONTRACT_FIRST_TESTING.md` — do not weaken the test unless product contract changed |
 
 ---

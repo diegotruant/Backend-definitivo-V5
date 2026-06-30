@@ -20,7 +20,7 @@ This document describes the **product-contract test methodology** used to harden
 | `tests/pytest_science_contracts.py` | Scientific tier labels, fatmax/vlamax disclaimers | `pytest tests/pytest_science_contracts.py` |
 | `tests/pytest_chart_config_registry.py` | All 33 chart types wired to `/meta/chart-config` | `pytest tests/pytest_chart_config_registry.py` |
 | `tests/pytest_performance_coach_curves.py` | W′ balance, fuel demand, recovery behavior (not just output presence) | `pytest tests/pytest_performance_coach_curves.py` |
-| `tests/pytest_frontend_client_contract.py` | OpenAPI ↔ `client.ts` 1:1 (132 paths) | `pytest tests/pytest_frontend_client_contract.py` |
+| `tests/pytest_frontend_client_contract.py` | OpenAPI ↔ `client.ts` 1:1 (134 paths) | `pytest tests/pytest_frontend_client_contract.py` |
 | `tests/pytest_openapi_contract.py` | Committed spec ↔ live `app.openapi()` | `pytest tests/pytest_openapi_contract.py` |
 
 ## What contract tests catch (examples)

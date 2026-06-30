@@ -8,7 +8,7 @@ The product must not look like a clone of a social activity platform, consumer p
 
 ## What is already ready in the backend
 
-- Stateless FastAPI API — **132 OpenAPI paths** (`docs/API_ENDPOINT_INDEX.md`).
+- Stateless FastAPI API — **134 OpenAPI paths** (`docs/API_ENDPOINT_INDEX.md`).
 - **20 coach endpoints** — decision safety, fueling, periodization, daily brief (`docs/COACH_DECISION_ENGINE.md`).
 - FIT parsing and activity ingestion.
 - Metabolic profile from MMP (snapshot + extended profile/lab/kalman HTTP APIs).
@@ -22,9 +22,9 @@ The product must not look like a clone of a social activity platform, consumer p
 
 | File | Purpose |
 |---|---|
-| `openapi/openapi.json` | Committed HTTP contract (132 paths) |
+| `openapi/openapi.json` | Committed HTTP contract (134 paths) |
 | `docs/API_ENDPOINT_INDEX.md` | Endpoint inventory by tag |
-| `docs/FRONTEND_DEVELOPER_GUIDE.md` | Extended technical guide (v5.2.3) |
+| `docs/FRONTEND_DEVELOPER_GUIDE.md` | Extended technical guide (v5.2.6) |
 | `docs/COACH_DECISION_ENGINE.md` | Coach layer API reference |
 | `docs/STRENGTH_AND_FUELING_CONTRACT.md` | Fueling CHO/FAT grams contract |
 | `docs/CONTRACT_FIRST_TESTING.md` | How we test product semantics |

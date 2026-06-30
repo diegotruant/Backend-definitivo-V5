@@ -1,4 +1,4 @@
-# Architecture — Backend Digital Twin V5.2.4
+# Architecture — Backend Digital Twin V5.2.6
 
 This document describes the **intended layering** after the professional refactor.
 It is the reference for new contributors.
@@ -76,7 +76,7 @@ FastAPI exposes the contract at:
 
 Committed artifacts:
 
-- `openapi/openapi.json` — canonical spec (**132 paths**, v5.2.3)
+- `openapi/openapi.json` — canonical spec (**134 paths**, v5.2.6)
 - `frontend/src/api/generated/schema.ts` — TypeScript types (`make openapi-frontend`)
 - `frontend/src/api/client.ts` — typed client for all endpoints
 

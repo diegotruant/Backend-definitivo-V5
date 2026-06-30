@@ -3,7 +3,7 @@
   "info": {
     "title": "Digital Twin Fisiologico API",
     "description": "Stateless physiology analytics API. HTTP routers are thin; application services orchestrate engines under `engines/`.",
-    "version": "5.2.3",
+    "version": "5.2.6",
     "x-codegen": {
       "typescript_output": "frontend/src/api/generated/schema.ts",
       "regenerate": "make openapi-frontend",
@@ -51,7 +51,7 @@
                       "title": "Version",
                       "description": "API semver.",
                       "examples": [
-                        "5.2.2"
+                        "5.2.6"
                       ]
                     }
                   },
@@ -6802,6 +6802,32 @@
         }
       }
     },
+    "/meta/chart-types": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Chart Types",
+        "operationId": "metaChartTypes",
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/meta/chart-config": {
       "post": {
         "tags": [
@@ -8662,6 +8688,73 @@
           }
         }
       }
+    },
+    "/dashboard/athlete-snapshot": {
+      "post": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Athlete dashboard snapshot",
+        "description": "Aggregates readiness, load risk, ACWR, twin highlights and chart hints for coach home.",
+        "operationId": "dashboardAthleteSnapshot",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AthleteSnapshotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -9022,6 +9115,103 @@
         "type": "object",
         "title": "AthleteProfileSnippet",
         "description": "Subset of athlete fields commonly embedded in TwinState or workout context."
+      },
+      "AthleteSnapshotRequest": {
+        "properties": {
+          "twin_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Twin State"
+          },
+          "load_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load State"
+          },
+          "hrv_status": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hrv Status"
+          },
+          "sleep_status": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sleep Status"
+          },
+          "subjective": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subjective"
+          },
+          "daily_tss": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Tss"
+          },
+          "last_ride_summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Ride Summary"
+          },
+          "include_chart_hints": {
+            "type": "boolean",
+            "title": "Include Chart Hints",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "AthleteSnapshotRequest"
       },
       "BayesianSnapshotRequest": {
         "properties": {
@@ -10669,15 +10859,8 @@
         "properties": {
           "chart_type": {
             "type": "string",
-            "enum": [
-              "mmp",
-              "zones",
-              "hrv",
-              "training_load",
-              "detraining",
-              "power_duration"
-            ],
-            "title": "Chart Type"
+            "title": "Chart Type",
+            "description": "Chart identifier. Use GET /meta/chart-types for the full catalog."
           },
           "payload": {
             "additionalProperties": true,
@@ -13378,7 +13561,7 @@
             "title": "Version",
             "description": "API semver.",
             "examples": [
-              "5.2.2"
+              "5.2.6"
             ]
           }
         },
@@ -16743,6 +16926,41 @@
               }
             ],
             "title": "Ride Id"
+          },
+          "metabolic_snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot",
+            "description": "Refreshed metabolic snapshot (e.g. after /ride/update-profile). Triggers metabolic_curves sync."
+          },
+          "lactate_steps": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lactate Steps",
+            "description": "Measured lactate steps from lab/Mader test; updates lactate_state when provided."
+          },
+          "sync_metabolic_curves": {
+            "type": "boolean",
+            "title": "Sync Metabolic Curves",
+            "description": "When metabolic_snapshot or lactate_steps are supplied, refresh TwinState curve sections.",
+            "default": true
           }
         },
         "type": "object",
@@ -17882,6 +18100,10 @@
     {
       "name": "integrations",
       "description": "External activity normalization and deduplication."
+    },
+    {
+      "name": "dashboard",
+      "description": "Coach dashboard snapshots and aggregated athlete home data."
     },
     {
       "name": "meta",

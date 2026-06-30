@@ -52,9 +52,9 @@ The backend remains stateless:
 
 ## Validation performed (historical baseline — see V5.2.3)
 
-Current gate (V5.2.3):
+Current gate (V5.2.6):
 
-- `python scripts/export_openapi.py` → **132 paths**
+- `python scripts/export_openapi.py` → **134 paths**
 - `pytest tests/pytest_engines_contract_all.py tests/pytest_contract_full_codebase.py` → 254 contract tests
 - `pytest tests/pytest_*.py` → **~1843 passed**
 - `pytest tests/pytest_frontend_client_contract.py` — OpenAPI ↔ client.ts 1:1

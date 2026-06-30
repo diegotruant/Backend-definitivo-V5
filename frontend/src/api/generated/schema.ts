@@ -1759,6 +1759,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/meta/chart-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Chart Types */
+        get: operations["metaChartTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/meta/chart-config": {
         parameters: {
             query?: never;
@@ -2341,6 +2358,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dashboard/athlete-snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Athlete dashboard snapshot
+         * @description Aggregates readiness, load risk, ACWR, twin highlights and chart hints for coach home.
+         */
+        post: operations["dashboardAthleteSnapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2479,6 +2516,40 @@ export interface components {
             ftp?: number | null;
         } & {
             [key: string]: unknown;
+        };
+        /** AthleteSnapshotRequest */
+        AthleteSnapshotRequest: {
+            /** Twin State */
+            twin_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Load State */
+            load_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Hrv Status */
+            hrv_status?: {
+                [key: string]: unknown;
+            } | null;
+            /** Sleep Status */
+            sleep_status?: {
+                [key: string]: unknown;
+            } | null;
+            /** Subjective */
+            subjective?: {
+                [key: string]: unknown;
+            } | null;
+            /** Daily Tss */
+            daily_tss?: number[] | null;
+            /** Last Ride Summary */
+            last_ride_summary?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Include Chart Hints
+             * @default true
+             */
+            include_chart_hints: boolean;
         };
         /** BayesianSnapshotRequest */
         BayesianSnapshotRequest: {
@@ -3062,9 +3133,9 @@ export interface components {
         ChartConfigRequest: {
             /**
              * Chart Type
-             * @enum {string}
+             * @description Chart identifier. Use GET /meta/chart-types for the full catalog.
              */
-            chart_type: "mmp" | "zones" | "hrv" | "training_load" | "detraining" | "power_duration";
+            chart_type: string;
             /** Payload */
             payload?: {
                 [key: string]: unknown;
@@ -3709,6 +3780,10 @@ export interface components {
             weekly_hours: number;
             /** Goal */
             goal?: {
+                [key: string]: unknown;
+            } | null;
+            /** Athlete Profile */
+            athlete_profile?: {
                 [key: string]: unknown;
             } | null;
         };
@@ -5316,6 +5391,26 @@ export interface components {
             } | null;
             /** Ride Id */
             ride_id?: string | null;
+            /**
+             * Metabolic Snapshot
+             * @description Refreshed metabolic snapshot (e.g. after /ride/update-profile). Triggers metabolic_curves sync.
+             */
+            metabolic_snapshot?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Lactate Steps
+             * @description Measured lactate steps from lab/Mader test; updates lactate_state when provided.
+             */
+            lactate_steps?: {
+                [key: string]: unknown;
+            }[] | null;
+            /**
+             * Sync Metabolic Curves
+             * @description When metabolic_snapshot or lactate_steps are supplied, refresh TwinState curve sections.
+             * @default true
+             */
+            sync_metabolic_curves: boolean;
         };
         /** TwinStateUpdateWorkoutRequest */
         TwinStateUpdateWorkoutRequest: {
@@ -10089,6 +10184,26 @@ export interface operations {
             };
         };
     };
+    metaChartTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+        };
+    };
     metaChartConfig: {
         parameters: {
             query?: never;
@@ -11345,6 +11460,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dashboardAthleteSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AthleteSnapshotRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Detail
+                         * @description Human-readable message or structured error object.
+                         */
+                        detail: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

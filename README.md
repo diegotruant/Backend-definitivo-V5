@@ -2,7 +2,7 @@
 
 Python backend for physiological analysis and cycling performance (Digital Twin).
 
-Current version: **5.2.4** — TwinState metabolic curves, ingest pipeline architecture, Mader bimodal contracts (132 OpenAPI paths).
+Current version: **5.2.6** — 42 chart types, dashboard snapshot, full chart-config registry (134 OpenAPI paths).
 
 ## Overview
 
@@ -11,7 +11,7 @@ Current version: **5.2.4** — TwinState metabolic curves, ingest pipeline archi
 | **HTTP Entrypoint** | `api_app.py` | Compatible shim for `uvicorn api_app:app` |
 | **API package** | `api/` | Routers, services, schemas, upload, serialization |
 | **Physiological engines** | `engines/` | Algorithms, tiers, metric contracts |
-| **OpenAPI contract** | `openapi/openapi.json` | **132 documented endpoints** |
+| **OpenAPI contract** | `openapi/openapi.json` | **134 documented endpoints** |
 | **Frontend client** | `frontend/src/api/` | Generated TS types + `api.*` client (all paths) |
 | **Tests** | `tests/` | pytest smoke/hardening + `tests/integration/` |
 
@@ -140,7 +140,7 @@ See `docs/CONTRACT_FIRST_TESTING.md` for the product-contract methodology (~1843
 │   ├── workouts/             # prescription, compliance, calendar
 │   ├── projection/           # season what-if
 │   └── integrations/         # external activity normalize/dedupe
-├── openapi/openapi.json      # committed OpenAPI 3.1 (132 paths)
+├── openapi/openapi.json      # committed OpenAPI 3.1 (134 paths)
 ├── frontend/                 # Vite/React + api/client.ts
 ├── tests/
 ├── docs/                     # architecture, frontend guide, API index
@@ -154,8 +154,9 @@ See `docs/CONTRACT_FIRST_TESTING.md` for the product-contract methodology (~1843
 
 | Document | Content |
 |----------|---------|
-| [`docs/API_ENDPOINT_INDEX.md`](docs/API_ENDPOINT_INDEX.md) | **All 132 endpoints** by tag |
-| [`docs/RELEASE_NOTES_v5.2.4.md`](docs/RELEASE_NOTES_v5.2.4.md) | V5.2.4 — TwinState curves, ingest pipeline architecture |
+| [`docs/API_ENDPOINT_INDEX.md`](docs/API_ENDPOINT_INDEX.md) | **All 134 endpoints** by tag |
+| [`docs/RELEASE_NOTES_v5.2.6.md`](docs/RELEASE_NOTES_v5.2.6.md) | V5.2.6 — chart roadmap, dashboard, version alignment |
+| [`docs/CHART_CONFIG_CONTRACT.md`](docs/CHART_CONFIG_CONTRACT.md) | 42 chart types + `/meta/chart-config` |
 | [`docs/INGEST_PIPELINE_ARCHITECTURE.md`](docs/INGEST_PIPELINE_ARCHITECTURE.md) | S3 → VPS worker → Postgres → coach UI |
 | [`docs/METABOLIC_CURVES_TWIN_CONTRACT.md`](docs/METABOLIC_CURVES_TWIN_CONTRACT.md) | VO₂/lactate curves on TwinState (frontend/DB) |
 | [`docs/RELEASE_NOTES_v5.2.3.md`](docs/RELEASE_NOTES_v5.2.3.md) | V5.2.3 — coach layer, contract testing, fueling fat_g |
@@ -194,7 +195,7 @@ Bug fixes and API additions require tests + `make check`. After router/schema ch
 
 ## What V5.2 includes
 
-- **132 OpenAPI endpoints** — full engine + coach coverage over HTTP
+- **134 OpenAPI endpoints** — full engine + coach + chart + dashboard coverage over HTTP
 - **20 coach endpoints** — decision safety, daily brief, fueling, periodization, …
 - Contract-first test suites (`docs/CONTRACT_FIRST_TESTING.md`)
 - Metabolic snapshot, Kalman, bayesian profile, glycolytic/vLaPeak validation
@@ -209,5 +210,4 @@ Bug fixes and API additions require tests + `make check`. After router/schema ch
 
 ## Branch
 
-- `main` — current backend (5.2.3)
-- `old/main` — pre-architectural-refactor snapshot
+- `main` — current backend (**5.2.6**)

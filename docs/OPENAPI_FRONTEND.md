@@ -52,7 +52,7 @@ try {
 
 ## All endpoints in the client
 
-The typed client (`frontend/src/api/client.ts`) exposes **all 132 OpenAPI paths** — one `jsonFetch` call per route.
+The typed client (`frontend/src/api/client.ts`) exposes **all 134 OpenAPI paths** — one `jsonFetch` call per route.
 
 | Tag | Paths | Highlights |
 |-----|------:|------------|

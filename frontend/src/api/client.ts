@@ -572,12 +572,19 @@ export const api = {
   loadMonotonyStrain: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/load/monotony-strain', { method: 'POST', body: JSON.stringify(payload) }),
 
+  /** GET /meta/chart-types */
+  metaChartTypes: () => jsonFetch<EnginePayload>('/meta/chart-types'),
+
   /** POST /meta/chart-config */
   metaChartConfig: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/meta/chart-config', { method: 'POST', body: JSON.stringify(payload) }),
 
   /** GET /meta/engine-tiers */
   metaEngineTiers: () => jsonFetch<EnginePayload>('/meta/engine-tiers'),
+
+  /** POST /dashboard/athlete-snapshot */
+  dashboardAthleteSnapshot: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/dashboard/athlete-snapshot', { method: 'POST', body: JSON.stringify(payload) }),
 
   /** POST /profile/cross-validate */
   profileCrossValidate: (payload: Record<string, unknown>) =>

@@ -18,7 +18,7 @@ Response:
 {
   "status": "ok",
   "service": "digital-twin-api",
-  "version": "5.2.3"
+  "version": "5.2.6"
 }
 ```
 
