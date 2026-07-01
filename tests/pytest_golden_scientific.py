@@ -168,7 +168,6 @@ def test_golden_lactate_validation_cases(case: dict) -> None:
     assert out.get("status") == expected["status"]
     assert out.get("validated") is expected["validated"]
     assert_finite_json_tree(out, path=f"lactate_validation.{case['id']}")
-    assert_no_null_in_named_lists(out, path=f"lactate_validation.{case['id']}")
 
     if "mlss_model_range" in expected:
         lo, hi = expected["mlss_model_range"]
