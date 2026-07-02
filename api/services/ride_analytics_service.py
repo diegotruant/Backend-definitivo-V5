@@ -34,7 +34,7 @@ from engines.performance.power_engine import PowerEngine, estimate_ftp_from_mmp,
 from engines.performance.w_prime_balance_engine import analyze_w_prime_usage, calculate_w_prime_balance
 from engines.recovery.cardiac_engine import ActivitySample, CardiacResponseAnalyzer
 from engines.core.tiers import tier_for
-from engines.recovery.hrv_engine import analyze_rr_stream
+from engines.recovery.hrv_endurance_schedule import analyze_rr_stream_endurance_scheduled
 from engines.recovery.pedaling_balance import analyze_pedaling_balance
 from engines.recovery.thermal_engine import analyze_heat_acclimation, analyze_thermal_session
 from engines.routes.segment_engine import compare_segments, detect_climb_segments
@@ -147,7 +147,8 @@ class RideAnalyticsService:
         stream: Any,
         *,
         window_seconds: int = 120,
-        step_seconds: float = 10.0,
+        step_seconds: Optional[float] = None,
+        max_windows: int = 500,
     ) -> Dict[str, Any]:
         if not getattr(stream, "has_rr", False):
             return {"status": "error", "reason": "NO_RR_DATA"}
@@ -156,12 +157,31 @@ class RideAnalyticsService:
             for i in range(stream.n_samples)
             if stream.rr_intervals[i]
         ]
-        timeline = analyze_rr_stream(rr_samples, window_seconds=window_seconds, step_seconds=step_seconds)
+        if not rr_samples:
+            return {"status": "error", "reason": "RR_INTERVALS_EMPTY"}
+
+        base_step = 10.0 if step_seconds is None else max(1.0, float(step_seconds))
+        timeline, schedule = analyze_rr_stream_endurance_scheduled(
+            rr_samples,
+            window_seconds=window_seconds,
+            step_seconds=base_step,
+            max_windows=max_windows,
+        )
         tier = tier_for("hrv_engine")
         return {
             "status": "success",
             "timeline": timeline,
             "n_windows": len(timeline),
+            "window_seconds": int(window_seconds),
+            "step_seconds": schedule.get("dense_step_seconds"),
+            "dense_step_seconds": schedule.get("dense_step_seconds"),
+            "sparse_step_seconds": schedule.get("sparse_step_seconds"),
+            "dense_until_seconds": schedule.get("dense_until_seconds"),
+            "schedule_mode": schedule.get("mode"),
+            "schedule": schedule,
+            "expected_windows_at_requested_step": schedule.get("expected_windows_at_requested_step", 0),
+            "max_windows": int(max_windows) if max_windows else None,
+            "adaptive_step_applied": bool(schedule.get("adaptive_step_applied")),
             "method": "dfa_alpha1",
             "tier": tier.value,
             "tier_explanation": tier.explanation,
