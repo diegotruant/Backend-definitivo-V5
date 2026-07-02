@@ -2853,6 +2853,13 @@ export interface components {
             discipline: string;
             /** Metabolic Snapshot Json */
             metabolic_snapshot_json?: string | null;
+            /** Hrv Step Seconds */
+            hrv_step_seconds?: number | null;
+            /**
+             * Hrv Max Windows
+             * @default 500
+             */
+            hrv_max_windows: number;
             /** File */
             file?: string | null;
             /** Power Json */

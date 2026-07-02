@@ -56,3 +56,31 @@ def test_ride_analytics_hrv_service_uses_two_phase_schedule_with_explicit_step()
     assert result["n_windows"] <= 505
     assert result["dense_step_seconds"] <= 12.0
     assert result["sparse_step_seconds"] > result["dense_step_seconds"]
+
+
+def test_session_router_long_endurance_uses_two_phase_hrv() -> None:
+    from engines.io.session_router import route_and_run
+
+    stream = _long_rr_stream()
+    power = [float(stream.power[i] or 0) for i in range(stream.n_samples)]
+    rr = [
+        {"elapsed": float(stream.elapsed_s[i]), "rr": stream.rr_intervals[i]}
+        for i in range(stream.n_samples)
+        if stream.rr_intervals[i]
+    ]
+    out = route_and_run(
+        power,
+        rr_samples=rr,
+        elapsed_s=[float(stream.elapsed_s[i]) for i in range(stream.n_samples)],
+        weight_kg=72.0,
+        filename="endurance_long_ride.fit",
+        ftp=260.0,
+        hrv_max_windows=500,
+    )
+
+    assert out["routing"]["route"] == "ride_monitoring"
+    durability = out["results"]["hrv_durability"]
+    assert durability["status"] == "ok"
+    assert durability["schedule_mode"] == "two_phase_endurance"
+    assert durability["n_windows"] <= 505
+    assert durability["sparse_step_seconds"] > durability["dense_step_seconds"]

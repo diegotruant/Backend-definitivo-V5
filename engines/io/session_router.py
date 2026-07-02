@@ -56,6 +56,7 @@ import numpy as np
 from engines.core.athlete_context import AthleteContext
 from engines.core.tiers import tier_for
 from engines.performance.interval_detector import classify_session
+from engines.recovery.hrv_endurance_schedule import analyze_rr_stream_endurance_scheduled
 
 
 # Subtypes that are graded enough for clean DFA-alpha1 threshold detection.
@@ -157,6 +158,9 @@ def route_and_run(
     ftp: Optional[float] = None,
     context: Optional[AthleteContext] = None,
     metabolic_snapshot: Optional[Dict[str, Any]] = None,
+    hrv_window_seconds: int = 120,
+    hrv_step_seconds: float = 10.0,
+    hrv_max_windows: int = 500,
 ) -> Dict[str, Any]:
     """
     Full auto-pipeline: classify, then run the engines the route calls for.
@@ -190,7 +194,15 @@ def route_and_run(
     # --- HRV threshold (only on ramp-like tests) ---
     if "hrv_threshold_vt1_vt2" in decision.engines_to_run:
         try:
-            vt = _hrv_thresholds(rr_samples, parr, elapsed_s, ctx)
+            vt = _hrv_thresholds(
+                rr_samples,
+                parr,
+                elapsed_s,
+                ctx,
+                window_seconds=hrv_window_seconds,
+                step_seconds=hrv_step_seconds,
+                max_windows=hrv_max_windows,
+            )
             out["results"]["hrv_threshold"] = vt
         except Exception as e:
             out["skipped"]["hrv_threshold"] = f"error: {e}"
@@ -198,7 +210,14 @@ def route_and_run(
     # --- HRV durability / time-in-zone (rides, structured tests with RR) ---
     if "hrv_durability" in decision.engines_to_run:
         try:
-            out["results"]["hrv_durability"] = _hrv_durability(rr_samples, elapsed_s, ctx)
+            out["results"]["hrv_durability"] = _hrv_durability(
+                rr_samples,
+                elapsed_s,
+                ctx,
+                window_seconds=hrv_window_seconds,
+                step_seconds=hrv_step_seconds,
+                max_windows=hrv_max_windows,
+            )
         except Exception as e:
             out["skipped"]["hrv_durability"] = f"error: {e}"
 
@@ -260,13 +279,62 @@ def _dfa_tier_fields() -> Dict[str, str]:
     }
 
 
-def _hrv_thresholds(rr_samples, parr, elapsed_s, ctx) -> Dict[str, Any]:
+def _scheduled_rr_timeline(
+    rr_samples: Optional[List[Dict[str, Any]]],
+    *,
+    context: Optional[AthleteContext],
+    window_seconds: int = 120,
+    step_seconds: float = 10.0,
+    max_windows: int = 500,
+) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Bounded two-phase DFA timeline — same policy as /ride/summary and /ride/analytics/hrv."""
+    if not rr_samples:
+        return [], {"mode": "empty", "adaptive_step_applied": False}
+    timeline, schedule = analyze_rr_stream_endurance_scheduled(
+        rr_samples,
+        window_seconds=window_seconds,
+        step_seconds=step_seconds,
+        max_windows=max_windows,
+        context=context,
+    )
+    return timeline, schedule
+
+
+def _hrv_schedule_fields(schedule: Dict[str, Any]) -> Dict[str, Any]:
+    if not schedule:
+        return {}
+    return {
+        "schedule_mode": schedule.get("mode"),
+        "dense_step_seconds": schedule.get("dense_step_seconds"),
+        "sparse_step_seconds": schedule.get("sparse_step_seconds"),
+        "dense_until_seconds": schedule.get("dense_until_seconds"),
+        "adaptive_step_applied": bool(schedule.get("adaptive_step_applied")),
+        "expected_windows_at_requested_step": schedule.get("expected_windows_at_requested_step"),
+        "schedule": schedule,
+    }
+
+
+def _hrv_thresholds(
+    rr_samples,
+    parr,
+    elapsed_s,
+    ctx,
+    *,
+    window_seconds: int = 120,
+    step_seconds: float = 10.0,
+    max_windows: int = 500,
+) -> Dict[str, Any]:
     """VT1/VT2 in watts from DFA-alpha1 vs power (ramp test only)."""
-    from engines.recovery.hrv_engine import analyze_rr_stream
     if elapsed_s is None:
         raise ValueError("elapsed_s required for threshold/power alignment")
     elapsed = np.array(elapsed_s, dtype=float)
-    windows = analyze_rr_stream(rr_samples, window_seconds=120, step_seconds=10.0, context=ctx)
+    windows, schedule = _scheduled_rr_timeline(
+        rr_samples,
+        context=ctx,
+        window_seconds=window_seconds,
+        step_seconds=step_seconds,
+        max_windows=max_windows,
+    )
     pts = []
     for w in windows:
         t = w.get("timestamp")
@@ -282,7 +350,7 @@ def _hrv_thresholds(rr_samples, parr, elapsed_s, ctx) -> Dict[str, Any]:
             continue
         pts.append((a1, float(np.mean(pw))))
     if len(pts) < 8:
-        return {"status": "insufficient", "n_points": len(pts), **_dfa_tier_fields()}
+        return {"status": "insufficient", "n_points": len(pts), **_dfa_tier_fields(), **_hrv_schedule_fields(schedule)}
     arr = np.array(pts)
     a1v, pwv = arr[:, 0], arr[:, 1]
     # regression over the working band
@@ -304,20 +372,35 @@ def _hrv_thresholds(rr_samples, parr, elapsed_s, ctx) -> Dict[str, Any]:
                  "Weak alpha1-power relationship; thresholds indicative only "
                  "(this is why free rides are not used for thresholds)."),
         **_dfa_tier_fields(),
+        **_hrv_schedule_fields(schedule),
     }
 
 
-def _hrv_durability(rr_samples, elapsed_s, ctx) -> Dict[str, Any]:
+def _hrv_durability(
+    rr_samples,
+    elapsed_s,
+    ctx,
+    *,
+    window_seconds: int = 120,
+    step_seconds: float = 10.0,
+    max_windows: int = 500,
+) -> Dict[str, Any]:
     """Time-in-zone and DFA-alpha1 drift over the session (rides)."""
-    from engines.recovery.hrv_engine import analyze_rr_stream
     from collections import Counter
-    windows = analyze_rr_stream(rr_samples, window_seconds=120, step_seconds=10.0, context=ctx)
+
+    windows, schedule = _scheduled_rr_timeline(
+        rr_samples,
+        context=ctx,
+        window_seconds=window_seconds,
+        step_seconds=step_seconds,
+        max_windows=max_windows,
+    )
     a1_raw = [(w.get("alpha1_smoothed") or w.get("alpha1")) for w in windows]
     a1: List[float] = [float(x) for x in a1_raw if x is not None and not np.isnan(x)]
     status = Counter(w.get("status") for w in windows if w.get("status"))
     tot = sum(status.values()) or 1
     if not a1:
-        return {"status": "insufficient", **_dfa_tier_fields()}
+        return {"status": "insufficient", **_dfa_tier_fields(), **_hrv_schedule_fields(schedule)}
     # alpha1 drift: first third vs last third (durability signal)
     n = len(a1)
     first: float = float(np.mean(a1[: n // 3])) if n >= 3 else float(a1[0])
@@ -333,4 +416,5 @@ def _hrv_durability(rr_samples, elapsed_s, ctx) -> Dict[str, Any]:
                  "session. Negative drift = HRV moving toward anaerobic as "
                  "fatigue accumulates."),
         **_dfa_tier_fields(),
+        **_hrv_schedule_fields(schedule),
     }

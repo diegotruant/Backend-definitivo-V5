@@ -10071,6 +10071,22 @@
             ],
             "title": "Metabolic Snapshot Json"
           },
+          "hrv_step_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hrv Step Seconds"
+          },
+          "hrv_max_windows": {
+            "type": "integer",
+            "title": "Hrv Max Windows",
+            "default": 500
+          },
           "file": {
             "anyOf": [
               {

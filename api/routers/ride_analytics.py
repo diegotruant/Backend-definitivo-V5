@@ -267,6 +267,8 @@ async def session_route_run(
     training_years: float = Form(10),
     discipline: str = Form("ENDURANCE"),
     metabolic_snapshot_json: Optional[str] = Form(None),
+    hrv_step_seconds: Optional[float] = Form(None),
+    hrv_max_windows: int = Form(500),
     file: Optional[UploadFile] = File(None),
     power_json: Optional[str] = Form(None),
     hr_json: Optional[str] = Form(None),
@@ -280,6 +282,8 @@ async def session_route_run(
             athlete=athlete,
             ftp=ftp,
             metabolic_snapshot=parse_metabolic_snapshot(metabolic_snapshot_json),
+            hrv_step_seconds=10.0 if hrv_step_seconds is None else hrv_step_seconds,
+            hrv_max_windows=hrv_max_windows,
         )
     )
 

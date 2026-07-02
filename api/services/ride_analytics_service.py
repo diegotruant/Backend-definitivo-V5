@@ -282,6 +282,9 @@ class RideAnalyticsService:
         athlete: AthleteParams,
         ftp: Optional[float],
         metabolic_snapshot: Optional[Dict[str, Any]] = None,
+        hrv_window_seconds: int = 120,
+        hrv_step_seconds: float = 10.0,
+        hrv_max_windows: int = 500,
     ) -> Dict[str, Any]:
         ctx = athlete_context_from_params(athlete)
         rr = None
@@ -301,6 +304,9 @@ class RideAnalyticsService:
             ftp=ftp,
             context=ctx,
             metabolic_snapshot=metabolic_snapshot,
+            hrv_window_seconds=hrv_window_seconds,
+            hrv_step_seconds=hrv_step_seconds,
+            hrv_max_windows=hrv_max_windows,
         )
 
     def resilience(self, mader_durability: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
