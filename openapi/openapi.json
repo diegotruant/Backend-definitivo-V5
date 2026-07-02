@@ -3,7 +3,7 @@
   "info": {
     "title": "Digital Twin Fisiologico API",
     "description": "Stateless physiology analytics API. HTTP routers are thin; application services orchestrate engines under `engines/`.",
-    "version": "5.2.6",
+    "version": "5.2.7",
     "x-codegen": {
       "typescript_output": "frontend/src/api/generated/schema.ts",
       "regenerate": "make openapi-frontend",
@@ -51,7 +51,7 @@
                       "title": "Version",
                       "description": "API semver.",
                       "examples": [
-                        "5.2.6"
+                        "5.2.7"
                       ]
                     }
                   },
@@ -6742,6 +6742,52 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/IntegrationDeduplicateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integrations/health/daily-energy": {
+      "post": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Health Daily Energy",
+        "operationId": "integrationsHealthDailyEnergy",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntegrationHealthDailyEnergyRequest"
               }
             }
           },
@@ -13561,7 +13607,7 @@
             "title": "Version",
             "description": "API semver.",
             "examples": [
-              "5.2.6"
+              "5.2.7"
             ]
           }
         },
@@ -13989,6 +14035,57 @@
           "activities"
         ],
         "title": "IntegrationDeduplicateRequest"
+      },
+      "IntegrationHealthDailyEnergyRequest": {
+        "properties": {
+          "health_daily": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Health Daily"
+          },
+          "athlete": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Athlete"
+          },
+          "load_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load State"
+          },
+          "training_calories_kcal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training Calories Kcal"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "health_daily"
+        ],
+        "title": "IntegrationHealthDailyEnergyRequest",
+        "description": "Daily calorie sync from athlete app (Oura, Google Health / Health Connect)."
       },
       "IntegrationNormalizeRequest": {
         "properties": {

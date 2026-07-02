@@ -41,6 +41,14 @@ MMP = {"5": 900, "60": 400, "300": 320, "1200": 280}
         ("/ride/analytics/w-prime/balance", {"power": [300, 350, 400, 200, 150], "cp": 280, "w_prime": 20000}),
         ("/ride/analytics/durability/index", {"power": [250] * 7200}),
         ("/integrations/activity/normalize", {"activity": {"source": "strava", "duration_s": 3600}}),
+        ("/integrations/health/daily-energy", {
+            "health_daily": {
+                "total_calories_kcal": 2800,
+                "active_calories_kcal": 700,
+                "basal_calories_kcal": 1600,
+            },
+            "athlete": ATHLETE,
+        }),
     ],
 )
 def test_extended_engine_endpoints_return_json(path: str, payload: dict) -> None:

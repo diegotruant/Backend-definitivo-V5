@@ -2,7 +2,7 @@
 
 Python backend for physiological analysis and cycling performance (Digital Twin).
 
-Current version: **5.2.6** — 42 chart types, dashboard snapshot, full chart-config registry (134 OpenAPI paths).
+Current version: **5.2.7** — daily energy sync, 42 chart types, dashboard snapshot (135 OpenAPI paths).
 
 ## Overview
 
@@ -154,7 +154,7 @@ See `docs/CONTRACT_FIRST_TESTING.md` for the product-contract methodology (~1843
 
 | Document | Content |
 |----------|---------|
-| [`docs/API_ENDPOINT_INDEX.md`](docs/API_ENDPOINT_INDEX.md) | **All 134 endpoints** by tag |
+| [`docs/API_ENDPOINT_INDEX.md`](docs/API_ENDPOINT_INDEX.md) | **All 135 endpoints** by tag |
 | [`docs/RELEASE_NOTES_v5.2.6.md`](docs/RELEASE_NOTES_v5.2.6.md) | V5.2.6 — chart roadmap, dashboard, version alignment |
 | [`docs/CHART_CONFIG_CONTRACT.md`](docs/CHART_CONFIG_CONTRACT.md) | 42 chart types + `/meta/chart-config` |
 | [`docs/INGEST_PIPELINE_ARCHITECTURE.md`](docs/INGEST_PIPELINE_ARCHITECTURE.md) | S3 → VPS worker → Postgres → coach UI |

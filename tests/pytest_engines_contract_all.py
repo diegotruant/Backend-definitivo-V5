@@ -162,6 +162,25 @@ class TestIntegrationsContracts:
         assert out["duplicate_count"] == 1
 
 
+from engines.integrations.health_daily_normalizer import normalize_health_daily
+from engines.nutrition.daily_energy_engine import build_daily_energy_analysis
+
+
+class TestHealthDailyEnergyContracts:
+    def test_daily_energy_flags_physical_job(self) -> None:
+        out = build_daily_energy_analysis(
+            health_daily={"total_calories_kcal": 3100, "active_calories_kcal": 1100, "basal_calories_kcal": 1700},
+            athlete={"weight_kg": 75, "occupation_load": "physical_job"},
+            training_calories_kcal=250,
+        )
+        assert out["status"] == "success"
+        assert "high_non_training_load" in out["coach_flags"]
+
+    def test_normalize_health_daily_derives_total(self) -> None:
+        norm = normalize_health_daily({"active_calories_kcal": 800, "basal_calories_kcal": 1600})
+        assert norm["total_calories_kcal"] == 2400.0
+
+
 # ---------------------------------------------------------------------------
 # load
 # ---------------------------------------------------------------------------

@@ -1,5 +1,23 @@
 # Changelog
 
+## [5.2.7] — 2026-06-17
+
+Daily total energy engine for athlete-app health sync (Oura + Google Health).
+
+### Added
+
+- `engines/nutrition/daily_energy_engine.py` — classifies daily burn, non-training load (physical jobs), coach flags
+- `engines/integrations/health_daily_normalizer.py` — vendor key aliases (Health Connect, Oura)
+- `POST /integrations/health/daily-energy` — `daily_energy.v1` contract
+- `daily_energy_state` on TwinState build
+- `docs/HEALTH_DAILY_SYNC_CONTRACT.md`
+- `tests/pytest_daily_energy_engine.py`
+
+### Changed
+
+- API version **5.2.7**; OpenAPI **135** paths
+- Product quality gate includes `daily_energy` engine case
+
 ## [5.2.6] — 2026-06-17
 
 Chart roadmap items: ACWR, readiness, durability, race overlay, Kalman, PMC forecast, dashboard snapshot.

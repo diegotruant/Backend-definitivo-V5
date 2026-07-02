@@ -1,6 +1,6 @@
-# API endpoint index — Digital Twin API 5.2.6
+# API endpoint index — Digital Twin API 5.2.7
 
-Canonical inventory of **134 HTTP paths** from `openapi/openapi.json`.
+Canonical inventory of **135 HTTP paths** from `openapi/openapi.json`.
 Regenerate after API changes: `make openapi-frontend`.
 
 | Tag | Paths |
@@ -18,7 +18,7 @@ Regenerate after API changes: `make openapi-frontend`.
 | planning | 3 |
 | readiness | 3 |
 | test | 3 |
-| integrations | 2 |
+| integrations | 3 |
 | meta | 3 |
 | dashboard | 1 |
 | race | 2 |
@@ -215,12 +215,13 @@ Regenerate after API changes: `make openapi-frontend`.
 | POST | `/test/in-person` | `testInPerson` |
 | POST | `/test/propose` | `testPropose` |
 
-### integrations (2)
+### integrations (3)
 
 | Method | Path | operationId |
 |--------|------|-------------|
 | POST | `/integrations/activities/deduplicate` | `integrationsDeduplicateActivities` |
 | POST | `/integrations/activity/normalize` | `integrationsNormalizeActivity` |
+| POST | `/integrations/health/daily-energy` | `integrationsHealthDailyEnergy` |
 
 ### meta (3)
 

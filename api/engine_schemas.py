@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from api.schemas import AthleteParams, TauModel
 
@@ -310,6 +310,17 @@ class IntegrationNormalizeRequest(BaseModel):
 
 class IntegrationDeduplicateRequest(BaseModel):
     activities: List[Dict[str, Any]]
+
+
+class IntegrationHealthDailyEnergyRequest(BaseModel):
+    """Daily calorie sync from athlete app (Oura, Google Health / Health Connect)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    health_daily: Dict[str, Any]
+    athlete: Optional[Dict[str, Any]] = None
+    load_state: Optional[Dict[str, Any]] = None
+    training_calories_kcal: Optional[float] = None
 
 
 class AdaptiveLoadRequest(BaseModel):

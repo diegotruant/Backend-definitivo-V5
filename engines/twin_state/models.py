@@ -181,6 +181,27 @@ def _extract_nutrition_performance_state(payload: Dict[str, Any]) -> Dict[str, A
     }
 
 
+def _extract_daily_energy_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    direct = _as_dict(payload.get("daily_energy_state"))
+    if direct:
+        direct.setdefault("schema_version", "daily_energy_state.v1")
+        return direct
+    analysis = _as_dict(payload.get("daily_energy") or payload.get("daily_energy_analysis"))
+    if not analysis or analysis.get("schema_version") != "daily_energy.v1":
+        return {}
+    return {
+        "schema_version": "daily_energy_state.v1",
+        "latest_analysis": analysis,
+        "reported": _as_dict(analysis.get("reported")),
+        "derived": _as_dict(analysis.get("derived")),
+        "classifications": _as_dict(analysis.get("classifications")),
+        "coach_flags": _as_list(analysis.get("coach_flags")),
+        "nutrition_energy_context": _as_dict(analysis.get("nutrition_energy_context")),
+        "not_a_diet": analysis.get("not_a_diet", True),
+        "updated_at": payload.get("updated_at") or _now_iso(),
+    }
+
+
 def _extract_checkin_state(payload: Dict[str, Any]) -> Dict[str, Any]:
     direct = _as_dict(payload.get("checkin_state") or payload.get("athlete_checkin_state"))
     if direct:
@@ -504,6 +525,7 @@ def build_twin_state(payload: Dict[str, Any]) -> Dict[str, Any]:
         "lactate_state": _extract_lactate_state(payload),
         "strength_state": _extract_strength_state(payload),
         "nutrition_performance_state": _extract_nutrition_performance_state(payload),
+        "daily_energy_state": _extract_daily_energy_state(payload),
         "checkin_state": _extract_checkin_state(payload),
         "decision_safety_state": _extract_decision_safety_state(payload),
         "coach_attention_state": _extract_coach_attention_state(payload),

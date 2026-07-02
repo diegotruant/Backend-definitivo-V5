@@ -1742,6 +1742,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/integrations/health/daily-energy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Health Daily Energy */
+        post: operations["integrationsHealthDailyEnergy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/meta/engine-tiers": {
         parameters: {
             query?: never;
@@ -4199,6 +4216,28 @@ export interface components {
             activities: {
                 [key: string]: unknown;
             }[];
+        };
+        /**
+         * IntegrationHealthDailyEnergyRequest
+         * @description Daily calorie sync from athlete app (Oura, Google Health / Health Connect).
+         */
+        IntegrationHealthDailyEnergyRequest: {
+            /** Health Daily */
+            health_daily: {
+                [key: string]: unknown;
+            };
+            /** Athlete */
+            athlete?: {
+                [key: string]: unknown;
+            } | null;
+            /** Load State */
+            load_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Training Calories Kcal */
+            training_calories_kcal?: number | null;
+        } & {
+            [key: string]: unknown;
         };
         /** IntegrationNormalizeRequest */
         IntegrationNormalizeRequest: {
@@ -10141,6 +10180,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["IntegrationDeduplicateRequest"];
+            };
+        };
+        responses: {
+            /** @description Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnginePayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    integrationsHealthDailyEnergy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IntegrationHealthDailyEnergyRequest"];
             };
         };
         responses: {

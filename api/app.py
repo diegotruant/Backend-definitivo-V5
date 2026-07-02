@@ -154,7 +154,7 @@ def _resolve_cors_settings(cors_origins: list[str]) -> tuple[list[str], bool]:
 def create_app() -> FastAPI:
     application = FastAPI(
         title=os.getenv("DIGITAL_TWIN_API_TITLE", "Digital Twin Fisiologico API"),
-        version=os.getenv("DIGITAL_TWIN_API_VERSION", "5.2.6"),
+        version=os.getenv("DIGITAL_TWIN_API_VERSION", "5.2.7"),
         description=(
             "Stateless physiology analytics API. HTTP routers are thin; "
             "application services orchestrate engines under `engines/`."

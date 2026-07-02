@@ -528,6 +528,10 @@ export const api = {
   integrationsActivityNormalize: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/integrations/activity/normalize', { method: 'POST', body: JSON.stringify(payload) }),
 
+  /** POST /integrations/health/daily-energy */
+  integrationsHealthDailyEnergy: (payload: Record<string, unknown>) =>
+    jsonFetch<EnginePayload>('/integrations/health/daily-energy', { method: 'POST', body: JSON.stringify(payload) }),
+
   /** POST /lab/create-result */
   labCreateResult: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/lab/create-result', { method: 'POST', body: JSON.stringify(payload) }),

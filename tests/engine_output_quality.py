@@ -62,6 +62,10 @@ def _check_manual_load(body: Dict[str, Any]) -> None:
     assert body["load"]["training_load_equivalent"] > 0
 
 
+def _check_daily_energy(body: Dict[str, Any]) -> None:
+    assert body.get("schema_version") == "daily_energy.v1"
+
+
 @dataclass(frozen=True)
 class EngineQualityCase:
     case_id: str
@@ -163,6 +167,24 @@ def engine_quality_cases() -> List[EngineQualityCase]:
             _check_manual_load,
         ),
     ])
+
+    from engines.nutrition.daily_energy_engine import build_daily_energy_analysis
+
+    cases.append(
+        EngineQualityCase(
+            "daily_energy_physical_job",
+            lambda: build_daily_energy_analysis(
+                health_daily={
+                    "total_calories_kcal": 3050,
+                    "active_calories_kcal": 980,
+                    "basal_calories_kcal": 1680,
+                },
+                athlete={"weight_kg": 78, "occupation_load": "physical_job"},
+                training_calories_kcal=320,
+            ),
+            _check_daily_energy,
+        )
+    )
 
     return cases
 

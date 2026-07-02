@@ -119,6 +119,7 @@ ENGINE_TIERS: Dict[str, Tier] = {
     "explainability_engine":         Tier.HEURISTIC,
     "chart_builder":                 Tier.REFERENCE,  # pass-through formatting
     "metric_contracts":              Tier.REFERENCE,
+    "daily_energy_engine":           Tier.HEURISTIC,
 }
 
 

@@ -385,6 +385,17 @@ JSON_PAYLOAD_OVERRIDES: Dict[str, Any] = {
         "athlete": ATHLETE_PROFILE,
         "session_context": "90min endurance ride",
     },
+    "integrationsHealthDailyEnergy": {
+        "health_daily": {
+            "date": "2026-06-17",
+            "source": "google_health",
+            "total_calories_kcal": 2900,
+            "active_calories_kcal": 850,
+            "basal_calories_kcal": 1650,
+        },
+        "athlete": ATHLETE_PROFILE,
+        "training_calories_kcal": 400,
+    },
     "coachAdherence": {
         "athlete_id": "matrix_athlete",
         "performed_compliance": {"compliance_score": 72},

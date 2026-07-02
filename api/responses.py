@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class HealthResponse(BaseModel):
     status: str = Field(description="Always 'ok' when the service is up.", examples=["ok"])
     service: str = Field(description="Service identifier.", examples=["digital-twin-api"])
-    version: str = Field(description="API semver.", examples=["5.2.6"])
+    version: str = Field(description="API semver.", examples=["5.2.7"])
 
 
 class EnginePayload(BaseModel):
