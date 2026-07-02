@@ -17,7 +17,6 @@ from typing import Any
 from engines.io import workout_summary_legacy as _legacy
 from engines.io.workout_summary_legacy import *  # noqa: F401,F403
 from engines.recovery.hrv_endurance_schedule import analyze_rr_stream_endurance_scheduled
-import engines.recovery.hrv_engine as _hrv_engine
 
 _legacy_build_workout_summary = _legacy.build_workout_summary
 
@@ -25,7 +24,6 @@ _legacy_build_workout_summary = _legacy.build_workout_summary
 def build_workout_summary(*args: Any, **kwargs: Any) -> dict:
     """Run the legacy summary with two-phase bounded HRV/DFA scheduling."""
     last_schedule: dict[str, Any] = {}
-    original_analyze_rr_stream = _hrv_engine.analyze_rr_stream
 
     # If callers omit an explicit HRV step, preserve the intended dense-first-hour
     # behavior by passing the normal 10s requested step to the legacy orchestrator.
@@ -36,7 +34,7 @@ def build_workout_summary(*args: Any, **kwargs: Any) -> dict:
 
     hrv_max_windows = int(call_kwargs.get("hrv_max_windows") or 500)
 
-    def _scheduled_analyze_rr_stream(
+    def _scheduled_rr_analyzer(
         rr_samples: list[dict[str, Any]],
         *,
         window_seconds: int = 120,
@@ -54,11 +52,8 @@ def build_workout_summary(*args: Any, **kwargs: Any) -> dict:
         last_schedule.update(schedule)
         return timeline
 
-    _hrv_engine.analyze_rr_stream = _scheduled_analyze_rr_stream
-    try:
-        out = _legacy_build_workout_summary(*args, **call_kwargs)
-    finally:
-        _hrv_engine.analyze_rr_stream = original_analyze_rr_stream
+    call_kwargs["hrv_analyze_fn"] = _scheduled_rr_analyzer
+    out = _legacy_build_workout_summary(*args, **call_kwargs)
 
     if last_schedule:
         hrv = (out.get("sections") or {}).get("hrv")
