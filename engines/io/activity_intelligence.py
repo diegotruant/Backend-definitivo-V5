@@ -18,6 +18,7 @@ from engines.core.metric_contracts import annotate_payload
 from engines.io.activity_statistics import compute_activity_statistics
 from engines.io.data_quality_report import build_data_quality_report
 from engines.performance.power_engine import _stream_to_arrays, normalized_power
+from engines.recovery.thermal_engine import analyze_thermal_session
 
 _DEFAULT_EFFORT_DURATIONS = [1, 5, 10, 15, 20, 30, 60, 180, 300, 600, 1200, 1800, 3600]
 
@@ -222,6 +223,63 @@ def build_chart_series(stream: Any, *, max_points: int = 2000) -> Dict[str, Any]
     return {"status": "success", "sample_step": step, "series": series}
 
 
+def compute_thermal_context(stream: Any, *, ftp: Optional[float] = None) -> Dict[str, Any]:
+    """Summarize core-temperature context for drift/durability interpretation."""
+    n = int(getattr(stream, "n_samples", 0) or 0)
+    if n <= 0:
+        return {"status": "skipped", "reason": "empty_stream"}
+    core = _full_array(getattr(stream, "core_body_temp", None))
+    if core.size < n:
+        return {"status": "skipped", "reason": "no_core_temperature"}
+    valid_core = core[:n][np.isfinite(core[:n]) & (core[:n] >= 30.0) & (core[:n] <= 45.0)]
+    if valid_core.size < 30:
+        return {"status": "skipped", "reason": "no_core_temperature"}
+    power = _full_array(getattr(stream, "power", None))
+    hr = _full_array(getattr(stream, "heart_rate", None))
+    skin = _full_array(getattr(stream, "skin_temp", None))
+    ambient = _full_array(getattr(stream, "ambient_temp", None))
+    report = analyze_thermal_session(
+        core_temp_stream=list(core[:n]),
+        power_stream=list(power[:n]) if power.size >= n else [0.0] * n,
+        hr_stream=list(hr[:n]) if hr.size >= n else None,
+        skin_temp_stream=list(skin[:n]) if skin.size >= n else None,
+        ambient_temp_stream=list(ambient[:n]) if ambient.size >= n else None,
+        ftp=ftp,
+    )
+    out = report.to_dict() if hasattr(report, "to_dict") else dict(report)
+    if out.get("data_quality") == "no_data":
+        return {"status": "skipped", "reason": "insufficient_core_temperature", "report": out}
+    thermal_pct = out.get("thermal_drift_pct")
+    peak = out.get("core_temp_peak")
+    fatigue_bpm = out.get("cardiac_drift_fatigue_bpm")
+    heat_compatible = bool(
+        (isinstance(peak, (int, float)) and peak >= 38.5)
+        or (isinstance(thermal_pct, (int, float)) and thermal_pct >= 50.0)
+    )
+    fatigue_compatible = bool(
+        isinstance(fatigue_bpm, (int, float)) and fatigue_bpm >= 3.0 and not heat_compatible
+    )
+    return {
+        "status": "success",
+        "available": True,
+        "core_temp_peak_c": peak,
+        "core_temp_mean_c": out.get("core_temp_mean"),
+        "core_temp_start_c": out.get("core_temp_start"),
+        "core_temp_end_c": out.get("core_temp_end"),
+        "thermal_rise_rate_c_per_min": out.get("thermal_rise_rate"),
+        "thermal_drift_pct": thermal_pct,
+        "cardiac_drift_total_bpm": out.get("cardiac_drift_total_bpm"),
+        "cardiac_drift_thermal_bpm": out.get("cardiac_drift_thermal_bpm"),
+        "cardiac_drift_fatigue_bpm": fatigue_bpm,
+        "power_decay_raw_pct": out.get("power_decay_raw_pct"),
+        "power_decay_thermal_adjusted_pct": out.get("power_decay_thermal_adjusted_pct"),
+        "heat_strain_compatible": heat_compatible,
+        "autonomic_fatigue_compatible": fatigue_compatible,
+        "interpretation": "heat_strain_dominant" if heat_compatible else "fatigue_residual_dominant" if fatigue_compatible else "thermal_context_available",
+        "report": out,
+    }
+
+
 def compute_cardiac_decoupling(stream: Any, *, min_duration_s: int = 1200) -> Dict[str, Any]:
     """Estimate second-half drift in power/heart-rate ratio."""
     arrs = _stream_to_arrays(stream)
@@ -247,13 +305,21 @@ def compute_cardiac_decoupling(stream: Any, *, min_duration_s: int = 1200) -> Di
     if not r1 or not r2:
         return {"status": "skipped", "reason": "insufficient_halves"}
     drift_pct = ((r2 - r1) / r1) * 100.0
-    return {
+    result = {
         "status": "success",
         "first_half_power_hr_ratio": round(r1, 4),
         "second_half_power_hr_ratio": round(r2, 4),
         "decoupling_pct": round(drift_pct, 2),
         "interpretation": "stable" if abs(drift_pct) <= 5 else "drift_detected",
     }
+    thermal = compute_thermal_context(stream)
+    if thermal.get("status") == "success":
+        result["thermal_context"] = {k: v for k, v in thermal.items() if k != "report"}
+        if thermal.get("heat_strain_compatible"):
+            result["interpretation"] = "heat_related_drift_detected"
+        elif thermal.get("autonomic_fatigue_compatible"):
+            result["interpretation"] = "fatigue_residual_drift_detected"
+    return result
 
 
 def build_activity_intelligence(
@@ -281,6 +347,7 @@ def build_activity_intelligence(
         "heart_rate_zones": compute_zone_distribution(hr, threshold=lthr, kind="heart_rate", dt_s=dt),
         "auto_intervals": detect_auto_intervals(power, dt_s=dt, threshold_w=power_threshold),
         "cardiac_decoupling": compute_cardiac_decoupling(stream),
+        "thermal_context": compute_thermal_context(stream, ftp=ftp),
         "data_quality": build_data_quality_report(stream),
         "chart_series": build_chart_series(stream),
     }
