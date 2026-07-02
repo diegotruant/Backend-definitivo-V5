@@ -12,6 +12,7 @@ from engines.core.athlete_physiological_prior import MeasuredProfile
 from engines.io.fit_parse_report import build_fit_parse_report
 from engines.io.fit_parser import FIT_PARSER_VERSION
 from engines.io.workout_summary import build_workout_summary
+from engines.io.full_activity_bundle import build_full_activity_bundle
 from engines.io.activity_intelligence import build_activity_intelligence
 from engines.io.data_quality_report import build_data_quality_report
 from engines.performance.mader_durability import compute_session_durability
@@ -143,6 +144,34 @@ class RideService:
         lthr: Optional[float] = None,
     ) -> Dict[str, Any]:
         return build_activity_intelligence(stream, weight_kg=weight_kg, ftp=ftp, cp=cp, lthr=lthr)
+
+    def build_full_bundle(
+        self,
+        stream: Any,
+        *,
+        weight_kg: float,
+        ftp: Optional[float],
+        lthr: Optional[float],
+        athlete: AthleteParams,
+        metabolic_snapshot: Optional[Dict[str, Any]],
+        hrv_step_seconds: Optional[float],
+        hrv_max_windows: int,
+        file_id: str = "activity.fit",
+        file_hash: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        ctx = self._context_from_athlete(athlete)
+        return build_full_activity_bundle(
+            stream,
+            weight_kg=weight_kg,
+            ftp=ftp,
+            lthr=lthr,
+            context=ctx,
+            metabolic_snapshot=metabolic_snapshot,
+            hrv_step_seconds=hrv_step_seconds,
+            hrv_max_windows=hrv_max_windows,
+            file_id=file_id,
+            file_hash=file_hash,
+        )
 
     def build_data_quality(self, stream: Any) -> Dict[str, Any]:
         return build_data_quality_report(stream)
