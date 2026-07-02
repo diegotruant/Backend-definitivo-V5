@@ -1,0 +1,1 @@
+Endurance FIT fix note.
