@@ -159,7 +159,7 @@ async def ride_summary(
     ),
     operation_id="rideFullBundle",
     response_model=EnginePayload,
-    responses={200: JSON_OBJECT, 400: ERRORS[400], 413: ERRORS[413]},
+    responses={200: JSON_OBJECT, 400: ERRORS[400], 413: ERRORS[413], 422: ERRORS[422]},
 )
 async def ride_full_bundle(
     weight_kg: float = Form(..., description="Athlete weight kg."),
@@ -179,7 +179,22 @@ async def ride_full_bundle(
     hr_json: Optional[str] = Form(None, description="Optional 1 Hz heart-rate JSON array."),
     service: RideService = Depends(get_ride_service),
 ):
-    stream = await load_activity_stream(file, power_json, hr_json)
+    file_id = "activity.fit"
+    file_hash: Optional[str] = None
+    if file is not None:
+        try:
+            parsed = await parse_upload(file)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.info("Cannot parse ride upload %r: %s", file.filename, exc)
+            raise HTTPException(status_code=422, detail=safe_error_detail("FIT_PARSE_FAILED"))
+        stream = parsed["_stream"]
+        file_id = str(parsed.get("file_id") or file.filename or file_id)
+        file_hash = parsed.get("file_hash")
+    else:
+        stream = await load_activity_stream(None, power_json, hr_json)
+        file_id = "activity.json"
     athlete = AthleteParams(
         weight_kg=weight_kg,
         gender=gender,
@@ -196,7 +211,8 @@ async def ride_full_bundle(
             metabolic_snapshot=parse_metabolic_snapshot(metabolic_snapshot_json),
             hrv_step_seconds=hrv_step_seconds,
             hrv_max_windows=hrv_max_windows,
-            file_id=getattr(file, "filename", None) or "activity.fit",
+            file_id=file_id,
+            file_hash=file_hash,
         )
     )
 
