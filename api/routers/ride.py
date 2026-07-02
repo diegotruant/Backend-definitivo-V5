@@ -151,6 +151,57 @@ async def ride_summary(
 
 
 @router.post(
+    "/full-bundle",
+    summary="Full post-parse activity bundle",
+    description=(
+        "Parse or load one ride and run the full post-parse contract: parse report, "
+        "workout summary, activity intelligence, charts, data quality and engine manifest."
+    ),
+    operation_id="rideFullBundle",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400], 413: ERRORS[413]},
+)
+async def ride_full_bundle(
+    weight_kg: float = Form(..., description="Athlete weight kg."),
+    ftp: Optional[float] = Form(None, description="Optional FTP override for zones."),
+    lthr: Optional[float] = Form(None, description="Optional LTHR override."),
+    gender: str = Form("MALE"),
+    training_years: float = Form(10),
+    discipline: str = Form("ENDURANCE"),
+    metabolic_snapshot_json: Optional[str] = Form(
+        None,
+        description="Successful /profile/snapshot JSON to unlock durability sections.",
+    ),
+    hrv_step_seconds: Optional[float] = Form(None),
+    hrv_max_windows: int = Form(500),
+    file: Optional[UploadFile] = File(None, description="Ride FIT file."),
+    power_json: Optional[str] = Form(None, description="Alternative: 1 Hz power JSON array."),
+    hr_json: Optional[str] = Form(None, description="Optional 1 Hz heart-rate JSON array."),
+    service: RideService = Depends(get_ride_service),
+):
+    stream = await load_activity_stream(file, power_json, hr_json)
+    athlete = AthleteParams(
+        weight_kg=weight_kg,
+        gender=gender,
+        training_years=training_years,
+        discipline=discipline,
+    )
+    return json_response(
+        service.build_full_bundle(
+            stream,
+            weight_kg=weight_kg,
+            ftp=ftp,
+            lthr=lthr,
+            athlete=athlete,
+            metabolic_snapshot=parse_metabolic_snapshot(metabolic_snapshot_json),
+            hrv_step_seconds=hrv_step_seconds,
+            hrv_max_windows=hrv_max_windows,
+            file_id=getattr(file, "filename", None) or "activity.fit",
+        )
+    )
+
+
+@router.post(
     "/durability",
     summary="Mader session durability",
     description="Mechanistic CP residual curve and sustainable power targets for the ride.",
