@@ -147,7 +147,8 @@ class RideAnalyticsService:
         stream: Any,
         *,
         window_seconds: int = 120,
-        step_seconds: float = 10.0,
+        step_seconds: Optional[float] = None,
+        max_windows: int = 500,
     ) -> Dict[str, Any]:
         if not getattr(stream, "has_rr", False):
             return {"status": "error", "reason": "NO_RR_DATA"}
@@ -156,12 +157,32 @@ class RideAnalyticsService:
             for i in range(stream.n_samples)
             if stream.rr_intervals[i]
         ]
-        timeline = analyze_rr_stream(rr_samples, window_seconds=window_seconds, step_seconds=step_seconds)
+        if not rr_samples:
+            return {"status": "error", "reason": "RR_INTERVALS_EMPTY"}
+
+        duration_s = float(getattr(stream, "total_elapsed_s", 0) or getattr(stream, "n_samples", 0) or 0)
+        base_step = 10.0 if step_seconds is None else max(1.0, float(step_seconds))
+        adaptive_step = base_step
+        expected_windows = 0
+        if duration_s > float(window_seconds):
+            expected_windows = int(max(0.0, duration_s - float(window_seconds)) / base_step) + 1
+        if max_windows and expected_windows > int(max_windows):
+            adaptive_step = max(
+                base_step,
+                (duration_s - float(window_seconds)) / max(float(int(max_windows) - 1), 1.0),
+            )
+
+        timeline = analyze_rr_stream(rr_samples, window_seconds=window_seconds, step_seconds=adaptive_step)
         tier = tier_for("hrv_engine")
         return {
             "status": "success",
             "timeline": timeline,
             "n_windows": len(timeline),
+            "window_seconds": int(window_seconds),
+            "step_seconds": round(float(adaptive_step), 3),
+            "expected_windows_at_requested_step": expected_windows,
+            "max_windows": int(max_windows) if max_windows else None,
+            "adaptive_step_applied": bool(abs(float(adaptive_step) - float(base_step)) > 1e-9),
             "method": "dfa_alpha1",
             "tier": tier.value,
             "tier_explanation": tier.explanation,
