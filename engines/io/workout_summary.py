@@ -26,6 +26,9 @@ from engines.recovery.thermal_engine import analyze_thermal_session
 import engines.recovery.hrv_engine as _hrv_engine
 
 _legacy_build_workout_summary = _legacy.build_workout_summary
+# Explicit compatibility export: star-import intentionally skips private names,
+# but older tests and internal modules import this helper from workout_summary.
+_mmp_curve_to_dict = _legacy._mmp_curve_to_dict
 
 
 def _argument(args: tuple[Any, ...], kwargs: dict[str, Any], index: int, name: str, default: Any = None) -> Any:
