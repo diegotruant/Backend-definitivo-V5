@@ -51,4 +51,19 @@ jobs:
           if-no-files-found: warn
 
       - name: Release gate (lint + typecheck + test-all + hardening + matrix + perfection + coverage)
-        run: make check
+        shell: bash
+        run: |
+          mkdir -p reports/ci
+          set +e
+          make check 2>&1 | tee reports/ci/release_gate.log
+          status=${PIPESTATUS[0]}
+          echo "${status}" > reports/ci/release_gate.exitcode
+          exit "${status}"
+
+      - name: Upload release gate log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-log
+          path: reports/ci/release_gate.*
+          if-no-files-found: warn
