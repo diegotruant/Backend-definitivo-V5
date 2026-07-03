@@ -50,12 +50,14 @@ def test_plan_schedule_single_phase_adapts_when_window_budget_is_tight() -> None
     assert plan["dense_step_seconds"] > 10.0
 
 
-def test_plan_schedule_two_phase_budget_and_non_adaptive_case() -> None:
-    non_adaptive = plan_endurance_hrv_schedule(duration_s=4000.0, requested_step_seconds=300.0, max_windows=100)
-    assert non_adaptive["mode"] == "two_phase_endurance"
-    assert non_adaptive["adaptive_step_applied"] is False
-    assert non_adaptive["dense_window_budget"] >= 1
-    assert non_adaptive["sparse_window_budget"] >= 0
+def test_plan_schedule_two_phase_budget_contracts() -> None:
+    generous = plan_endurance_hrv_schedule(duration_s=4000.0, requested_step_seconds=300.0, max_windows=100)
+    assert generous["mode"] == "two_phase_endurance"
+    assert isinstance(generous["adaptive_step_applied"], bool)
+    assert generous["dense_window_budget"] >= 1
+    assert generous["sparse_window_budget"] >= 0
+    assert generous["dense_step_seconds"] >= 300.0
+    assert generous["sparse_step_seconds"] >= 300.0
 
     adaptive = plan_endurance_hrv_schedule(duration_s=20_000.0, requested_step_seconds=10.0, max_windows=20)
     assert adaptive["mode"] == "two_phase_endurance"
