@@ -67,27 +67,19 @@ def _forward_fill_nan(arr: np.ndarray, default_val: float) -> np.ndarray:
     out = np.array(arr, dtype=float)
     if out.size == 0:
         return out
-    
     nan_mask = np.isnan(out)
     if not np.any(nan_mask):
         return out
-        
-    # If all values are NaN, return default array
     if np.all(nan_mask):
         out[:] = default_val
         return out
-        
-    # Forward fill
     idx = np.arange(len(out))
     idx[nan_mask] = 0
     idx = np.maximum.accumulate(idx)
-    
-    # Locate first non-nan index to handle initial NaNs
     first_valid = np.where(~nan_mask)[0][0]
     out[nan_mask] = out[idx[nan_mask]]
     if first_valid > 0:
         out[:first_valid] = out[first_valid]
-        
     return out
 
 
@@ -105,29 +97,21 @@ def _downsample_envelope(t: np.ndarray, y: np.ndarray, budget: int = _POINT_BUDG
     n = len(t)
     if n <= budget:
         return t.tolist(), y.tolist()
-    
-    # Calculate bucket size
     bucket_size = int(np.ceil(n / (budget // 2)))
     t_out, y_out = [], []
-    
     for i in range(0, n, bucket_size):
         t_bucket = t[i:i+bucket_size]
         y_bucket = y[i:i+bucket_size]
         if len(y_bucket) == 0:
             continue
-            
-        # Find min and max inside bucket
         imin = np.nanargmin(y_bucket)
         imax = np.nanargmax(y_bucket)
-        
-        # Add them chronologically
         if imin <= imax:
             t_out.extend([t_bucket[imin], t_bucket[imax]])
             y_out.extend([y_bucket[imin], y_bucket[imax]])
         else:
             t_out.extend([t_bucket[imax], t_bucket[imin]])
             y_out.extend([y_bucket[imax], y_bucket[imin]])
-            
     return t_out, y_out
 
 
@@ -140,23 +124,15 @@ def chart_elevation(stream: Any) -> Dict[str, Any]:
     t = getattr(stream, "time", None)
     if not _valid(alt) or not _valid(t):
         return _na("No valid altitude data in the FIT file")
-        
     alt = np.asarray(alt, float)
     t = np.asarray(t, float)
-    
-    # FIXED: Drop NaNs before diff instead of nan_to_num(0), which artificially
-    # inflated elevation gain on sensor dropouts.
     valid_mask = ~np.isnan(alt)
     clean_alt = alt[valid_mask]
-    
     gain = 0.0
     if len(clean_alt) > 1:
         gain = float(np.sum(np.clip(np.diff(clean_alt), 0, None)))
-        
-    # Forward-fill to produce a presentable plot trace
     alt_filled = _forward_fill_nan(alt, default_val=0.0)
     t_ds, alt_ds = _downsample(t, alt_filled)
-    
     return {
         "type": "line",
         "title": "Elevation Profile",
@@ -173,14 +149,10 @@ def chart_speed(stream: Any) -> Dict[str, Any]:
     t = getattr(stream, "time", None)
     if not _valid(speed) or not _valid(t):
         return _na("No speed data in the FIT file")
-        
-    # Convert from m/s to km/h
     y = np.asarray(speed, float) * 3.6
     t = np.asarray(t, float)
-    
     y = _forward_fill_nan(y, default_val=0.0)
     t_ds, y_ds = _downsample_envelope(t, y)
-    
     return {
         "type": "line",
         "title": "Speed",
@@ -197,32 +169,21 @@ def chart_power(stream: Any) -> Dict[str, Any]:
     t = getattr(stream, "time", None)
     if not _valid(power) or not _valid(t):
         return _na("No power output data found")
-
-    # Keep the package chart contract (`x_axis.data`, English labels, stream.time),
-    # but compute the physiology-facing summary correctly. 0 W is valid coasting;
-    # only NaN is filled. Normalized Power follows the standard 30 s rolling mean
-    # -> fourth power -> average -> fourth root pipeline. VI is NP / average power.
     y = _forward_fill_nan(np.asarray(power, float), default_val=0.0)
     y = np.clip(y, 0.0, None)
     t = np.asarray(t, float)
     t_ds, y_ds = _downsample(t, y)
-
     avg_power = float(np.mean(y)) if y.size else 0.0
     max_power = float(np.max(y)) if y.size else 0.0
-
     if y.size >= 30:
         kernel = np.ones(30, dtype=float) / 30.0
         rolling_30s = np.convolve(y, kernel, mode="valid")
         normalized_power = float(np.mean(rolling_30s ** 4) ** 0.25)
     elif y.size > 0:
-        # Very short streams cannot produce a true 30 s NP. Use the arithmetic
-        # mean and flag that reduced method in the summary.
         normalized_power = avg_power
     else:
         normalized_power = 0.0
-
     variability_index = (normalized_power / avg_power) if avg_power > 0 else None
-
     return {
         "type": "line",
         "title": "Power",
@@ -247,11 +208,9 @@ def chart_heart_rate(stream: Any) -> Dict[str, Any]:
     t = getattr(stream, "time", None)
     if not _valid(hr) or not _valid(t):
         return _na("No heart rate data detected")
-        
     y = _forward_fill_nan(np.asarray(hr, float), default_val=60.0)
     t = np.asarray(t, float)
     t_ds, y_ds = _downsample(t, y)
-    
     return {
         "type": "line",
         "title": "Heart Rate",
@@ -268,11 +227,9 @@ def chart_cadence(stream: Any) -> Dict[str, Any]:
     t = getattr(stream, "time", None)
     if not _valid(cadence) or not _valid(t):
         return _na("No cadence (pedaling) data available")
-        
     y = _forward_fill_nan(np.asarray(cadence, float), default_val=0.0)
     t = np.asarray(t, float)
     t_ds, y_ds = _downsample(t, y)
-    
     return {
         "type": "line",
         "title": "Pedal Cadence",
@@ -289,11 +246,9 @@ def chart_respiration(stream: Any) -> Dict[str, Any]:
     t = getattr(stream, "time", None)
     if not _valid(resp) or not _valid(t):
         return _na("Respiration rate unavailable (requires advanced HR strap)")
-        
     y = _forward_fill_nan(np.asarray(resp, float), default_val=15.0)
     t = np.asarray(t, float)
     t_ds, y_ds = _downsample(t, y)
-    
     return {
         "type": "line",
         "title": "Respiration Rate",
@@ -310,11 +265,9 @@ def chart_ambient_temp(stream: Any) -> Dict[str, Any]:
     t = getattr(stream, "time", None)
     if not _valid(temp) or not _valid(t):
         return _na("No ambient temperature data found")
-        
     y = _forward_fill_nan(np.asarray(temp, float), default_val=20.0)
     t = np.asarray(t, float)
     t_ds, y_ds = _downsample_envelope(t, y)
-    
     return {
         "type": "line",
         "title": "Ambient Temperature",
@@ -331,20 +284,14 @@ def chart_lr_balance(stream: Any) -> Dict[str, Any]:
     t = getattr(stream, "time", None)
     if not _valid(balance) or not _valid(t):
         return _na("Left/right balance unavailable (requires dual-sided power meter)")
-        
     b = np.asarray(balance, float)
-    # FIT format can be direct percentage or encoded. Assuming standard percentage format here.
-    # We strip potential encoding anomalies and extract left balance %
     left = np.clip(b, 0, 100)
     right = 100.0 - left
-    
     left = _forward_fill_nan(left, default_val=50.0)
     right = _forward_fill_nan(right, default_val=50.0)
     t = np.asarray(t, float)
-    
     t_ds, left_ds = _downsample(t, left)
     _, right_ds = _downsample(t, right)
-    
     return {
         "type": "line",
         "title": "Left / Right Leg Balance",
@@ -360,7 +307,6 @@ def chart_lr_balance(stream: Any) -> Dict[str, Any]:
 
 
 def chart_position(stream: Any) -> Dict[str, Any]:
-    # Placeholder or geojson/map format dispatcher depending on architecture requirements
     lat = getattr(stream, "lat", None)
     lon = getattr(stream, "lon", None)
     if not _valid(lat) or not _valid(lon):
@@ -369,7 +315,6 @@ def chart_position(stream: Any) -> Dict[str, Any]:
 
 
 def chart_power_phase(stream: Any) -> Dict[str, Any]:
-    # Cycling Dynamics
     p_phase = getattr(stream, "left_power_phase", None)
     if not _valid(p_phase):
         return _na("Cycling dynamics (power phase) not supported by the pedals in use")
@@ -377,7 +322,6 @@ def chart_power_phase(stream: Any) -> Dict[str, Any]:
 
 
 def chart_platform_offset(stream: Any) -> Dict[str, Any]:
-    # PCO (Platform Center Offset)
     pco = getattr(stream, "left_pco", None)
     if not _valid(pco):
         return _na("Platform center offset (PCO) absent")
@@ -388,20 +332,16 @@ def chart_time_in_power_zone(stream: Any, zones: List[Dict[str, Any]]) -> Dict[s
     power = getattr(stream, "power", None)
     if not _valid(power) or not zones:
         return _na("Power zones not configured or power data absent")
-        
     p = np.asarray(power, float)
     p = p[~np.isnan(p)]
-    
     labels = []
     seconds = []
-    
     for z in zones:
         labels.append(z.get("name", "Zone"))
-        low = z.get("low", 0)
-        high = z.get("high", float("inf"))
+        low = z.get("low", z.get("min_w", 0))
+        high = z.get("high", z.get("max_w", float("inf")))
         count = np.sum((p >= low) & (p <= high))
         seconds.append(int(count))
-        
     return {
         "type": "bar",
         "title": "Time in Power Zones",
@@ -414,10 +354,10 @@ def chart_time_in_power_zone(stream: Any, zones: List[Dict[str, Any]]) -> Dict[s
 
 
 def chart_time_in_intensity(stream: Any, hrv_durability: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    _ = stream
+    if hrv_durability is None and isinstance(stream, dict):
+        hrv_durability = stream
     if not hrv_durability or "time_in_intensity" not in hrv_durability:
         return _na("HRV durability metrics / metabolic intensity estimate not computed")
-    # Directly map predefined structure
     data = hrv_durability["time_in_intensity"]
     return {
         "type": "bar",
@@ -432,31 +372,19 @@ def chart_time_in_intensity(stream: Any, hrv_durability: Optional[Dict[str, Any]
 
 
 def chart_thermal(stream: Any) -> Dict[str, Any]:
-    """
-    Thermal metrics combining Core Body Temp, Skin Temp, and Heat Strain Index.
-    """
+    """Thermal metrics combining Core Body Temp, Skin Temp, and Heat Strain Index."""
     core = getattr(stream, "core_temperature", None)
     skin = getattr(stream, "skin_temperature", None)
     t = getattr(stream, "time", None)
-    
     if not _valid(core) or not _valid(t):
         return _na("CORE temperature sensor absent (e.g. CORE Body Temp not connected)")
-        
     t = np.asarray(t, float)
-    
-    # FIXED: Replaced fixed nan_to_num with a forward-fill algorithm
-    # to eliminate unnatural drops from the thermal sensor.
     c = _forward_fill_nan(np.asarray(core, float), default_val=37.0)
     s = _forward_fill_nan(np.asarray(skin, float), default_val=33.0) if _valid(skin) else np.full_like(c, 33.0)
-    
-    # Heat Strain Index calculation (simplified algorithmic model for tracking thermal fatigue)
-    # Derived from Core temp expansion over typical steady homeostatic state (37.0°C)
     hsi = np.clip((c - 37.0) * 2.5 + (s - 33.0) * 0.5, 0, 10.0)
-    
     t_ds, c_ds = _downsample(t, c)
     _, s_ds = _downsample(t, s)
     _, hsi_ds = _downsample(t, hsi)
-    
     return {
         "type": "line",
         "title": "Thermal Profile & Heat Load",
@@ -502,14 +430,12 @@ def build_activity_charts(
         "power_phase": chart_power_phase(stream),
         "platform_offset": chart_platform_offset(stream),
         "time_in_power_zone": chart_time_in_power_zone(stream, zones or []),
-        "time_in_intensity": chart_time_in_intensity(hrv_durability),
+        "time_in_intensity": chart_time_in_intensity(stream, hrv_durability),
         "thermal": chart_thermal(stream),
     }
-    
-    # Filter list of keys that are actually active/rendered
     available = [k for k, v in charts.items() if not (isinstance(v, dict) and v.get("available") is False)]
     charts["_metadata"] = {
         "available_charts_count": len(available),
-        "active_keys": available
+        "active_keys": available,
     }
     return charts
