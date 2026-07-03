@@ -174,8 +174,10 @@ EXPECTATIONS = (
     ("chart_cadence", "activity_charts.cadence", ("cadence",)),
     ("chart_ambient_temp", "activity_charts.ambient_temp", ("ambient_temperature",)),
     ("chart_thermal", "activity_charts.thermal", ("core_temperature",)),
-    ("chart_time_in_power_zone", "activity_charts.time_in_power_zone", ("power",)),
-    ("chart_time_in_intensity", "activity_charts.time_in_intensity", ("rr",)),
+    # These derived charts require secondary analysis outputs in addition to raw signals,
+    # so their absence must be visible but must not block the release bundle.
+    ("chart_time_in_power_zone", "activity_charts.time_in_power_zone", ()),
+    ("chart_time_in_intensity", "activity_charts.time_in_intensity", ()),
 )
 
 
