@@ -154,6 +154,39 @@ export const api = {
     return jsonFetch<WorkoutSummary>('/ride/summary', { method: 'POST', body: form });
   },
 
+  /** POST /ride/full-bundle */
+  rideFullBundle: (args: {
+    file?: File;
+    power_json?: number[];
+    hr_json?: number[];
+    weight_kg: number;
+    ftp?: number;
+    lthr?: number;
+    gender?: string;
+    training_years?: number;
+    discipline?: string;
+    metabolic_snapshot?: MetabolicSnapshot;
+    hrv_step_seconds?: number;
+    hrv_max_windows?: number;
+  }) => {
+    const form = new FormData();
+    if (args.file) form.append('file', args.file);
+    if (args.power_json) form.append('power_json', JSON.stringify(args.power_json));
+    if (args.hr_json) form.append('hr_json', JSON.stringify(args.hr_json));
+    form.append('weight_kg', String(args.weight_kg));
+    if (args.ftp != null) form.append('ftp', String(args.ftp));
+    if (args.lthr != null) form.append('lthr', String(args.lthr));
+    form.append('gender', args.gender ?? 'MALE');
+    form.append('training_years', String(args.training_years ?? 10));
+    form.append('discipline', args.discipline ?? 'ENDURANCE');
+    if (args.metabolic_snapshot) {
+      form.append('metabolic_snapshot_json', JSON.stringify(args.metabolic_snapshot));
+    }
+    if (args.hrv_step_seconds != null) form.append('hrv_step_seconds', String(args.hrv_step_seconds));
+    if (args.hrv_max_windows != null) form.append('hrv_max_windows', String(args.hrv_max_windows));
+    return jsonFetch<EnginePayload>('/ride/full-bundle', { method: 'POST', body: form });
+  },
+
   /** POST /ride/durability */
   rideDurability: (args: {
     file?: File;
@@ -170,8 +203,6 @@ export const api = {
     form.append('metabolic_snapshot_json', JSON.stringify(args.metabolic_snapshot));
     return jsonFetch<EnginePayload>('/ride/durability', { method: 'POST', body: form });
   },
-
-
 
   /** POST /ride/intelligence */
   rideIntelligence: (args: {
@@ -246,8 +277,6 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-
-
   /** POST /workouts/recommend */
   recommendWorkout: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/workouts/recommend', { method: 'POST', body: JSON.stringify(payload) }),
@@ -307,8 +336,6 @@ export const api = {
     return jsonFetch<EnginePayload>('/performance/neuromuscular-profile', { method: 'POST', body: form });
   },
 
-
-
   /** POST /performance/ability-profile */
   abilityProfile: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/performance/ability-profile', { method: 'POST', body: JSON.stringify(payload) }),
@@ -327,8 +354,6 @@ export const api = {
   /** POST /load/manual */
   manualLoad: (payload: ManualLoadRequest) =>
     jsonFetch<EnginePayload>('/load/manual', { method: 'POST', body: JSON.stringify(payload) }),
-
-
 
   /** POST /load/state/update */
   updateLoadState: (payload: Record<string, unknown>) =>
@@ -751,7 +776,6 @@ export const api = {
   /** POST /twin/state/validate */
   twinStateValidate: (payload: Record<string, unknown>) =>
     jsonFetch<EnginePayload>('/twin/state/validate', { method: 'POST', body: JSON.stringify(payload) }),
-
 
   /** POST /profile/vlamax-from-power-series */
   profileVlamaxFromPowerSeries: (payload: Record<string, unknown>) =>
