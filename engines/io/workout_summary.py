@@ -186,6 +186,16 @@ def build_workout_summary(*args: Any, **kwargs: Any) -> dict:
         step_seconds: float = 10.0,
         context: Any = None,
     ) -> list[dict[str, Any]]:
+        # When tests or callers patch hrv_engine.analyze_rr_stream to exercise the
+        # legacy failure path, honour that patched callable instead of bypassing it
+        # through the endurance scheduler's module-level import.
+        if getattr(original_analyze_rr_stream, "__module__", "") != "engines.recovery.hrv_engine":
+            return original_analyze_rr_stream(
+                rr_samples,
+                window_seconds=window_seconds,
+                step_seconds=step_seconds,
+                context=context,
+            )
         timeline, schedule = analyze_rr_stream_endurance_scheduled(
             rr_samples,
             window_seconds=window_seconds,
@@ -218,13 +228,20 @@ def build_workout_summary(*args: Any, **kwargs: Any) -> dict:
                     "adaptive_step_applied": bool(last_schedule.get("adaptive_step_applied")),
                 }
             )
+            warnings = out.setdefault("warnings", [])
+            if last_schedule.get("adaptive_step_applied"):
+                adaptive_warning = (
+                    "HRV/DFA-alpha1 step increased to keep large endurance analysis bounded. "
+                    "All RR beats are preserved; only high-cost DFA window density is thinned."
+                )
+                if not any("HRV/DFA-alpha1 step increased" in str(item) for item in warnings):
+                    warnings.append(adaptive_warning)
             warning = (
                 "HRV/DFA-alpha1 uses a two-phase endurance schedule: "
                 f"dense first hour at ~{last_schedule.get('dense_step_seconds')}s, "
                 f"then sparse endurance-decay windows at ~{last_schedule.get('sparse_step_seconds')}s. "
                 "All RR beats are preserved; only high-cost DFA window density is thinned."
             )
-            warnings = out.setdefault("warnings", [])
             if not any("All RR beats are preserved" in str(item) for item in warnings):
                 warnings.append(warning)
 
