@@ -58,10 +58,10 @@ multitenant-stress:
 	$(PYTHON) tools/stress/multitenant_stress.py --base-url http://$(UVICORN_HOST):$(UVICORN_PORT) --profile balanced --duration-s 60 --concurrency 32 --output-dir stress_outputs/balanced
 
 lint:
-	$(PYTHON) -m ruff check api api_app.py tests scripts
+	$(PYTHON) -m ruff check engines api api_app.py tests scripts
 
 format:
-	$(PYTHON) -m black api api_app.py tests scripts
+	$(PYTHON) -m black engines api api_app.py tests scripts
 
 typecheck:
 	$(PYTHON) -m mypy --explicit-package-bases api api_app.py
