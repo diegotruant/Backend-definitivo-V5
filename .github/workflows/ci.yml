@@ -30,4 +30,19 @@ jobs:
         run: make lint
 
       - name: Full pytest suite (unit + integration scripts + golden)
-        run: make test-all
+        shell: bash
+        run: |
+          mkdir -p reports/ci
+          set +e
+          make test-all 2>&1 | tee reports/ci/test_all.log
+          status=${PIPESTATUS[0]}
+          echo "${status}" > reports/ci/test_all.exitcode
+          exit "${status}"
+
+      - name: Upload full pytest log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-all-log
+          path: reports/ci/test_all.*
+          if-no-files-found: warn
