@@ -22,7 +22,7 @@ calculations, only delegation. It is the single function that the
 Supabase service layer should call after FIT ingestion.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 # Flat imports — do not import via `engines.*` here; this module is loaded
 # while `engines/__init__.py` may still be initialising.
@@ -73,6 +73,7 @@ def build_workout_summary(
     hrv_window_seconds: int = 120,
     hrv_step_seconds: Optional[float] = None,
     hrv_max_windows: int = 500,
+    hrv_analyze_fn: Optional[Callable[..., List[Dict[str, Any]]]] = None,
 ) -> Dict[str, Any]:
     """
     Produce the full per-activity report.
@@ -265,9 +266,14 @@ def build_workout_summary(
                 base_step = 10.0 if hrv_step_seconds is None else max(1.0, float(hrv_step_seconds))
                 adaptive_step = base_step
                 expected_windows = 0
-                if duration_s > float(hrv_window_seconds):
+                if hrv_analyze_fn is None and duration_s > float(hrv_window_seconds):
                     expected_windows = int(max(0.0, duration_s - float(hrv_window_seconds)) / base_step) + 1
-                if hrv_step_seconds is None and hrv_max_windows and expected_windows > hrv_max_windows:
+                if (
+                    hrv_analyze_fn is None
+                    and hrv_step_seconds is None
+                    and hrv_max_windows
+                    and expected_windows > hrv_max_windows
+                ):
                     adaptive_step = max(
                         base_step,
                         (duration_s - float(hrv_window_seconds)) / max(float(hrv_max_windows - 1), 1.0),
@@ -278,7 +284,8 @@ def build_workout_summary(
                         f"({expected_windows} raw windows) to keep /ride/summary bounded."
                     )
 
-                hrv_timeline = analyze_rr_stream(
+                analyze_fn = hrv_analyze_fn or analyze_rr_stream
+                hrv_timeline = analyze_fn(
                     rr_samples,
                     window_seconds=hrv_window_seconds,
                     step_seconds=adaptive_step,

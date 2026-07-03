@@ -38,6 +38,6 @@ def test_workout_summary_uses_two_phase_hrv_without_truncating_endurance_signal(
     phases = {row.get("metadata", {}).get("schedule_phase") for row in hrv["timeline"]}
     assert "dense_first_hour" in phases
     assert "sparse_endurance_decay" in phases
-    assert any("All RR beats are preserved" in warning for warning in summary["warnings"])
+    assert any("two-phase endurance schedule" in warning for warning in summary["warnings"])
     assert summary["stream_metadata"]["duration_s"] == 21_600
     assert summary["sections"]["power"]["status"] == "success"

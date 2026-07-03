@@ -97,3 +97,14 @@ def test_analyze_rr_stream_scheduled_two_phase_and_no_elapsed(monkeypatch: pytes
     timeline, plan = analyze_rr_stream_endurance_scheduled(_rr_samples(5000, with_elapsed=False), step_seconds=10.0, max_windows=50)
     assert plan["mode"] == "single_phase_no_elapsed"
     assert timeline[0]["metadata"]["schedule_phase"] == "single_phase_no_elapsed"
+
+
+def test_plan_schedule_dense_budget_one_still_covers_dense_phase() -> None:
+    plan = plan_endurance_hrv_schedule(
+        duration_s=10_000.0,
+        requested_step_seconds=10.0,
+        max_windows=2,
+    )
+    assert plan["mode"] == "two_phase_endurance"
+    assert plan["dense_window_budget"] == 1
+    assert plan["dense_step_seconds"] >= 10.0

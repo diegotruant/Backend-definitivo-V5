@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from engines.core.athlete_context import AthleteContext
 from engines.io.fit_parser import ActivityStreamEnhanced
@@ -206,3 +207,140 @@ def test_chart_extractors_for_summary_shapes() -> None:
     }
     assert _hrv_for_charts({"sections": {"hrv": {"available": False}}}) is None
     assert _hrv_for_charts({"sections": {}}) is None
+
+
+def test_full_activity_bundle_tolerates_malformed_critical_power(monkeypatch: pytest.MonkeyPatch) -> None:
+    from engines.io.workout_summary import build_workout_summary
+
+    base = build_workout_summary(_rich_stream(n=120), weight_kg=72.0, ftp=260.0, lthr=172.0)
+
+    def fake_summary(*_args, **_kwargs):
+        out = dict(base)
+        sections = dict(out.get("sections") or {})
+        power = dict(sections.get("power") or {})
+        power["critical_power"] = "not-a-dict"
+        sections["power"] = power
+        out["sections"] = sections
+        return out
+
+    monkeypatch.setattr("engines.io.full_activity_bundle.build_workout_summary", fake_summary)
+    bundle = build_full_activity_bundle(
+        _rich_stream(n=120),
+        weight_kg=72.0,
+        ftp=260.0,
+        lthr=172.0,
+        context=AthleteContext(),
+    )
+    assert bundle["status"] in {"success", "partial"}
+    assert bundle["activity_intelligence"]["status"] == "success"
+
+
+def test_full_activity_bundle_counts_release_blockers(monkeypatch: pytest.MonkeyPatch) -> None:
+    from engines.io.workout_summary import build_workout_summary
+
+    base = build_workout_summary(_rich_stream(n=120), weight_kg=72.0, ftp=260.0, lthr=172.0)
+
+    def fake_summary(*_args, **_kwargs):
+        out = dict(base)
+        sections = dict(out.get("sections") or {})
+        sections.pop("thermal", None)
+        out["sections"] = sections
+        return out
+
+    monkeypatch.setattr("engines.io.full_activity_bundle.build_workout_summary", fake_summary)
+    bundle = build_full_activity_bundle(
+        _rich_stream(n=120),
+        weight_kg=72.0,
+        ftp=260.0,
+        lthr=172.0,
+        context=AthleteContext(),
+    )
+    assert bundle["manifest_summary"]["release_blockers"] >= 1
+    assert bundle["status"] == "partial"
+
+
+def test_activity_charts_legacy_dict_and_forward_fill_helpers() -> None:
+    from engines.io.activity_charts import (
+        _forward_fill_nan,
+        chart_cadence,
+        chart_heart_rate,
+        chart_power,
+        chart_time_in_intensity,
+    )
+
+    assert _forward_fill_nan(np.array([]), default_val=5.0).size == 0
+    chart = chart_time_in_intensity({"time_in_intensity": {"fat_min": 12.0, "carb_min": 28.0}})
+    assert chart["type"] == "bar"
+    assert chart["series"][0]["data"] == [12.0, 28.0]
+
+    class NoSignals:
+        time = [0.0, 1.0, 2.0]
+        power = None
+        heart_rate = None
+        cadence = None
+
+    assert chart_power(NoSignals())["available"] is False
+    assert chart_heart_rate(NoSignals())["available"] is False
+    assert chart_cadence(NoSignals())["available"] is False
+
+
+def test_activity_intelligence_chart_and_decoupling_edge_paths() -> None:
+    from engines.io.activity_intelligence import build_chart_series, compute_cardiac_decoupling
+    from engines.io.fit_parser import ActivityStreamEnhanced
+
+    empty = ActivityStreamEnhanced(n_samples=0, sport="cycling", total_elapsed_s=0.0)
+    assert build_chart_series(empty)["reason"] == "empty_stream"
+
+    class MismatchPower:
+        n_samples = 100
+        elapsed_s = np.arange(100, dtype=np.float32)
+        power = np.array([200.0] * 10, dtype=np.float32)
+        heart_rate = np.full(100, 140.0, dtype=np.float32)
+
+    chart = build_chart_series(MismatchPower())
+    assert chart["status"] == "success"
+    assert "power_w" not in chart["series"]
+
+    sparse = _rich_stream(n=1500)
+    sparse.power = np.where(np.arange(1500) % 20 == 0, 200.0, 0.0).astype(np.float32)
+    sparse.heart_rate = np.full(1500, 140.0, dtype=np.float32)
+    skipped = compute_cardiac_decoupling(sparse, min_duration_s=1200)
+    assert skipped["reason"] == "insufficient_valid_samples"
+
+    uneven = _rich_stream(n=1500)
+    uneven.power = np.concatenate(
+        [np.full(700, 220.0, dtype=np.float32), np.zeros(800, dtype=np.float32)]
+    )
+    uneven.heart_rate = np.full(1500, 140.0, dtype=np.float32)
+    halves = compute_cardiac_decoupling(uneven, min_duration_s=1200)
+    assert halves["reason"] == "insufficient_halves"
+
+
+def test_manual_load_and_progression_levels_invalid_inputs() -> None:
+    from engines.load.manual_load import calculate_manual_load
+    from engines.workouts.progression_levels import compute_progression_levels
+
+    bad_rpe = calculate_manual_load(duration_min=30, rpe="not-a-number")
+    assert bad_rpe["input"]["rpe"] == 0.0
+
+    profile = {"ftp": 250, "weight_kg": 70}
+    history = [{"target_zone": "threshold", "compliance_score": "bad"}]
+    out = compute_progression_levels(profile, workout_history=history)
+    assert out["status"] == "success"
+
+
+def test_data_quality_report_none_values_and_gps_channels() -> None:
+    from engines.io.data_quality_report import _series_quality, build_data_quality_report
+    from engines.io.fit_parser import ActivityStreamEnhanced
+
+    assert _series_quality(None, measured=True)["notes"] == ["missing_signal"]
+
+    stream = ActivityStreamEnhanced(n_samples=3, sport="cycling", total_elapsed_s=3.0)
+    stream.power = np.array([200.0, 210.0, 205.0], dtype=np.float32)
+    stream.heart_rate = np.array([130.0, 135.0, 140.0], dtype=np.float32)
+    stream.cadence = np.array([90.0, 91.0, 92.0], dtype=np.float32)
+    stream.lat = np.array([45.0, 45.1, 45.2], dtype=np.float64)
+    stream.lon = np.array([9.0, 9.1, 9.2], dtype=np.float64)
+    report = build_data_quality_report(stream)
+    assert "latitude" in report["available_signals"]
+    assert "longitude" in report["available_signals"]

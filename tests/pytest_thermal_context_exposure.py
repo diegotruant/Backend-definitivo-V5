@@ -5,10 +5,14 @@ import pytest
 
 from engines.core.athlete_context import AthleteContext
 from engines.io import workout_summary as ws
-from engines.io.activity_intelligence import build_activity_intelligence
+from engines.io.activity_intelligence import (
+    _full_array,
+    build_activity_intelligence,
+    compute_cardiac_decoupling,
+    compute_thermal_context,
+)
 from engines.io.fit_parser import ActivityStreamEnhanced
 from engines.io.workout_summary import build_workout_summary
-from engines.recovery import hrv_engine
 
 
 class _ThermalReport:
@@ -71,6 +75,14 @@ def test_workout_summary_argument_and_stream_helpers() -> None:
     assert ws._has_core_temperature(Dirty(), 2) is True
 
 
+def test_build_thermal_report_returns_none_without_power() -> None:
+    class CoreOnly:
+        n_samples = 5
+        core_body_temp = np.array([37.0, 37.1, 37.2, 37.3, 37.4], dtype=np.float32)
+
+    assert ws._build_thermal_report(CoreOnly(), ftp=260.0) is None
+
+
 def test_thermal_report_and_attach_edge_paths(monkeypatch: pytest.MonkeyPatch) -> None:
     assert ws._build_thermal_report(None, ftp=260.0) is None
     assert ws._build_thermal_report(ActivityStreamEnhanced(n_samples=0), ftp=260.0) is None
@@ -81,7 +93,9 @@ def test_thermal_report_and_attach_edge_paths(monkeypatch: pytest.MonkeyPatch) -
 
     poor = ActivityStreamEnhanced(n_samples=3, sport="cycling", total_elapsed_s=3.0)
     poor.core_body_temp = np.array([37.0, 37.1, 37.2], dtype=np.float32)
-    assert ws._build_thermal_report(poor, ftp=260.0) is None
+    poor_report = ws._build_thermal_report(poor, ftp=260.0)
+    assert poor_report is not None
+    assert poor_report.get("data_quality") == "no_data"
 
     s = _stream(n=60)
     monkeypatch.setattr(ws, "analyze_thermal_session", lambda **_: _ThermalReport())
@@ -93,6 +107,12 @@ def test_thermal_report_and_attach_edge_paths(monkeypatch: pytest.MonkeyPatch) -
     assert out["sections"]["cardiac"]["thermal_context"]["available"] is True
     assert out["sections"]["thermal_adjusted_durability"]["interpretation"] == "fatigue_residual_dominant"
     assert len(out["warnings"]) == 1
+    monkeypatch.undo()
+
+    out_no_data = {}
+    ws._attach_thermal_context(out_no_data, poor, ftp=260.0)
+    assert out_no_data["sections"]["thermal"]["data_quality"] == "no_data"
+    assert "thermal_adjusted_durability" not in out_no_data["sections"]
 
     monkeypatch.setattr(ws, "_build_thermal_report", lambda *_args, **_kwargs: {"data_quality": "no_data"})
     out = {}
@@ -114,9 +134,36 @@ def test_thermal_interpretation_variants() -> None:
     assert neutral["interpretation"] == "thermal_context_available"
 
 
+def test_attach_thermal_context_heat_strain_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    out: dict = {"sections": {}, "warnings": []}
+
+    class HotStream:
+        n_samples = 3600
+        power = [220.0] * 3600
+        heart_rate = [140.0] * 3600
+        core_body_temp = [39.2] * 3600
+        skin_temp = [33.0] * 3600
+        ambient_temp = [30.0] * 3600
+
+    def fake_report(**_kwargs):
+        return type("R", (), {"to_dict": lambda self: {
+            "core_temp_peak": 39.2,
+            "thermal_drift_pct": 5.0,
+            "cardiac_drift_fatigue_bpm": 1.0,
+            "power_decay_raw_pct": 3.0,
+            "power_decay_thermal_adjusted_pct": 2.0,
+        }})()
+
+    monkeypatch.setattr(ws, "analyze_thermal_session", fake_report)
+    ws._attach_thermal_context(out, HotStream(), ftp=260.0)
+    assert any("heat strain" in w.lower() for w in out["warnings"])
+
+
 def test_build_summary_adds_adaptive_schedule_warning(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_legacy(*_args, **_kwargs):
-        hrv_engine.analyze_rr_stream([{"rr": [800.0]}], window_seconds=120, step_seconds=10.0, context=None)
+    def fake_legacy(*_args, **kwargs):
+        analyze_fn = kwargs.get("hrv_analyze_fn")
+        if analyze_fn is not None:
+            analyze_fn([{"rr": [800.0]}], window_seconds=120, step_seconds=10.0, context=None)
         return {
             "status": "success",
             "sections": {"hrv": {"available": True, "timeline": []}},
@@ -133,11 +180,96 @@ def test_build_summary_adds_adaptive_schedule_warning(monkeypatch: pytest.Monkey
         }
 
     monkeypatch.setattr(ws, "_legacy_build_workout_summary", fake_legacy)
-    monkeypatch.setattr(ws, "analyze_rr_stream_endurance_scheduled", fake_schedule)
+    monkeypatch.setattr("engines.io.workout_summary.analyze_rr_stream_endurance_scheduled", fake_schedule)
     monkeypatch.setattr(ws, "_attach_thermal_context", lambda *_args, **_kwargs: None)
 
     summary = build_workout_summary(_stream(n=10), weight_kg=72.0, ftp=260.0)
     hrv = summary["sections"]["hrv"]
     assert hrv["adaptive_step_applied"] is True
     assert any("HRV/DFA-alpha1 step increased" in warning for warning in summary["warnings"])
+    assert not any("two-phase endurance schedule" in warning for warning in summary["warnings"])
+
+
+def test_build_summary_adds_two_phase_schedule_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_legacy(*_args, **kwargs):
+        analyze_fn = kwargs.get("hrv_analyze_fn")
+        if analyze_fn is not None:
+            analyze_fn([{"rr": [800.0]}], window_seconds=120, step_seconds=10.0, context=None)
+        return {
+            "status": "success",
+            "sections": {"hrv": {"available": True, "timeline": []}},
+            "warnings": [],
+        }
+
+    def fake_schedule(*_args, **_kwargs):
+        return [], {
+            "mode": "two_phase_endurance",
+            "dense_step_seconds": 10.0,
+            "sparse_step_seconds": 120.0,
+            "dense_until_seconds": 3600.0,
+            "adaptive_step_applied": False,
+        }
+
+    monkeypatch.setattr(ws, "_legacy_build_workout_summary", fake_legacy)
+    monkeypatch.setattr("engines.io.workout_summary.analyze_rr_stream_endurance_scheduled", fake_schedule)
+    monkeypatch.setattr(ws, "_attach_thermal_context", lambda *_args, **_kwargs: None)
+
+    summary = build_workout_summary(_stream(n=10), weight_kg=72.0, ftp=260.0)
     assert any("two-phase endurance schedule" in warning for warning in summary["warnings"])
+
+
+def test_compute_thermal_context_skip_paths() -> None:
+    class EmptyStream:
+        n_samples = 0
+
+    assert compute_thermal_context(EmptyStream()) == {"status": "skipped", "reason": "empty_stream"}
+
+    class ShortCore:
+        n_samples = 100
+        core_body_temp = np.array([37.0] * 10, dtype=np.float32)
+
+    assert compute_thermal_context(ShortCore()) == {"status": "skipped", "reason": "no_core_temperature"}
+
+    class FewValidCore:
+        n_samples = 100
+        core_body_temp = np.full(100, np.nan, dtype=np.float32)
+        core_body_temp[:5] = 37.0
+
+    assert compute_thermal_context(FewValidCore()) == {"status": "skipped", "reason": "no_core_temperature"}
+
+
+def test_full_array_and_cardiac_decoupling_thermal_interpretation(monkeypatch: pytest.MonkeyPatch) -> None:
+    class BadValues:
+        def __array__(self, dtype=None):
+            raise TypeError("bad array")
+
+    assert _full_array(BadValues()).size == 0
+
+    long = _stream(n=1500)
+    long.power = np.linspace(200.0, 180.0, 1500, dtype=np.float32)
+    long.heart_rate = np.linspace(130.0, 150.0, 1500, dtype=np.float32)
+
+    def heat_thermal(_stream, *, ftp=None):
+        return {
+            "status": "success",
+            "heat_strain_compatible": True,
+            "autonomic_fatigue_compatible": False,
+            "core_temp_peak_c": 39.0,
+        }
+
+    monkeypatch.setattr("engines.io.activity_intelligence.compute_thermal_context", heat_thermal)
+    heat = compute_cardiac_decoupling(long, min_duration_s=1200)
+    assert heat["status"] == "success"
+    assert heat["interpretation"] == "heat_related_drift_detected"
+
+    def fatigue_thermal(_stream, *, ftp=None):
+        return {
+            "status": "success",
+            "heat_strain_compatible": False,
+            "autonomic_fatigue_compatible": True,
+            "cardiac_drift_fatigue_bpm": 4.0,
+        }
+
+    monkeypatch.setattr("engines.io.activity_intelligence.compute_thermal_context", fatigue_thermal)
+    fatigue = compute_cardiac_decoupling(long, min_duration_s=1200)
+    assert fatigue["interpretation"] == "fatigue_residual_drift_detected"

@@ -23,7 +23,7 @@ from engines.io import workout_summary_legacy as _legacy
 from engines.io.workout_summary_legacy import *  # noqa: F401,F403
 from engines.recovery.hrv_endurance_schedule import analyze_rr_stream_endurance_scheduled
 from engines.recovery.thermal_engine import analyze_thermal_session
-import engines.recovery.hrv_engine as _hrv_engine
+from engines.recovery.hrv_engine import analyze_rr_stream as _analyze_rr_stream
 
 _legacy_build_workout_summary = _legacy.build_workout_summary
 # Explicit compatibility export: star-import intentionally skips private names,
@@ -171,7 +171,6 @@ def _attach_thermal_context(out: dict[str, Any], stream: Any, *, ftp: Optional[f
 def build_workout_summary(*args: Any, **kwargs: Any) -> dict:
     """Run the legacy summary with two-phase bounded HRV/DFA and thermal context."""
     last_schedule: dict[str, Any] = {}
-    original_analyze_rr_stream = _hrv_engine.analyze_rr_stream
 
     call_kwargs = dict(kwargs)
     if call_kwargs.get("hrv_step_seconds") is None:
@@ -179,18 +178,18 @@ def build_workout_summary(*args: Any, **kwargs: Any) -> dict:
 
     hrv_max_windows = int(call_kwargs.get("hrv_max_windows") or 500)
 
-    def _scheduled_analyze_rr_stream(
+    def _scheduled_rr_analyzer(
         rr_samples: list[dict[str, Any]],
         *,
         window_seconds: int = 120,
         step_seconds: float = 10.0,
         context: Any = None,
     ) -> list[dict[str, Any]]:
-        # When tests or callers patch hrv_engine.analyze_rr_stream to exercise the
-        # legacy failure path, honour that patched callable instead of bypassing it
-        # through the endurance scheduler's module-level import.
-        if getattr(original_analyze_rr_stream, "__module__", "") != "engines.recovery.hrv_engine":
-            return original_analyze_rr_stream(
+        import engines.recovery.hrv_engine as hrv_engine
+
+        current_rr = hrv_engine.analyze_rr_stream
+        if current_rr is not _analyze_rr_stream:
+            return current_rr(
                 rr_samples,
                 window_seconds=window_seconds,
                 step_seconds=step_seconds,
@@ -207,11 +206,8 @@ def build_workout_summary(*args: Any, **kwargs: Any) -> dict:
         last_schedule.update(schedule)
         return timeline
 
-    _hrv_engine.analyze_rr_stream = _scheduled_analyze_rr_stream
-    try:
-        out = _legacy_build_workout_summary(*args, **call_kwargs)
-    finally:
-        _hrv_engine.analyze_rr_stream = original_analyze_rr_stream
+    call_kwargs["hrv_analyze_fn"] = _scheduled_rr_analyzer
+    out = _legacy_build_workout_summary(*args, **call_kwargs)
 
     if last_schedule:
         hrv = (out.get("sections") or {}).get("hrv")
@@ -236,14 +232,15 @@ def build_workout_summary(*args: Any, **kwargs: Any) -> dict:
                 )
                 if not any("HRV/DFA-alpha1 step increased" in str(item) for item in warnings):
                     warnings.append(adaptive_warning)
-            warning = (
-                "HRV/DFA-alpha1 uses a two-phase endurance schedule: "
-                f"dense first hour at ~{last_schedule.get('dense_step_seconds')}s, "
-                f"then sparse endurance-decay windows at ~{last_schedule.get('sparse_step_seconds')}s. "
-                "All RR beats are preserved; only high-cost DFA window density is thinned."
-            )
-            if not any("All RR beats are preserved" in str(item) for item in warnings):
-                warnings.append(warning)
+            if last_schedule.get("mode") == "two_phase_endurance":
+                warning = (
+                    "HRV/DFA-alpha1 uses a two-phase endurance schedule: "
+                    f"dense first hour at ~{last_schedule.get('dense_step_seconds')}s, "
+                    f"then sparse endurance-decay windows at ~{last_schedule.get('sparse_step_seconds')}s. "
+                    "All RR beats are preserved; only high-cost DFA window density is thinned."
+                )
+                if not any("two-phase endurance schedule" in str(item) for item in warnings):
+                    warnings.append(warning)
 
     stream = _argument(args, kwargs, 0, "stream")
     ftp = _argument(args, kwargs, 2, "ftp")
