@@ -43,6 +43,9 @@ def test_full_activity_bundle_runs_summary_intelligence_charts_and_manifest() ->
     assert bundle["workout_summary"]["status"] == "success"
     assert bundle["activity_intelligence"]["status"] == "success"
     assert bundle["activity_charts"]["_metadata"]["available_charts_count"] >= 5
+    assert bundle["physiology_outputs"]["status"] == "success"
+    assert "thermal" in bundle["physiology_outputs"]["exposed_keys"]
+    assert "thermal_context" in bundle["physiology_outputs"]["exposed_keys"]
 
     manifest = _manifest(bundle)
     for engine in [
@@ -59,6 +62,13 @@ def test_full_activity_bundle_runs_summary_intelligence_charts_and_manifest() ->
         "statistics",
         "best_efforts_power",
         "cardiac_decoupling",
+        "thermal_context",
+        "physiology_outputs",
+        "physiology_hrv",
+        "physiology_cardiac",
+        "physiology_thermal",
+        "physiology_thermal_context",
+        "physiology_thermal_adjusted_durability",
         "chart_power",
         "chart_heart_rate",
         "chart_thermal",
@@ -70,7 +80,10 @@ def test_full_activity_bundle_runs_summary_intelligence_charts_and_manifest() ->
     assert manifest["power"]["status"] == "success"
     assert manifest["hrv"]["status"] == "success"
     assert manifest["cardiac"]["status"] == "success"
+    assert manifest["thermal"]["status"] == "success"
+    assert manifest["physiology_thermal"]["status"] == "success"
     assert manifest["chart_thermal"]["status"] == "success"
+    assert bundle["manifest_summary"]["release_blockers"] == 0
 
 
 def test_full_activity_bundle_never_hides_missing_optional_engines() -> None:
@@ -94,4 +107,7 @@ def test_full_activity_bundle_never_hides_missing_optional_engines() -> None:
     assert "thermal" in manifest
     assert manifest["thermal"]["status"] == "skipped"
     assert "core_temperature" in manifest["thermal"].get("missing_signals", [])
+    assert "physiology_thermal" in manifest
+    assert manifest["physiology_thermal"]["status"] == "skipped"
+    assert "core_temperature" in manifest["physiology_thermal"].get("missing_signals", [])
     assert bundle["manifest_summary"]["total_engines"] == len(bundle["engine_manifest"])
