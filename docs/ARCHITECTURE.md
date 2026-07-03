@@ -21,6 +21,36 @@ It is the reference for new contributors.
 | **services** | Use-case orchestration, `ServiceError` | Import FastAPI |
 | **engines** | Algorithms, tiers, scientific contracts | Know about HTTP |
 
+## Product engineering rules
+
+This backend is the core of a scientific product. New work must follow these rules:
+
+1. Keep the architecture simple, working and maintainable.
+2. Prefer one official module over helper proliferation.
+3. Do not leave experimental files, duplicate reports or orphan patches on `main`.
+4. Every physiological engine must reach the final bundle, report or manifest.
+5. If an input signal is present but the corresponding output is missing, the bundle must expose the issue.
+6. Changes must be release-oriented: tested, documented and reviewable.
+
+## Official activity pipeline
+
+The canonical per-ride pipeline is:
+
+```text
+FIT / stream input
+  -> parse report
+  -> data quality report
+  -> workout summary
+  -> activity intelligence
+  -> activity charts
+  -> full activity bundle
+  -> JSON / PDF / frontend charts
+```
+
+`engines/io/full_activity_bundle.py` is the official post-parse orchestrator. It is responsible for exposing summary, intelligence, charts, physiology outputs and `engine_manifest` in one release contract.
+
+`/ride/full-bundle` is the preferred API endpoint for product integrations and athlete report generation. `/ride/summary` remains a narrower compatibility endpoint.
+
 ## Package layout
 
 ```text
@@ -44,7 +74,7 @@ engines/
   metabolic/          # Profiler, team learning, zones
   performance/        # Power, MMP, durability, protocols
   recovery/           # HRV, cardiac, thermal
-  io/                 # FIT parser, workout summary, charts
+  io/                 # FIT parser, workout summary, charts, full bundle
   twin_state/         # Canonical TwinState v1
   workouts/           # Prescription, compliance, calendar
   coach/              # Decision safety, attention, fueling, orchestrator
@@ -65,6 +95,7 @@ tests/
 | `make test` | Smoke (local fast check) |
 | `make test-all` | Full pytest + integration scripts |
 | `make check` | lint + typecheck + test-all + hardening |
+| `make quality-gate` | Product/scientific output gate |
 | `make typecheck-metabolic` | mypy on `engines/metabolic` |
 
 ## OpenAPI contract
