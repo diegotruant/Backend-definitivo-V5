@@ -12,7 +12,7 @@ from engines.io.fit_parse_report import build_fit_parse_report
 from engines.io.workout_summary import build_workout_summary
 
 
-def _valid(values: Any, *, min_value: Optional[float] = None) -> bool:
+def _valid(values: Any, *, min_value: Optional[float] = None, max_value: Optional[float] = None) -> bool:
     if values is None:
         return False
     try:
@@ -22,6 +22,8 @@ def _valid(values: Any, *, min_value: Optional[float] = None) -> bool:
     arr = arr[np.isfinite(arr)] if arr.size else arr
     if min_value is not None:
         arr = arr[arr >= min_value]
+    if max_value is not None:
+        arr = arr[arr <= max_value]
     return bool(arr.size)
 
 
@@ -37,7 +39,7 @@ def _has(stream: Any, signal: str, metabolic_snapshot: Optional[Dict[str, Any]])
     if signal == "altitude":
         return _valid(getattr(stream, "altitude_m", None)) or _valid(getattr(stream, "altitude", None))
     if signal == "core_temperature":
-        return bool(getattr(stream, "has_core_sensor", False)) and _valid(getattr(stream, "core_body_temp", None), min_value=30.0)
+        return bool(getattr(stream, "has_core_sensor", False)) and _valid(getattr(stream, "core_body_temp", None), min_value=30.0, max_value=45.0)
     if signal == "ambient_temperature":
         return _valid(getattr(stream, "ambient_temp", None), min_value=-40.0)
     if signal == "metabolic_snapshot":
@@ -96,6 +98,10 @@ def _entry(name: str, path: str, value: Any, required: tuple[str, ...], stream: 
     row = {"engine": name, "status": status, "output_path": path}
     if reason:
         row["reason"] = reason
+    if required and status == "skipped" and reason in {"NO_OUTPUT", "EMPTY_OUTPUT"}:
+        row["status"] = "partial"
+        row["reason"] = "REQUIRED_SIGNAL_PRESENT_OUTPUT_NOT_EXPOSED"
+        row["attention"] = "release_blocker"
     return row
 
 
@@ -117,6 +123,24 @@ def _hrv_for_charts(summary: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return hrv if isinstance(hrv, dict) and hrv.get("available") is True else None
 
 
+def _physiology_outputs(summary: Dict[str, Any], intelligence: Dict[str, Any]) -> Dict[str, Any]:
+    sections = summary.get("sections") or {}
+    out = {
+        "status": "success",
+        "hrv": sections.get("hrv"),
+        "cardiac": sections.get("cardiac"),
+        "cardiac_decoupling": intelligence.get("cardiac_decoupling"),
+        "thermal": sections.get("thermal"),
+        "thermal_context": intelligence.get("thermal_context"),
+        "thermal_adjusted_durability": sections.get("thermal_adjusted_durability"),
+        "mader_durability": sections.get("mader_durability"),
+        "fatmax": sections.get("fatmax"),
+        "metabolic_snapshot": sections.get("metabolic_snapshot"),
+    }
+    out["exposed_keys"] = [key for key, value in out.items() if key != "status" and _status(value)[0] == "success"]
+    return out
+
+
 EXPECTATIONS = (
     ("power", "workout_summary.sections.power", ("power",)),
     ("metabolic_snapshot", "workout_summary.sections.metabolic_snapshot", ("power",)),
@@ -135,8 +159,15 @@ EXPECTATIONS = (
     ("heart_rate_zones", "activity_intelligence.heart_rate_zones", ("heart_rate",)),
     ("auto_intervals", "activity_intelligence.auto_intervals", ("power",)),
     ("cardiac_decoupling", "activity_intelligence.cardiac_decoupling", ("power", "heart_rate")),
+    ("thermal_context", "activity_intelligence.thermal_context", ("core_temperature",)),
     ("data_quality", "activity_intelligence.data_quality", ()),
     ("chart_series", "activity_intelligence.chart_series", ()),
+    ("physiology_outputs", "physiology_outputs", ()),
+    ("physiology_hrv", "physiology_outputs.hrv", ("rr",)),
+    ("physiology_cardiac", "physiology_outputs.cardiac", ("power", "heart_rate")),
+    ("physiology_thermal", "physiology_outputs.thermal", ("core_temperature",)),
+    ("physiology_thermal_context", "physiology_outputs.thermal_context", ("core_temperature",)),
+    ("physiology_thermal_adjusted_durability", "physiology_outputs.thermal_adjusted_durability", ("power", "core_temperature")),
     ("chart_power", "activity_charts.power", ("power",)),
     ("chart_heart_rate", "activity_charts.heart_rate", ("heart_rate",)),
     ("chart_elevation", "activity_charts.elevation", ("altitude",)),
@@ -178,14 +209,17 @@ def build_full_activity_bundle(
     manifest.append(row)
     charts, row = _component("activity_charts", "activity_charts", lambda: build_activity_charts(stream, zones=_zones_for_charts(summary), hrv_durability=_hrv_for_charts(summary)))
     manifest.append(row)
-    bundle = {"status": "success", "schema_version": "1.0.0", "parse_report": parse_report, "data_quality_report": data_quality, "workout_summary": summary, "activity_intelligence": intelligence, "activity_charts": charts}
+    bundle = {"status": "success", "schema_version": "1.1.0", "parse_report": parse_report, "data_quality_report": data_quality, "workout_summary": summary, "activity_intelligence": intelligence, "activity_charts": charts, "physiology_outputs": _physiology_outputs(summary, intelligence)}
     for name, path, required in EXPECTATIONS:
         manifest.append(_entry(name, path, _path(bundle, path), required, stream, metabolic_snapshot))
     counts = {"success": 0, "skipped": 0, "partial": 0, "error": 0}
+    blockers = 0
     for row in manifest:
         status = str(row.get("status") or "error")
         counts[status] = counts.get(status, 0) + 1
+        if row.get("attention") == "release_blocker":
+            blockers += 1
     bundle["engine_manifest"] = manifest
-    bundle["manifest_summary"] = {"total_engines": len(manifest), "success": counts.get("success", 0), "skipped": counts.get("skipped", 0), "partial": counts.get("partial", 0), "error": counts.get("error", 0)}
-    bundle["status"] = "error" if counts.get("error", 0) else "success"
+    bundle["manifest_summary"] = {"total_engines": len(manifest), "success": counts.get("success", 0), "skipped": counts.get("skipped", 0), "partial": counts.get("partial", 0), "error": counts.get("error", 0), "release_blockers": blockers, "physiology_exposed_keys": bundle["physiology_outputs"]["exposed_keys"]}
+    bundle["status"] = "error" if counts.get("error", 0) else "partial" if blockers else "success"
     return bundle
