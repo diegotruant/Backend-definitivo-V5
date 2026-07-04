@@ -191,7 +191,6 @@ from engines.recovery.thermal_engine import ThermalSessionReport, analyze_heat_a
 from engines.workouts.adaptive_planner import adapt_plan
 from engines.workouts.calendar_engine import validate_status_transition
 from engines.workouts.recommendation_engine import recommend_workout
-from engines.workouts.template_engine import prescribe_for_athlete, validate_template
 from engines.recovery.hrv_engine import (
     _artifact_mask,
     _compute_sqi,
@@ -1466,11 +1465,10 @@ class TestWorkoutEnginesBatch6:
     }
 
     def test_validate_and_prescribe_template(self) -> None:
-        valid = validate_template(self._WORKOUT)
+        valid = validate_workout_payload(self._WORKOUT)
         assert valid["status"] == "valid"
-        rx = prescribe_for_athlete(self._WORKOUT, {"cp_w": 280, "weight_kg": 72})
-        assert rx["status"] == "success"
-        assert rx["prescription"]["prescription_status"] in {"resolved", "partially_resolved"}
+        resolved = materialize_workout(self._WORKOUT, {"cp_w": 280, "weight_kg": 72})
+        assert resolved["prescription_status"] in {"resolved", "partially_resolved"}
 
     def test_adapt_plan_branches(self) -> None:
         plan = [{"target_w": 200, "load": 80.0}]

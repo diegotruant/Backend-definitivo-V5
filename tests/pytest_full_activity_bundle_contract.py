@@ -88,6 +88,13 @@ def test_full_activity_bundle_runs_summary_intelligence_charts_and_manifest() ->
         "chart_power",
         "chart_heart_rate",
         "chart_thermal",
+        "durability_index",
+        "durability_prescription",
+        "np_drift",
+        "hourly_decay_curve",
+        "tte_sustainability",
+        "metabolic_flexibility",
+        "pedaling_balance",
     ]:
         assert engine in manifest, engine
         assert manifest[engine]["status"] in {"success", "skipped", "partial", "error"}
@@ -99,7 +106,41 @@ def test_full_activity_bundle_runs_summary_intelligence_charts_and_manifest() ->
     assert manifest["thermal"]["status"] == "success"
     assert manifest["physiology_thermal"]["status"] == "success"
     assert manifest["chart_thermal"]["status"] == "success"
+    assert manifest["durability_index"]["status"] == "skipped"
+    assert manifest["durability_index"]["reason"] == "insufficient_duration"
+    assert manifest["durability_prescription"]["status"] == "skipped"
+    assert manifest["np_drift"]["status"] == "success"
+    assert manifest["hourly_decay_curve"]["status"] == "success"
+    assert manifest["pedaling_balance"]["status"] == "success"
     assert bundle["manifest_summary"]["release_blockers"] == 0
+
+
+def test_full_activity_bundle_durability_succeeds_on_long_enough_ride() -> None:
+    stream = _rich_stream(n=7500)
+    bundle = build_full_activity_bundle(
+        stream, weight_kg=72.0, ftp=260.0, lthr=172.0, context=AthleteContext(),
+    )
+    manifest = _manifest(bundle)
+    assert manifest["durability_index"]["status"] == "success"
+    assert bundle["durability_index"]["durability_index"] > 0
+    assert manifest["durability_prescription"]["status"] == "success"
+    assert bundle["durability_prescription"]["focus"]
+
+
+def test_full_activity_bundle_metabolic_flexibility_uses_snapshot() -> None:
+    stream = _rich_stream()
+    snapshot = {"status": "success", "fatmax_power_watts": 180.0, "mlss_power_watts": 250.0}
+    bundle = build_full_activity_bundle(
+        stream, weight_kg=72.0, ftp=260.0, context=AthleteContext(), metabolic_snapshot=snapshot,
+    )
+    manifest = _manifest(bundle)
+    assert manifest["metabolic_flexibility"]["status"] == "success"
+    assert bundle["metabolic_flexibility"]["mfi"] > 0
+
+    bundle_no_snapshot = build_full_activity_bundle(
+        _rich_stream(), weight_kg=72.0, ftp=260.0, context=AthleteContext(),
+    )
+    assert _manifest(bundle_no_snapshot)["metabolic_flexibility"]["status"] == "partial"
 
 
 def test_full_activity_bundle_never_hides_missing_optional_engines() -> None:
@@ -137,6 +178,7 @@ def test_manifest_status_and_component_helpers_cover_error_paths() -> None:
     assert _status({"status": "skipped", "reason": "nope"}) == ("skipped", "nope")
     assert _status({"status": "unavailable"}) == ("skipped", "unavailable")
     assert _status({"status": "partial"}) == ("partial", "PARTIAL_OUTPUT")
+    assert _status({"status": "insufficient_duration"}) == ("skipped", "insufficient_duration")
     assert _status({"status": "ok"}) == ("success", None)
     assert _status({"some": "payload"}) == ("success", None)
     assert _status({}) == ("skipped", "EMPTY_OUTPUT")

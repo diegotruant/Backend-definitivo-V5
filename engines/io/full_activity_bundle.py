@@ -10,6 +10,15 @@ from engines.io.activity_intelligence import build_activity_intelligence
 from engines.io.data_quality_report import build_data_quality_report
 from engines.io.fit_parse_report import build_fit_parse_report
 from engines.io.workout_summary import build_workout_summary
+from engines.metabolic.metabolic_flexibility_engine import calculate_metabolic_flexibility_index
+from engines.performance.durability_engine import (
+    calculate_durability_index,
+    calculate_np_drift,
+    calculate_tte_sustainability,
+    generate_durability_prescription,
+    generate_hourly_decay_curve,
+)
+from engines.recovery.pedaling_balance import analyze_pedaling_balance
 
 
 def _valid(values: Any, *, min_value: Optional[float] = None, max_value: Optional[float] = None) -> bool:
@@ -69,7 +78,11 @@ def _status(value: Any) -> tuple[str, Optional[str]]:
             return "skipped", str(value.get("reason") or status)
         if status == "partial":
             return "partial", str(value.get("reason") or "PARTIAL_OUTPUT")
-        if status in {"success", "ok"} or value:
+        if status in {"success", "ok"}:
+            return "success", None
+        if status is not None:
+            return "skipped", str(value.get("reason") or status)
+        if value:
             return "success", None
         return "skipped", "EMPTY_OUTPUT"
     if isinstance(value, list) and not value:
@@ -121,6 +134,27 @@ def _zones_for_charts(summary: Dict[str, Any]) -> List[Dict[str, Any]]:
 def _hrv_for_charts(summary: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     hrv = ((summary.get("sections") or {}).get("hrv") or {})
     return hrv if isinstance(hrv, dict) and hrv.get("available") is True else None
+
+
+def _power_list(stream: Any) -> List[float]:
+    n = int(getattr(stream, "n_samples", 0) or len(getattr(stream, "power", [])))
+    return [float(p or 0.0) for p in getattr(stream, "power", [])[:n]]
+
+
+def _metabolic_flexibility_from_snapshot(snapshot: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    snapshot = snapshot or {}
+    fatmax = snapshot.get("fatmax_power_watts") or snapshot.get("fatmax_watts") or snapshot.get("current_fatmax_watts")
+    vt2 = snapshot.get("mlss_power_watts") or snapshot.get("vt2_watts") or snapshot.get("threshold_power_w")
+    if fatmax is None or vt2 is None:
+        return {"status": "partial", "reason": "MISSING_FATMAX_OR_VT2"}
+    return calculate_metabolic_flexibility_index(float(fatmax), float(vt2))
+
+
+def _pedaling_balance_from_stream(stream: Any, power_1hz: List[float]) -> Dict[str, Any]:
+    n = int(getattr(stream, "n_samples", 0) or len(power_1hz))
+    balance = [float(v) if v is not None and v == v else None for v in getattr(stream, "left_right_balance", [])[:n]]
+    report = analyze_pedaling_balance(balance, power_1hz, pedaling_balance_source=getattr(stream, "pedaling_balance_source", "unknown"))
+    return report.to_dict() if hasattr(report, "to_dict") else dict(report)
 
 
 def _physiology_outputs(summary: Dict[str, Any], intelligence: Dict[str, Any]) -> Dict[str, Any]:
@@ -211,7 +245,70 @@ def build_full_activity_bundle(
     manifest.append(row)
     charts, row = _component("activity_charts", "activity_charts", lambda: build_activity_charts(stream, zones=_zones_for_charts(summary), hrv_durability=_hrv_for_charts(summary)))
     manifest.append(row)
-    bundle = {"status": "success", "schema_version": "1.1.0", "parse_report": parse_report, "data_quality_report": data_quality, "workout_summary": summary, "activity_intelligence": intelligence, "activity_charts": charts, "physiology_outputs": _physiology_outputs(summary, intelligence)}
+
+    power_1hz = _power_list(stream)
+
+    durability_index_result, row = _component(
+        "durability_index", "durability_index",
+        lambda: calculate_durability_index(power_1hz, duration_seconds=len(power_1hz)),
+    )
+    manifest.append(row)
+
+    durability_prescription_result, row = _component(
+        "durability_prescription", "durability_prescription",
+        lambda: (
+            generate_durability_prescription(durability_index_result["durability_index"], durability_index_result["classification"])
+            if isinstance(durability_index_result, dict) and "durability_index" in durability_index_result
+            else {"status": "skipped", "reason": "durability_index_unavailable"}
+        ),
+    )
+    manifest.append(row)
+
+    np_drift_result, row = _component("np_drift", "np_drift", lambda: calculate_np_drift(power_1hz, len(power_1hz)))
+    manifest.append(row)
+
+    hourly_decay_result, row = _component(
+        "hourly_decay_curve", "hourly_decay_curve",
+        lambda: generate_hourly_decay_curve(power_1hz, len(power_1hz)),
+    )
+    manifest.append(row)
+
+    tte_result, row = _component(
+        "tte_sustainability", "tte_sustainability",
+        lambda: calculate_tte_sustainability(power_1hz, effective_cp) if effective_cp else {"status": "skipped", "reason": "MISSING_CRITICAL_POWER"},
+    )
+    manifest.append(row)
+
+    metabolic_flexibility_result, row = _component(
+        "metabolic_flexibility", "metabolic_flexibility",
+        lambda: _metabolic_flexibility_from_snapshot(metabolic_snapshot),
+    )
+    manifest.append(row)
+
+    pedaling_balance_result, row = _component(
+        "pedaling_balance", "pedaling_balance",
+        lambda: _pedaling_balance_from_stream(stream, power_1hz),
+    )
+    manifest.append(row)
+
+    physiology_outputs = _physiology_outputs(summary, intelligence)
+    bundle = {
+        "status": "success",
+        "schema_version": "1.1.0",
+        "parse_report": parse_report,
+        "data_quality_report": data_quality,
+        "workout_summary": summary,
+        "activity_intelligence": intelligence,
+        "activity_charts": charts,
+        "physiology_outputs": physiology_outputs,
+        "durability_index": durability_index_result,
+        "durability_prescription": durability_prescription_result,
+        "np_drift": np_drift_result,
+        "hourly_decay_curve": hourly_decay_result,
+        "tte_sustainability": tte_result,
+        "metabolic_flexibility": metabolic_flexibility_result,
+        "pedaling_balance": pedaling_balance_result,
+    }
     for name, path, required in EXPECTATIONS:
         manifest.append(_entry(name, path, _path(bundle, path), required, stream, metabolic_snapshot))
     counts = {"success": 0, "skipped": 0, "partial": 0, "error": 0}

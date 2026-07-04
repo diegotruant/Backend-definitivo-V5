@@ -654,7 +654,7 @@ class TestWorkoutSummaryAndSeasonProjectionMedium:
         assert summary["status"] == "success"
         assert "sections" in summary
 
-        with patch("engines.recovery.hrv_engine.analyze_rr_stream", side_effect=RuntimeError("boom")):
+        with patch("engines.io.workout_summary.analyze_rr_stream_endurance_scheduled", side_effect=RuntimeError("boom")):
             broken_hrv = build_workout_summary(_stream(seconds=600, with_rr=True), weight_kg=72.0, ftp=280.0)
             assert broken_hrv["sections"]["hrv"]["available"] is False
 

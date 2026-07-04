@@ -112,5 +112,7 @@ def test_large_rr_workout_summary_adapts_hrv_window_count_and_finishes() -> None
     assert hrv["status"] == "success"
     assert hrv["adaptive_step_applied"] is True
     assert hrv["n_windows"] <= 360
-    assert any("HRV/DFA-alpha1 step increased" in w for w in summary["warnings"])
+    assert hrv["schedule_mode"] is not None
+    assert hrv["sparse_step_seconds"] >= hrv["dense_step_seconds"]
+    assert any("All RR beats are preserved" in w for w in summary["warnings"])
     assert_json_safe(summary)

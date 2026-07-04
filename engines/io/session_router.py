@@ -49,12 +49,13 @@ RR -> skip HRV; the report says what ran and what was skipped and why.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 
 from engines.core.athlete_context import AthleteContext
 from engines.core.tiers import tier_for
+from engines.io.engine_registry import SESSION_ROUTER_ENGINES, session_router_routing_keys
 from engines.performance.interval_detector import classify_session
 
 
@@ -71,6 +72,7 @@ class RoutingDecision:
     source: str = "signal"           # classify_session source: filename | laps | signal | hint
     engines_to_run: List[str] = field(default_factory=list)
     rationale: str = ""
+    stimulus_vector: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -78,6 +80,7 @@ class RoutingDecision:
             "confidence": round(self.confidence, 3), "route": self.route,
             "source": self.source,
             "engines_to_run": self.engines_to_run, "rationale": self.rationale,
+            "stimulus_vector": self.stimulus_vector,
         }
 
 
@@ -99,6 +102,7 @@ def decide_route(
     sub = getattr(cls, "subtype", None)
     conf = float(getattr(cls, "confidence", 0.0) or 0.0)
     src = str(getattr(cls, "source", "signal") or "signal")
+    sv = cls.stimulus_vector.to_dict() if cls.stimulus_vector else None
 
     engines: List[str] = []
     if cat == "TEST":
@@ -143,6 +147,101 @@ def decide_route(
     return RoutingDecision(
         category=cat, subtype=sub, confidence=conf, source=src,
         route=route, engines_to_run=engines, rationale=rationale,
+        stimulus_vector=sv,
+    )
+
+
+@dataclass
+class EngineRunContext:
+    power: List[float]
+    parr: "np.ndarray"
+    rr_samples: Optional[List[Dict[str, Any]]]
+    elapsed_s: Optional[List[float]]
+    weight_kg: float
+    ftp: Optional[float]
+    filename: Optional[str]
+    laps: Optional[List[Dict[str, Any]]]
+    context: AthleteContext
+    metabolic_snapshot: Optional[Dict[str, Any]]
+    stimulus_vector: Optional[Dict[str, Any]]
+
+
+class EngineSkip(Exception):
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+def _run_hrv_threshold(rc: EngineRunContext) -> Any:
+    return _hrv_thresholds(rc.rr_samples, rc.parr, rc.elapsed_s, rc.context)
+
+
+def _run_hrv_durability(rc: EngineRunContext) -> Any:
+    return _hrv_durability(rc.rr_samples, rc.elapsed_s, rc.context)
+
+
+def _run_test_effort_extraction(rc: EngineRunContext) -> Any:
+    from engines.performance.effort_extractor import extract_test_proposal
+
+    prop = extract_test_proposal(
+        [{"file_id": rc.filename or "test", "power": rc.power, "laps": rc.laps}]
+    )
+    return prop.to_dict()
+
+
+def _run_metabolic_profile(rc: EngineRunContext) -> Any:
+    import datetime
+
+    from engines.metabolic.metabolic_profiler import MetabolicProfiler
+    from engines.performance.mmp_aggregator import update_power_curve
+
+    r = update_power_curve(rc.power, datetime.date.today(), weight_kg=rc.weight_kg)
+    prof = MetabolicProfiler(weight=rc.weight_kg, context=rc.context)
+    return prof.generate_metabolic_snapshot(r.mmp_for_profiler)
+
+
+def _run_mader_durability(rc: EngineRunContext) -> Any:
+    from engines.performance.mader_durability import compute_session_durability
+
+    return compute_session_durability(rc.power, rc.metabolic_snapshot, rc.weight_kg)
+
+
+def _run_interval_stimulus(rc: EngineRunContext) -> Any:
+    if rc.stimulus_vector is not None:
+        return rc.stimulus_vector
+    raise EngineSkip("missing_ftp_for_stimulus_vector")
+
+
+def _run_power_curve_update(rc: EngineRunContext) -> Any:
+    import datetime
+
+    from engines.performance.mmp_aggregator import update_power_curve
+
+    r = update_power_curve(rc.power, datetime.date.today(), weight_kg=rc.weight_kg)
+    return {
+        "curve": r.curve,
+        "mmp_for_profiler": r.mmp_for_profiler,
+        "ride_usable": r.ride_usable,
+    }
+
+
+_EXECUTORS: Dict[str, Callable[[EngineRunContext], Any]] = {
+    "hrv_threshold_vt1_vt2": _run_hrv_threshold,
+    "hrv_durability": _run_hrv_durability,
+    "test_effort_extraction": _run_test_effort_extraction,
+    "metabolic_profile": _run_metabolic_profile,
+    "mader_durability": _run_mader_durability,
+    "interval_stimulus": _run_interval_stimulus,
+    "power_curve_update": _run_power_curve_update,
+}
+
+_missing_executors = set(session_router_routing_keys()) - set(_EXECUTORS)
+_orphan_executors = set(_EXECUTORS) - set(session_router_routing_keys())
+if _missing_executors or _orphan_executors:  # pragma: no cover
+    raise RuntimeError(
+        "session_router executors are out of sync with engine_registry: "
+        f"missing executors for {sorted(_missing_executors)}, "
+        f"orphan executors {sorted(_orphan_executors)}"
     )
 
 
@@ -187,63 +286,29 @@ def route_and_run(
 
     parr = np.nan_to_num(np.array(power, dtype=float), nan=0.0)
 
-    # --- HRV threshold (only on ramp-like tests) ---
-    if "hrv_threshold_vt1_vt2" in decision.engines_to_run:
+    run_ctx = EngineRunContext(
+        power=power,
+        parr=parr,
+        rr_samples=rr_samples,
+        elapsed_s=elapsed_s,
+        weight_kg=resolved_weight,
+        ftp=ftp,
+        filename=filename,
+        laps=laps,
+        context=ctx,
+        metabolic_snapshot=metabolic_snapshot,
+        stimulus_vector=decision.stimulus_vector,
+    )
+    for spec in SESSION_ROUTER_ENGINES:
+        if spec.routing_key not in decision.engines_to_run:
+            continue
+        executor = _EXECUTORS[spec.routing_key]
         try:
-            vt = _hrv_thresholds(rr_samples, parr, elapsed_s, ctx)
-            out["results"]["hrv_threshold"] = vt
-        except Exception as e:
-            out["skipped"]["hrv_threshold"] = f"error: {e}"
-
-    # --- HRV durability / time-in-zone (rides, structured tests with RR) ---
-    if "hrv_durability" in decision.engines_to_run:
-        try:
-            out["results"]["hrv_durability"] = _hrv_durability(rr_samples, elapsed_s, ctx)
-        except Exception as e:
-            out["skipped"]["hrv_durability"] = f"error: {e}"
-
-    # --- Metabolic profile / anchor extraction ---
-    if "test_effort_extraction" in decision.engines_to_run:
-        try:
-            from engines.performance.effort_extractor import extract_test_proposal
-            prop = extract_test_proposal([{"file_id": filename or "test", "power": power, "laps": laps}])
-            out["results"]["test_proposal"] = prop.to_dict()
-        except Exception as e:
-            out["skipped"]["test_effort_extraction"] = f"error: {e}"
-
-    if "metabolic_profile" in decision.engines_to_run:
-        try:
-            from engines.metabolic.metabolic_profiler import MetabolicProfiler
-            from engines.performance.mmp_aggregator import update_power_curve
-            import datetime
-            r = update_power_curve(power, datetime.date.today(), weight_kg=resolved_weight)
-            prof = MetabolicProfiler(weight=resolved_weight, context=ctx)
-            out["results"]["metabolic_snapshot"] = prof.generate_metabolic_snapshot(r.mmp_for_profiler)
-        except Exception as e:
-            out["skipped"]["metabolic_profile"] = f"error: {e}"
-
-    # --- Mader mechanistic durability (rides / hiit with metabolic profile) ---
-    if "mader_durability" in decision.engines_to_run:
-        try:
-            from engines.performance.mader_durability import compute_session_durability
-            out["results"]["mader_durability"] = compute_session_durability(
-                power, metabolic_snapshot, resolved_weight,
-            )
-        except Exception as e:
-            out["skipped"]["mader_durability"] = f"error: {e}"
-
-    # --- Power curve update (rides / hiit) ---
-    if "power_curve_update" in decision.engines_to_run:
-        try:
-            from engines.performance.mmp_aggregator import update_power_curve
-            import datetime
-            r = update_power_curve(power, datetime.date.today(), weight_kg=resolved_weight)
-            out["results"]["power_curve"] = {
-                "curve": r.curve, "mmp_for_profiler": r.mmp_for_profiler,
-                "ride_usable": r.ride_usable,
-            }
-        except Exception as e:
-            out["skipped"]["power_curve_update"] = f"error: {e}"
+            out["results"][spec.output_key] = executor(run_ctx)
+        except EngineSkip as skip:
+            out["skipped"][spec.skip_key] = skip.reason
+        except Exception as e:  # noqa: BLE001
+            out["skipped"][spec.skip_key] = f"error: {e}"
 
     return out
 

@@ -130,7 +130,7 @@ def _sorted_steps(steps: List[LactateStep]) -> Tuple[np.ndarray, np.ndarray]:
         key=lambda x: x[0],
     )
     powers = np.array([p for p, _ in pairs], dtype=float)
-    lacts = np.array([l for _, l in pairs], dtype=float)
+    lacts = np.array([lac for _, lac in pairs], dtype=float)
     return powers, lacts
 
 
@@ -389,6 +389,19 @@ def validate_model_against_lactate(
     step_factor = min(1.0, len(valid_steps) / 7.0)  # 7+ steps = full weight
     confidence = round(float(np.clip(0.4 + 0.5 * margin * step_factor, 0.2, 0.95)), 3)
 
+    validation_event = {
+        "parameter": "mlss",
+        "predicted_value": round(float(mlss_model), 1),
+        "measured_value": round(float(mlss_true), 1),
+        "protocol": "lactate_dmax",
+        "model_version": "mader_python",
+        "data_depth_score": (
+            1.0 if snapshot.get("expressiveness", {}).get("fully_expressive", True) else 0.6
+        ),
+        "measurement_confidence": round(step_factor, 3),
+        "notes": f"D-max lactate validation, {len(valid_steps)} steps.",
+    }
+
     return annotate_payload(
         {
             "status": "success",
@@ -408,6 +421,7 @@ def validate_model_against_lactate(
             "tolerance_pct": VALIDATION_TOLERANCE_PCT,
             # Full model snapshot for audit
             "model_snapshot": snapshot,
+            "validation_event": validation_event,
         },
         module_name="lactate_validation_engine",
         method="validate_model_against_lactate",

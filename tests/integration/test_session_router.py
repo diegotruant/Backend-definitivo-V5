@@ -17,7 +17,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from engines.io.session_router import decide_route, route_and_run
+from engines.io.session_router import _hrv_thresholds, decide_route, route_and_run
 from engines.core.athlete_context import AthleteContext
 
 results = []
@@ -158,14 +158,37 @@ check("ride run -> thresholds NOT in results", "hrv_threshold" not in out["resul
 out2 = route_and_run(_ramp(), None, weight_kg=75, filename="indoor_session.fit", ftp=250, context=ctx)
 check("ramp no-RR run -> no HRV threshold result", "hrv_threshold" not in out2["results"])
 
+def _hiit_30_30(reps=10, work_w=350, rest_w=120):
+    p = []
+    for _ in range(reps):
+        p.extend([float(work_w)] * 30)
+        p.extend([float(rest_w)] * 30)
+    return p
+
+hiit_power = _hiit_30_30()
+d_hiit = decide_route(hiit_power, filename="30_30_intervals.fit", ftp=250, has_rr=False)
+check("30/30 filename -> HIIT route", d_hiit.route == "hiit", f"route={d_hiit.route}")
+check("HIIT decision -> interval_stimulus queued",
+      "interval_stimulus" in d_hiit.engines_to_run, f"engines={d_hiit.engines_to_run}")
+
+out_hiit = route_and_run(hiit_power, None, weight_kg=75, filename="30_30_intervals.fit", ftp=250, context=ctx)
+check("HIIT run -> interval_stimulus actually produced (not silently dropped)",
+      "interval_stimulus" in out_hiit["results"],
+      f"results={list(out_hiit['results'].keys())} skipped={out_hiit.get('skipped')}")
+check("HIIT run -> interval_stimulus has time-in-zone content",
+      isinstance(out_hiit["results"].get("interval_stimulus"), dict)
+      and out_hiit["results"]["interval_stimulus"].get("anaerobic_stimulus_s", 0) > 0,
+      f"interval_stimulus={out_hiit['results'].get('interval_stimulus')}")
+
+out_hiit_noftp = route_and_run(hiit_power, None, weight_kg=75, filename="30_30_intervals.fit", ftp=None, context=ctx)
+check("HIIT run without ftp -> interval_stimulus cleanly skipped, not silently dropped",
+      "interval_stimulus" in out_hiit_noftp["skipped"] and "interval_stimulus" not in out_hiit_noftp["results"],
+      f"skipped={out_hiit_noftp.get('skipped')}")
+
 # =============================================================================
 # 3. Honesty gate inside HRV threshold extraction
 # =============================================================================
 print("\n[3] HRV threshold honesty")
-# Build a clean graded RR (alpha1 falling with power) won't be trivial to fake;
-# instead we just assert the helper returns a reliability flag structure when
-# run on a free ride's noisy data (should be insufficient or low_reliability).
-from engines.io.session_router import _hrv_thresholds
 try:
     parr = np.array(ride, dtype=float)
     vt = _hrv_thresholds(rr_samples, parr, list(np.arange(n, dtype=float)), ctx)

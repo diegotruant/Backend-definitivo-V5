@@ -26,9 +26,7 @@ from engines.recovery.thermal_engine import analyze_thermal_session
 from engines.recovery.hrv_engine import analyze_rr_stream as _analyze_rr_stream
 
 _legacy_build_workout_summary = _legacy.build_workout_summary
-# Explicit compatibility export: star-import intentionally skips private names,
-# but older tests and internal modules import this helper from workout_summary.
-_mmp_curve_to_dict = _legacy._mmp_curve_to_dict
+from engines.io.workout_summary_legacy import _mmp_curve_to_dict  # noqa: F401
 
 
 def _argument(args: tuple[Any, ...], kwargs: dict[str, Any], index: int, name: str, default: Any = None) -> Any:

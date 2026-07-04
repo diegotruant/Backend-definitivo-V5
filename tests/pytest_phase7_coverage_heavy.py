@@ -475,7 +475,7 @@ class TestPhase7CoverageHeavyBatch2:
         null_cardiac = build_workout_summary(_NullPHStream(), weight_kg=72.0, ftp=280.0)
         assert null_cardiac["sections"]["cardiac"]["reason"] == "NO_VALID_SAMPLES_AFTER_FILTERING"
 
-        with patch("engines.recovery.hrv_engine.analyze_rr_stream", side_effect=RuntimeError("hrv fail")):
+        with patch("engines.io.workout_summary.analyze_rr_stream_endurance_scheduled", side_effect=RuntimeError("hrv fail")):
             fail_hrv = build_workout_summary(_long_stream(900, with_rr=True), weight_kg=72.0, ftp=280.0)
             assert "HRV_ANALYSIS_FAILED" in fail_hrv["sections"]["hrv"]["reason"]
 
