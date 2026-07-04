@@ -1,11 +1,11 @@
 # API endpoint index — Digital Twin API 5.2.6
 
-Canonical inventory of **134 HTTP paths** from `openapi/openapi.json`.
+Canonical inventory of **135 HTTP paths** from `openapi/openapi.json`.
 Regenerate after API changes: `make openapi-frontend`.
 
 | Tag | Paths |
 |-----|------:|
-| ride | 32 |
+| ride | 33 |
 | coach | 20 |
 | profile | 19 |
 | workouts | 9 |
@@ -27,7 +27,7 @@ Regenerate after API changes: `make openapi-frontend`.
 
 ## Full list by tag
 
-### ride (32)
+### ride (33)
 
 | Method | Path | operationId |
 |--------|------|-------------|
@@ -58,6 +58,7 @@ Regenerate after API changes: `make openapi-frontend`.
 | POST | `/ride/analytics/zones` | `rideAnalyticsZones` |
 | POST | `/ride/data-quality` | `rideDataQuality` |
 | POST | `/ride/durability` | `rideDurability` |
+| POST | `/ride/full-bundle` | `rideFullBundle` |
 | POST | `/ride/ingest` | `rideIngest` |
 | POST | `/ride/intelligence` | `rideIntelligence` |
 | POST | `/ride/parse` | `rideParse` |

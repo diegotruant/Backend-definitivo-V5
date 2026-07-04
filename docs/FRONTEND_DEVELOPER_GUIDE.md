@@ -10,7 +10,7 @@ Unified document for a **software developer** who needs to build the frontend co
 | 2 | `docs/FRONTEND_IMPLEMENTATION_BLUEPRINT.md` | Detailed layout per page, design system, DoD |
 | 3 | `docs/API_PAYLOAD_EXAMPLES.md` | curl / TypeScript examples for each endpoint |
 | 3b | `docs/OPENAPI_FRONTEND.md` | OpenAPI, TS codegen, `api.*` client |
-| 3c | `openapi/openapi.json` | HTTP contract committed (**132 endpoints**) |
+| 3c | `openapi/openapi.json` | HTTP contract committed (**135 endpoints**) |
 | 3d | `docs/API_ENDPOINT_INDEX.md` | Full endpoint inventory by tag |
 | 4 | `docs/WORKOUT_SYSTEM_BACKEND_V1.md` | Prescription flow → compliance |
 | 5 | `docs/BACKEND_IMPLEMENTATIONS_V2.md` | TwinState, projection, neuromuscular |
@@ -146,7 +146,7 @@ flowchart TB
   end
 ```
 
-**Principle V5.2:** Use `TwinState` as the **canonical read model** for the Digital Twin page, Command Center, and seasonal projections. The API now exposes **134 paths** — use `docs/API_ENDPOINT_INDEX.md` for the full map; core coach flows remain in §6–7 below.
+**Principle V5.2:** Use `TwinState` as the **canonical read model** for the Digital Twin page, Command Center, and seasonal projections. The API now exposes **135 paths** — use `docs/API_ENDPOINT_INDEX.md` for the full map; core coach flows remain in §6–7 below.
 
 ---
 
@@ -248,7 +248,7 @@ Base URL example: `http://localhost:8000` (`make run` or `uvicorn api_app:app`).
 | POST | `/team/calibration/update` | Adds validated events to the team model |
 | POST | `/team/calibration/apply` | Apply fix to snapshot or single parameter |
 
-### 6.6 Extended engine API (V5.2 — 134 paths total)
+### 6.6 Extended engine API (V5.2 — 135 paths total)
 
 See `docs/API_ENDPOINT_INDEX.md` for every path. Summary by tag:
 
@@ -256,13 +256,13 @@ See `docs/API_ENDPOINT_INDEX.md` for every path. Summary by tag:
 |-----|------:|----------------|
 | **coach** | **20** | Daily brief, session decision, fueling, safety, periodization — `docs/COACH_DECISION_ENGINE.md` |
 | profile | 19 | Kalman, bayesian snapshot, glycolytic profile, metabolic curves, fatmax, **power VLamax proxy**, MMP quality |
-| ride | 32 | Summary, ingest, analytics (W′, durability, cardiac, HRV, **dual zones**) |
+| ride | 33 | **`rideFullBundle`**, summary, ingest, analytics (W′, durability, cardiac, HRV, **dual zones**) |
 | lab | 7 | Lactate steps, vLaPeak observed vs model, lab text parse |
 | load | 5 | Manual load, ACWR, monotony/strain, adaptive trend |
 | explainability | 8 | Confidence badges + narratives (incl. fatmax) |
 | race | 2 | GPX course analyze + race simulation |
 | integrations | 2 | External activity normalize / dedupe |
-| meta | 2 | Engine tiers, chart config |
+| meta | 3 | Engine tiers, chart types, chart config |
 | twin | 6 | Build, validate, ride/workout updates, projection |
 
 ### 6.6.1 Coach fueling UI (V5.2.3)
@@ -826,13 +826,26 @@ from engines.io.chart_builder import chart_power_duration_curve, chart_metabolic
 
 ---
 
-## 19. Endpoints yet to be added (future phase)
+## 19. Preferred activity integration (V5.2.6+)
 
-| Proposed endpoint | Motor | Target page |
-|-------------------|--------|---------------|
-| `POST /profile/kalman` | `process_workout_history` | Digital Twin trend |
-| `POST /race/simulate` | `simulate_gpx_race` | Coach Planner / pre-competition |
+Use **`POST /ride/full-bundle`** (`rideFullBundle`) as the primary activity report endpoint. It runs the full post-parse contract in one call:
+
+- parse report + data quality
+- workout summary (all sections)
+- activity intelligence + chart series
+- activity charts (14 `activity_*` types when signals present)
+- durability / pedaling / metabolic flexibility side outputs
+- `engine_manifest` with per-engine status
+
+`/ride/summary` remains for narrower compatibility; new UI should prefer the bundle.
+
+Previously planned endpoints now shipped:
+
+| Endpoint | Status | Notes |
+|----------|--------|-------|
+| `POST /profile/kalman/trajectory` | Available | Kalman VO₂/VLa trajectory — use instead of a generic `/profile/kalman` |
+| `POST /race/gpx/simulate` | Available | GPX race simulation — use instead of a generic `/race/simulate` |
 
 ---
 
-*Unified documentation for Backend-definitivo-V5 **5.2.6** (134 OpenAPI paths). See `docs/API_ENDPOINT_INDEX.md` when adding new routes.*
+*Unified documentation for Backend-definitivo-V5 **5.2.6** (135 OpenAPI paths). See `docs/API_ENDPOINT_INDEX.md` when adding new routes.*

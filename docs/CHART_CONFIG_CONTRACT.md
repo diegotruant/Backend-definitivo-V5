@@ -38,7 +38,7 @@ The backend is the **only** chart computation layer. The frontend requests a `ch
 }
 ```
 
-## Catalog (42 chart types)
+## Catalog (43 chart types)
 
 ### Profile / load (`chart_builder.py`)
 
@@ -96,9 +96,20 @@ Prefix `activity_*` — require `power[]` (1 Hz). Optional arrays in `stream_pay
 
 | `chart_type` | Extra |
 |--------------|-------|
+| `activity_elevation` | `power` only |
+| `activity_speed` | `power` only |
+| `activity_power` | `power` only |
+| `activity_heart_rate` | `power` only |
+| `activity_cadence` | `power` only |
+| `activity_respiration` | `power` only |
+| `activity_ambient_temp` | `power` only |
+| `activity_lr_balance` | `power` only |
+| `activity_position` | `power` only |
+| `activity_power_phase` | `power` only |
+| `activity_platform_offset` | `power` only |
 | `activity_time_in_power_zone` | `zones` |
 | `activity_time_in_intensity` | `hrv_durability` |
-| Others | `power` only |
+| `activity_thermal` | `power` only |
 
 ## TwinState shortcut
 
@@ -119,7 +130,7 @@ await api.metaChartConfig({
 Implementation: `engines/io/chart_registry.py`  
 Stream coercion: `engines/io/chart_stream.py`  
 Pydantic validation: `api/chart_schemas.py`  
-Tests: `tests/pytest_chart_config_registry.py`, `tests/pytest_chart_output_quality.py` (quality gate on all 42 types)
+Tests: `tests/pytest_chart_config_registry.py`, `tests/pytest_chart_output_quality.py` (quality gate on all 43 types)
 
 ## Related
 

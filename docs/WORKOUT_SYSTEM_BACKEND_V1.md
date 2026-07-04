@@ -110,15 +110,33 @@ Returns:
 
 Validates assignment status transitions so all clients follow the same calendar workflow.
 
-## Engine layout
+### `POST /workouts/export`
+
+Exports a materialized workout to trainer formats (`erg`, `mrc`, `zwo`). Input:
+
+```json
+{
+  "workout": { "title": "2x3 VO2", "steps": [{"duration_s": 180, "target_w": 320}] },
+  "format": "zwo"
+}
+```
+
+Returns format-specific text (`content`) plus normalized metadata. Requires a validated workout structure — run `/workouts/validate` first when editing coach drafts.
+
+## Workout library (engine layout)
+
+The workout domain is consolidated in `engines/workouts/models.py` (validation, normalization, athlete-specific materialization). Supporting engines:
 
 ```text
 engines/workouts/
-├── models.py              # workout schema normalization and validation
-├── template_engine.py     # template validation and athlete-specific prescription
+├── models.py              # workout schema normalization, validation, prescription materialization
 ├── feasibility_engine.py  # CP/W′ pre-assignment simulation
 ├── compliance_engine.py   # assigned-vs-performed comparison
-└── calendar_engine.py     # assignment status transition rules
+├── calendar_engine.py     # assignment status transition rules
+├── recommendation_engine.py
+├── progression_levels.py
+├── adaptive_planner.py
+└── exporters/             # erg, mrc, zwo text export
 ```
 
 ## V1 assumptions

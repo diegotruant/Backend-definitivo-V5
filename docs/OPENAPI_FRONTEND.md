@@ -6,7 +6,7 @@
 |---------|------------|-----|
 | **Committed spec** | `openapi/openapi.json` | Codegen, PR review, offline |
 | **TypeScript types** | `frontend/src/api/generated/schema.ts` | Autocomplete request/response |
-| **Typed client** | `frontend/src/api/client.ts` | All **132** API paths, ready to use |
+| **Typed client** | `frontend/src/api/client.ts` | All **135** API paths, ready to use |
 | **Swagger UI** | `GET /docs` (server running) | Interactive exploration |
 | **Live OpenAPI** | `GET /openapi.json` | Sync with running server |
 
@@ -52,19 +52,29 @@ try {
 
 ## All endpoints in the client
 
-The typed client (`frontend/src/api/client.ts`) exposes **all 134 OpenAPI paths** — one `jsonFetch` call per route.
+The typed client (`frontend/src/api/client.ts`) exposes **all 135 OpenAPI paths** — one `jsonFetch` call per route.
 
 | Tag | Paths | Highlights |
 |-----|------:|------------|
-| ride | 32 | `rideSummary`, `rideAnalyticsZones`, `rideAnalyticsWPrimeBalance`, … |
-| profile | 15 | `profileSnapshot`, `profileVlamaxFromPowerSeries`, `profileGlycolyticProfile`, … |
-| workouts | 9 | `validateWorkout`, `prescribeWorkout`, `compareWorkout`, … |
+| ride | 33 | `rideFullBundle`, `rideSummary`, `rideAnalyticsZones`, `rideAnalyticsWPrimeBalance`, … |
+| coach | 20 | `coachDailyBrief`, `coachSessionDecision`, `coachNutritionPerformanceTargets`, … |
+| profile | 19 | `profileSnapshot`, `profileVlamaxFromPowerSeries`, `profileGlycolyticProfile`, … |
+| workouts | 9 | `validateWorkout`, `prescribeWorkout`, `compareWorkout`, `workoutsExport`, … |
+| explainability | 8 | confidence scores + coach narratives |
 | lab | 7 | lactate + vLaPeak validation |
-| explainability | 6 | confidence scores + coach narratives |
 | twin | 6 | `twinStateBuild`, `twinStateValidate`, `twinStateProject`, … |
 | load | 5 | `manualLoad`, `loadAcwr`, adaptive trend |
-| history / performance / planning / readiness / test | 13 | unchanged core flows |
-| integrations / meta / race / team / health | 7 | normalize, chart-config, GPX, calibration |
+| history | 4 | load trends, power-curve history, records |
+| performance | 4 | ability profile, breakthroughs, neuromuscular |
+| meta | 3 | `metaChartTypes`, `metaChartConfig`, engine tiers |
+| planning | 3 | season plan, adapt week, load risk |
+| readiness | 3 | today readiness, load state, load risk |
+| test | 3 | propose → confirm onboarding |
+| race | 2 | GPX analyze + simulate |
+| integrations | 2 | normalize, deduplicate |
+| team | 2 | calibration update/apply |
+| dashboard | 1 | `dashboardAthleteSnapshot` |
+| health | 1 | `healthCheck` |
 
 **Canonical list:** `docs/API_ENDPOINT_INDEX.md` (method, path, `operationId` per row).
 
@@ -108,6 +118,16 @@ Ride endpoints accept either a FIT upload or inline JSON streams:
 - `hr_json` — optional measured HR stream; omit when unavailable
 
 Check `data_provenance.measured_signals` / `synthetic_signals` in responses.
+
+## `POST /ride/full-bundle`
+
+Preferred one-shot activity report (`rideFullBundle`). Multipart fields mirror `/ride/summary` plus the full post-parse bundle:
+
+- `workout_summary`, `activity_intelligence`, `activity_charts`
+- `data_quality_report`, `parse_report`, `engine_manifest`
+- durability / pedaling / metabolic flexibility side outputs
+
+Use this for athlete report pages and ingest workers. See `docs/FRONTEND_DEVELOPER_GUIDE.md` §19.
 
 ## `POST /ride/parse`
 

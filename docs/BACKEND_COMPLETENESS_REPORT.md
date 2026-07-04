@@ -1,6 +1,6 @@
 # Backend Completeness Report — V5.2.6
 
-**OpenAPI:** 134 paths (see `docs/API_ENDPOINT_INDEX.md`). **Version:** 5.2.6.
+**OpenAPI:** 135 paths (see `docs/API_ENDPOINT_INDEX.md`). **Version:** 5.2.6.
 
 ## General status
 
@@ -12,7 +12,7 @@ This delivery does not include a database, authentication, or a job queue: those
 
 | Area | Status | Notes |
 |---|---|---|
-| FastAPI API | Ready | `api_app.py` — **134 paths** |
+| FastAPI API | Ready | `api_app.py` — **135 paths** |
 | Coach decision layer | Ready | 20 `/coach/*` endpoints — `docs/COACH_DECISION_ENGINE.md` |
 | FIT ingest | Ready | parsing and power curve |
 | MMP / power curve | Ready | persistable curve updates |
@@ -27,7 +27,7 @@ This delivery does not include a database, authentication, or a job queue: those
 | Dual metabolic + Coggan zones on rides | Ready | V5.2.1 — coach chooses system |
 | Power-series VLamax proxy | Ready | V5.2.2 — `/profile/vlamax-from-power-series` |
 | Performance fueling CHO+FAT g | Ready | V5.2.3 — `session_fat_g`, recovery transparency |
-| Chart config registry (42 types) | Ready | V5.2.5–5.2.6 — `/meta/chart-types`, `/meta/chart-config` |
+| Chart config registry (43 types) | Ready | V5.2.5–5.2.6 — `/meta/chart-types`, `/meta/chart-config` |
 | Dashboard athlete snapshot | Ready | V5.2.6 — `/dashboard/athlete-snapshot` |
 | Contract-first test suites | Ready | ~254 contract tests — `docs/CONTRACT_FIRST_TESTING.md` |
 | Team Learning Engine | Added | residual learning team/athlete/phenotype |
@@ -37,10 +37,10 @@ This delivery does not include a database, authentication, or a job queue: those
 
 | Suite | Count | Role |
 |-------|------:|------|
-| Full `pytest tests/pytest_*.py` | ~1843 | Release gate |
+| Full `pytest tests/pytest_*.py` | ~2275 | Release gate |
 | `pytest_engines_contract_all.py` | 179 | All engines packages |
 | `pytest_contract_full_codebase.py` | 75 | API + services + coach HTTP |
-| `pytest_frontend_client_contract.py` | — | OpenAPI ↔ client.ts (134 paths) |
+| `pytest_frontend_client_contract.py` | — | OpenAPI ↔ client.ts (135 paths) |
 
 ## Available endpoints
 

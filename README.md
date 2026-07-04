@@ -2,7 +2,7 @@
 
 Python backend for physiological analysis and cycling performance (Digital Twin).
 
-Current version: **5.2.6** — 42 chart types, dashboard snapshot, full chart-config registry (134 OpenAPI paths).
+Current version: **5.2.6** — 43 chart types, dashboard snapshot, full chart-config registry (135 OpenAPI paths).
 
 ## Overview
 
@@ -11,7 +11,7 @@ Current version: **5.2.6** — 42 chart types, dashboard snapshot, full chart-co
 | **HTTP Entrypoint** | `api_app.py` | Compatible shim for `uvicorn api_app:app` |
 | **API package** | `api/` | Routers, services, schemas, upload, serialization |
 | **Physiological engines** | `engines/` | Algorithms, tiers, metric contracts |
-| **OpenAPI contract** | `openapi/openapi.json` | **134 documented endpoints** |
+| **OpenAPI contract** | `openapi/openapi.json` | **135 documented endpoints** |
 | **Frontend client** | `frontend/src/api/` | Generated TS types + `api.*` client (all paths) |
 | **Tests** | `tests/` | pytest smoke/hardening + `tests/integration/` |
 
@@ -19,7 +19,7 @@ Current version: **5.2.6** — 42 chart types, dashboard snapshot, full chart-co
 
 | Tag | Paths | Examples |
 |-----|------:|----------|
-| ride | 32 | `/ride/summary`, `/ride/analytics/*`, `/ride/durability` |
+| ride | 33 | `/ride/full-bundle`, `/ride/summary`, `/ride/analytics/*`, `/ride/durability` |
 | **coach** | **20** | `/coach/daily-brief`, `/coach/session-decision`, `/coach/nutrition/performance-targets` |
 | profile | 19 | `/profile/snapshot`, `/profile/metabolic/curves`, `/profile/vlamax-from-power-series` |
 | workouts | 9 | `/workouts/prescribe`, `/workouts/compare` |
@@ -122,7 +122,7 @@ make lint | format | typecheck
 | Release gate | `make check` |
 | Metabolic typing | `make typecheck-metabolic` |
 
-See `docs/CONTRACT_FIRST_TESTING.md` for the product-contract methodology (~1843 tests in full suite).
+See `docs/CONTRACT_FIRST_TESTING.md` for the product-contract methodology (~2275 tests in full suite).
 
 ## Repository structure
 
@@ -140,7 +140,7 @@ See `docs/CONTRACT_FIRST_TESTING.md` for the product-contract methodology (~1843
 │   ├── workouts/             # prescription, compliance, calendar
 │   ├── projection/           # season what-if
 │   └── integrations/         # external activity normalize/dedupe
-├── openapi/openapi.json      # committed OpenAPI 3.1 (134 paths)
+├── openapi/openapi.json      # committed OpenAPI 3.1 (135 paths)
 ├── frontend/                 # Vite/React + api/client.ts
 ├── tests/
 ├── docs/                     # architecture, frontend guide, API index
@@ -154,9 +154,10 @@ See `docs/CONTRACT_FIRST_TESTING.md` for the product-contract methodology (~1843
 
 | Document | Content |
 |----------|---------|
-| [`docs/API_ENDPOINT_INDEX.md`](docs/API_ENDPOINT_INDEX.md) | **All 134 endpoints** by tag |
+| [`docs/DEVELOPER_ONBOARDING.md`](docs/DEVELOPER_ONBOARDING.md) | Italian developer onboarding — setup, architecture, first PR |
+| [`docs/API_ENDPOINT_INDEX.md`](docs/API_ENDPOINT_INDEX.md) | **All 135 endpoints** by tag |
 | [`docs/RELEASE_NOTES_v5.2.6.md`](docs/RELEASE_NOTES_v5.2.6.md) | V5.2.6 — chart roadmap, dashboard, version alignment |
-| [`docs/CHART_CONFIG_CONTRACT.md`](docs/CHART_CONFIG_CONTRACT.md) | 42 chart types + `/meta/chart-config` |
+| [`docs/CHART_CONFIG_CONTRACT.md`](docs/CHART_CONFIG_CONTRACT.md) | 43 chart types + `/meta/chart-config` |
 | [`docs/INGEST_PIPELINE_ARCHITECTURE.md`](docs/INGEST_PIPELINE_ARCHITECTURE.md) | S3 → VPS worker → Postgres → coach UI |
 | [`docs/METABOLIC_CURVES_TWIN_CONTRACT.md`](docs/METABOLIC_CURVES_TWIN_CONTRACT.md) | VO₂/lactate curves on TwinState (frontend/DB) |
 | [`docs/RELEASE_NOTES_v5.2.3.md`](docs/RELEASE_NOTES_v5.2.3.md) | V5.2.3 — coach layer, contract testing, fueling fat_g |
@@ -195,7 +196,7 @@ Bug fixes and API additions require tests + `make check`. After router/schema ch
 
 ## What V5.2 includes
 
-- **134 OpenAPI endpoints** — full engine + coach + chart + dashboard coverage over HTTP
+- **135 OpenAPI endpoints** — full engine + coach + chart + dashboard coverage over HTTP
 - **20 coach endpoints** — decision safety, daily brief, fueling, periodization, …
 - Contract-first test suites (`docs/CONTRACT_FIRST_TESTING.md`)
 - Metabolic snapshot, Kalman, bayesian profile, glycolytic/vLaPeak validation
