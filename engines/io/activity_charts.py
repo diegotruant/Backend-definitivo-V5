@@ -344,6 +344,7 @@ def chart_time_in_power_zone(stream: Any, zones: List[Dict[str, Any]]) -> Dict[s
         seconds.append(int(count))
     return {
         "type": "bar",
+        "available": True,
         "title": "Time in Power Zones",
         "description": "Session time split across configured target physiological zones.",
         "x_axis": {"label": "Zones", "data": labels},
@@ -361,6 +362,7 @@ def chart_time_in_intensity(stream: Any, hrv_durability: Optional[Dict[str, Any]
     data = hrv_durability["time_in_intensity"]
     return {
         "type": "bar",
+        "available": True,
         "title": "Energy Substrate Distribution",
         "description": "Estimated time in lipid (fat) vs glycolytic (carb) metabolism based on intensity kinetics.",
         "x_axis": {"data": ["Lipids (Fat)", "Carbohydrates (Cho)"]},

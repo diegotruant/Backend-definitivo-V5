@@ -118,16 +118,36 @@ def _entry(name: str, path: str, value: Any, required: tuple[str, ...], stream: 
     return row
 
 
+def _zone_rows_from_candidate(candidate: Any) -> List[Dict[str, Any]]:
+    """Extract zone rows from workout_summary zones section shapes."""
+    if isinstance(candidate, list):
+        return [row for row in candidate if isinstance(row, dict)]
+    if not isinstance(candidate, dict):
+        return []
+    if candidate.get("available") is False:
+        return []
+    rows = candidate.get("zones") or candidate.get("time_in_zone") or candidate.get("distribution")
+    if isinstance(rows, list):
+        return [row for row in rows if isinstance(row, dict)]
+    return []
+
+
 def _zones_for_charts(summary: Dict[str, Any]) -> List[Dict[str, Any]]:
     zones = ((summary.get("sections") or {}).get("zones") or {})
-    for key in ("coggan_power_zones", "power_zones", "metabolic_power_zones"):
-        candidate = zones.get(key) if isinstance(zones, dict) else None
-        if isinstance(candidate, dict):
-            rows = candidate.get("zones") or candidate.get("time_in_zone") or candidate.get("distribution")
-            if isinstance(rows, list):
-                return rows
-        if isinstance(candidate, list):
-            return candidate
+    if not isinstance(zones, dict):
+        return []
+    # Canonical keys from zones_engine.build_zones_section (workout_summary).
+    # Legacy aliases kept for older snapshots and hand-built test payloads.
+    for key in (
+        "coggan_power",
+        "metabolic_power",
+        "coggan_power_zones",
+        "power_zones",
+        "metabolic_power_zones",
+    ):
+        rows = _zone_rows_from_candidate(zones.get(key))
+        if rows:
+            return rows
     return []
 
 

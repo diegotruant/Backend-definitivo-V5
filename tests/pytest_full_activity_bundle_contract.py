@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from pathlib import Path
 
 from engines.core.athlete_context import AthleteContext
-from engines.io.fit_parser import ActivityStreamEnhanced
+from engines.io.fit_parser import ActivityStreamEnhanced, parse_fit_file_enhanced
 from engines.io.full_activity_bundle import (
     _component,
     _entry,
@@ -113,6 +114,11 @@ def test_full_activity_bundle_runs_summary_intelligence_charts_and_manifest() ->
     assert manifest["hourly_decay_curve"]["status"] == "success"
     assert manifest["pedaling_balance"]["status"] == "success"
     assert bundle["manifest_summary"]["release_blockers"] == 0
+
+    zone_chart = bundle["activity_charts"]["time_in_power_zone"]
+    assert zone_chart.get("available") is True, zone_chart.get("reason")
+    assert zone_chart.get("type") == "bar"
+    assert zone_chart["series"][0]["data"]
 
 
 def test_full_activity_bundle_durability_succeeds_on_long_enough_ride() -> None:
@@ -237,10 +243,17 @@ def test_manifest_signal_detection_and_release_blocker_paths() -> None:
 
 
 def test_chart_extractors_for_summary_shapes() -> None:
+    coggan = {
+        "available": True,
+        "zones": [{"name": "Z1", "low": 0, "high": 150}],
+    }
+    assert _zones_for_charts({"sections": {"zones": {"coggan_power": coggan}}}) == coggan["zones"]
+    assert _zones_for_charts({"sections": {"zones": {"metabolic_power": coggan}}}) == coggan["zones"]
     assert _zones_for_charts({"sections": {"zones": {"power_zones": [{"name": "Z1"}]}}}) == [{"name": "Z1"}]
     assert _zones_for_charts({"sections": {"zones": {"power_zones": {"zones": [{"name": "Z2"}]}}}}) == [{"name": "Z2"}]
     assert _zones_for_charts({"sections": {"zones": {"power_zones": {"time_in_zone": [{"name": "Z3"}]}}}}) == [{"name": "Z3"}]
     assert _zones_for_charts({"sections": {"zones": {"power_zones": {"distribution": [{"name": "Z4"}]}}}}) == [{"name": "Z4"}]
+    assert _zones_for_charts({"sections": {"zones": {"coggan_power": {"available": False, "zones": [{"name": "Z9"}]}}}}) == []
     assert _zones_for_charts({"sections": {"zones": {}}}) == []
 
     assert _hrv_for_charts({"sections": {"hrv": {"available": True, "time_in_intensity": {}}}}) == {
@@ -386,3 +399,62 @@ def test_data_quality_report_none_values_and_gps_channels() -> None:
     report = build_data_quality_report(stream)
     assert "latitude" in report["available_signals"]
     assert "longitude" in report["available_signals"]
+
+
+FIT_ASSET_DIR = Path(__file__).resolve().parent / "assets" / "fit"
+
+POWER_FIT_CASES = [
+    "minimal_power_hr_lap_hrv",
+    "garmin_power_hr",
+    "garmin_rr_hrv",
+    "wahoo_power_cadence",
+    "indoor_trainer_erg",
+    "zwift_virtual",
+]
+
+
+@pytest.mark.parametrize("stem", POWER_FIT_CASES)
+def test_full_activity_bundle_time_in_power_zone_on_real_fit(stem: str) -> None:
+    """E2E: workout_summary zones use coggan_power keys; bundle charts must wire them."""
+    fit_path = FIT_ASSET_DIR / f"{stem}.fit"
+    if not fit_path.exists():
+        pytest.skip(f"missing FIT asset: {fit_path.name}")
+
+    stream = parse_fit_file_enhanced(str(fit_path), repair_synthetic_header=False)
+    if not getattr(stream, "has_power", False):
+        pytest.skip(f"{stem} has no power stream")
+
+    bundle = build_full_activity_bundle(
+        stream,
+        weight_kg=72.0,
+        ftp=250.0,
+        lthr=170.0,
+        context=AthleteContext(),
+        file_id=f"{stem}.fit",
+    )
+    zones_section = ((bundle["workout_summary"].get("sections") or {}).get("zones") or {})
+    coggan = zones_section.get("coggan_power") or {}
+    assert coggan.get("available") is True, coggan.get("reason")
+
+    zone_chart = bundle["activity_charts"]["time_in_power_zone"]
+    assert zone_chart.get("available") is True, zone_chart.get("reason")
+    assert zone_chart.get("type") == "bar"
+    assert sum(zone_chart["series"][0]["data"]) > 0
+
+
+def test_full_activity_bundle_time_in_power_zone_unavailable_without_power_fit() -> None:
+    fit_path = FIT_ASSET_DIR / "no_power_hr_only.fit"
+    if not fit_path.exists():
+        pytest.skip("missing FIT asset")
+
+    stream = parse_fit_file_enhanced(str(fit_path), repair_synthetic_header=False)
+    bundle = build_full_activity_bundle(
+        stream,
+        weight_kg=72.0,
+        ftp=250.0,
+        lthr=170.0,
+        context=AthleteContext(),
+        file_id="no_power_hr_only.fit",
+    )
+    zone_chart = bundle["activity_charts"]["time_in_power_zone"]
+    assert zone_chart.get("available") is False
