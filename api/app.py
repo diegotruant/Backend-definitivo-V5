@@ -27,6 +27,7 @@ from api.auth import authenticate_request, load_auth_config
 from api.errors import ServiceError
 from api.openapi import enrich_openapi_schema
 from api.routers import (
+    athletes,
     coach_support,
     dashboard,
     explainability,
@@ -56,6 +57,7 @@ OPENAPI_TAGS = [
     {"name": "health", "description": "Liveness and version."},
     {"name": "test", "description": "Field test onboarding (propose → confirm)."},
     {"name": "ride", "description": "FIT ingestion, activity analysis, durability, extended analytics."},
+    {"name": "athletes", "description": "Athlete-level versioned metabolic profile from published MMP."},
     {"name": "profile", "description": "Metabolic snapshot, Kalman, glycolytic profile, MMP quality."},
     {"name": "lab", "description": "Lab PDF/text parsing, lactate validation, vLaPeak."},
     {"name": "workouts", "description": "Prescription, feasibility, compliance."},
@@ -238,6 +240,7 @@ def create_app() -> FastAPI:
     for router in (
         health.router,
         test_routes.router,
+        athletes.router,
         ride.router,
         ride_analytics.router,
         profile.router,

@@ -104,3 +104,5 @@ def test_ingest_worker_hook_points_documents_orchestration() -> None:
     assert hooks["curves_schema"] == "metabolic_curves.v1"
     assert hooks["lactate_schema"] == "lactate_state.v1"
     assert "sync_twin_after_profile_refresh" in hooks["after_profile_refresh"]
+    assert "metabolic_profile_store" in hooks
+    assert "after_bundle_metabolic_profile" in hooks

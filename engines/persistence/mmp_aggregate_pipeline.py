@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from engines.performance.mmp_aggregate import (
     evaluate_mmp_readiness,
@@ -11,6 +11,8 @@ from engines.performance.mmp_aggregate import (
     public_mmp_curve,
 )
 from engines.persistence.mmp_aggregate_store import MmpAggregateStore
+from engines.persistence.metabolic_profile_pipeline import sync_metabolic_profile_after_mmp
+from engines.persistence.metabolic_profile_store import MetabolicProfileStore
 
 
 def sync_athlete_mmp_after_bundle(
@@ -21,6 +23,8 @@ def sync_athlete_mmp_after_bundle(
     activity_file_id: str,
     activity_date: str,
     bundle: Dict[str, Any],
+    athlete_data: Optional[Dict[str, Any]] = None,
+    profile_store: Optional[MetabolicProfileStore] = None,
 ) -> Dict[str, Any]:
     """
     Post-bundle MMP pipeline for worker / ingest orchestration.
@@ -85,8 +89,23 @@ def sync_athlete_mmp_after_bundle(
         "n_activities_included": n_activities,
         "mmp_curve": public_mmp_curve(merged_curve, readiness),
         "aggregate": aggregate_record,
+        "metabolic_profile": (
+            sync_metabolic_profile_after_mmp(
+                store,
+                profile_store,
+                athlete_id=athlete_id,
+                athlete_data=athlete_data or {},
+                changed_mmp_points=improvements,
+            )
+            if profile_store is not None
+            else {
+                "status": "skipped",
+                "reason": "PROFILE_STORE_NOT_PROVIDED",
+            }
+        ),
         "notes": [
             "Per-activity metabolic profile is not promoted to stable athlete profile.",
             "MMP hidden from frontend while status is collecting.",
+            "Athlete metabolic profile is created only when MMP status is published.",
         ],
     }

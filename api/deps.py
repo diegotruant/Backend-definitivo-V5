@@ -31,7 +31,9 @@ from api.services import (
     WorkoutService,
 )
 from api.services.mmp_aggregate_service import MmpAggregateService
+from api.services.metabolic_profile_service import MetabolicProfileService
 from engines.persistence.mmp_aggregate_store import MmpAggregateStore, mmp_store_from_env
+from engines.persistence.metabolic_profile_store import MetabolicProfileStore, metabolic_profile_store_from_env
 
 
 @lru_cache
@@ -142,6 +144,15 @@ def get_meta_service() -> MetaService:
 @lru_cache
 def get_mmp_aggregate_service() -> MmpAggregateService:
     return MmpAggregateService()
+
+
+@lru_cache
+def get_metabolic_profile_service() -> MetabolicProfileService:
+    return MetabolicProfileService()
+
+
+def get_metabolic_profile_store() -> MetabolicProfileStore:
+    return metabolic_profile_store_from_env()
 
 
 def get_mmp_aggregate_store() -> MmpAggregateStore:

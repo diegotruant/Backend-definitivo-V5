@@ -6,6 +6,7 @@ import numpy as np
 
 from engines.core.athlete_context import AthleteContext
 from engines.io.activity_charts import build_activity_charts
+from engines.io.activity_metabolic_deprecation import apply_activity_metabolic_deprecation
 from engines.io.activity_intelligence import build_activity_intelligence
 from engines.io.data_quality_report import build_data_quality_report
 from engines.io.fit_parse_report import build_fit_parse_report
@@ -341,4 +342,4 @@ def build_full_activity_bundle(
     bundle["engine_manifest"] = manifest
     bundle["manifest_summary"] = {"total_engines": len(manifest), "success": counts.get("success", 0), "skipped": counts.get("skipped", 0), "partial": counts.get("partial", 0), "error": counts.get("error", 0), "release_blockers": blockers, "physiology_exposed_keys": bundle["physiology_outputs"]["exposed_keys"]}
     bundle["status"] = "error" if counts.get("error", 0) else "partial" if blockers else "success"
-    return bundle
+    return apply_activity_metabolic_deprecation(bundle)

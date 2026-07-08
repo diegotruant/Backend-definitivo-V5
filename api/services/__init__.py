@@ -17,6 +17,7 @@ from api.services.race_service import RaceService
 from api.services.readiness_service import ReadinessService
 from api.services.ride_analytics_service import RideAnalyticsService
 from api.services.mmp_aggregate_service import MmpAggregateService
+from api.services.metabolic_profile_service import MetabolicProfileService
 from api.services.ride_service import RideService
 from api.services.team_service import TeamService
 from api.services.test_service import TestService
@@ -34,6 +35,7 @@ __all__ = [
     "LoadService",
     "MetaService",
     "MmpAggregateService",
+    "MetabolicProfileService",
     "PerformanceService",
     "PlanningService",
     "ProfileExtendedService",

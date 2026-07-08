@@ -31,6 +31,9 @@ class MmpAggregateStore(Protocol):
     def load_aggregate_curve(self, athlete_id: str) -> List[Dict[str, Any]]:
         """Load current aggregate curve JSON list for athlete."""
 
+    def load_aggregate_record(self, athlete_id: str) -> Optional[Dict[str, Any]]:
+        """Load full athlete_mmp_aggregate row."""
+
     def count_distinct_activities(self, athlete_id: str) -> int:
         """Count activities that contributed MMP points."""
 
@@ -83,6 +86,10 @@ class InMemoryMmpAggregateStore:
         row = self.aggregates.get(athlete_id) or {}
         curve = row.get("mmp_curve_json") or []
         return list(curve) if isinstance(curve, list) else []
+
+    def load_aggregate_record(self, athlete_id: str) -> Optional[Dict[str, Any]]:
+        row = self.aggregates.get(athlete_id)
+        return dict(row) if row else None
 
     def count_distinct_activities(self, athlete_id: str) -> int:
         ids = {
@@ -198,6 +205,20 @@ class SupabaseMmpAggregateStore:
         row = data[0] if isinstance(data, list) else data
         curve = (row or {}).get("mmp_curve_json") or []
         return list(curve) if isinstance(curve, list) else []
+
+    def load_aggregate_record(self, athlete_id: str) -> Optional[Dict[str, Any]]:
+        data = self._request(
+            "GET",
+            "/athlete_mmp_aggregate",
+            params={
+                "athlete_id": f"eq.{athlete_id}",
+                "limit": "1",
+            },
+        )
+        if not data:
+            return None
+        row = data[0] if isinstance(data, list) else data
+        return dict(row or {})
 
     def count_distinct_activities(self, athlete_id: str) -> int:
         data = self._request(

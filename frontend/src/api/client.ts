@@ -143,6 +143,15 @@ export const api = {
     return jsonFetch<EnginePayload>('/ride/ingest-with-mmp-aggregate', { method: 'POST', body: form });
   },
 
+  /** GET /athletes/{athlete_id}/metabolic-profile/current */
+  getAthleteMetabolicProfileCurrent: (athleteId: string) =>
+    jsonFetch<EnginePayload>(
+      '/athletes/{athlete_id}/metabolic-profile/current'.replace(
+        '{athlete_id}',
+        encodeURIComponent(athleteId),
+      ),
+    ),
+
   /** POST /ride/parse */
   rideParse: (args: { file: File }) => {
     const form = new FormData();

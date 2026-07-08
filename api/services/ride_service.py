@@ -19,6 +19,7 @@ from engines.performance.mader_durability import compute_session_durability
 from engines.performance.mmp_aggregator import update_power_curve
 from engines.persistence.mmp_aggregate_pipeline import sync_athlete_mmp_after_bundle
 from engines.persistence.mmp_aggregate_store import MmpAggregateStore
+from engines.persistence.metabolic_profile_store import MetabolicProfileStore
 
 
 class RideService:
@@ -194,6 +195,7 @@ class RideService:
         hrv_step_seconds: Optional[float],
         hrv_max_windows: int,
         mmp_store: MmpAggregateStore,
+        profile_store: Optional[MetabolicProfileStore] = None,
     ) -> Dict[str, Any]:
         """
         Full FIT ingest pipeline:
@@ -229,6 +231,8 @@ class RideService:
             activity_file_id=activity_file_id,
             activity_date=ride_date.isoformat(),
             bundle=bundle,
+            athlete_data=self._athlete_data_from_params(athlete, weight_kg=weight_kg),
+            profile_store=profile_store,
         )
         return {
             "bundle": bundle,
@@ -259,6 +263,14 @@ class RideService:
             for p in stream.power[: getattr(stream, "n_samples", len(stream.power))]
         ]
         return compute_session_durability(power, metabolic_snapshot, weight_kg=weight_kg)
+
+    @staticmethod
+    def _athlete_data_from_params(athlete: AthleteParams, *, weight_kg: float) -> Dict[str, Any]:
+        gender = str(athlete.gender or "MALE").upper()
+        return {
+            "weight_kg": weight_kg,
+            "sex": "male" if gender.startswith("M") else "female",
+        }
 
     @staticmethod
     def _context_from_athlete(athlete: AthleteParams) -> AthleteContext:

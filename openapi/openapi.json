@@ -384,6 +384,68 @@
         ]
       }
     },
+    "/athletes/{athlete_id}/metabolic-profile/current": {
+      "get": {
+        "tags": [
+          "athletes"
+        ],
+        "summary": "Active athlete metabolic profile",
+        "description": "Return the single active versioned metabolic profile for an athlete. Profiles are computed only from published aggregate MMP, not per-activity snapshots.",
+        "operationId": "athletesMetabolicProfileCurrent",
+        "parameters": [
+          {
+            "name": "athlete_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Athlete Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "additionalProperties": true,
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible.",
+                  "properties": {},
+                  "title": "EnginePayload",
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible.",
+                  "properties": {},
+                  "title": "EnginePayload",
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ride/parse": {
       "post": {
         "tags": [
@@ -18493,6 +18555,10 @@
     {
       "name": "ride",
       "description": "FIT ingestion, activity analysis, durability, extended analytics."
+    },
+    {
+      "name": "athletes",
+      "description": "Athlete-level versioned metabolic profile from published MMP."
     },
     {
       "name": "profile",
