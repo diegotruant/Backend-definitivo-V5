@@ -5,7 +5,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
-from api.deps import get_ride_service
+from api.deps import get_mmp_aggregate_store, get_ride_service
 from api.helpers import (
     coerce_stored_curve,
     json_response,
@@ -84,6 +84,77 @@ async def ingest_ride(
             weight_kg=weight_kg,
             stored_curve=coerce_stored_curve(stored),
             file_hash=parsed.get("file_hash"),
+        )
+    )
+
+
+@router.post(
+    "/ingest-with-mmp-aggregate",
+    summary="Ingest FIT, build bundle, sync athlete MMP aggregate",
+    description=(
+        "Worker-oriented pipeline: parse FIT, build full activity bundle, update rolling "
+        "curve ingest, extract per-activity MMP points, merge athlete aggregate in Supabase, "
+        "and return exposure status (collecting / provisional / published)."
+    ),
+    operation_id="rideIngestWithMmpAggregate",
+    response_model=EnginePayload,
+    responses={200: JSON_OBJECT, 400: ERRORS[400], 422: ERRORS[422]},
+)
+async def ingest_ride_with_mmp_aggregate(
+    file: UploadFile = File(..., description="Ride FIT file."),
+    ride_date: str = Form(..., description="ISO date YYYY-MM-DD."),
+    athlete_id: str = Form(..., description="Athlete UUID in Supabase."),
+    activity_id: str = Form(..., description="Activity UUID for this ingest."),
+    activity_file_id: str = Form(..., description="uploaded_files.id for the FIT."),
+    weight_kg: float = Form(70.0, description="Athlete weight in kg."),
+    stored_curve_json: Optional[str] = Form(
+        None,
+        description="Previously persisted twin rolling_power_curve JSON (optional).",
+    ),
+    ftp: Optional[float] = Form(None),
+    lthr: Optional[float] = Form(None),
+    gender: str = Form("MALE"),
+    training_years: float = Form(10),
+    discipline: str = Form("ENDURANCE"),
+    metabolic_snapshot_json: Optional[str] = Form(None),
+    hrv_step_seconds: Optional[float] = Form(None),
+    hrv_max_windows: int = Form(500),
+    service: RideService = Depends(get_ride_service),
+    mmp_store=Depends(get_mmp_aggregate_store),
+):
+    try:
+        parsed = await parse_upload(file)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.info("Cannot parse ride upload %r: %s", file.filename, exc)
+        raise HTTPException(status_code=422, detail=safe_error_detail("FIT_PARSE_FAILED"))
+    ride_day = parse_iso_date(ride_date, "ride_date")
+    stored = json.loads(stored_curve_json) if stored_curve_json else None
+    athlete = AthleteParams(
+        weight_kg=weight_kg,
+        gender=gender,
+        training_years=training_years,
+        discipline=discipline,
+    )
+    return json_response(
+        service.process_fit_ingest_with_mmp_aggregate(
+            stream=parsed["_stream"],
+            ride_date=ride_day,
+            file_id=parsed["file_id"],
+            file_hash=parsed.get("file_hash"),
+            weight_kg=weight_kg,
+            stored_curve=coerce_stored_curve(stored),
+            athlete_id=athlete_id,
+            activity_id=activity_id,
+            activity_file_id=activity_file_id,
+            ftp=ftp,
+            lthr=lthr,
+            athlete=athlete,
+            metabolic_snapshot=parse_metabolic_snapshot(metabolic_snapshot_json),
+            hrv_step_seconds=hrv_step_seconds,
+            hrv_max_windows=hrv_max_windows,
+            mmp_store=mmp_store,
         )
     )
 

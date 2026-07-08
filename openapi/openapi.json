@@ -616,6 +616,91 @@
         ]
       }
     },
+    "/ride/ingest-with-mmp-aggregate": {
+      "post": {
+        "tags": [
+          "ride"
+        ],
+        "summary": "Ingest FIT, build bundle, sync athlete MMP aggregate",
+        "description": "Worker-oriented pipeline: parse FIT, build full activity bundle, update rolling curve ingest, extract per-activity MMP points, merge athlete aggregate in Supabase, and return exposure status (collecting / provisional / published).",
+        "operationId": "rideIngestWithMmpAggregate",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rideIngestWithMmpAggregate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "properties": {},
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "EnginePayload",
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable FIT or activity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "detail": {
+                      "title": "Detail",
+                      "description": "Human-readable message or structured error object."
+                    }
+                  },
+                  "type": "object",
+                  "required": [
+                    "detail"
+                  ],
+                  "title": "ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "AthleteIdHeader": []
+          }
+        ]
+      }
+    },
     "/ride/update-profile": {
       "post": {
         "tags": [
@@ -10684,6 +10769,127 @@
           "ride_date"
         ],
         "title": "Body_rideIngest"
+      },
+      "Body_rideIngestWithMmpAggregate": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "title": "File",
+            "description": "Ride FIT file.",
+            "format": "binary"
+          },
+          "ride_date": {
+            "type": "string",
+            "title": "Ride Date",
+            "description": "ISO date YYYY-MM-DD."
+          },
+          "athlete_id": {
+            "type": "string",
+            "title": "Athlete Id",
+            "description": "Athlete UUID in Supabase."
+          },
+          "activity_id": {
+            "type": "string",
+            "title": "Activity Id",
+            "description": "Activity UUID for this ingest."
+          },
+          "activity_file_id": {
+            "type": "string",
+            "title": "Activity File Id",
+            "description": "uploaded_files.id for the FIT."
+          },
+          "weight_kg": {
+            "type": "number",
+            "title": "Weight Kg",
+            "description": "Athlete weight in kg.",
+            "default": 70.0
+          },
+          "stored_curve_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stored Curve Json",
+            "description": "Previously persisted twin rolling_power_curve JSON (optional)."
+          },
+          "ftp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp"
+          },
+          "lthr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lthr"
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender",
+            "default": "MALE"
+          },
+          "training_years": {
+            "type": "number",
+            "title": "Training Years",
+            "default": 10
+          },
+          "discipline": {
+            "type": "string",
+            "title": "Discipline",
+            "default": "ENDURANCE"
+          },
+          "metabolic_snapshot_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metabolic Snapshot Json"
+          },
+          "hrv_step_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hrv Step Seconds"
+          },
+          "hrv_max_windows": {
+            "type": "integer",
+            "title": "Hrv Max Windows",
+            "default": 500
+          }
+        },
+        "type": "object",
+        "required": [
+          "file",
+          "ride_date",
+          "athlete_id",
+          "activity_id",
+          "activity_file_id"
+        ],
+        "title": "Body_rideIngestWithMmpAggregate"
       },
       "Body_rideIntelligence": {
         "properties": {

@@ -17,6 +17,8 @@ from engines.io.activity_intelligence import build_activity_intelligence
 from engines.io.data_quality_report import build_data_quality_report
 from engines.performance.mader_durability import compute_session_durability
 from engines.performance.mmp_aggregator import update_power_curve
+from engines.persistence.mmp_aggregate_pipeline import sync_athlete_mmp_after_bundle
+from engines.persistence.mmp_aggregate_store import MmpAggregateStore
 
 
 class RideService:
@@ -172,6 +174,67 @@ class RideService:
             file_id=file_id,
             file_hash=file_hash,
         )
+
+    def process_fit_ingest_with_mmp_aggregate(
+        self,
+        *,
+        stream: Any,
+        ride_date: date,
+        file_id: str,
+        file_hash: Optional[str],
+        weight_kg: float,
+        stored_curve: Optional[Dict[str, Any]],
+        athlete_id: str,
+        activity_id: str,
+        activity_file_id: str,
+        ftp: Optional[float],
+        lthr: Optional[float],
+        athlete: AthleteParams,
+        metabolic_snapshot: Optional[Dict[str, Any]],
+        hrv_step_seconds: Optional[float],
+        hrv_max_windows: int,
+        mmp_store: MmpAggregateStore,
+    ) -> Dict[str, Any]:
+        """
+        Full FIT ingest pipeline:
+
+        1. Build activity bundle (normal per-ride processing)
+        2. Classic rolling-curve ingest for twin compatibility
+        3. Athlete-level MMP aggregate sync to Supabase
+        """
+        bundle = self.build_full_bundle(
+            stream,
+            weight_kg=weight_kg,
+            ftp=ftp,
+            lthr=lthr,
+            athlete=athlete,
+            metabolic_snapshot=metabolic_snapshot,
+            hrv_step_seconds=hrv_step_seconds,
+            hrv_max_windows=hrv_max_windows,
+            file_id=file_id,
+            file_hash=file_hash,
+        )
+        ingest_result = self.ingest(
+            stream=stream,
+            ride_date=ride_date,
+            file_id=file_id,
+            weight_kg=weight_kg,
+            stored_curve=stored_curve,
+            file_hash=file_hash,
+        )
+        mmp_aggregate = sync_athlete_mmp_after_bundle(
+            mmp_store,
+            athlete_id=athlete_id,
+            activity_id=activity_id,
+            activity_file_id=activity_file_id,
+            activity_date=ride_date.isoformat(),
+            bundle=bundle,
+        )
+        return {
+            "bundle": bundle,
+            "ingest": ingest_result,
+            "mmp_aggregate": mmp_aggregate,
+        }
 
     def build_data_quality(self, stream: Any) -> Dict[str, Any]:
         return build_data_quality_report(stream)

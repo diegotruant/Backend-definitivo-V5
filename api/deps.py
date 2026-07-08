@@ -30,6 +30,8 @@ from api.services import (
     TwinService,
     WorkoutService,
 )
+from api.services.mmp_aggregate_service import MmpAggregateService
+from engines.persistence.mmp_aggregate_store import MmpAggregateStore, mmp_store_from_env
 
 
 @lru_cache
@@ -135,6 +137,15 @@ def get_dashboard_service() -> DashboardService:
 @lru_cache
 def get_meta_service() -> MetaService:
     return MetaService()
+
+
+@lru_cache
+def get_mmp_aggregate_service() -> MmpAggregateService:
+    return MmpAggregateService()
+
+
+def get_mmp_aggregate_store() -> MmpAggregateStore:
+    return mmp_store_from_env()
 
 
 def get_request_principal(request: Request) -> Principal | None:

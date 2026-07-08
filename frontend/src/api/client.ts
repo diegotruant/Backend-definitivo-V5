@@ -106,6 +106,43 @@ export const api = {
     return jsonFetch<RideIngestResponse>('/ride/ingest', { method: 'POST', body: form });
   },
 
+  /** POST /ride/ingest-with-mmp-aggregate */
+  ingestRideWithMmpAggregate: (args: {
+    file: File;
+    ride_date: string;
+    athlete_id: string;
+    activity_id: string;
+    activity_file_id: string;
+    weight_kg: number;
+    stored_curve_json?: string;
+    ftp?: number;
+    lthr?: number;
+    gender?: string;
+    training_years?: number;
+    discipline?: string;
+    metabolic_snapshot_json?: string;
+    hrv_step_seconds?: number;
+    hrv_max_windows?: number;
+  }) => {
+    const form = new FormData();
+    form.append('file', args.file);
+    form.append('ride_date', args.ride_date);
+    form.append('athlete_id', args.athlete_id);
+    form.append('activity_id', args.activity_id);
+    form.append('activity_file_id', args.activity_file_id);
+    form.append('weight_kg', String(args.weight_kg));
+    if (args.stored_curve_json) form.append('stored_curve_json', args.stored_curve_json);
+    if (args.ftp != null) form.append('ftp', String(args.ftp));
+    if (args.lthr != null) form.append('lthr', String(args.lthr));
+    if (args.gender) form.append('gender', args.gender);
+    if (args.training_years != null) form.append('training_years', String(args.training_years));
+    if (args.discipline) form.append('discipline', args.discipline);
+    if (args.metabolic_snapshot_json) form.append('metabolic_snapshot_json', args.metabolic_snapshot_json);
+    if (args.hrv_step_seconds != null) form.append('hrv_step_seconds', String(args.hrv_step_seconds));
+    if (args.hrv_max_windows != null) form.append('hrv_max_windows', String(args.hrv_max_windows));
+    return jsonFetch<EnginePayload>('/ride/ingest-with-mmp-aggregate', { method: 'POST', body: form });
+  },
+
   /** POST /ride/parse */
   rideParse: (args: { file: File }) => {
     const form = new FormData();

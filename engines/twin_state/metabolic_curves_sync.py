@@ -211,6 +211,8 @@ def ingest_worker_hook_points() -> Dict[str, str]:
         "after_profile_refresh": "engines.twin_state.metabolic_curves_sync.sync_twin_after_profile_refresh",
         "after_lactate_test": "engines.twin_state.metabolic_curves_sync.sync_lactate_state_from_steps",
         "after_ride_update": "engines.twin_state.state_update_engine.update_twin_state_from_ride",
+        "after_bundle_mmp_aggregate": "engines.persistence.mmp_aggregate_pipeline.sync_athlete_mmp_after_bundle",
+        "mmp_aggregate_store": "engines.persistence.mmp_aggregate_store.mmp_store_from_env",
         "twin_schema": TWIN_STATE_SCHEMA_VERSION,
         "curves_schema": METABOLIC_CURVES_SCHEMA_VERSION,
         "lactate_schema": LACTATE_STATE_SCHEMA_VERSION,
