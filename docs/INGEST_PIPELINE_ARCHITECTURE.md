@@ -63,7 +63,24 @@ Store the S3 URL in `activities.fit_file_url` (see `docs/FRONTEND_IMPLEMENTATION
 
 The worker **imports the same services** as HTTP (`RideService`, `TwinService`, `ProfileExtendedService`) — no duplicate engine wiring.
 
-### FIT processing sequence (per activity)
+### FIT processing sequence (per activity) — athlete model (V5.3+)
+
+```text
+1. Download FIT from S3 → temp file
+2. parse_upload / parse_fit_file_enhanced
+3. POST /ride/ingest-with-mmp-aggregate
+     → bundle + ingest + mmp_aggregate + metabolic_profile + thresholds + athlete_model
+4. POST /twin/state/update-from-ride
+     → pass ingest_result.active_metabolic_profile (not per-activity metabolic_snapshot)
+5. Optional: sync_twin_athlete_model() for full zone_anchors + canonical MMP on twin
+6. Persist activities + twin_states (single transaction)
+```
+
+Reference worker script: `tools/worker/ingest_athlete_model_pipeline.py`  
+Deploy checklist: `docs/ATHLETE_MODEL_DEPLOY_CHECKLIST.md`  
+SQL smoke test: `scripts/smoke_test_athlete_model.sql`
+
+### Legacy FIT sequence (pre-athlete-model)
 
 ```text
 1. Download FIT from S3 → temp file
@@ -104,8 +121,11 @@ Minimum tables (from `docs/FRONTEND_IMPLEMENTATION_BLUEPRINT.md`):
 |------|----------|-----------------|
 | Raw FIT | S3 | upload |
 | Activity summary | `activities.summary` | `/ride/summary` |
-| Rolling MMP + load | `twin_states.twin_state` | `/ride/ingest` + `/twin/state/update-from-ride` |
-| VO₂ / substrate curves | `twin_state.metabolic_curves` | auto on twin build / profile refresh |
+| Rolling MMP + load | `twin_states.twin_state` + `athlete_mmp_aggregate` | `/ride/ingest-with-mmp-aggregate` |
+| Stable metabolic profile | `athlete_metabolic_profile_versions` + `athlete_current_profile` | `GET /athletes/{id}/metabolic-profile/current` |
+| FTP / LTHR / CP | `athlete_threshold_versions` + `athlete_current_thresholds` | `GET /athletes/{id}/thresholds/current` |
+| Zone anchors | twin `zone_anchors` + API | `GET /athletes/{id}/zone-anchors/current` |
+| VO₂ / substrate curves | `twin_state.metabolic_curves` | from versioned profile via twin sync |
 | Measured lactate | `twin_state.lactate_state` | `/test/in-person` → `lactate_persistence` |
 | Session fuel / W′ | `activities` analytics | `/profile/metabolic/curves` with `power_series` |
 
