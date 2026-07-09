@@ -20,6 +20,9 @@ from engines.performance.mmp_aggregator import update_power_curve
 from engines.persistence.mmp_aggregate_pipeline import sync_athlete_mmp_after_bundle
 from engines.persistence.mmp_aggregate_store import MmpAggregateStore
 from engines.persistence.metabolic_profile_store import MetabolicProfileStore
+from engines.persistence.mmp_unification import resolve_canonical_rolling_curve
+from engines.persistence.threshold_store import ThresholdStore
+from engines.physiology.athlete_profile_bridge import build_zone_anchors_from_model, resolve_active_athlete_model
 
 
 class RideService:
@@ -196,6 +199,7 @@ class RideService:
         hrv_max_windows: int,
         mmp_store: MmpAggregateStore,
         profile_store: Optional[MetabolicProfileStore] = None,
+        threshold_store: Optional[ThresholdStore] = None,
     ) -> Dict[str, Any]:
         """
         Full FIT ingest pipeline:
@@ -203,7 +207,23 @@ class RideService:
         1. Build activity bundle (normal per-ride processing)
         2. Classic rolling-curve ingest for twin compatibility
         3. Athlete-level MMP aggregate sync to Supabase
+        4. Versioned metabolic profile + thresholds when MMP is published
+        5. Canonical MMP curve for twin (aggregate preferred over rolling window)
         """
+        zone_anchors: Optional[Dict[str, Any]] = None
+        if profile_store is not None or threshold_store is not None:
+            active_profile = (
+                profile_store.load_latest_active_profile(athlete_id) if profile_store else None
+            )
+            active_thresholds = (
+                threshold_store.load_latest_active_thresholds(athlete_id) if threshold_store else None
+            )
+            zone_anchors = build_zone_anchors_from_model(active_profile, active_thresholds)
+            if ftp is None and active_thresholds and active_thresholds.get("ftp_w"):
+                ftp = float(active_thresholds["ftp_w"])
+            if lthr is None and active_thresholds and active_thresholds.get("lthr_bpm"):
+                lthr = float(active_thresholds["lthr_bpm"])
+
         bundle = self.build_full_bundle(
             stream,
             weight_kg=weight_kg,
@@ -233,11 +253,40 @@ class RideService:
             bundle=bundle,
             athlete_data=self._athlete_data_from_params(athlete, weight_kg=weight_kg),
             profile_store=profile_store,
+            threshold_store=threshold_store,
+            coach_ftp_w=ftp,
+            coach_lthr_bpm=lthr,
         )
+
+        canonical = resolve_canonical_rolling_curve(
+            aggregate_record=mmp_aggregate.get("aggregate"),
+            legacy_rolling_curve=ingest_result.get("curve"),
+        )
+        ingest_result = dict(ingest_result)
+        ingest_result["curve"] = canonical["curve"]
+        ingest_result["mmp_curve_source"] = canonical["source"]
+
+        active_profile = None
+        if profile_store is not None:
+            active_profile = profile_store.load_latest_active_profile(athlete_id)
+            if active_profile:
+                ingest_result["active_metabolic_profile"] = active_profile
+
+        active_thresholds = None
+        if threshold_store is not None:
+            active_thresholds = threshold_store.load_latest_active_thresholds(athlete_id)
+
+        athlete_model = resolve_active_athlete_model(
+            metabolic_profile=active_profile,
+            thresholds=active_thresholds,
+        )
+
         return {
             "bundle": bundle,
             "ingest": ingest_result,
             "mmp_aggregate": mmp_aggregate,
+            "athlete_model": athlete_model,
+            "zone_anchors": zone_anchors or athlete_model.get("zone_anchors"),
         }
 
     def build_data_quality(self, stream: Any) -> Dict[str, Any]:

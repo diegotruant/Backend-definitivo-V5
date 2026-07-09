@@ -17,6 +17,7 @@ from engines.metabolic.metabolic_coach_curves import (
     build_lactate_curve,
     build_metabolic_curves_report,
 )
+from engines.physiology.athlete_profile_bridge import versioned_profile_to_metabolic_snapshot
 
 from .models import TWIN_STATE_SCHEMA_VERSION, _extract_lactate_state, _extract_metabolic_metrics, validate_twin_state
 
@@ -98,6 +99,17 @@ def build_profile_metabolic_curves_report(
         power_points=power_points,
         include_curves=list(PROFILE_CURVE_IDS),
     )
+
+
+def sync_twin_from_versioned_profile(
+    state: Dict[str, Any],
+    versioned_profile: Dict[str, Any],
+    *,
+    force: bool = True,
+) -> Dict[str, Any]:
+    """Refresh twin metabolic snapshot/curves from athlete_metabolic_profile_versions."""
+    snapshot = versioned_profile_to_metabolic_snapshot(versioned_profile)
+    return sync_profile_metabolic_curves(state, force=force, metabolic_snapshot=snapshot)
 
 
 def sync_profile_metabolic_curves(
@@ -213,8 +225,11 @@ def ingest_worker_hook_points() -> Dict[str, str]:
         "after_ride_update": "engines.twin_state.state_update_engine.update_twin_state_from_ride",
         "after_bundle_mmp_aggregate": "engines.persistence.mmp_aggregate_pipeline.sync_athlete_mmp_after_bundle",
         "after_bundle_metabolic_profile": "engines.persistence.metabolic_profile_pipeline.sync_metabolic_profile_after_mmp",
+        "after_bundle_thresholds": "engines.persistence.threshold_pipeline.sync_thresholds_after_profile",
+        "after_twin_athlete_model": "engines.twin_state.athlete_model_sync.sync_twin_athlete_model",
         "mmp_aggregate_store": "engines.persistence.mmp_aggregate_store.mmp_store_from_env",
         "metabolic_profile_store": "engines.persistence.metabolic_profile_store.metabolic_profile_store_from_env",
+        "threshold_store": "engines.persistence.threshold_store.threshold_store_from_env",
         "twin_schema": TWIN_STATE_SCHEMA_VERSION,
         "curves_schema": METABOLIC_CURVES_SCHEMA_VERSION,
         "lactate_schema": LACTATE_STATE_SCHEMA_VERSION,

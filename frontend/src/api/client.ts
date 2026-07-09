@@ -152,6 +152,24 @@ export const api = {
       ),
     ),
 
+  /** GET /athletes/{athlete_id}/thresholds/current */
+  getAthleteThresholdsCurrent: (athleteId: string) =>
+    jsonFetch<EnginePayload>(
+      '/athletes/{athlete_id}/thresholds/current'.replace(
+        '{athlete_id}',
+        encodeURIComponent(athleteId),
+      ),
+    ),
+
+  /** GET /athletes/{athlete_id}/zone-anchors/current */
+  getAthleteZoneAnchorsCurrent: (athleteId: string) =>
+    jsonFetch<EnginePayload>(
+      '/athletes/{athlete_id}/zone-anchors/current'.replace(
+        '{athlete_id}',
+        encodeURIComponent(athleteId),
+      ),
+    ),
+
   /** POST /ride/parse */
   rideParse: (args: { file: File }) => {
     const form = new FormData();

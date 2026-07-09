@@ -72,7 +72,13 @@ def update_twin_state_from_ride(
             state["warnings"] = state["warnings"][-100:]
 
     profile_refresh = bool(ingest_result.get("profile_should_refresh"))
-    if metabolic_snapshot is not None:
+    active_metabolic_profile = ingest_result.get("active_metabolic_profile")
+    if active_metabolic_profile:
+        from .metabolic_curves_sync import sync_twin_from_versioned_profile
+
+        state = sync_twin_from_versioned_profile(state, active_metabolic_profile, force=True)
+        profile_refresh = True
+    elif metabolic_snapshot is not None:
         from .metabolic_curves_sync import sync_lactate_state_from_steps, sync_twin_after_profile_refresh
 
         if lactate_steps:
@@ -90,8 +96,15 @@ def update_twin_state_from_ride(
         "ride_id": ride_id,
         "has_summary": bool(ride_summary),
         "curve_updated": bool(ingest_result.get("curve")),
-        "profile_refreshed": profile_refresh and metabolic_snapshot is not None,
-        "metabolic_curves_synced": sync_metabolic_curves and metabolic_snapshot is not None,
+        "profile_refreshed": profile_refresh and (
+            active_metabolic_profile is not None or metabolic_snapshot is not None
+        ),
+        "metabolic_curves_synced": sync_metabolic_curves and (
+            active_metabolic_profile is not None or metabolic_snapshot is not None
+        ),
+        "athlete_model_source": (
+            "athlete_metabolic_profile_versions" if active_metabolic_profile else None
+        ),
     })
     return validate_twin_state(state)
 

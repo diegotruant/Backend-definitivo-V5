@@ -74,12 +74,15 @@ def apply_activity_metabolic_deprecation(bundle: Dict[str, Any]) -> Dict[str, An
         if isinstance(classification, dict) and classification.get("status") == "success":
             classification = dict(classification)
             classification.update(meta)
+            classification["athlete_identity_status"] = "deprecated_session_phenotype"
             sections["classification"] = classification
         summary["sections"] = sections
         headline = dict(summary.get("headline") or {})
         for key in list(headline.keys()):
-            if key in _METABOLIC_VALUE_KEYS or key.startswith(("vo2", "vlamax", "mlss", "fatmax", "map_")):
+            if key in _METABOLIC_VALUE_KEYS or key.startswith(("vo2", "vlamax", "mlss", "fatmax", "map_", "rider_phenotype")):
                 headline[f"{key}_deprecated"] = True
+        if headline.get("rider_phenotype"):
+            headline["rider_phenotype_status"] = "deprecated_session_phenotype"
         headline.update(meta)
         summary["headline"] = headline
         bundle["workout_summary"] = summary

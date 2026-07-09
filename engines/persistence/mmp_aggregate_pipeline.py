@@ -13,6 +13,8 @@ from engines.performance.mmp_aggregate import (
 from engines.persistence.mmp_aggregate_store import MmpAggregateStore
 from engines.persistence.metabolic_profile_pipeline import sync_metabolic_profile_after_mmp
 from engines.persistence.metabolic_profile_store import MetabolicProfileStore
+from engines.persistence.threshold_pipeline import sync_thresholds_after_profile
+from engines.persistence.threshold_store import ThresholdStore
 
 
 def sync_athlete_mmp_after_bundle(
@@ -25,6 +27,9 @@ def sync_athlete_mmp_after_bundle(
     bundle: Dict[str, Any],
     athlete_data: Optional[Dict[str, Any]] = None,
     profile_store: Optional[MetabolicProfileStore] = None,
+    threshold_store: Optional[ThresholdStore] = None,
+    coach_ftp_w: Optional[float] = None,
+    coach_lthr_bpm: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Post-bundle MMP pipeline for worker / ingest orchestration.
@@ -72,6 +77,37 @@ def sync_athlete_mmp_after_bundle(
         n_key_durations_covered=int(readiness["n_key_durations_covered"]),
     )
 
+    metabolic_profile_result = (
+        sync_metabolic_profile_after_mmp(
+            store,
+            profile_store,
+            athlete_id=athlete_id,
+            athlete_data=athlete_data or {},
+            changed_mmp_points=improvements,
+        )
+        if profile_store is not None
+        else {
+            "status": "skipped",
+            "reason": "PROFILE_STORE_NOT_PROVIDED",
+        }
+    )
+
+    threshold_result = (
+        sync_thresholds_after_profile(
+            store,
+            threshold_store,
+            profile_store,
+            athlete_id=athlete_id,
+            coach_ftp_w=coach_ftp_w,
+            coach_lthr_bpm=coach_lthr_bpm,
+        )
+        if threshold_store is not None and profile_store is not None
+        else {
+            "status": "skipped",
+            "reason": "THRESHOLD_OR_PROFILE_STORE_NOT_PROVIDED",
+        }
+    )
+
     return {
         "status": "success",
         "athlete_id": athlete_id,
@@ -89,23 +125,12 @@ def sync_athlete_mmp_after_bundle(
         "n_activities_included": n_activities,
         "mmp_curve": public_mmp_curve(merged_curve, readiness),
         "aggregate": aggregate_record,
-        "metabolic_profile": (
-            sync_metabolic_profile_after_mmp(
-                store,
-                profile_store,
-                athlete_id=athlete_id,
-                athlete_data=athlete_data or {},
-                changed_mmp_points=improvements,
-            )
-            if profile_store is not None
-            else {
-                "status": "skipped",
-                "reason": "PROFILE_STORE_NOT_PROVIDED",
-            }
-        ),
+        "metabolic_profile": metabolic_profile_result,
+        "thresholds": threshold_result,
         "notes": [
             "Per-activity metabolic profile is not promoted to stable athlete profile.",
             "MMP hidden from frontend while status is collecting.",
             "Athlete metabolic profile is created only when MMP status is published.",
+            "FTP/LTHR thresholds are versioned from published MMP unless coach override is supplied.",
         ],
     }

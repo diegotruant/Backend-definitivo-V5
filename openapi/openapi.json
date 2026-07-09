@@ -446,6 +446,102 @@
         }
       }
     },
+    "/athletes/{athlete_id}/thresholds/current": {
+      "get": {
+        "tags": [
+          "athletes"
+        ],
+        "summary": "Active athlete training thresholds",
+        "description": "Return FTP/LTHR/CP from versioned athlete thresholds (published MMP or coach override).",
+        "operationId": "athletesThresholdsCurrent",
+        "parameters": [
+          {
+            "name": "athlete_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Athlete Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "additionalProperties": true,
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible.",
+                  "properties": {},
+                  "title": "EnginePayload",
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/athletes/{athlete_id}/zone-anchors/current": {
+      "get": {
+        "tags": [
+          "athletes"
+        ],
+        "summary": "Active athlete zone anchors",
+        "description": "Stable MLSS/MAP/FTP/LTHR anchors for zone prescription (not per-activity estimates).",
+        "operationId": "athletesZoneAnchorsCurrent",
+        "parameters": [
+          {
+            "name": "athlete_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Athlete Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Engine JSON payload — see docs/FRONTEND_DEVELOPER_GUIDE.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePayload",
+                  "additionalProperties": true,
+                  "description": "Open-ended JSON returned by physiology engines.\n\nField semantics, tiers and confidence rules are documented in\n``docs/FRONTEND_DEVELOPER_GUIDE.md``. Treat unknown keys as forward-compatible.",
+                  "properties": {},
+                  "title": "EnginePayload",
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ride/parse": {
       "post": {
         "tags": [

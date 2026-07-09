@@ -42,11 +42,18 @@ class DashboardService:
         twin_highlights: Dict[str, Any] = {}
         if twin_state:
             profile = twin_state.get("athlete_profile") or {}
+            athlete_model = twin_state.get("athlete_model") or {}
+            zone_anchors = twin_state.get("zone_anchors") or {}
             metabolic = twin_state.get("metabolic_metrics") or twin_state.get("metabolic_snapshot") or {}
+            if metabolic.get("source") == "athlete_metabolic_profile_versions":
+                metabolic = {**metabolic, "is_athlete_level": True}
             twin_highlights = {
-                "cp_w": metabolic.get("cp_w") or metabolic.get("critical_power_w") or profile.get("cp_w"),
-                "ftp_w": profile.get("ftp_w") or metabolic.get("ftp_w"),
+                "cp_w": zone_anchors.get("cp_w") or metabolic.get("cp_w") or metabolic.get("critical_power_w") or profile.get("cp_w"),
+                "ftp_w": zone_anchors.get("ftp_w") or profile.get("ftp_w") or metabolic.get("ftp_w"),
                 "vo2max_ml_kg_min": metabolic.get("vo2max_ml_kg_min") or metabolic.get("estimated_vo2max"),
+                "metabolic_profile_version": athlete_model.get("metabolic_profile_version"),
+                "threshold_version": athlete_model.get("threshold_version"),
+                "mmp_source": athlete_model.get("mmp_source"),
                 "updated_at": twin_state.get("updated_at"),
             }
 

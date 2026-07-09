@@ -5,7 +5,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
-from api.deps import get_metabolic_profile_store, get_mmp_aggregate_store, get_ride_service
+from api.deps import get_metabolic_profile_store, get_mmp_aggregate_store, get_ride_service, get_threshold_store
 from api.helpers import (
     coerce_stored_curve,
     json_response,
@@ -122,6 +122,7 @@ async def ingest_ride_with_mmp_aggregate(
     service: RideService = Depends(get_ride_service),
     mmp_store=Depends(get_mmp_aggregate_store),
     profile_store=Depends(get_metabolic_profile_store),
+    threshold_store=Depends(get_threshold_store),
 ):
     try:
         parsed = await parse_upload(file)
@@ -157,6 +158,7 @@ async def ingest_ride_with_mmp_aggregate(
             hrv_max_windows=hrv_max_windows,
             mmp_store=mmp_store,
             profile_store=profile_store,
+            threshold_store=threshold_store,
         )
     )
 

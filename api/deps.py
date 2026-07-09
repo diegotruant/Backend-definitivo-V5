@@ -32,8 +32,10 @@ from api.services import (
 )
 from api.services.mmp_aggregate_service import MmpAggregateService
 from api.services.metabolic_profile_service import MetabolicProfileService
+from api.services.threshold_service import ThresholdService
 from engines.persistence.mmp_aggregate_store import MmpAggregateStore, mmp_store_from_env
 from engines.persistence.metabolic_profile_store import MetabolicProfileStore, metabolic_profile_store_from_env
+from engines.persistence.threshold_store import ThresholdStore, threshold_store_from_env
 
 
 @lru_cache
@@ -151,8 +153,17 @@ def get_metabolic_profile_service() -> MetabolicProfileService:
     return MetabolicProfileService()
 
 
+@lru_cache
+def get_threshold_service() -> ThresholdService:
+    return ThresholdService()
+
+
 def get_metabolic_profile_store() -> MetabolicProfileStore:
     return metabolic_profile_store_from_env()
+
+
+def get_threshold_store() -> ThresholdStore:
+    return threshold_store_from_env()
 
 
 def get_mmp_aggregate_store() -> MmpAggregateStore:
