@@ -30,7 +30,7 @@ I flag hanno significati distinti e non intercambiabili:
 - `FIT_BACKEND_AVAILABLE`: alias retrocompatibile di `FIT_PARSER_AVAILABLE`;
 - `FITPARSE_AVAILABLE`: disponibilità reale della sola libreria `fitparse`.
 
-Il core deve usare `FITPARSE_FALLBACK_AVAILABLE` per decidere se tentare il fallback e `FIT_PARSER_AVAILABLE` per verificare la disponibilità generale del parsing. Gli alias legacy restano considerati nei guard interni per non interrompere test e strumenti esistenti che li modificano direttamente.
+Il core deve usare `FITPARSE_FALLBACK_AVAILABLE` per decidere se tentare il fallback e `FIT_PARSER_AVAILABLE` per verificare la disponibilità generale del parsing.
 
 ## Contratto esterno
 
@@ -76,6 +76,5 @@ Non è previsto un parser FIT Go nel percorso ufficiale. Un eventuale componente
 - `fitdecode` venga chiamato prima del fallback `fitparse`;
 - disponibilità generale e disponibilità del fallback restino separate;
 - il fallback assente venga rifiutato prima di accedere alla libreria;
-- gli alias legacy continuino a poter disabilitare i percorsi nei test e negli strumenti esistenti;
 - `fitparse` sia descritto come fallback temporaneo;
 - questa policy continui a indicare `fitdecode` come parser canonico.
