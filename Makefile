@@ -3,7 +3,7 @@ UVICORN_HOST ?= 127.0.0.1
 UVICORN_PORT ?= 8000
 UVICORN_RELOAD ?= true
 
-.PHONY: install run test test-all hardening-test stress-test lockdown-test integrity-test coverage-test api-matrix-test perfection-test perfection-gate perfection-status multitenant-stress lint format typecheck check precommit openapi openapi-frontend
+.PHONY: install run test test-all hardening-test stress-test lockdown-test integrity-test coverage-test api-matrix-test perfection-test perfection-gate perfection-status multitenant-stress lint format typecheck check precommit openapi openapi-consistency openapi-frontend
 
 install:
 	$(PYTHON) -m pip install -r requirements-dev.txt
@@ -73,9 +73,15 @@ check: lint typecheck test-all hardening-test lockdown-test integrity-test api-m
 
 openapi:
 	$(PYTHON) scripts/export_openapi.py
+	$(PYTHON) scripts/check_openapi_consistency.py
 
-openapi-frontend: openapi
+openapi-consistency:
+	$(PYTHON) scripts/check_openapi_consistency.py
+
+openapi-frontend:
+	$(PYTHON) scripts/export_openapi.py
 	cd frontend && npm run codegen:api
+	$(PYTHON) scripts/check_openapi_consistency.py
 
 precommit:
 	pre-commit run --all-files
