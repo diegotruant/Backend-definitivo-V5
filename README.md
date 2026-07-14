@@ -69,7 +69,7 @@ Use `sections.zones.systems_available` and `coach_note` in the UI. See `docs/REL
 
 ## Local setup
 
-Prerequisites: Python **3.10+** (CI uses 3.11), pip.
+Prerequisites: Python **3.11.x** (official runtime, CI and Docker baseline), pip.
 
 ```bash
 make install
@@ -155,6 +155,7 @@ See `docs/CONTRACT_FIRST_TESTING.md` for the product-contract methodology (~2275
 | Document | Content |
 |----------|---------|
 | [`docs/DEVELOPER_ONBOARDING.md`](docs/DEVELOPER_ONBOARDING.md) | Italian developer onboarding — setup, architecture, first PR |
+| [`docs/PYTHON_VERSION_POLICY.md`](docs/PYTHON_VERSION_POLICY.md) | Official Python 3.11 runtime/toolchain policy |
 | [`docs/API_ENDPOINT_INDEX.md`](docs/API_ENDPOINT_INDEX.md) | **All 135 endpoints** by tag |
 | [`docs/RELEASE_NOTES_v5.2.6.md`](docs/RELEASE_NOTES_v5.2.6.md) | V5.2.6 — chart roadmap, dashboard, version alignment |
 | [`docs/CHART_CONFIG_CONTRACT.md`](docs/CHART_CONFIG_CONTRACT.md) | 43 chart types + `/meta/chart-config` |
