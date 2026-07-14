@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from api.services.mmp_publication_gate import evaluate_mmp_gate
 from engines.performance import mmp_aggregator
@@ -226,3 +226,72 @@ def test_missing_provenance_dates_prevent_publication():
     assert assessment.lifecycle_status != "published"
     assert assessment.profile_eligible is False
     assert 1200 in assessment.missing_date_durations
+
+
+def test_empty_curve_serializes_as_collecting_progress():
+    assessment = evaluate_mmp_gate(None, as_of=date(2026, 7, 14))
+    payload = assessment.to_dict()
+
+    assert payload["lifecycle_status"] == "collecting"
+    assert payload["profile_eligible"] is False
+    assert payload["frontend_visibility"] == "progress_only"
+    assert payload["anchor_count"] == 0
+    assert payload["tier"] == "HEURISTIC"
+    assert payload["warnings"] == ["No accepted MMP anchors are available yet."]
+
+
+def test_gate_skips_malformed_entries_and_handles_legacy_values():
+    curve = {
+        "bad-key": _entry(5, 900, "ignored"),
+        "5": {"duration_s": 5},
+        "10": {"duration_s": "bad", "power_w": 800},
+        "15": {"duration_s": 15, "power_w": "bad"},
+        "20": "700",
+        "30": {
+            "duration_s": 30,
+            "power_w": 650,
+            "ride_id": "ride-30",
+            "ride_date": "not-a-date",
+            "reliability": "bad",
+        },
+        "0": 500,
+        "60": {"duration_s": 60, "power_w": -10},
+    }
+
+    assessment = evaluate_mmp_gate(curve, as_of="2026-07-14")
+
+    assert assessment.anchor_count == 2
+    assert assessment.source_activity_count == 1
+    assert 20 in assessment.missing_date_durations
+    assert 30 in assessment.missing_date_durations
+    assert assessment.lifecycle_status == "collecting"
+
+
+def test_duplicate_normalized_duration_keeps_higher_power():
+    curve = {
+        "5": _entry(5, 900, "ride-low"),
+        "05": _entry(5, 950, "ride-high"),
+    }
+
+    assessment = evaluate_mmp_gate(
+        curve,
+        as_of=datetime(2026, 7, 14, 12, 0, 0),
+    )
+
+    assert assessment.anchor_count == 1
+    assert assessment.critical_durations_present == [5]
+    assert assessment.source_activity_count == 1
+
+
+def test_low_reliability_blocks_publication():
+    curve = _publication_grade_curve()
+    curve["1200"]["reliability"] = 0.40
+
+    assessment = evaluate_mmp_gate(curve, as_of="2026-07-14")
+
+    assert assessment.lifecycle_status == "collecting"
+    assert assessment.profile_eligible is False
+    assert any(
+        "reliability is below" in reason
+        for reason in assessment.decision_reasons
+    )
