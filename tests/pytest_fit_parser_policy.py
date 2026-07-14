@@ -63,7 +63,7 @@ def test_fitparse_boundary_checks_real_fallback_availability_first(
 ) -> None:
     monkeypatch.setattr(fit_parser, "FITPARSE_FALLBACK_AVAILABLE", False)
 
-    with pytest.raises(RuntimeError, match="fitparse fallback backend is not available"):
+    with pytest.raises(RuntimeError, match="fitparse backend is not available"):
         fit_parser._extract_messages_with_fitparse(b"not-a-fit", check_crc=True)
 
 
