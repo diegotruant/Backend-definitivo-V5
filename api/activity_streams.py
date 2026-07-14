@@ -7,13 +7,18 @@ import math
 from datetime import datetime, timedelta
 from typing import Any, List, Optional
 
-from engines.core.security import MAX_POWER_SAMPLES, safe_error_detail
+from api.errors import (
+    activity_series_too_long,
+    malformed_json_request,
+    missing_activity_input,
+    non_empty_json_array_required,
+)
+from api.upload import parse_upload
+from engines.core.security import MAX_POWER_SAMPLES
 from engines.io.fit_parser import parse_fit_records_enhanced
 
-from api.upload import parse_upload
-
 try:
-    from fastapi import HTTPException, UploadFile
+    from fastapi import UploadFile
 except ImportError:  # pragma: no cover
     raise ImportError("FastAPI is required for the API layer: pip install fastapi uvicorn")
 
@@ -75,33 +80,21 @@ async def load_activity_stream(
         try:
             power = json.loads(power_json)
         except json.JSONDecodeError as exc:
-            raise HTTPException(status_code=400, detail=safe_error_detail("INVALID_JSON")) from exc
+            raise malformed_json_request() from exc
         if not isinstance(power, list) or not power:
-            raise HTTPException(status_code=400, detail="power_json must be a non-empty JSON array.")
+            raise non_empty_json_array_required("power_json")
         if len(power) > MAX_POWER_SAMPLES:
-            raise HTTPException(
-                status_code=413,
-                detail={
-                    "error": "POWER_JSON_TOO_LONG",
-                    "message": f"power_json exceeds {MAX_POWER_SAMPLES} samples.",
-                },
-            )
+            raise activity_series_too_long("power_json", MAX_POWER_SAMPLES)
         hr_values: Optional[List[float]] = None
         if hr_json:
             try:
                 parsed_hr = json.loads(hr_json)
             except json.JSONDecodeError as exc:
-                raise HTTPException(status_code=400, detail=safe_error_detail("INVALID_JSON")) from exc
+                raise malformed_json_request() from exc
             if not isinstance(parsed_hr, list) or not parsed_hr:
-                raise HTTPException(status_code=400, detail="hr_json must be a non-empty JSON array.")
+                raise non_empty_json_array_required("hr_json")
             if len(parsed_hr) > MAX_POWER_SAMPLES:
-                raise HTTPException(
-                    status_code=413,
-                    detail={
-                        "error": "HR_JSON_TOO_LONG",
-                        "message": f"hr_json exceeds {MAX_POWER_SAMPLES} samples.",
-                    },
-                )
+                raise activity_series_too_long("hr_json", MAX_POWER_SAMPLES)
             hr_values = [float(v) for v in parsed_hr]
         return stream_from_power([_sanitize_power_sample(p) for p in power], heart_rate=hr_values)
-    raise HTTPException(status_code=400, detail="Provide either a FIT file or power_json.")
+    raise missing_activity_input()

@@ -6,14 +6,9 @@ import json
 from datetime import date
 from typing import Any, Dict, Optional
 
-from engines.core.athlete_context import AthleteContext
-
+from api.errors import invalid_iso_date_error, invalid_json_field, json_object_required
 from api.schemas import AthleteParams
-
-try:
-    from fastapi import HTTPException
-except ImportError:  # pragma: no cover
-    raise ImportError("FastAPI is required for the API layer: pip install fastapi uvicorn")
+from engines.core.athlete_context import AthleteContext
 
 
 def athlete_context(gender: str, training_years: float, discipline: str) -> AthleteContext:
@@ -34,17 +29,17 @@ def parse_metabolic_snapshot(raw: Optional[str]) -> Optional[Dict[str, Any]]:
     try:
         snap = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid metabolic_snapshot_json: {exc}") from exc
+        raise invalid_json_field("metabolic_snapshot_json", exc) from exc
     if not isinstance(snap, dict):
-        raise HTTPException(status_code=400, detail="metabolic_snapshot_json must be a JSON object.")
+        raise json_object_required("metabolic_snapshot_json")
     return snap
 
 
 def parse_iso_date(value: str, field_name: str) -> date:
     try:
         return date.fromisoformat(value)
-    except ValueError:
-        raise HTTPException(status_code=400, detail=f"{field_name} must be ISO date (YYYY-MM-DD).")
+    except ValueError as exc:
+        raise invalid_iso_date_error(field_name) from exc
 
 
 def coerce_stored_curve(stored: Optional[Dict[str, Any]]) -> Optional[Dict[Any, Any]]:
