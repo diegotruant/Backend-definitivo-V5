@@ -7,11 +7,12 @@ import logging
 import tempfile
 from typing import Any, Dict
 
-from engines.core.security import PayloadTooLarge, enforce_upload_size, safe_error_detail
+from api.errors import fit_parser_unavailable, invalid_fit_file, upload_too_large
+from engines.core.security import PayloadTooLarge, enforce_upload_size
 from engines.io.fit_parser import FitFileError, parse_fit_file_enhanced
 
 try:
-    from fastapi import HTTPException, UploadFile
+    from fastapi import UploadFile
 except ImportError:  # pragma: no cover
     raise ImportError("FastAPI is required for the API layer: pip install fastapi uvicorn")
 
@@ -33,7 +34,7 @@ async def parse_upload(file: UploadFile) -> Dict[str, Any]:
             enforce_upload_size(total)
         except PayloadTooLarge as exc:
             logger.warning("Rejected oversized upload %r: %s", file.filename, exc)
-            raise HTTPException(status_code=413, detail=safe_error_detail("FILE_TOO_LARGE")) from exc
+            raise upload_too_large() from exc
         chunks.append(chunk)
     data = b"".join(chunks)
     file_hash = hashlib.sha256(data).hexdigest()
@@ -44,16 +45,10 @@ async def parse_upload(file: UploadFile) -> Dict[str, Any]:
             stream = parse_fit_file_enhanced(tmp.name)
         except FitFileError as exc:
             logger.info("Invalid FIT upload %r: %s", file.filename, exc)
-            raise HTTPException(
-                status_code=400,
-                detail=safe_error_detail("INVALID_FIT_FILE"),
-            ) from exc
+            raise invalid_fit_file() from exc
         except RuntimeError as exc:
             logger.error("FIT parser unavailable for %r: %s", file.filename, exc)
-            raise HTTPException(
-                status_code=503,
-                detail={"error": "FIT_PARSER_UNAVAILABLE", "message": "Parser temporarily unavailable."},
-            ) from exc
+            raise fit_parser_unavailable() from exc
     return {
         "file_id": file.filename or "upload.fit",
         "file_hash": file_hash,
