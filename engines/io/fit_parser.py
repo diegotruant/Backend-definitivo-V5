@@ -538,7 +538,7 @@ def _extract_messages_with_fitparse(
     check_crc: bool,
 ) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
     """Decode FIT payload with the legacy fitparse fallback into plain dict rows."""
-    if not FITPARSE_FALLBACK_AVAILABLE:
+    if not (FITPARSE_FALLBACK_AVAILABLE and FITPARSE_AVAILABLE):
         raise RuntimeError("fitparse fallback backend is not available")
     fitfile = fitparse.FitFile(BytesIO(payload), check_crc=check_crc)
     records: list[Dict[str, Any]] = []
@@ -572,10 +572,10 @@ def _extract_messages(
         try:
             return _extract_messages_with_fitdecode(payload, check_crc=check_crc)
         except (FitError, FitParseError, FitEOFError, FitHeaderError, FitCRCError):
-            if FITPARSE_FALLBACK_AVAILABLE:
+            if FITPARSE_FALLBACK_AVAILABLE and FITPARSE_AVAILABLE:
                 return _extract_messages_with_fitparse(payload, check_crc=check_crc)
             raise
-    if FITPARSE_FALLBACK_AVAILABLE:
+    if FITPARSE_FALLBACK_AVAILABLE and FITPARSE_AVAILABLE:
         return _extract_messages_with_fitparse(payload, check_crc=check_crc)
     raise RuntimeError("No FIT parser backend available. Install fitdecode or fitparse.")
 
@@ -603,7 +603,7 @@ def parse_fit_file_enhanced(
     Returns:
         ActivityStreamEnhanced with quality flags and gap summary
     """
-    if not FIT_PARSER_AVAILABLE:
+    if not (FIT_PARSER_AVAILABLE and FIT_BACKEND_AVAILABLE):
         raise RuntimeError("No FIT parser backend available — install fitdecode (preferred) or fitparse")
     
     raw = None
