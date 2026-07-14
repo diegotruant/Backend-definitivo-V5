@@ -539,7 +539,7 @@ def _extract_messages_with_fitparse(
 ) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
     """Decode FIT payload with the legacy fitparse fallback into plain dict rows."""
     if not (FITPARSE_FALLBACK_AVAILABLE and FITPARSE_AVAILABLE):
-        raise RuntimeError("fitparse fallback backend is not available")
+        raise RuntimeError("fitparse backend is not available (legacy fallback)")
     fitfile = fitparse.FitFile(BytesIO(payload), check_crc=check_crc)
     records: list[Dict[str, Any]] = []
     sessions: list[Dict[str, Any]] = []
