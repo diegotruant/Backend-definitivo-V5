@@ -1,12 +1,12 @@
 """Internal publication policy for a longitudinal MMP curve.
 
 This module is intentionally NOT wired to FastAPI response models, TwinState
-or Supabase yet.  It evaluates the canonical ``rolling_power_curve`` and
+or Supabase yet. It evaluates the canonical ``rolling_power_curve`` and
 returns an internal, JSON-safe assessment that can later back ``mmp_state.v1``
 after frontend coordination.
 
 The gate is conservative and explicitly HEURISTIC: it does not claim external
-scientific validation.  It prevents activity count alone from making a curve
+scientific validation. It prevents activity count alone from making a curve
 publishable and instead checks physiological coverage, curve integrity,
 provenance, freshness and anchor reliability.
 """
@@ -108,6 +108,8 @@ def _coerce_curve(curve: Optional[Mapping[Any, Any]]) -> Dict[int, Dict[str, Any
         if isinstance(raw_value, Mapping):
             raw_duration = raw_value.get("duration_s", key_duration)
             raw_power = raw_value.get("power_w")
+            if raw_power is None:
+                continue
             try:
                 duration_s = int(raw_duration)
                 power_w = float(raw_power)
@@ -115,8 +117,9 @@ def _coerce_curve(curve: Optional[Mapping[Any, Any]]) -> Dict[int, Dict[str, Any
                 continue
             ride_id = str(raw_value.get("ride_id") or "unknown")
             ride_date = str(raw_value.get("ride_date") or "")
+            raw_reliability = raw_value.get("reliability", 1.0)
             try:
-                reliability = float(raw_value.get("reliability", 1.0))
+                reliability = float(raw_reliability)
             except (TypeError, ValueError):
                 reliability = 0.0
         else:
