@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
+from api.services.mmp_publication_gate import evaluate_mmp_gate
 from engines.performance import mmp_aggregator
-from engines.performance.mmp_gate import evaluate_mmp_gate
 
 
 def _entry(
@@ -166,7 +166,10 @@ def test_missing_threshold_band_remains_collecting():
     assert assessment.coverage["threshold"] == "missing"
     assert assessment.lifecycle_status == "collecting"
     assert assessment.profile_eligible is False
-    assert any("threshold duration band is missing" in reason for reason in assessment.decision_reasons)
+    assert any(
+        "threshold duration band is missing" in reason
+        for reason in assessment.decision_reasons
+    )
 
 
 def test_non_monotonic_curve_is_invalid():
@@ -208,7 +211,10 @@ def test_activity_count_alone_cannot_publish_curve():
     assert assessment.source_activity_count == 1
     assert assessment.lifecycle_status == "collecting"
     assert assessment.profile_eligible is False
-    assert any("independent source activities" in reason for reason in assessment.decision_reasons)
+    assert any(
+        "independent source activities" in reason
+        for reason in assessment.decision_reasons
+    )
 
 
 def test_missing_provenance_dates_prevent_publication():
