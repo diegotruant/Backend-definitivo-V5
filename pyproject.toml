@@ -108,5 +108,11 @@ ignore = ["E501"]
 python_version = "3.10"
 ignore_missing_imports = true
 follow_imports = "skip"
-files = ["api", "api_app.py"]
+files = [
+    "api",
+    "api_app.py",
+    "engines/performance/mmp_aggregator.py",
+    "engines/metabolic/metabolic_profiler.py",
+    "engines/io/fit_parser.py",
+]
 explicit_package_bases = true
