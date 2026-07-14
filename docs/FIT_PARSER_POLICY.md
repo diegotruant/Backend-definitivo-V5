@@ -20,6 +20,18 @@ FIT payload
 
 Non è un secondo parser equivalente e non deve essere usato come backend principale. Nuove funzionalità, nuovi campi FIT e nuovi test devono essere implementati e validati prima su `fitdecode`.
 
+## Flag interni di disponibilità
+
+I flag hanno significati distinti e non intercambiabili:
+
+- `FITDECODE_AVAILABLE`: il parser canonico `fitdecode` è installato;
+- `FITPARSE_FALLBACK_AVAILABLE`: il fallback legacy `fitparse` è realmente installato;
+- `FIT_PARSER_AVAILABLE`: almeno un decoder FIT è disponibile;
+- `FIT_BACKEND_AVAILABLE`: alias retrocompatibile di `FIT_PARSER_AVAILABLE`;
+- `FITPARSE_AVAILABLE`: disponibilità reale della sola libreria `fitparse`.
+
+Il core deve usare `FITPARSE_FALLBACK_AVAILABLE` per decidere se tentare il fallback e `FIT_PARSER_AVAILABLE` per verificare la disponibilità generale del parsing.
+
 ## Contratto esterno
 
 La scelta del decoder è un dettaglio interno. Non deve modificare:
@@ -62,5 +74,7 @@ Non è previsto un parser FIT Go nel percorso ufficiale. Un eventuale componente
 
 - `fitdecode` resti una dipendenza runtime;
 - `fitdecode` venga chiamato prima del fallback `fitparse`;
+- disponibilità generale e disponibilità del fallback restino separate;
+- il fallback assente venga rifiutato prima di accedere alla libreria;
 - `fitparse` sia descritto come fallback temporaneo;
 - questa policy continui a indicare `fitdecode` come parser canonico.
