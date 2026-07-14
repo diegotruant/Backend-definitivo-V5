@@ -16,17 +16,19 @@ Superficie attuale: **135 path OpenAPI**, **43 tipi di grafico** via `/meta/char
 
 | Tool | Versione |
 |------|----------|
-| Python | 3.10+ (CI usa 3.11) |
+| Python | **3.11.x** — unica versione ufficialmente supportata |
 | pip / venv | consigliato `.venv` |
 | make | per i comandi di sviluppo |
 | Docker | opzionale, per smoke production-style |
+
+Python 3.10 non è supportato. Python 3.12+ richiede prima una PR di compatibilità con audit dipendenze e CI dedicata; vedere `docs/PYTHON_VERSION_POLICY.md`.
 
 ## Setup rapido (prima ora)
 
 ```bash
 git clone <repo>
 cd Backend-definitivo-V5
-python3 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 make install
 cp .env.example .env   # opzionale
@@ -36,8 +38,9 @@ make run               # http://127.0.0.1:8000
 Verifica:
 
 ```bash
+python --version       # deve riportare Python 3.11.x
 curl -s http://localhost:8000/health
-curl -s http://localhost:8000/openapi.json | python3 -c "import sys,json; print(len(json.load(sys.stdin)['paths']), 'paths')"
+curl -s http://localhost:8000/openapi.json | python -c "import sys,json; print(len(json.load(sys.stdin)['paths']), 'paths')"
 ```
 
 Swagger UI: `http://localhost:8000/docs`
@@ -71,13 +74,14 @@ Compatibilità stretta: `POST /ride/summary`.
 | # | Documento | Perché |
 |---|-----------|--------|
 | 1 | `README.md` | panoramica repo, comandi, CI |
-| 2 | `docs/API_ENDPOINT_INDEX.md` | inventario completo 135 endpoint |
-| 3 | `docs/FRONTEND_DEVELOPER_GUIDE.md` | TwinState, pagine prodotto, zone doppie |
-| 4 | `docs/CONTRACT_FIRST_TESTING.md` | come scriviamo i test di prodotto |
-| 5 | `docs/CHART_CONFIG_CONTRACT.md` | 43 chart types + payload |
-| 6 | `DEVELOPMENT_TEAM_HANDOFF.md` | handoff team frontend |
-| 7 | `docs/ENGINE_ORCHESTRATION_AUDIT.md` | audit orchestrazione motori |
-| 8 | `docs/PRODUCTION_READINESS_ASSESSMENT.md` | stato hardening / release |
+| 2 | `docs/PYTHON_VERSION_POLICY.md` | runtime e toolchain ufficiali |
+| 3 | `docs/API_ENDPOINT_INDEX.md` | inventario completo 135 endpoint |
+| 4 | `docs/FRONTEND_DEVELOPER_GUIDE.md` | TwinState, pagine prodotto, zone doppie |
+| 5 | `docs/CONTRACT_FIRST_TESTING.md` | come scriviamo i test di prodotto |
+| 6 | `docs/CHART_CONFIG_CONTRACT.md` | 43 chart types + payload |
+| 7 | `DEVELOPMENT_TEAM_HANDOFF.md` | handoff team frontend |
+| 8 | `docs/ENGINE_ORCHESTRATION_AUDIT.md` | audit orchestrazione motori |
+| 9 | `docs/PRODUCTION_READINESS_ASSESSMENT.md` | stato hardening / release |
 
 ## Comandi di sviluppo
 
@@ -147,20 +151,23 @@ Metodologia completa: `docs/CONTRACT_FIRST_TESTING.md`.
 
 ## Prima PR — checklist
 
-1. Modifica mirata (router/service/engine) con test.
-2. `make test` verde in locale.
-3. Se tocchi API: `make openapi-frontend` e committa il contratto.
-4. Aggiorna `docs/API_ENDPOINT_INDEX.md` se aggiungi path.
-5. `make check` prima del merge su `main`.
+1. Usa Python 3.11.x.
+2. Modifica mirata (router/service/engine) con test.
+3. `make test` verde in locale.
+4. Se tocchi API: `make openapi-frontend` e committa il contratto.
+5. Aggiorna `docs/API_ENDPOINT_INDEX.md` se aggiungi path.
+6. `make check` prima del merge su `main`.
 
 ## Policy release
 
-- Bug fix e nuove API → test + `make check`
-- Non committare artefatti locali (`.venv`, `htmlcov/`, `data/`)
-- Branch `main` = backend corrente **5.2.6**
+- Runtime, Docker, CI, mypy, Ruff e Black devono restare allineati a Python 3.11.
+- Bug fix e nuove API → test + `make check`.
+- Non committare artefatti locali (`.venv`, `htmlcov/`, `data/`).
+- Branch `main` = backend corrente **5.2.6**.
 
 ## Contatti e risorse
 
+- Policy Python: `docs/PYTHON_VERSION_POLICY.md`
 - Contratto HTTP: `openapi/openapi.json`
 - Client TypeScript: `frontend/src/api/client.ts`
 - Troubleshooting: `docs/TROUBLESHOOTING.md`
@@ -168,4 +175,4 @@ Metodologia completa: `docs/CONTRACT_FIRST_TESTING.md`.
 
 ---
 
-*Onboarding V5.2.6 — 135 OpenAPI paths, 43 chart types. Per domande architetturali partire da `docs/ARCHITECTURE.md`.*
+*Onboarding V5.2.6 — Python 3.11, 135 OpenAPI paths, 43 chart types. Per domande architetturali partire da `docs/ARCHITECTURE.md`.*
