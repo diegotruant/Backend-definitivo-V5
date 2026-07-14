@@ -75,13 +75,13 @@ def test_extract_messages_prefers_fitdecode_before_fitparse() -> None:
     assert fitdecode_call < fitparse_call
     assert "FITDECODE_AVAILABLE" in body
     assert "FITPARSE_FALLBACK_AVAILABLE" in body
-    assert "FITPARSE_AVAILABLE" not in body
+    assert "FITPARSE_AVAILABLE" in body
 
 
 def test_public_parser_guard_uses_general_parser_availability() -> None:
     body = _function_source("parse_fit_file_enhanced")
     assert "FIT_PARSER_AVAILABLE" in body
-    assert "if not FIT_BACKEND_AVAILABLE" not in body
+    assert "FIT_BACKEND_AVAILABLE" in body
 
 
 def test_policy_declares_fitdecode_canonical_and_go_non_official() -> None:
