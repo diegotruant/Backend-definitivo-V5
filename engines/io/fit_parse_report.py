@@ -11,12 +11,15 @@ from engines.io.data_quality_report import build_data_quality_report
 from engines.io.fit_parser import FIT_PARSER_VERSION
 
 
+_NUMERIC_CONVERSION_ERRORS = (TypeError, ValueError, OverflowError)
+
+
 def _series_or_none(values: Any, *, n_samples: int) -> Optional[List[float]]:
     if values is None:
         return None
     try:
         arr = np.asarray(values, dtype=float)[:n_samples]
-    except Exception:
+    except _NUMERIC_CONVERSION_ERRORS:
         return None
     if arr.size == 0:
         return None
