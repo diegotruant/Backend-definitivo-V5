@@ -4,15 +4,17 @@ Minimal production deployment guide for `uvicorn api_app:app`.
 
 ## Requirements
 
-- Python **3.10+** (CI uses 3.11)
+- Python **3.11.x** (official and release-qualified runtime)
 - `pip install -r requirements-dev.txt` (or split prod deps if you extract later)
 - Outbound network only if engines call external services (default: none)
+
+Python 3.10 is not supported. Python 3.12+ requires an explicit compatibility PR, dependency audit and CI coverage before production use; see `docs/PYTHON_VERSION_POLICY.md`.
 
 ## Quick start (single host)
 
 ```bash
 git clone <repo> && cd Backend-definitivo-V5
-python3 -m venv .venv && source .venv/bin/activate
+python3.11 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 cp .env.example .env
 # Edit .env — see Environment variables below
@@ -100,7 +102,7 @@ FIT uploads and `/profile/snapshot` can be slow — use **≥120s** read timeout
 
 ## Docker
 
-Production image ships in the repository root:
+Production image ships in the repository root and uses `python:3.11-slim-bookworm`:
 
 ```bash
 docker build -t digital-twin-api .
@@ -144,7 +146,7 @@ Use for load balancer probes. Do not use `/docs` for probes (heavier).
 
 ## CI parity before deploy
 
-On the release commit:
+On the release commit, using Python 3.11:
 
 ```bash
 make check
@@ -154,6 +156,7 @@ Or trigger GitHub Actions **Full backend check** (`workflow_dispatch`).
 
 ## Related
 
+- `docs/PYTHON_VERSION_POLICY.md` — supported runtime and upgrade rules
 - `docs/FRONTEND_CONNECT_NEXT_VERCEL.md` — connect Vercel frontend
 - `docs/TROUBLESHOOTING.md` — ops issues
 - `Makefile` — `make run`, `make check`
