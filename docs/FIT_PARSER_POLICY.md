@@ -32,6 +32,18 @@ I flag hanno significati distinti e non intercambiabili:
 
 Il core deve usare `FITPARSE_FALLBACK_AVAILABLE` per decidere se tentare il fallback e `FIT_PARSER_AVAILABLE` per verificare la disponibilità generale del parsing.
 
+## Boundary degli errori decoder
+
+Le librerie `fitdecode` e `fitparse` non devono propagare direttamente le proprie eccezioni oltre il boundary interno `_run_decoder_boundary`.
+
+Il boundary contiene l'unico `except Exception` ammesso nel parser FIT e converte immediatamente ogni errore in `FitDecoderError`, valorizzando:
+
+- `backend`: decoder che ha generato l'errore;
+- `reason`: motivo stabile compatibile con il contratto `FitFileError`;
+- `detail`: dettaglio tecnico originale, senza modificarne il testo.
+
+Il parser principale gestisce soltanto `FitDecoderError`. Nel percorso di recupero l'errore interno viene convertito in `FitFileError` mantenendo invariati i reason code esterni.
+
 ## Contratto esterno
 
 La scelta del decoder è un dettaglio interno. Non deve modificare:
@@ -76,5 +88,8 @@ Non è previsto un parser FIT Go nel percorso ufficiale. Un eventuale componente
 - `fitdecode` venga chiamato prima del fallback `fitparse`;
 - disponibilità generale e disponibilità del fallback restino separate;
 - il fallback assente venga rifiutato prima di accedere alla libreria;
+- esista un solo catch generico nel parser e sia confinato a `_run_decoder_boundary`;
+- le eccezioni note e sconosciute dei decoder vengano trasformate in `FitDecoderError`;
+- il parser pubblico non interpreti direttamente le gerarchie di eccezioni delle librerie;
 - `fitparse` sia descritto come fallback temporaneo;
 - questa policy continui a indicare `fitdecode` come parser canonico.
