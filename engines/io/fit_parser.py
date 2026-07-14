@@ -47,10 +47,13 @@ except ImportError:  # pragma: no cover
     class FitParseCRCError(FitParseLibError): ...  # type: ignore[no-redef]
     class FitParseHeaderError(FitParseLibError): ...  # type: ignore[no-redef]
 
-# Backward-compat symbol used in tests/docs. True when at least one parser backend
-# is available in the environment.
-FIT_BACKEND_AVAILABLE = FITDECODE_AVAILABLE or FITPARSE_AVAILABLE
-FITPARSE_AVAILABLE = FIT_BACKEND_AVAILABLE
+# Canonical capability flags. FITPARSE_AVAILABLE now means exactly what its
+# name says: the legacy fitparse fallback is installed. General parser
+# availability is represented separately and remains backward-compatible via
+# FIT_BACKEND_AVAILABLE.
+FITPARSE_FALLBACK_AVAILABLE = FITPARSE_AVAILABLE
+FIT_PARSER_AVAILABLE = FITDECODE_AVAILABLE or FITPARSE_FALLBACK_AVAILABLE
+FIT_BACKEND_AVAILABLE = FIT_PARSER_AVAILABLE
 FIT_PARSER_VERSION = "2.0.1-gapaware"
 
 
@@ -534,9 +537,9 @@ def _extract_messages_with_fitparse(
     *,
     check_crc: bool,
 ) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
-    """Decode FIT payload with fitparse into plain dict rows."""
-    if not FITPARSE_AVAILABLE:
-        raise RuntimeError("fitparse backend is not available")
+    """Decode FIT payload with the legacy fitparse fallback into plain dict rows."""
+    if not FITPARSE_FALLBACK_AVAILABLE:
+        raise RuntimeError("fitparse fallback backend is not available")
     fitfile = fitparse.FitFile(BytesIO(payload), check_crc=check_crc)
     records: list[Dict[str, Any]] = []
     sessions: list[Dict[str, Any]] = []
@@ -564,15 +567,15 @@ def _extract_messages(
     *,
     check_crc: bool,
 ) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
-    """Decode FIT payload using fitdecode first, then fitparse fallback."""
+    """Decode FIT payload using fitdecode first, then the legacy fallback."""
     if FITDECODE_AVAILABLE:
         try:
             return _extract_messages_with_fitdecode(payload, check_crc=check_crc)
         except (FitError, FitParseError, FitEOFError, FitHeaderError, FitCRCError):
-            if FITPARSE_AVAILABLE:
+            if FITPARSE_FALLBACK_AVAILABLE:
                 return _extract_messages_with_fitparse(payload, check_crc=check_crc)
             raise
-    if FITPARSE_AVAILABLE:
+    if FITPARSE_FALLBACK_AVAILABLE:
         return _extract_messages_with_fitparse(payload, check_crc=check_crc)
     raise RuntimeError("No FIT parser backend available. Install fitdecode or fitparse.")
 
@@ -591,7 +594,7 @@ def parse_fit_file_enhanced(
         fit_path: Path to .fit file
         gap_short_s: Threshold for interpolation (default 10s)
         gap_long_s: Threshold for unreliable marking (default 60s)
-        check_crc: Whether fitparse should enforce FIT CRC validation.
+        check_crc: Whether the FIT decoder should enforce CRC validation.
             Keep True for real files; synthetic datasets may intentionally
             contain invalid CRCs and can be parsed with False.
         repair_synthetic_header: Repair a known synthetic-file issue where the
@@ -600,7 +603,7 @@ def parse_fit_file_enhanced(
     Returns:
         ActivityStreamEnhanced with quality flags and gap summary
     """
-    if not FIT_BACKEND_AVAILABLE:
+    if not FIT_PARSER_AVAILABLE:
         raise RuntimeError("No FIT parser backend available — install fitdecode (preferred) or fitparse")
     
     raw = None
