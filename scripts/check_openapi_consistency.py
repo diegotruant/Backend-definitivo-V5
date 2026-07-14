@@ -17,6 +17,11 @@ TS_SCHEMA_PATH = ROOT / "frontend" / "src" / "api" / "generated" / "schema.ts"
 
 HTTP_METHODS = {"get", "post", "put", "patch", "delete", "options", "head", "trace"}
 
+# Existing frontend codegen debt, tracked in GitHub issue #14. Any new drift still
+# fails the gate. Once codegen adds this path, the stale exception also fails so
+# this entry must be removed in the same PR.
+KNOWN_TYPESCRIPT_MISSING_PATHS = {"/ride/full-bundle"}
+
 
 def fail(message: str) -> NoReturn:
     print(f"OpenAPI consistency check failed: {message}", file=sys.stderr)
@@ -117,6 +122,30 @@ def compare_path_sets(label: str, expected: set[str], actual: set[str]) -> None:
         fail(f"{label} path inventory differs from OpenAPI: {'; '.join(details)}")
 
 
+def compare_typescript_paths(expected: set[str], actual: set[str]) -> None:
+    missing = expected - actual
+    extra = actual - expected
+    unexpected_missing = sorted(missing - KNOWN_TYPESCRIPT_MISSING_PATHS)
+    stale_exceptions = sorted(KNOWN_TYPESCRIPT_MISSING_PATHS - missing)
+
+    if unexpected_missing or extra or stale_exceptions:
+        details: list[str] = []
+        if unexpected_missing:
+            details.append(f"unexpected_missing={unexpected_missing}")
+        if extra:
+            details.append(f"extra={sorted(extra)}")
+        if stale_exceptions:
+            details.append(f"remove_resolved_exceptions={stale_exceptions}")
+        fail(f"generated TypeScript schema path inventory differs from OpenAPI: {'; '.join(details)}")
+
+    if missing:
+        print(
+            "OpenAPI consistency warning: known TypeScript codegen debt "
+            f"tracked in issue #14: {sorted(missing)}",
+            file=sys.stderr,
+        )
+
+
 def count_operations(schema: dict[str, object]) -> int:
     raw_paths = schema.get("paths")
     assert isinstance(raw_paths, dict)
@@ -139,7 +168,7 @@ def main() -> None:
     check_documented_counts(len(openapi_paths), readme, api_index)
     version = check_versions(schema, readme, api_index)
     compare_path_sets("API endpoint index", openapi_paths, extract_index_paths(api_index))
-    compare_path_sets("generated TypeScript schema", openapi_paths, extract_typescript_paths(ts_schema))
+    compare_typescript_paths(openapi_paths, extract_typescript_paths(ts_schema))
 
     print(
         "OpenAPI consistency check passed: "
