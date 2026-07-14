@@ -107,9 +107,11 @@ FastAPI exposes the contract at:
 
 Committed artifacts:
 
-- `openapi/openapi.json` — canonical spec (**134 paths**, v5.2.6)
+- `openapi/openapi.json` — canonical spec (**135 paths**, v5.2.6)
 - `frontend/src/api/generated/schema.ts` — TypeScript types (`make openapi-frontend`)
 - `frontend/src/api/client.ts` — typed client for all endpoints
+
+The generated TypeScript schema currently has one known path gap, `/ride/full-bundle`, tracked in issue #14. Any additional drift fails `scripts/check_openapi_consistency.py`.
 
 See `docs/OPENAPI_FRONTEND.md` for integration details.
 

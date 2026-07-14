@@ -14,6 +14,17 @@ OPENAPI_PATH = ROOT / "openapi" / "openapi.json"
 README_PATH = ROOT / "README.md"
 API_INDEX_PATH = ROOT / "docs" / "API_ENDPOINT_INDEX.md"
 TS_SCHEMA_PATH = ROOT / "frontend" / "src" / "api" / "generated" / "schema.ts"
+OPERATIONAL_DOC_PATHS = (
+    ROOT / "openapi" / "README.md",
+    ROOT / "docs" / "RELEASE_NOTES_v5.2.6.md",
+    ROOT / "docs" / "TROUBLESHOOTING.md",
+    ROOT / "docs" / "ARCHITECTURE.md",
+    ROOT / "docs" / "PRODUCT_ANALYTICS_BACKEND_V1.md",
+)
+PATH_COUNT_PATTERN = re.compile(
+    r"\*{0,2}(\d+)\*{0,2}\s+(?:(?:OpenAPI|HTTP|API)\s+)?paths?\b",
+    re.IGNORECASE,
+)
 
 HTTP_METHODS = {"get", "post", "put", "patch", "delete", "options", "head", "trace"}
 
@@ -85,6 +96,19 @@ def check_documented_counts(path_count: int, readme: str, api_index: str) -> Non
         wrong = sorted({value for value in matches if value != path_count})
         if wrong:
             fail(f"{label} reports {wrong}, but OpenAPI contains {path_count} paths")
+
+
+def check_operational_document_counts(path_count: int) -> None:
+    for path in OPERATIONAL_DOC_PATHS:
+        values = [int(value) for value in PATH_COUNT_PATTERN.findall(read_text(path))]
+        if not values:
+            fail(f"could not find an API path count in {path.relative_to(ROOT)}")
+        wrong = sorted({value for value in values if value != path_count})
+        if wrong:
+            fail(
+                f"{path.relative_to(ROOT)} reports path counts {wrong}, "
+                f"but OpenAPI contains {path_count} paths"
+            )
 
 
 def check_versions(schema: dict[str, object], readme: str, api_index: str) -> str:
@@ -166,6 +190,7 @@ def main() -> None:
     ts_schema = read_text(TS_SCHEMA_PATH)
 
     check_documented_counts(len(openapi_paths), readme, api_index)
+    check_operational_document_counts(len(openapi_paths))
     version = check_versions(schema, readme, api_index)
     compare_path_sets("API endpoint index", openapi_paths, extract_index_paths(api_index))
     compare_typescript_paths(openapi_paths, extract_typescript_paths(ts_schema))

@@ -10,6 +10,7 @@ Common issues when running or integrating the Digital Twin API.
 |---------|-----|
 | `make check` fails on OpenAPI | Run `make openapi-frontend`, commit `openapi/openapi.json` + `schema.ts` |
 | `pytest_openapi_contract` drift | Same as above — live `app.openapi()` must match committed file |
+| Operational docs report a stale path count | Run `python scripts/check_openapi_consistency.py`; current baseline is 135 paths |
 | mypy errors in `api/` | Run `make typecheck`, fix types before merge |
 | mypy errors in metabolic engines | Run `make typecheck-metabolic` and fix before release |
 | Full-check workflow timeout | Normal on cold runner; re-run `workflow_dispatch` |
@@ -70,7 +71,7 @@ Common issues when running or integrating the Digital Twin API.
 |---------|-----|
 | TS type errors after pull | `make openapi-frontend` in backend repo, copy new `schema.ts` |
 | `client.ts` path not in spec | Regenerate OpenAPI; paths must match current documented endpoints (see `openapi/openapi.json`) |
-| `pytest_frontend_client_contract` fails | Align client + openapi in same commit (134 paths must match) |
+| `pytest_frontend_client_contract` fails | Align client + OpenAPI in the same commit; current baseline is 135 paths. `/ride/full-bundle` is the only temporary generated-schema exception and is tracked in issue #14 |
 | Contract-first test fails | Fix engine/service per `docs/CONTRACT_FIRST_TESTING.md` — do not weaken the test unless product contract changed |
 
 ---

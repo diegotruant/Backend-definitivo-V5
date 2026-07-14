@@ -50,14 +50,15 @@ The backend remains stateless:
 - season plan rule-based
 - planned load risk check
 
-## Validation performed (historical baseline — see V5.2.3)
+## Validation performed
 
 Current gate (V5.2.6):
 
-- `python scripts/export_openapi.py` → **134 paths**
-- `pytest tests/pytest_engines_contract_all.py tests/pytest_contract_full_codebase.py` → 254 contract tests
-- `pytest tests/pytest_*.py` → **~1843 passed**
-- `pytest tests/pytest_frontend_client_contract.py` — OpenAPI ↔ client.ts 1:1
+- `python scripts/export_openapi.py` → **135 paths**
+- `python scripts/check_openapi_consistency.py` → OpenAPI, operational docs, API index and generated TypeScript inventory checked
+- `pytest tests/pytest_engines_contract_all.py tests/pytest_contract_full_codebase.py` → contract suite
+- `make test-all` → full repository suite
+- `pytest tests/pytest_frontend_client_contract.py` — frontend contract check; `/ride/full-bundle` codegen follow-up tracked in issue #14
 
 Original V1 increment validation:
 

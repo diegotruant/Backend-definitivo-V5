@@ -6,18 +6,19 @@
 
 ## Summary
 
-V5.2.6 completes the **chart audit roadmap** and aligns the entire repository to a single API version string.
+V5.2.6 completes the **chart audit roadmap** and aligns the repository to a single API version string. Subsequent compatible additions kept the same version number; the current `main` baseline is therefore 135 OpenAPI paths and 43 chart types.
 
-## API surface — 134 OpenAPI paths
+## API surface — 135 OpenAPI paths
 
 | Area | New / updated |
 |------|----------------|
-| `meta` | `GET /meta/chart-types`, extended `POST /meta/chart-config` (42 chart types) |
+| `meta` | `GET /meta/chart-types`, extended `POST /meta/chart-config` (43 chart types) |
 | `dashboard` | `POST /dashboard/athlete-snapshot` |
+| `ride` | `POST /ride/full-bundle` included in the current OpenAPI baseline |
 
-## Chart catalog (42 types)
+## Chart catalog (43 types)
 
-Nine new chart builders: `acwr_trend`, `monotony_strain`, `readiness_trend`, `durability_fingerprint`, `race_simulation_overlay`, `kalman_trajectory`, `pmc_forecast`, `segment_history`, `eddington_consistency`.
+The chart roadmap introduced nine builders: `acwr_trend`, `monotony_strain`, `readiness_trend`, `durability_fingerprint`, `race_simulation_overlay`, `kalman_trajectory`, `pmc_forecast`, `segment_history`, `eddington_consistency`. The current registry contains 43 chart types in total.
 
 ## Engines
 
@@ -26,7 +27,7 @@ Nine new chart builders: `acwr_trend`, `monotony_strain`, `readiness_trend`, `du
 
 ## Version alignment
 
-All of the following now report **5.2.6**:
+All of the following report **5.2.6**:
 
 - `VERSION`, `pyproject.toml`, `.env.example`
 - `api/app.py` default `DIGITAL_TWIN_API_VERSION`
@@ -36,10 +37,11 @@ All of the following now report **5.2.6**:
 
 ## Docs
 
-- `docs/CHART_CONFIG_CONTRACT.md` — full 42-type catalog + dashboard snapshot
+- `docs/CHART_CONFIG_CONTRACT.md` — full 43-type catalog + dashboard snapshot
 - `CHANGELOG.md` [5.2.6]
 
 ## Tests
 
 - `tests/pytest_chart_roadmap_items.py` — 11 tests
-- Frontend client ↔ OpenAPI contract — **134 paths** 1:1
+- OpenAPI and API index — **135 paths** checked automatically
+- Generated TypeScript path inventory — all paths checked, with the single temporary `/ride/full-bundle` codegen exception tracked in issue #14
