@@ -7,7 +7,12 @@ from typing import Any, Dict, Optional
 import numpy as np
 
 from engines.core.metric_contracts import annotate_payload
-from engines.io.fit_parser import QUALITY_FORWARD_FILLED, QUALITY_INTERPOLATED, QUALITY_UNRELIABLE, measured_signal_flags
+from engines.io.fit_parser import (
+    QUALITY_FORWARD_FILLED,
+    QUALITY_INTERPOLATED,
+    QUALITY_UNRELIABLE,
+    measured_signal_flags,
+)
 
 # Quality flag values mirrored from fit_parser for reporting.
 _FLAG_LABELS = {
@@ -15,6 +20,7 @@ _FLAG_LABELS = {
     QUALITY_FORWARD_FILLED: "forward_filled",
     QUALITY_UNRELIABLE: "unreliable",
 }
+_NUMERIC_CONVERSION_ERRORS = (TypeError, ValueError, OverflowError)
 
 
 def _series_quality(
@@ -25,15 +31,35 @@ def _series_quality(
     valid_max: Optional[float] = None,
 ) -> Dict[str, Any]:
     if not measured:
-        return {"available": False, "coverage_pct": 0.0, "dropout_pct": 100.0, "notes": ["missing_signal"]}
+        return {
+            "available": False,
+            "coverage_pct": 0.0,
+            "dropout_pct": 100.0,
+            "notes": ["missing_signal"],
+        }
     if values is None:
-        return {"available": False, "coverage_pct": 0.0, "dropout_pct": 100.0, "notes": ["missing_signal"]}
+        return {
+            "available": False,
+            "coverage_pct": 0.0,
+            "dropout_pct": 100.0,
+            "notes": ["missing_signal"],
+        }
     try:
         arr = np.asarray(values, dtype=float)
-    except Exception:
-        return {"available": False, "coverage_pct": 0.0, "dropout_pct": 100.0, "notes": ["unreadable_signal"]}
+    except _NUMERIC_CONVERSION_ERRORS:
+        return {
+            "available": False,
+            "coverage_pct": 0.0,
+            "dropout_pct": 100.0,
+            "notes": ["unreadable_signal"],
+        }
     if arr.size == 0:
-        return {"available": False, "coverage_pct": 0.0, "dropout_pct": 100.0, "notes": ["empty_signal"]}
+        return {
+            "available": False,
+            "coverage_pct": 0.0,
+            "dropout_pct": 100.0,
+            "notes": ["empty_signal"],
+        }
     mask = np.isfinite(arr)
     if valid_min is not None:
         mask &= arr >= valid_min
@@ -58,7 +84,7 @@ def _quality_flags(flags: Any) -> Dict[str, Any]:
         return {"available": False}
     try:
         arr = np.asarray(flags)
-    except Exception:
+    except _NUMERIC_CONVERSION_ERRORS:
         return {"available": False}
     if arr.size == 0:
         return {"available": False}
@@ -73,10 +99,7 @@ def _quality_flags(flags: Any) -> Dict[str, Any]:
         "interpolated_pct": round(interpolated / total * 100.0, 1),
         "forward_filled_pct": round(forward_filled / total * 100.0, 1),
         "unreliable_pct": round(unreliable / total * 100.0, 1),
-        "flags": {
-            label: int(counts.get(str(code), 0))
-            for code, label in _FLAG_LABELS.items()
-        },
+        "flags": {label: int(counts.get(str(code), 0)) for code, label in _FLAG_LABELS.items()},
     }
 
 
@@ -93,8 +116,12 @@ def _coerce_quality_stream(stream: Any) -> Any:
     heart_rate = stream.get("heart_rate")
     cadence = stream.get("cadence")
     obj.power = np.asarray(power, dtype=float) if power is not None else np.array([], dtype=float)
-    obj.heart_rate = np.asarray(heart_rate, dtype=float) if heart_rate is not None else np.array([], dtype=float)
-    obj.cadence = np.asarray(cadence, dtype=float) if cadence is not None else np.array([], dtype=float)
+    obj.heart_rate = (
+        np.asarray(heart_rate, dtype=float) if heart_rate is not None else np.array([], dtype=float)
+    )
+    obj.cadence = (
+        np.asarray(cadence, dtype=float) if cadence is not None else np.array([], dtype=float)
+    )
     obj.speed_mps = np.array([], dtype=float)
     obj.distance_m = np.array([], dtype=float)
     obj.altitude_m = np.array([], dtype=float)
@@ -107,7 +134,9 @@ def _coerce_quality_stream(stream: Any) -> Any:
     obj.quality_hr = stream.get("quality_hr")
     obj.gap_summary = stream.get("gap_summary", {}) or {}
     obj.has_power = bool(obj.power.size and np.any(np.isfinite(obj.power) & (obj.power > 0)))
-    obj.has_heart_rate = bool(obj.heart_rate.size and np.any(np.isfinite(obj.heart_rate) & (obj.heart_rate > 0)))
+    obj.has_heart_rate = bool(
+        obj.heart_rate.size and np.any(np.isfinite(obj.heart_rate) & (obj.heart_rate > 0))
+    )
     obj.has_speed = False
     obj.has_distance = False
     obj.has_altitude = False
@@ -122,7 +151,9 @@ def build_data_quality_report(stream: Any) -> Dict[str, Any]:
     stream = _coerce_quality_stream(stream)
     measured = measured_signal_flags(stream)
     signals = {
-        "power": _series_quality(getattr(stream, "power", None), measured=measured["power"], valid_min=1),
+        "power": _series_quality(
+            getattr(stream, "power", None), measured=measured["power"], valid_min=1
+        ),
         "heart_rate": _series_quality(
             getattr(stream, "heart_rate", None),
             measured=measured["heart_rate"],
@@ -213,4 +244,9 @@ def build_data_quality_report(stream: Any) -> Dict[str, Any]:
         "warnings": warnings,
         "gap_summary": getattr(stream, "gap_summary", {}) or {},
     }
-    return annotate_payload(payload, module_name="data_quality_report", method="signal_coverage", confidence=1.0)
+    return annotate_payload(
+        payload,
+        module_name="data_quality_report",
+        method="signal_coverage",
+        confidence=1.0,
+    )
