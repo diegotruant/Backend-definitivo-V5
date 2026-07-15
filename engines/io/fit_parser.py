@@ -14,7 +14,7 @@ GAP HANDLING STRATEGY:
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TypeAlias
 from io import BytesIO
 import time
 import numpy as np
@@ -79,6 +79,65 @@ class FitFileError(Exception):
         self.reason = reason
         self.detail = detail
         super().__init__(f"{reason}: {detail}" if detail else reason)
+
+
+FitMessageBatch: TypeAlias = tuple[
+    list[Dict[str, Any]],
+    list[Dict[str, Any]],
+    list[Dict[str, Any]],
+    list[Dict[str, Any]],
+    list[Dict[str, Any]],
+]
+FitDecoder: TypeAlias = Callable[..., FitMessageBatch]
+
+
+class FitDecoderError(Exception):
+    """Typed internal error emitted by the FIT decoder boundary."""
+
+    def __init__(self, reason: str, detail: str = "", *, backend: str = "unknown") -> None:
+        self.reason = reason
+        self.detail = detail
+        self.backend = backend
+        label = f"{backend}:{reason}" if backend else reason
+        super().__init__(f"{label}: {detail}" if detail else label)
+
+
+def _decoder_error_from_exception(error: Exception, *, backend: str) -> FitDecoderError:
+    """Convert backend-specific or undocumented decoder errors into one type."""
+    if isinstance(error, FitDecoderError):
+        return error
+    if isinstance(error, (MemoryError, RecursionError)):
+        raise error
+
+    detail = str(error)
+    if isinstance(error, (FitParseHeaderError, FitHeaderError)) or "not a FIT file" in detail:
+        reason = "INVALID_HEADER"
+    elif isinstance(error, (FitParseEOFError, FitEOFError)):
+        reason = "TRUNCATED"
+    elif isinstance(error, (FitParseCRCError, FitCRCError)):
+        reason = "CRC_MISMATCH"
+    elif isinstance(error, (FitParseLibError, FitParseError, FitError)):
+        reason = "MALFORMED_RECORDS"
+    else:
+        reason = "UNKNOWN"
+    return FitDecoderError(reason, detail, backend=backend)
+
+
+def _run_decoder_boundary(
+    decoder: FitDecoder,
+    payload: bytes,
+    *,
+    check_crc: bool,
+    backend: str,
+) -> FitMessageBatch:
+    """Run a FIT decoder and prevent raw third-party exceptions from escaping."""
+    try:
+        return decoder(payload, check_crc=check_crc)
+    except Exception as error:
+        typed_error = _decoder_error_from_exception(error, backend=backend)
+        if typed_error is error:
+            raise
+        raise typed_error from error
 
 
 def _read_file_with_retry(path: str, attempts: int = 3, delay_s: float = 0.25) -> bytes:
@@ -505,7 +564,7 @@ def _extract_messages_with_fitdecode(
     payload: bytes,
     *,
     check_crc: bool,
-) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
+) -> FitMessageBatch:
     """Decode FIT payload with fitdecode into plain dict rows."""
     crc_mode = fitdecode.CrcCheck.RAISE if check_crc else fitdecode.CrcCheck.DISABLED
     records: list[Dict[str, Any]] = []
@@ -536,7 +595,7 @@ def _extract_messages_with_fitparse(
     payload: bytes,
     *,
     check_crc: bool,
-) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
+) -> FitMessageBatch:
     """Decode FIT payload with the legacy fitparse fallback into plain dict rows."""
     if not (FITPARSE_FALLBACK_AVAILABLE and FITPARSE_AVAILABLE):
         raise RuntimeError("fitparse backend is not available (legacy fallback)")
@@ -566,17 +625,36 @@ def _extract_messages(
     payload: bytes,
     *,
     check_crc: bool,
-) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
+) -> FitMessageBatch:
     """Decode FIT payload using fitdecode first, then the legacy fallback."""
     if FITDECODE_AVAILABLE:
         try:
-            return _extract_messages_with_fitdecode(payload, check_crc=check_crc)
-        except (FitError, FitParseError, FitEOFError, FitHeaderError, FitCRCError):
-            if FITPARSE_FALLBACK_AVAILABLE and FITPARSE_AVAILABLE:
-                return _extract_messages_with_fitparse(payload, check_crc=check_crc)
+            return _run_decoder_boundary(
+                _extract_messages_with_fitdecode,
+                payload,
+                check_crc=check_crc,
+                backend="fitdecode",
+            )
+        except FitDecoderError as error:
+            if (
+                error.reason != "UNKNOWN"
+                and FITPARSE_FALLBACK_AVAILABLE
+                and FITPARSE_AVAILABLE
+            ):
+                return _run_decoder_boundary(
+                    _extract_messages_with_fitparse,
+                    payload,
+                    check_crc=check_crc,
+                    backend="fitparse",
+                )
             raise
     if FITPARSE_FALLBACK_AVAILABLE and FITPARSE_AVAILABLE:
-        return _extract_messages_with_fitparse(payload, check_crc=check_crc)
+        return _run_decoder_boundary(
+            _extract_messages_with_fitparse,
+            payload,
+            check_crc=check_crc,
+            backend="fitparse",
+        )
     raise RuntimeError("No FIT parser backend available. Install fitdecode or fitparse.")
 
 
@@ -606,14 +684,6 @@ def parse_fit_file_enhanced(
     if not (FIT_PARSER_AVAILABLE and FIT_BACKEND_AVAILABLE):
         raise RuntimeError("No FIT parser backend available — install fitdecode (preferred) or fitparse")
     
-    raw = None
-    if repair_synthetic_header:
-        raw = bytearray(_read_file_with_retry(fit_path))
-        # NOTE: we no longer pre-classify a file as "bad" from the 0x40 bit,
-        # because that misfires on valid files with developer-data records.
-        # raw is kept only so the fallback repair path can use it if the
-        # normal parse fails.
-
     # Some synthetic test files declare a 14-byte header but place the data
     # section at byte 12. That repair, however, must NEVER touch a valid file:
     # a legitimate 14-byte header is normal, and the 0x40 bit on the first
@@ -621,9 +691,21 @@ def parse_fit_file_enhanced(
     # parse the file as-is first, and only attempt the byte-0 repair if normal
     # parsing actually fails.
     try:
+        raw = (
+            bytearray(_read_file_with_retry(fit_path))
+            if repair_synthetic_header
+            else None
+        )
+        # NOTE: we no longer pre-classify a file as "bad" from the 0x40 bit,
+        # because that misfires on valid files with developer-data records.
+        # raw is kept only so the fallback repair path can use it if the
+        # normal parse fails.
         payload = bytes(raw) if raw is not None else _read_file_with_retry(fit_path)
-    except Exception as e:
-        raise FitFileError("EMPTY_FILE", f"could not read file: {e}") from e
+    except OSError as error:
+        raise FitFileError(
+            "EMPTY_FILE",
+            f"could not read file: {error}",
+        ) from error
 
     if len(payload) < 14:
         raise FitFileError(
@@ -639,44 +721,30 @@ def parse_fit_file_enhanced(
 
     had_crc_or_eof_error = False
     try:
-        records, _session_msgs, _device_info_msgs, _hrv_msgs, _lap_msgs = _extract_messages(
+        records, _session_msgs, _device_info_msgs, _hrv_msgs, _lap_msgs = _run_decoder_boundary(
+            _extract_messages,
             payload,
             check_crc=check_crc,
+            backend="parser",
         )
-    except (FitParseHeaderError, FitHeaderError) as e:
-        raise FitFileError("INVALID_HEADER", str(e)) from e
-    except (FitParseEOFError, FitEOFError) as e:
-        # Partial-truncation recovery path below retries without CRC.
-        if "not a FIT file" in str(e):
-            raise FitFileError("INVALID_HEADER", str(e)) from e
-        had_crc_or_eof_error = True
-    except (FitParseCRCError, FitCRCError):
-        had_crc_or_eof_error = True
-    except (FitParseLibError, FitParseError) as e:
-        if "not a FIT file" in str(e):
-            raise FitFileError("INVALID_HEADER", str(e)) from e
-    except Exception as e:
-        if "not a FIT file" in str(e):
-            raise FitFileError("INVALID_HEADER", str(e)) from e
+    except FitDecoderError as error:
+        if error.reason == "INVALID_HEADER":
+            raise FitFileError("INVALID_HEADER", error.detail) from error
+        if error.reason in {"TRUNCATED", "CRC_MISMATCH"}:
+            had_crc_or_eof_error = True
 
     if not records or had_crc_or_eof_error:
         # Recovery attempt: if the only problem was CRC/truncation, payload may
         # still contain readable leading records.
         try:
-            records, _session_msgs, _device_info_msgs, _hrv_msgs, _lap_msgs = _extract_messages(
+            records, _session_msgs, _device_info_msgs, _hrv_msgs, _lap_msgs = _run_decoder_boundary(
+                _extract_messages,
                 payload,
                 check_crc=False,
+                backend="parser",
             )
-        except (FitParseHeaderError, FitHeaderError) as e:
-            raise FitFileError("INVALID_HEADER", str(e)) from e
-        except (FitParseEOFError, FitEOFError) as e:
-            raise FitFileError("TRUNCATED", str(e)) from e
-        except (FitParseCRCError, FitCRCError) as e:
-            raise FitFileError("CRC_MISMATCH", str(e)) from e
-        except (FitParseLibError, FitParseError) as e:
-            raise FitFileError("MALFORMED_RECORDS", str(e)) from e
-        except Exception as e:
-            raise FitFileError("UNKNOWN", str(e)) from e
+        except FitDecoderError as error:
+            raise FitFileError(error.reason, error.detail) from error
 
     if not records:
         raise FitFileError(

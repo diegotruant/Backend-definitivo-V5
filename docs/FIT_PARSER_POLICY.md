@@ -32,6 +32,22 @@ I flag hanno significati distinti e non intercambiabili:
 
 Il core deve usare `FITPARSE_FALLBACK_AVAILABLE` per decidere se tentare il fallback e `FIT_PARSER_AVAILABLE` per verificare la disponibilità generale del parsing.
 
+## Boundary degli errori decoder
+
+Le librerie `fitdecode` e `fitparse` non devono propagare direttamente le proprie eccezioni oltre il boundary interno `_run_decoder_boundary`.
+
+Il boundary contiene l'unico `except Exception` ammesso nel parser FIT e converte immediatamente ogni errore non fatale in `FitDecoderError`, valorizzando:
+
+- `backend`: decoder che ha generato l'errore;
+- `reason`: motivo stabile compatibile con il contratto `FitFileError`;
+- `detail`: dettaglio tecnico originale, senza modificarne il testo.
+
+`MemoryError` e `RecursionError` non vengono convertiti: devono propagarsi perché indicano un problema di risorse o di processo.
+
+Il parser principale gestisce soltanto `FitDecoderError`. Nel percorso di recupero l'errore interno viene convertito in `FitFileError` mantenendo invariati i reason code esterni. Il fallback `fitparse` viene tentato per errori FIT classificati, ma non per `UNKNOWN`, così un errore applicativo non viene nascosto.
+
+La proprietà interna `backend` serve alla diagnosi del decoder coinvolto e non introduce nuovi campi nel payload API. Anche `_extract_messages` è un contratto interno: i suoi test devono verificare `FitDecoderError`, mentre il contratto pubblico resta `FitFileError`.
+
 ## Contratto esterno
 
 La scelta del decoder è un dettaglio interno. Non deve modificare:
@@ -76,5 +92,10 @@ Non è previsto un parser FIT Go nel percorso ufficiale. Un eventuale componente
 - `fitdecode` venga chiamato prima del fallback `fitparse`;
 - disponibilità generale e disponibilità del fallback restino separate;
 - il fallback assente venga rifiutato prima di accedere alla libreria;
+- esista un solo catch generico nel parser e sia confinato a `_run_decoder_boundary`;
+- le eccezioni non fatali dei decoder vengano trasformate in `FitDecoderError`;
+- `MemoryError` e `RecursionError` non vengano nascosti;
+- `UNKNOWN` non abiliti il fallback legacy;
+- il parser pubblico non interpreti direttamente le gerarchie di eccezioni delle librerie;
 - `fitparse` sia descritto come fallback temporaneo;
 - questa policy continui a indicare `fitdecode` come parser canonico.
