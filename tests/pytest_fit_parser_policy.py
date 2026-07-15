@@ -133,6 +133,25 @@ def test_decoder_exception_reason_mapping(error: Exception, reason: str) -> None
     assert typed.detail == str(error)
 
 
+@pytest.mark.parametrize(
+    "fatal_error",
+    [MemoryError("oom"), RecursionError("deep")],
+)
+def test_decoder_boundary_does_not_hide_fatal_errors(
+    fatal_error: Exception,
+) -> None:
+    def _explode(_payload: bytes, *, check_crc: bool):
+        raise fatal_error
+
+    with pytest.raises(type(fatal_error)):
+        fit_parser._run_decoder_boundary(
+            _explode,
+            b"payload",
+            check_crc=True,
+            backend="fitdecode",
+        )
+
+
 def test_unknown_fitdecode_error_is_typed_when_no_fallback_exists(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -152,10 +171,9 @@ def test_unknown_fitdecode_error_is_typed_when_no_fallback_exists(
     assert isinstance(exc.value.__cause__, RuntimeError)
 
 
-def test_unknown_fitdecode_error_can_use_the_legacy_fallback(
+def test_unknown_fitdecode_error_does_not_use_the_legacy_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    expected = ([{"power": 250}], [], [], [], [])
     calls: list[str] = []
 
     def _explode(_payload: bytes, *, check_crc: bool):
@@ -164,7 +182,7 @@ def test_unknown_fitdecode_error_can_use_the_legacy_fallback(
 
     def _fallback(_payload: bytes, *, check_crc: bool):
         calls.append("fitparse")
-        return expected
+        return ([{"power": 250}], [], [], [], [])
 
     monkeypatch.setattr(fit_parser, "FITDECODE_AVAILABLE", True)
     monkeypatch.setattr(fit_parser, "FITPARSE_FALLBACK_AVAILABLE", True)
@@ -172,8 +190,12 @@ def test_unknown_fitdecode_error_can_use_the_legacy_fallback(
     monkeypatch.setattr(fit_parser, "_extract_messages_with_fitdecode", _explode)
     monkeypatch.setattr(fit_parser, "_extract_messages_with_fitparse", _fallback)
 
-    assert fit_parser._extract_messages(b"payload", check_crc=True) == expected
-    assert calls == ["fitdecode", "fitparse"]
+    with pytest.raises(fit_parser.FitDecoderError) as exc:
+        fit_parser._extract_messages(b"payload", check_crc=True)
+
+    assert exc.value.backend == "fitdecode"
+    assert exc.value.reason == "UNKNOWN"
+    assert calls == ["fitdecode"]
 
 
 def test_fallback_error_is_also_typed(

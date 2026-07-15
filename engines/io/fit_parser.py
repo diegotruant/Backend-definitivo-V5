@@ -106,6 +106,8 @@ def _decoder_error_from_exception(error: Exception, *, backend: str) -> FitDecod
     """Convert backend-specific or undocumented decoder errors into one type."""
     if isinstance(error, FitDecoderError):
         return error
+    if isinstance(error, (MemoryError, RecursionError)):
+        raise error
 
     detail = str(error)
     if isinstance(error, (FitParseHeaderError, FitHeaderError)) or "not a FIT file" in detail:
@@ -633,8 +635,12 @@ def _extract_messages(
                 check_crc=check_crc,
                 backend="fitdecode",
             )
-        except FitDecoderError:
-            if FITPARSE_FALLBACK_AVAILABLE and FITPARSE_AVAILABLE:
+        except FitDecoderError as error:
+            if (
+                error.reason != "UNKNOWN"
+                and FITPARSE_FALLBACK_AVAILABLE
+                and FITPARSE_AVAILABLE
+            ):
                 return _run_decoder_boundary(
                     _extract_messages_with_fitparse,
                     payload,
@@ -678,14 +684,6 @@ def parse_fit_file_enhanced(
     if not (FIT_PARSER_AVAILABLE and FIT_BACKEND_AVAILABLE):
         raise RuntimeError("No FIT parser backend available — install fitdecode (preferred) or fitparse")
     
-    raw = None
-    if repair_synthetic_header:
-        raw = bytearray(_read_file_with_retry(fit_path))
-        # NOTE: we no longer pre-classify a file as "bad" from the 0x40 bit,
-        # because that misfires on valid files with developer-data records.
-        # raw is kept only so the fallback repair path can use it if the
-        # normal parse fails.
-
     # Some synthetic test files declare a 14-byte header but place the data
     # section at byte 12. That repair, however, must NEVER touch a valid file:
     # a legitimate 14-byte header is normal, and the 0x40 bit on the first
@@ -693,9 +691,21 @@ def parse_fit_file_enhanced(
     # parse the file as-is first, and only attempt the byte-0 repair if normal
     # parsing actually fails.
     try:
+        raw = (
+            bytearray(_read_file_with_retry(fit_path))
+            if repair_synthetic_header
+            else None
+        )
+        # NOTE: we no longer pre-classify a file as "bad" from the 0x40 bit,
+        # because that misfires on valid files with developer-data records.
+        # raw is kept only so the fallback repair path can use it if the
+        # normal parse fails.
         payload = bytes(raw) if raw is not None else _read_file_with_retry(fit_path)
-    except OSError as e:
-        raise FitFileError("EMPTY_FILE", f"could not read file: {e}") from e
+    except OSError as error:
+        raise FitFileError(
+            "EMPTY_FILE",
+            f"could not read file: {error}",
+        ) from error
 
     if len(payload) < 14:
         raise FitFileError(
