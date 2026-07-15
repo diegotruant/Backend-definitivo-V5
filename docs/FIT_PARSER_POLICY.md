@@ -46,6 +46,8 @@ Il boundary contiene l'unico `except Exception` ammesso nel parser FIT e convert
 
 Il parser principale gestisce soltanto `FitDecoderError`. Nel percorso di recupero l'errore interno viene convertito in `FitFileError` mantenendo invariati i reason code esterni. Il fallback `fitparse` viene tentato per errori FIT classificati, ma non per `UNKNOWN`, così un errore applicativo non viene nascosto.
 
+La proprietà interna `backend` serve alla diagnosi del decoder coinvolto e non introduce nuovi campi nel payload API.
+
 ## Contratto esterno
 
 La scelta del decoder è un dettaglio interno. Non deve modificare:
