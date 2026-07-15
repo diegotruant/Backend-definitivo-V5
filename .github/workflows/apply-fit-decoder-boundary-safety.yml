@@ -1,0 +1,47 @@
+name: Apply FIT boundary safety corrections
+
+on:
+  push:
+    branches:
+      - refactor/typed-fit-decoder-boundary
+    paths:
+      - tools/apply_fit_decoder_boundary_safety_patch.py
+      - .github/workflows/apply-fit-decoder-boundary-safety.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/typed-fit-decoder-boundary
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Apply reviewed corrections
+        run: python tools/apply_fit_decoder_boundary_safety_patch.py
+
+      - name: Validate generated files
+        run: |
+          python -m py_compile engines/io/fit_parser.py
+          python -m py_compile tests/pytest_fit_parser_policy.py
+          git diff --check
+
+      - name: Remove one-shot tooling
+        run: |
+          rm tools/apply_fit_decoder_boundary_safety_patch.py
+          rm .github/workflows/apply-fit-decoder-boundary-safety.yml
+
+      - name: Commit corrections
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: preserve FIT boundary failure semantics"
+          git push origin HEAD:refactor/typed-fit-decoder-boundary
