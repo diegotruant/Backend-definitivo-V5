@@ -732,8 +732,11 @@ class TestFitParserPhase8Batch2:
         monkeypatch.setattr(fp, "FITDECODE_AVAILABLE", True)
         monkeypatch.setattr(fp, "FITPARSE_AVAILABLE", False)
         monkeypatch.setattr(fp, "_extract_messages_with_fitdecode", boom)
-        with pytest.raises(fp.FitParseCRCError):
+        with pytest.raises(fp.FitDecoderError) as exc:
             fp._extract_messages(b"payload", check_crc=True)
+        assert exc.value.reason == "CRC_MISMATCH"
+        assert exc.value.backend == "fitdecode"
+        assert isinstance(exc.value.__cause__, fp.FitParseCRCError)
 
     def test_crc_mismatch_on_recovery(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         import engines.io.fit_parser as fp
