@@ -1,0 +1,230 @@
++                _append_limited(
++                    discarded,
++                    {
++                        "key": key_repr,
++                        "provided_power": self._json_safe_input_value(w),
++                        "reason": "invalid_duration",
++                    },
++                )
++                continue
++
++            if sec <= 0:
++                _append_limited(
++                    discarded,
++                    {
++                        "key": key_repr,
++                        "provided_power": self._json_safe_input_value(w),
++                        "normalized_duration_s": sec,
++                        "reason": "non_positive_duration",
++                    },
++                )
+                 continue
++
++            valid_observations += 1
++            if not (
++                isinstance(k, int)
++                and not isinstance(k, bool)
++                and int(k) == sec
++            ):
++                normalized_key_count += 1
++
++            if sec in out:
++                _append_limited(
++                    duplicates,
++                    {
++                        "duration_s": sec,
++                        "previous_key": source_keys.get(sec),
++                        "previous_power_w": out[sec],
++                        "replacement_key": key_repr,
++                        "replacement_power_w": wf,
++                        "resolution": "last_value_wins",
++                    },
++                )
++            out[sec] = wf
++            source_keys[sec] = key_repr
++
++        if input_audit is not None:
++            mmp_audit = input_audit["mmp"]
++            mmp_audit.update(
++                {
++                    "valid_anchor_observations": valid_observations,
++                    "accepted_anchor_count": len(out),
++                    "used_anchor_count": len(out),
++                    "discarded_anchor_count": len(mmp) - valid_observations,
++                    "duplicate_duration_count": valid_observations - len(out),
++                    "normalized_key_count": normalized_key_count,
++                    "discarded_anchors": discarded,
++                    "duplicate_durations": duplicates,
++                    "details_truncated": (
++                        (len(mmp) - valid_observations) > len(discarded)
++                        or (valid_observations - len(out)) > len(duplicates)
++                    ),
++                }
++            )
++            self._refresh_input_audit_summary(input_audit)
+         return dict(sorted(out.items()))
+ 
++    def _coerce_mmp_dict(self, mmp: Dict[Any, Any]) -> Dict[int, float]:
++        return self._coerce_mmp_dict_with_audit(mmp)
++
+     def _pcr_prior_watts(self) -> float:
+         return float(np.clip(
+             self.active_muscle_mass * self.const.pcr_multiplier,
+@@ -83,7 +586,10 @@ class MetabolicProfiler:
+         ))
+ 
+     def _metabolic_rates(self, w: np.ndarray, vo2: float, vla: float, eta_base: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+-        coeff_w_to_vo2 = 10.8 * (0.23 / eta_base)
++        coeff_w_to_vo2 = (
++            self.calibration.watts_to_vo2_coefficient
++            * (self.calibration.reference_efficiency / eta_base)
++        )
+         vo2_req = self.const.vo2_basale + coeff_w_to_vo2 * (w / self.weight)
+         vo2_act = np.minimum(vo2_req, vo2 - self.const.eps)
+         denom = np.maximum(self.const.eps, vo2 - vo2_act)
+@@ -94,11 +600,31 @@ class MetabolicProfiler:
+ 
+     def _lactate_kin_tau(self, vo2: float, vla: float) -> float:
+         floor = self.context.tau_base_floor()
+-        tau_base = floor + np.clip(80.0 - vo2, 0.0, 40.0) * 0.4
+-        return float(np.clip(tau_base + np.clip(vla - 0.30, 0.0, 1.0) * 15.0, 12.0, 65.0))
++        tau_base = floor + np.clip(
++            self.calibration.tau_vo2_anchor - vo2,
++            0.0,
++            self.calibration.tau_vo2_span,
++        ) * self.calibration.tau_vo2_slope
++        return float(
++            np.clip(
++                tau_base
++                + np.clip(
++                    vla - self.calibration.tau_vlamax_anchor,
++                    0.0,
++                    self.calibration.tau_vlamax_span,
++                )
++                * self.calibration.tau_vlamax_slope,
++                self.calibration.tau_min_s,
++                self.calibration.tau_max_s,
++            )
++        )
+ 
+     def _cap_factor(self, seconds: float) -> float:
+-        return float(1.5 + 2.5 * np.exp(-seconds / 120.0))
++        return float(
++            self.calibration.cap_factor_base
++            + self.calibration.cap_factor_amplitude
++            * np.exp(-seconds / self.calibration.cap_factor_decay_s)
++        )
+ 
+     def _solve_root_last_crossing(self, diff: np.ndarray, w: np.ndarray) -> float:
+         if diff.size < 2:
+@@ -118,10 +644,18 @@ class MetabolicProfiler:
+         return float(w[int(np.argmin(np.abs(diff)))])
+ 
+     def _map_estimate(self, vo2: float, eta_base: float) -> float:
+-        return float(np.clip((vo2 - self.const.vo2_basale) * self.weight / 10.8 * (eta_base / 0.23), 50.0, 2500.0))
++        return float(
++            np.clip(
++                (vo2 - self.const.vo2_basale)
++                * self.weight
++                / self.calibration.watts_to_vo2_coefficient
++                * (eta_base / self.calibration.reference_efficiency),
++                self.calibration.map_power_min_w,
++                self.calibration.map_power_max_w,
++            )
++        )
+ 
+-    @staticmethod
+-    def _apr_vlamax_band(mmp: Dict[int, float], map_provisional: float) -> Optional[Tuple[float, float, float]]:
++    def _apr_vlamax_band(self, mmp: Dict[int, float], map_provisional: float) -> Optional[Tuple[float, float, float]]:
+         """
+         Expected VLamax band from the Anaerobic Power Reserve.
+ 
+@@ -157,15 +691,28 @@ class MetabolicProfiler:
+         # constraint by design — it excludes the impossible corner (high
+         # VLamax + low sprint) without forcing a value on genuine diesels,
+         # who can sit near the floor even when a virtual platform sprint inflates APR.
+-        vla_low = float(np.clip(0.10 + 0.12 * max(0.0, apr_ratio - 0.8), 0.10, 0.40))
+-        vla_high = float(np.clip(0.40 + 0.38 * max(0.0, apr_ratio - 0.8), 0.40, 1.20))
++        apr_excess = max(0.0, apr_ratio - self.calibration.apr_ratio_anchor)
++        vla_low = float(
++            np.clip(
++                self.calibration.apr_vlamax_low_intercept
++                + self.calibration.apr_vlamax_low_slope * apr_excess,
++                *self.calibration.apr_vlamax_low_bounds,
++            )
++        )
++        vla_high = float(
++            np.clip(
++                self.calibration.apr_vlamax_high_intercept
++                + self.calibration.apr_vlamax_high_slope * apr_excess,
++                *self.calibration.apr_vlamax_high_bounds,
++            )
++        )
+         if vla_high <= vla_low:
+-            vla_high = vla_low + 0.15
++            vla_high = vla_low + self.calibration.apr_vlamax_minimum_band_width
+         return (vla_low, vla_high, apr_ratio)
+ 
+     def _pred_power(self, t: float, la_cap: float, tau: float, map_est: float, w_grid: np.ndarray, vo2_act_grid: np.ndarray, net_grid: np.ndarray) -> float:
+         cap_mask = w_grid <= (map_est * self._cap_factor(t))
+-        if np.count_nonzero(cap_mask) < 10:
++        if np.count_nonzero(cap_mask) < self.fit_policy.minimum_prediction_grid_points:
+             cap_mask = np.ones_like(w_grid, dtype=bool)
+         w, net_w, vo2_gap = w_grid[cap_mask], net_grid[cap_mask], vo2_act_grid[cap_mask] - self.const.vo2_basale
+ 
+@@ -182,11 +729,19 @@ class MetabolicProfiler:
+         return tau, map_est, vo2_act, net
+ 
+     def _calculate_curves(self, vo2: float, vla: float, eta_base: float):
+-        w: np.ndarray = np.arange(50.0, max(700.0, self.weight * 12.0) + 10.0, 5.0, dtype=float)
+-        map_est = self._map_estimate(vo2, eta_base)
++        w: np.ndarray = np.arange(
++            self.calibration.curve_power_min_w,
++            max(
++                self.calibration.curve_power_floor_max_w,
++                self.weight * self.calibration.curve_power_per_kg_max,
++            )
++            + self.calibration.curve_power_step_w * 2.0,
++            self.calibration.curve_power_step_w,
++            dtype=float,
++        )
+         vo2_act, p, e = self._metabolic_rates(w, vo2, vla, eta_base)
+ 
+-        valid = vo2_act < (vo2 - 0.1)
++        valid = vo2_act < (vo2 - self.calibration.curve_vo2_margin)
+         w, p, e, vo2_act = w[valid], p[valid], e[valid], vo2_act[valid]
+ 
+         # MLSS = Maximal Lactate Steady State: the highest power at which
+@@ -209,7 +764,15 @@ class MetabolicProfiler:
+         w_mlss = float(w[_above[0]]) if _above.size else float(w[int(np.argmin(np.abs(net_prod)))])
+         deficit = np.maximum(0.0, e - p)
+         mx = float(np.max(deficit))
+-        w_fat = float(np.mean(w[deficit >= 0.98 * mx])) if mx > 0 else float(w[int(np.argmax(deficit))])
++        w_fat = (
++            float(
++                np.mean(
++                    w[deficit >= self.calibration.fatmax_peak_fraction * mx]
++                )
++            )
++            if mx > 0
++            else float(w[int(np.argmax(deficit))])
++        )
+ 
+         fat_coef = self.context.fat_oxidation_coefficient()
+         cho_coef = self.context.cho_oxidation_coefficient()
+@@ -247,403 +810,923 @@ class MetabolicProfiler:
+         effective_cadence_rpm: Optional[float] = None,
+         cadence_anchor_status: str = "unknown",
+     ) -> Dict[str, Any]:
+-        """
+-        Generate a metabolic snapshot from a power-duration curve (MMP).
+-        
+-        Parameters
+-        ----------
+-        mmp_raw : dict
+-            {duration_s_or_str: power_w}. Same as before.
+-        expected_eta : float, optional
+-            Override the η resolved from athlete context.
+-        measured_lacap : float, optional
+-            Override the inferred lactate capacity.
+-        mmp_samples : list, optional
