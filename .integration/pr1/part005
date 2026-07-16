@@ -1,0 +1,204 @@
++    sprint_tau_sensitivity_bounds_s: Tuple[float, float] = (12.0, 20.0)
++
++    def __post_init__(self) -> None:
++        if self.watts_to_vo2_coefficient <= 0 or self.reference_efficiency <= 0:
++            raise ValueError("power-to-VO2 conversion must be positive")
++        if self.map_power_min_w >= self.map_power_max_w:
++            raise ValueError("MAP power bounds are invalid")
++        if self.tau_min_s >= self.tau_max_s:
++            raise ValueError("tau bounds are invalid")
++        if self.apr_vlamax_low_bounds[0] >= self.apr_vlamax_low_bounds[1]:
++            raise ValueError("APR low-band bounds are invalid")
++        if self.apr_vlamax_high_bounds[0] >= self.apr_vlamax_high_bounds[1]:
++            raise ValueError("APR high-band bounds are invalid")
++        if not self.vlamax_starts:
++            raise ValueError("vlamax_starts cannot be empty")
++        if self.curve_power_step_w <= 0:
++            raise ValueError("curve_power_step_w must be positive")
++        if self.sprint_vlamax_bounds[0] >= self.sprint_vlamax_bounds[1]:
++            raise ValueError("sprint VLamax bounds are invalid")
++
++    def to_dict(self) -> Dict[str, Any]:
++        """Return the calibration manifest used to reproduce an estimate."""
++        return {
++            "schema_version": self.schema_version,
++            "version": self.version,
++            "classification": "empirical_calibration",
++            "source": self.source,
++            "validation_status": self.validation_status,
++            "power_oxygen_conversion": {
++                "watts_to_vo2_coefficient": self.watts_to_vo2_coefficient,
++                "reference_efficiency": self.reference_efficiency,
++                "map_power_bounds_w": [self.map_power_min_w, self.map_power_max_w],
++            },
++            "apr_vlamax_mapping": {
++                "apr_ratio_anchor": self.apr_ratio_anchor,
++                "low_intercept": self.apr_vlamax_low_intercept,
++                "low_slope": self.apr_vlamax_low_slope,
++                "low_bounds": list(self.apr_vlamax_low_bounds),
++                "high_intercept": self.apr_vlamax_high_intercept,
++                "high_slope": self.apr_vlamax_high_slope,
++                "high_bounds": list(self.apr_vlamax_high_bounds),
++                "minimum_band_width": self.apr_vlamax_minimum_band_width,
++            },
++            "fit_weighting": {
++                "baseline": self.weight_baseline,
++                "peak_amplitude": self.weight_peak_amplitude,
++                "peak_duration_s": self.weight_peak_duration_s,
++                "log_sigma": self.weight_log_sigma,
++                "short_reference_s": self.weight_short_reference_s,
++                "short_min": self.weight_short_min,
++                "long_reference_s": self.weight_long_reference_s,
++                "long_min": self.weight_long_min,
++                "fit_grid_floor_max_w": self.fit_grid_floor_max_w,
++                "fit_grid_power_per_kg_max": self.fit_grid_power_per_kg_max,
++                "short_mae_duration_s": self.short_mae_duration_s,
++            },
++            "coherence": {
++                "observed_threshold_vo2_margin": self.observed_threshold_vo2_margin,
++                "mlss_observed_ratio_ceiling": self.mlss_observed_ratio_ceiling,
++                "vo2_floor_penalty_scale": self.vo2_floor_penalty_scale,
++                "mlss_ceiling_penalty_scale": self.mlss_ceiling_penalty_scale,
++                "mlss_basin_penalty_scale": self.mlss_basin_penalty_scale,
++                "apr_centre_tiebreak_scale": self.apr_centre_tiebreak_scale,
++            },
++            "lacap_pcr": {
++                "lacap_intercept": self.lacap_intercept,
++                "lacap_vlamax_anchor": self.lacap_vlamax_anchor,
++                "lacap_vlamax_slope": self.lacap_vlamax_slope,
++                "pcr_decay_start_s": self.pcr_decay_start_s,
++                "pcr_decay_tau_s": self.pcr_decay_tau_s,
++            },
++            "multi_start": {
++                "vlamax_starts": list(self.vlamax_starts),
++                "vo2_floor_start_offset": self.vo2_floor_start_offset,
++                "vo2_lower_start_offset": self.vo2_lower_start_offset,
++                "vo2_upper_start_offset": self.vo2_upper_start_offset,
++            },
++            "sprint_decomposition": {
++                "minimum_sustain_intercept": self.sprint_min_sustain_intercept,
++                "minimum_sustain_duration_slope": self.sprint_min_sustain_duration_slope,
++                "minimum_sustain_floor": self.sprint_min_sustain_floor,
++                "neuromuscular_scale": self.sprint_neuromuscular_scale,
++                "aerobic_contribution_scale": self.sprint_aerobic_contribution_scale,
++                "energy_j_per_mmol_lactate_per_kg": (
++                    self.energy_j_per_mmol_lactate_per_kg
++                ),
++                "minimum_resolved_vlamax": self.sprint_min_resolved_vlamax,
++                "vlamax_bounds": list(self.sprint_vlamax_bounds),
++                "tau_sensitivity_bounds_s": list(self.sprint_tau_sensitivity_bounds_s),
++            },
++        }
++
++
++DEFAULT_METABOLIC_CALIBRATION = MetabolicCalibration()
+diff --git a/engines/metabolic/metabolic_fit_policy.py b/engines/metabolic/metabolic_fit_policy.py
+new file mode 100644
+index 0000000..7207f66
+--- /dev/null
++++ b/engines/metabolic/metabolic_fit_policy.py
+@@ -0,0 +1,121 @@
++"""Versioned software policy for the metabolic profiler.
++
++These values govern input handling, fitting strategy and output exposure. They
++are operational decisions, not universal physiological constants.
++"""
++
++from __future__ import annotations
++
++from dataclasses import dataclass
++from typing import Any, Dict
++
++
++@dataclass(frozen=True)
++class MetabolicFitPolicy:
++    """Operational rules used by :class:`MetabolicProfiler`.
++
++    The defaults reproduce the production behavior that existed before this
++    policy object was introduced. Changing a value is therefore an explicit,
++    versionable product decision and should be accompanied by regression and
++    sensitivity tests.
++    """
++
++    version: str = "1.0.0"
++    schema_version: str = "1.0"
++
++    # Supported input ranges.
++    minimum_weight_kg: float = 40.0
++    minimum_body_fat_pct: float = 3.0
++    maximum_body_fat_pct: float = 55.0
++    minimum_eta: float = 0.18
++    maximum_eta: float = 0.28
++    minimum_lacap_mmol_l: float = 8.0
++    maximum_lacap_mmol_l: float = 30.0
++
++    # Curve coverage and strategy selection.
++    minimum_mmp_anchors: int = 3
++    minimum_fit_anchors: int = 3
++    sprint_fit_floor_s: float = 30.0
++    segmented_aerobic_min_duration_s: float = 120.0
++    bimodality_threshold: float = 4.2
++    curve_maximality_floor: float = 2.2
++
++    # Optimizer domain and deterministic output limits.
++    optimizer_vo2_min: float = 25.0
++    optimizer_vo2_max: float = 95.0
++    optimizer_vlamax_min: float = 0.10
++    optimizer_vlamax_max: float = 1.50
++    minimum_prediction_grid_points: int = 10
++    combustion_curve_max_points: int = 40
++    input_audit_detail_limit: int = 100
++
++    # Derivation-quality scoring policy. These are not statistical confidence
++    # intervals; they control presentation and conservative score caps.
++    relative_error_full_scale: float = 0.25
++    minimum_confidence: float = 0.05
++    maximum_confidence: float = 1.0
++    incomplete_expressiveness_confidence_cap: float = 0.40
++    submaximal_curve_confidence_cap: float = 0.15
++
++    def __post_init__(self) -> None:
++        if self.minimum_weight_kg <= 0:
++            raise ValueError("minimum_weight_kg must be positive")
++        if self.minimum_body_fat_pct >= self.maximum_body_fat_pct:
++            raise ValueError("body-fat range is invalid")
++        if self.minimum_eta >= self.maximum_eta:
++            raise ValueError("eta range is invalid")
++        if self.minimum_lacap_mmol_l >= self.maximum_lacap_mmol_l:
++            raise ValueError("lactate-capacity range is invalid")
++        if self.minimum_mmp_anchors < 3 or self.minimum_fit_anchors < 3:
++            raise ValueError("at least three anchors are required for fitting")
++        if self.optimizer_vo2_min >= self.optimizer_vo2_max:
++            raise ValueError("VO2 optimizer bounds are invalid")
++        if self.optimizer_vlamax_min >= self.optimizer_vlamax_max:
++            raise ValueError("VLamax optimizer bounds are invalid")
++        if not 0.0 < self.minimum_confidence <= self.maximum_confidence <= 1.0:
++            raise ValueError("confidence bounds must satisfy 0 < min <= max <= 1")
++        if self.combustion_curve_max_points < 1:
++            raise ValueError("combustion_curve_max_points must be positive")
++
++    def to_dict(self) -> Dict[str, Any]:
++        """Return a stable JSON-safe representation for audit/reproducibility."""
++        return {
++            "schema_version": self.schema_version,
++            "version": self.version,
++            "classification": "software_policy",
++            "input_ranges": {
++                "minimum_weight_kg": self.minimum_weight_kg,
++                "body_fat_pct": [self.minimum_body_fat_pct, self.maximum_body_fat_pct],
++                "eta": [self.minimum_eta, self.maximum_eta],
++                "lacap_mmol_l": [
++                    self.minimum_lacap_mmol_l,
++                    self.maximum_lacap_mmol_l,
++                ],
++            },
++            "fit_strategy": {
++                "minimum_mmp_anchors": self.minimum_mmp_anchors,
++                "minimum_fit_anchors": self.minimum_fit_anchors,
++                "sprint_fit_floor_s": self.sprint_fit_floor_s,
++                "segmented_aerobic_min_duration_s": self.segmented_aerobic_min_duration_s,
++                "bimodality_threshold": self.bimodality_threshold,
++                "curve_maximality_floor": self.curve_maximality_floor,
++            },
++            "optimizer_domain": {
++                "vo2": [self.optimizer_vo2_min, self.optimizer_vo2_max],
