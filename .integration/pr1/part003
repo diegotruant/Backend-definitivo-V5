@@ -1,0 +1,269 @@
+-        self.respiration_rate = np.full(n_samples, np.nan, dtype=np.float32)
++        self.left_power_phase: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++        self.right_power_phase: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++        self.left_power_phase_peak: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++        self.right_power_phase_peak: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++        self.left_pco: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++        self.right_pco: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++        self.left_pedal_smoothness: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++        self.right_pedal_smoothness: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++        self.left_torque_effectiveness: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++        self.right_torque_effectiveness: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++        self.respiration_rate: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
+         # Standing/seated position (0=seated, 1=standing) and dynamics flags.
+-        self.cadence_position = np.full(n_samples, np.nan, dtype=np.float32)
++        self.cadence_position: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
+         self.has_cycling_dynamics: bool = False
+         self.has_respiration: bool = False
+-        
++
+         # Core body temperature and skin temperature (from a body-temperature sensor)
+         # NaN when not provided. core_body_temp is the primary metric (°C),
+         # skin_temp is secondary. ambient_temp is from the head unit's
+         # built-in thermometer (not from the body-temperature sensor).
+-        self.core_body_temp = np.full(n_samples, np.nan, dtype=np.float32)
+-        self.skin_temp = np.full(n_samples, np.nan, dtype=np.float32)
+-        self.ambient_temp = np.full(n_samples, np.nan, dtype=np.float32)
++        self.core_body_temp: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++        self.skin_temp: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++        self.ambient_temp: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
+         self.has_core_sensor: bool = False
+-        
++
+         # Quality flags
+-        self.quality_power = np.full(n_samples, QUALITY_GOOD, dtype=np.uint8)
+-        self.quality_hr = np.full(n_samples, QUALITY_GOOD, dtype=np.uint8)
+-        
++        self.quality_power: np.ndarray = np.full(n_samples, QUALITY_GOOD, dtype=np.uint8)
++        self.quality_hr: np.ndarray = np.full(n_samples, QUALITY_GOOD, dtype=np.uint8)
++
+         # RR intervals (per-sample list of beat intervals, may be empty)
+         self.rr_intervals: List[List[float]] = [[] for _ in range(n_samples)]
+-        
++
+         # Gap summary (populated by parser)
+         self.gap_summary: Dict[str, Any] = {}
+         # Lap markers extracted from FIT lap messages (empty for JSON-only streams).
+         self.laps: List[Dict[str, Any]] = []
+         # Provenance metadata for API consumers (FIT vs power_json, synthetic flags).
+         self.data_provenance: Dict[str, Any] = {}
+-    
++
+     # =========================================================================
+     # Computed properties (lightweight — recomputed on access)
+     # =========================================================================
+-    
++
+     @property
+     def has_power(self) -> bool:
+         return bool(np.any(self.power > 0))
+-    
++
+     @property
+     def has_heart_rate(self) -> bool:
+         return bool(np.any(self.heart_rate > 0))
+-    
++
+     @property
+     def has_rr(self) -> bool:
+         return any(len(rr) > 0 for rr in self.rr_intervals)
+@@ -298,13 +300,13 @@ class ActivityStreamEnhanced:
+     @property
+     def has_altitude(self) -> bool:
+         return bool(np.any(np.isfinite(self.altitude_m)))
+-    
++
+     @property
+     def total_distance_m(self) -> float:
+         if self.distance_m.size == 0 or not self.has_distance:
+             return 0.0
+         return float(np.nanmax(self.distance_m))
+-    
++
+     @property
+     def total_ascent_m(self) -> Optional[float]:
+         if self.altitude_m.size < 2 or np.all(np.isnan(self.altitude_m)):
+@@ -374,49 +376,57 @@ def detect_and_fill_gaps(
+     """
+     n = len(values)
+     filled = values.copy()
+-    
++
+     gaps_detected = []
+     gaps_interpolated = 0
+     gaps_forward_filled = 0
+     gaps_unreliable = 0
+-    
++
+     # Missing data: 0W power is valid (coasting), 0 bpm HR is not.
+     if zero_is_missing:
+         missing_mask = (values == 0) | np.isnan(values)
+     else:
+         missing_mask = np.isnan(values)
+-    
++
+     if not missing_mask.any():
+-        return filled, quality, {
+-            "n_gaps": 0,
+-            "interpolated": 0,
+-            "forward_filled": 0,
+-            "unreliable": 0,
+-        }
+-    
++        return (
++            filled,
++            quality,
++            {
++                "n_gaps": 0,
++                "interpolated": 0,
++                "forward_filled": 0,
++                "unreliable": 0,
++            },
++        )
++
+     # Detect contiguous gap regions
+     i = 0
+     while i < n:
+         if not missing_mask[i]:
+             i += 1
+             continue
+-        
++
+         # Found gap start
+         gap_start = i
+         while i < n and missing_mask[i]:
+             i += 1
+         gap_end = i  # exclusive
+-        
+-        gap_duration_s = elapsed[gap_end - 1] - (elapsed[gap_start - 1] if gap_start > 0 else 0)
++
++        gap_duration_s: float = float(
++            elapsed[gap_end - 1] - (elapsed[gap_start - 1] if gap_start > 0 else 0)
++        )
+         gap_length = gap_end - gap_start
+-        
+-        gaps_detected.append({
+-            "start_idx": gap_start,
+-            "end_idx": gap_end,
+-            "duration_s": gap_duration_s,
+-            "n_samples": gap_length,
+-        })
+-        
++
++        gaps_detected.append(
++            {
++                "start_idx": gap_start,
++                "end_idx": gap_end,
++                "duration_s": gap_duration_s,
++                "n_samples": gap_length,
++            }
++        )
++
+         # Apply filling strategy
+         if gap_duration_s < gap_short_s:
+             # Linear interpolation
+@@ -437,7 +447,7 @@ def detect_and_fill_gaps(
+                 filled[gap_start:gap_end] = filled[gap_start - 1]
+                 quality[gap_start:gap_end] = QUALITY_FORWARD_FILLED
+                 gaps_forward_filled += 1
+-        
++
+         elif gap_duration_s < gap_long_s:
+             # Forward-fill
+             if gap_start > 0:
+@@ -448,12 +458,12 @@ def detect_and_fill_gaps(
+                 # Gap at start with no prior value → mark unreliable
+                 quality[gap_start:gap_end] = QUALITY_UNRELIABLE
+                 gaps_unreliable += 1
+-        
++
+         else:
+             # Long gap → unreliable
+             quality[gap_start:gap_end] = QUALITY_UNRELIABLE
+             gaps_unreliable += 1
+-    
++
+     gap_stats = {
+         "n_gaps": len(gaps_detected),
+         "interpolated": gaps_interpolated,
+@@ -461,7 +471,7 @@ def detect_and_fill_gaps(
+         "unreliable": gaps_unreliable,
+         "gap_details": gaps_detected if len(gaps_detected) < 50 else gaps_detected[:50],  # Limit size
+     }
+-    
++
+     return filled, quality, gap_stats
+ 
+ 
+@@ -957,13 +967,13 @@ def parse_fit_records_enhanced(
+     Parse FIT records into enhanced activity stream with gap handling.
+     """
+     session_dict = session_dict or {}
+-    
++
+     sport = session_dict.get("sport", "cycling")
+     sub_sport = session_dict.get("sub_sport")
+     device_name = session_dict.get("device_name")
+     start_time = _ensure_utc_datetime(session_dict.get("start_time"))
+     total_elapsed = session_dict.get("total_elapsed_time")
+-    
++
+     # Normalize to 1Hz grid
+     if total_elapsed:
+         n_samples = int(np.ceil(total_elapsed))
+@@ -976,7 +986,7 @@ def parse_fit_records_enhanced(
+             n_samples = int(np.ceil(dt)) + 1
+         else:
+             n_samples = len(records)
+-    
++
+     stream = ActivityStreamEnhanced(
+         n_samples=n_samples,
+         sport=sport,
+@@ -985,10 +995,10 @@ def parse_fit_records_enhanced(
+         start_time=start_time,
+         total_elapsed_s=float(n_samples),
+     )
+-    
++
+     # Fill elapsed time grid
+     stream.elapsed_s = np.arange(n_samples, dtype=np.float32)
+-    
++
+     # Map records to 1Hz grid
+     for rec in records:
+         if "timestamp" not in rec or not start_time:
+@@ -997,7 +1007,7 @@ def parse_fit_records_enhanced(
+         timestamp = _ensure_utc_datetime(rec["timestamp"])
+         elapsed = (timestamp - start_time).total_seconds()
+         idx = int(np.round(elapsed))
+-        
++
+         if 0 <= idx < n_samples:
+             if "power" in rec and rec["power"] is not None:
+                 stream.power[idx] = float(rec["power"])
+@@ -1037,13 +1047,17 @@ def parse_fit_records_enhanced(
+                 min_value=3.0,
+                 max_value=80.0,
+             )
+-            
++
+             # Body temperature sensor data can arrive as developer fields with
+             # various names depending on the head unit and sensor firmware.
+             # We check all known variants.
+-            for core_field in ("core_body_temperature", "CoreBodyTemp",
+-                               "core_temperature", "body_temperature",
+-                               "core_temp"):
++            for core_field in (
++                "core_body_temperature",
++                "CoreBodyTemp",
++                "core_temperature",
++                "body_temperature",
++                "core_temp",
++            ):
+                 if core_field in rec and rec[core_field] is not None:
+                     try:
+                         v = float(rec[core_field])
+@@ -1053,7 +1067,7 @@ def parse_fit_records_enhanced(
+                     except (TypeError, ValueError):
+                         pass
