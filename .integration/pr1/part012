@@ -1,0 +1,226 @@
+-            # penalty, and pick the minimum. This is deterministic and stops
+-            # the fit from jumping between a diesel and a sprinter solution on
+-            # the same curve.
+-            def _basin_score(cost: float, vo2c: float, vlac: float) -> float:
+-                penalty = 0.0
+-                if obs_thr is not None and obs_thr > 0:
+-                    w_mlss_c, _, _, _, _ = self._calculate_curves(vo2c, vlac, fixed_eta)
+-                    mlss_err = abs(float(w_mlss_c) - obs_thr) / obs_thr
+-                    penalty += (mlss_err ** 2) * 1.0e6  # MLSS must track observed effort
+-                # Weak tie-break only: when MLSS and cost genuinely fail to
+-                # discriminate, nudge toward the APR band centre. Kept small so
+-                # it never overrides a real cost/MLSS signal (which would bias
+-                # genuine diesels upward).
+-                if apr_band is not None:
+-                    vla_centre = 0.5 * (apr_band[0] + apr_band[1])
+-                    penalty += ((vlac - vla_centre) ** 2) * 2.0e3
+-                return cost + penalty
+-
+-            apr_gated = False
+-            pool = candidates
+-            if apr_band is not None:
+-                vla_lo, vla_hi, _ = apr_band
+-                in_band = [t for t in candidates if vla_lo <= t[1] <= vla_hi]
+-                if in_band:
+-                    pool = in_band
+-                    apr_gated = True
+-
+-            best_cost, _, _, best_res = min(
+-                pool, key=lambda t: _basin_score(t[0], t[2], t[1])
+-            )
+-            res = best_res
+-            vo2, vla = map(float, res.x)
+-
+-            final_lacap = (
+-                float(np.clip(10.0 + (vla - 0.2) * 15.0, 8.0, 30.0))
+-                if measured_lacap is None
+-                else float(np.clip(measured_lacap, 8.0, 30.0))
+-            )
+-            w_mlss, w_fat, w_plot, fat_gh, cho_gh = self._calculate_curves(vo2, vla, fixed_eta)
+-            map_w = self._map_estimate(vo2, fixed_eta)
+-
+-            tau, map_est, vo2_act, net = self._compute_grid_state(vo2, vla, fixed_eta, w_grid)
+-            preds = np.array([
+-                self._pred_power(t, final_lacap, tau, map_est, w_grid, vo2_act, net)
+-                for t in durs_u
+-            ]) + (fixed_pcr * np.exp(-np.maximum(0.0, durs_u - 20.0) / 35.0))
+-
+-            rel_err = float(np.sqrt(np.mean((preds - pows_u) ** 2))) / max(float(np.mean(pows_u)), 1.0)
+-            confidence = float(np.clip((1.0 - (np.clip(rel_err, 0.0, 0.25) / 0.25)), 0.05, 1.0))
+-
+-            step = max(1, len(w_plot) // 40)
+-            combustion_curve = [
++        diagnostics["candidate_starts"] = len(candidates)
++        if (
++            diagnostics["exception_starts"]
++            or diagnostics["invalid_result_starts"]
++            or diagnostics["nonconverged_starts"]
++        ):
++            logger.warning(
++                "metabolic_multistart_fit_completed_with_partial_failures",
++                extra={
++                    "attempted_starts": diagnostics["attempted_starts"],
++                    "candidate_starts": diagnostics["candidate_starts"],
++                    "converged_starts": diagnostics["converged_starts"],
++                    "nonconverged_starts": diagnostics["nonconverged_starts"],
++                    "exception_starts": diagnostics["exception_starts"],
++                    "invalid_result_starts": diagnostics["invalid_result_starts"],
++                },
++            )
++        if not candidates:
++            raise _MetabolicFitError("No finite optimizer candidates were produced.")
++
++        apr_gated = False
++        pool = candidates
++        if apr_band is not None:
++            vla_lo, vla_hi, _ = apr_band
++            in_band = [item for item in candidates if vla_lo <= item[1] <= vla_hi]
++            if in_band:
++                pool = in_band
++                apr_gated = True
++
++        best_cost, best_vla, best_vo2, best_result, best_start = min(
++            pool,
++            key=lambda item: self._fit_basin_score(
++                cost=item[0],
++                vo2=item[2],
++                vlamax=item[1],
++                context=context,
++                apr_band=apr_band,
++            ),
++        )
++        diagnostics.update(
++            {
++                "apr_gate_applied": apr_gated,
++                "candidate_pool_size": len(pool),
++                "selected_start": [round(float(value), 4) for value in best_start],
++                "selected_residual_cost": round(best_cost, 6),
++                "selected_basin_score": round(
++                    self._fit_basin_score(
++                        cost=best_cost,
++                        vo2=best_vo2,
++                        vlamax=best_vla,
++                        context=context,
++                        apr_band=apr_band,
++                    ),
++                    6,
++                ),
++                "selected_optimizer": self._optimizer_diagnostics(best_result),
++            }
++        )
++        return _MetabolicFitSelection(
++            result=best_result,
++            vo2=float(best_result.x[0]),
++            vlamax=float(best_result.x[1]),
++            apr_band=apr_band,
++            apr_gated=apr_gated,
++        )
++
++    def _build_success_snapshot(
++        self,
++        prepared: _PreparedSnapshotInputs,
++        context: _MetabolicFitContext,
++        selection: _MetabolicFitSelection,
++    ) -> Dict[str, Any]:
++        """Derive, validate and serialize outputs from the selected fit."""
++        mmp = prepared.mmp
++        expressiveness = prepared.expressiveness
++        input_audit = prepared.input_audit
++        vo2 = selection.vo2
++        vlamax = selection.vlamax
++        final_lacap = self._resolve_lacap(
++            vlamax,
++            context.resolved_measured_lacap,
++        )
++        if context.resolved_measured_lacap is None:
++            input_audit["model_inputs"]["measured_lacap_mmol_L"].update(
+                 {
+-                    "watt": int(w_plot[i]),
+-                    "fatOxidation": round(float(fat_gh[i]), 1),
+-                    "carbOxidation": round(float(cho_gh[i]), 1)
++                    "used": round(final_lacap, 6),
++                    "status": "inferred_during_fit",
+                 }
+-                for i in range(0, len(w_plot), step)
+-            ]
++            )
++        self._refresh_input_audit_summary(input_audit)
+ 
+-            # Apply expressiveness gating to the output values
+-            # If the MMP does not cover the window needed for a parameter,
+-            # set it to None and add a flag. The estimate is preserved
+-            # in the `unmasked_estimates` field for debugging.
+-            
+-            unmasked = {
+-                "estimated_vo2max": round(vo2, 1),
+-                "estimated_vlamax_mmol_L_s": round(vla, 4),
+-                "mlss_power_watts": round(w_mlss, 1),
+-                "mlss_power_wkg": round(w_mlss / self.weight, 2),
+-                "fatmax_power_watts": round(w_fat, 1),
+-                "map_aerobic_watts": round(map_w, 1),
++        w_mlss, w_fat, w_plot, fat_gh, cho_gh = self._calculate_curves(
++            vo2,
++            vlamax,
++            context.fixed_eta,
++        )
++        map_w = self._map_estimate(vo2, context.fixed_eta)
++        preds = self._predict_fit_powers(
++            context,
++            vo2=vo2,
++            vlamax=vlamax,
++            lacap=final_lacap,
++        )
++        rel_err = float(np.sqrt(np.mean((preds - context.pows_u) ** 2))) / max(
++            float(np.mean(context.pows_u)),
++            1.0,
++        )
++        confidence = float(
++            np.clip(
++                1.0
++                - (
++                    np.clip(
++                        rel_err,
++                        0.0,
++                        self.fit_policy.relative_error_full_scale,
++                    )
++                    / self.fit_policy.relative_error_full_scale
++                ),
++                self.fit_policy.minimum_confidence,
++                self.fit_policy.maximum_confidence,
++            )
++        )
++        step = max(1, len(w_plot) // self.fit_policy.combustion_curve_max_points)
++        combustion_curve = [
++            {
++                "watt": int(w_plot[index]),
++                "fatOxidation": round(float(fat_gh[index]), 1),
++                "carbOxidation": round(float(cho_gh[index]), 1),
+             }
+-            
+-            vo2_out = unmasked["estimated_vo2max"] if expressiveness.vo2max_reliable else None
+-            vla_out = unmasked["estimated_vlamax_mmol_L_s"] if expressiveness.vlamax_reliable else None
+-            mlss_out = unmasked["mlss_power_watts"] if expressiveness.mlss_reliable else None
+-            mlss_wkg_out = unmasked["mlss_power_wkg"] if expressiveness.mlss_reliable else None
+-            fatmax_out = unmasked["fatmax_power_watts"] if expressiveness.fatmax_reliable else None
+-            
+-            # Confidence-of-derivation: if any flagship parameter is unreliable,
+-            # global confidence cannot exceed what the weakest produces.
+-            if not expressiveness.fully_expressive:
+-                # Halve the global confidence to reflect masked outputs
+-                confidence_effective = min(confidence, 0.40)
+-            else:
+-                confidence_effective = confidence
++            for index in range(0, len(w_plot), step)
++        ]
+ 
+-            cv_result = cross_validate_metabolic_profile(
+-                self, mmp, vo2, vla, eta_base=fixed_eta,
+-            )
+-            if cv_result.coherence_penalty > 0:
+-                confidence_effective = float(np.clip(
++        unmasked = {
++            "estimated_vo2max": round(vo2, 1),
++            "estimated_vlamax_mmol_L_s": round(vlamax, 4),
++            "mlss_power_watts": round(w_mlss, 1),
++            "mlss_power_wkg": round(w_mlss / self.weight, 2),
++            "fatmax_power_watts": round(w_fat, 1),
