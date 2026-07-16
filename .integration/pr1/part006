@@ -1,0 +1,287 @@
++                "vlamax": [self.optimizer_vlamax_min, self.optimizer_vlamax_max],
++                "minimum_prediction_grid_points": self.minimum_prediction_grid_points,
++            },
++            "output_policy": {
++                "combustion_curve_max_points": self.combustion_curve_max_points,
++                "input_audit_detail_limit": self.input_audit_detail_limit,
++                "relative_error_full_scale": self.relative_error_full_scale,
++                "confidence_range": [self.minimum_confidence, self.maximum_confidence],
++                "incomplete_expressiveness_confidence_cap": (
++                    self.incomplete_expressiveness_confidence_cap
++                ),
++                "submaximal_curve_confidence_cap": self.submaximal_curve_confidence_cap,
++            },
++        }
++
++
++DEFAULT_METABOLIC_FIT_POLICY = MetabolicFitPolicy()
+diff --git a/engines/metabolic/metabolic_profiler.py b/engines/metabolic/metabolic_profiler.py
+index 3078389..2f35794 100644
+--- a/engines/metabolic/metabolic_profiler.py
++++ b/engines/metabolic/metabolic_profiler.py
+@@ -5,11 +5,14 @@ Backend module for Physiological Reverse Engineering (MMP -> Phenotype).
+ No external dependencies beyond numpy and scipy.
+ """
+ 
+-import numpy as np
+-from scipy.optimize import least_squares
++from dataclasses import dataclass
+ from datetime import datetime
++import logging
+ from typing import Any, Dict, List, Optional, Tuple
+ 
++import numpy as np
++from scipy.optimize import least_squares
++
+ from engines.core.athlete_context import AthleteContext
+ from engines.core.metric_contracts import annotate_payload
+ from engines.core.model_safety import finalize_model_metadata
+@@ -29,40 +32,475 @@ from engines.metabolic.mader_constants import (
+     MaderConstants,
+     RegularizationWeights,
+ )
++from engines.metabolic.metabolic_calibration import (
++    DEFAULT_METABOLIC_CALIBRATION,
++    MetabolicCalibration,
++)
++from engines.metabolic.metabolic_fit_policy import (
++    DEFAULT_METABOLIC_FIT_POLICY,
++    MetabolicFitPolicy,
++)
+ 
+ __all__ = [
+     "ExpressivenessReport",
+     "MaderConstants",
++    "MetabolicCalibration",
++    "MetabolicFitPolicy",
+     "MetabolicProfiler",
+     "RegularizationWeights",
+ ]
+ 
+ 
++logger = logging.getLogger(__name__)
++
++
++class _MetabolicFitError(RuntimeError):
++    """Internal fitting failure whose public representation must stay stable."""
++
++
++@dataclass
++class _PreparedSnapshotInputs:
++    """Normalized inputs and audits shared by all fitting stages."""
++
++    mmp: Dict[int, float]
++    mmp_quality_audit: Optional[Dict[str, Any]]
++    input_audit: Dict[str, Any]
++    expressiveness: ExpressivenessReport
++
++
++@dataclass
++class _MetabolicFitContext:
++    """Immutable-by-convention numerical inputs for one joint fit."""
++
++    mmp: Dict[int, float]
++    all_durs: np.ndarray
++    all_pows: np.ndarray
++    durs_u: np.ndarray
++    pows_u: np.ndarray
++    weights: np.ndarray
++    sprint_fit_floor_s: float
++    vo2_guess: float
++    fixed_eta: float
++    resolved_measured_lacap: Optional[float]
++    fixed_pcr: float
++    vla_init: float
++    w_grid: np.ndarray
++    obs_thr: Optional[float]
++    vo2_floor: float
++    mlss_ratio_ceiling: float
++    input_audit: Dict[str, Any]
++    fit_diagnostics: Dict[str, Any]
++
++
++@dataclass
++class _MetabolicFitSelection:
++    """Selected optimizer solution and APR metadata."""
++
++    result: Any
++    vo2: float
++    vlamax: float
++    apr_band: Optional[Tuple[float, float, float]]
++    apr_gated: bool
++
++
++@dataclass
++class _PreparedSegmentedInputs:
++    """Normalized inputs and provenance for the two-stage fit."""
++
++    mmp: Dict[int, float]
++    aerobic_mmp: Dict[int, float]
++    input_audit: Dict[str, Any]
++    aerobic_min_duration_s: float
++    aerobic_duration_source: str
++
++
++@dataclass
++class _SegmentedParameterPair:
++    """Final parameter pair assembled from the two fitting domains."""
++
++    vo2max: float
++    vlamax: float
++    fixed_eta: float
++    lactate_capacity: float
++    context_used: Dict[str, Any]
++
++
++@dataclass
++class _SegmentedDerivedOutputs:
++    """Outputs recomputed from the final segmented parameter pair."""
++
++    w_mlss: float
++    w_fat: float
++    map_w: float
++    expressiveness: ExpressivenessReport
++    unmasked: Dict[str, Any]
++    vo2_out: Optional[float]
++    vlamax_out: Optional[float]
++    mlss_out: Optional[float]
++    mlss_wkg_out: Optional[float]
++    fatmax_out: Optional[float]
++    cross_validation: Any
++    confidence: float
++    curve_maximality: Optional[Dict[str, Any]]
++    combustion_curve: List[Dict[str, Any]]
++
++
+ class MetabolicProfiler:
+     def __init__(
+         self,
+         weight: float,
+         context: Optional[AthleteContext] = None,
+         mader_constants: Optional[MaderConstants] = None,
++        fit_policy: Optional[MetabolicFitPolicy] = None,
++        calibration: Optional[MetabolicCalibration] = None,
+     ):
+-        self.weight = max(40.0, float(weight))
++        self.fit_policy = fit_policy if fit_policy is not None else DEFAULT_METABOLIC_FIT_POLICY
++        self.calibration = (
++            calibration if calibration is not None else DEFAULT_METABOLIC_CALIBRATION
++        )
++        provided_weight = float(weight)
++        self.weight = max(self.fit_policy.minimum_weight_kg, provided_weight)
+         self.context = context if context is not None else AthleteContext()
+         self.const = mader_constants if mader_constants is not None else MaderConstants()
+         self.reg = RegularizationWeights()
+ 
+-        fat_pct = float(np.clip(self.context.effective_body_fat(), 3.0, 55.0))
+-        ffm = self.weight * (1.0 - fat_pct / 100.0)
++        raw_body_fat = getattr(self.context, "body_fat_pct", None)
++        effective_fat_pct = float(self.context.effective_body_fat())
++        self.body_fat_pct = float(
++            np.clip(
++                effective_fat_pct,
++                self.fit_policy.minimum_body_fat_pct,
++                self.fit_policy.maximum_body_fat_pct,
++            )
++        )
++        ffm = self.weight * (1.0 - self.body_fat_pct / 100.0)
+         self.active_muscle_mass = ffm * self.context.active_muscle_fraction()
++        body_fat_audit = self._numeric_input_audit(
++            provided=raw_body_fat,
++            used=self.body_fat_pct,
++            source="athlete_context",
++            minimum=self.fit_policy.minimum_body_fat_pct,
++            maximum=self.fit_policy.maximum_body_fat_pct,
++        )
++        try:
++            raw_body_fat_is_valid = raw_body_fat is not None and np.isfinite(float(raw_body_fat))
++        except (TypeError, ValueError):
++            raw_body_fat_is_valid = False
++        if not raw_body_fat_is_valid:
++            body_fat_audit.update(
++                {
++                    "status": "defaulted",
++                    "source": "athlete_context_default",
++                }
++            )
++        self._constructor_input_audit = {
++            "weight_kg": self._numeric_input_audit(
++                provided=provided_weight,
++                used=self.weight,
++                source="constructor_argument",
++                minimum=self.fit_policy.minimum_weight_kg,
++                maximum=None,
++            ),
++            "body_fat_pct": body_fat_audit,
++        }
++
++    def _model_configuration_manifest(self) -> Dict[str, Any]:
++        """Return the versioned configuration needed to reproduce a snapshot."""
++        return {
++            "schema_version": "1.0",
++            "fit_policy": self.fit_policy.to_dict(),
++            "empirical_calibration": self.calibration.to_dict(),
++            "mader_constants": self.const.to_dict(),
++            "regularization_weights": self.reg.to_dict(),
++            "runtime_parameters": {},
++        }
++
++    def _record_runtime_parameter(
++        self,
++        snap: Dict[str, Any],
++        *,
++        name: str,
++        value: Any,
++        source: str,
++    ) -> Dict[str, Any]:
++        """Attach an effective per-call override without mutating shared policy."""
++        configuration = snap.setdefault(
++            "model_configuration",
++            self._model_configuration_manifest(),
++        )
++        runtime = configuration.setdefault("runtime_parameters", {})
++        runtime[name] = {"value": value, "source": source}
++        return snap
++
++    @staticmethod
++    def _json_safe_input_value(value: Any) -> Any:
++        """Return a compact JSON-safe representation for input audit details."""
++        if value is None or isinstance(value, (str, bool, int)):
++            return value
++        if isinstance(value, (float, np.floating)):
++            numeric = float(value)
++            return numeric if np.isfinite(numeric) else repr(numeric)
++        try:
++            text = repr(value)
++        except Exception:
++            text = f"<{type(value).__name__}>"
++        return text if len(text) <= 120 else f"{text[:117]}..."
++
++    @staticmethod
++    def _numeric_input_audit(
++        *,
++        provided: Any,
++        used: Optional[float],
++        source: str,
++        minimum: Optional[float],
++        maximum: Optional[float],
++    ) -> Dict[str, Any]:
++        """Describe whether a numeric input was accepted, clipped or inferred."""
++        if provided is None:
++            status = "resolved" if used is not None else "inferred_during_fit"
++        else:
++            try:
++                provided_numeric = float(provided)
++            except (TypeError, ValueError):
++                provided_numeric = None
++            status = (
++                "accepted"
++                if provided_numeric is not None
++                and used is not None
++                and np.isfinite(provided_numeric)
++                and np.isclose(provided_numeric, used, rtol=0.0, atol=1e-12)
++                else "clipped"
++            )
++        return {
++            "provided": MetabolicProfiler._json_safe_input_value(provided),
++            "used": MetabolicProfiler._json_safe_input_value(used),
