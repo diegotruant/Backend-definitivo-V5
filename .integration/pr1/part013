@@ -1,0 +1,197 @@
++            "map_aerobic_watts": round(map_w, 1),
++        }
++        vo2_out = unmasked["estimated_vo2max"] if expressiveness.vo2max_reliable else None
++        vla_out = (
++            unmasked["estimated_vlamax_mmol_L_s"]
++            if expressiveness.vlamax_reliable
++            else None
++        )
++        mlss_out = unmasked["mlss_power_watts"] if expressiveness.mlss_reliable else None
++        mlss_wkg_out = unmasked["mlss_power_wkg"] if expressiveness.mlss_reliable else None
++        fatmax_out = (
++            unmasked["fatmax_power_watts"] if expressiveness.fatmax_reliable else None
++        )
++        confidence_effective = (
++            min(confidence, self.fit_policy.incomplete_expressiveness_confidence_cap)
++            if not expressiveness.fully_expressive
++            else confidence
++        )
++
++        cv_result = cross_validate_metabolic_profile(
++            self,
++            mmp,
++            vo2,
++            vlamax,
++            eta_base=context.fixed_eta,
++        )
++        if cv_result.coherence_penalty > 0:
++            confidence_effective = float(
++                np.clip(
+                     confidence_effective * (1.0 - cv_result.coherence_penalty),
+-                    0.05,
+-                    1.0,
+-                ))
+-
+-            # Curve-maximality plausibility. Expressiveness checks that the
+-            # MMP *covers* the duration windows, but not that the efforts in
+-            # them were maximal. A curve can be fully covered yet built
+-            # entirely from sub-maximal riding (e.g. long granfondo pacing with
+-            # no real sprint or short max effort). The sprint-to-endurance
+-            # ratio is a physical floor: even a pure diesel sits above ~2.2.
+-            # Below that, the short anchors are almost certainly sub-maximal,
+-            # which biases VLamax and VO2max low — so we flag it explicitly
+-            # rather than presenting the numbers as solid.
+-            maximality_flag = None
+-            p_short = mmp.get(5) or mmp.get(10) or mmp.get(1)
+-            p_long = mmp.get(1200) or mmp.get(1800) or mmp.get(3600) or mmp.get(720)
+-            if p_short and p_long and p_long > 0:
+-                se_ratio = float(p_short) / float(p_long)
+-                if se_ratio < 2.2:
+-                    maximality_flag = {
+-                        "plausible_maximal": False,
+-                        "sprint_endurance_ratio": round(se_ratio, 2),
+-                        "reason": (
+-                            f"Sprint/endurance ratio {se_ratio:.2f} is below the physical "
+-                            f"floor (~2.2): short-duration efforts look sub-maximal. "
+-                            f"VLamax and VO2max are likely under-estimated; treat the "
+-                            f"profile as indicative only and obtain a maximal sprint + "
+-                            f"short CP efforts for a reliable anchor."
+-                        ),
+-                    }
+-                    # A non-maximal curve cannot reliably anchor the sprint-
+-                    # driven parameters; cap confidence hard.
+-                    confidence_effective = min(confidence_effective, 0.15)
+-
+-            end_max, all_max = self.context.phenotype_thresholds()
+-            snap_body: Dict[str, Any] = {
+-                "status": "success",
+-                "estimated_vo2max": vo2_out,
+-                "estimated_vlamax_mmol_L_s": vla_out,
+-                "metabolic_phenotype": self._classify_metabolic_phenotype(vla)
+-                                       if expressiveness.vlamax_reliable else None,
+-                "assumed_la_capacity_mmol_L": round(final_lacap, 1),
+-                "mlss_power_watts": mlss_out,
+-                "mlss_power_wkg": mlss_wkg_out,
+-                "fatmax_power_watts": fatmax_out,
+-                "map_aerobic_watts": round(map_w, 1),  # always shown; deterministic from MMP
+-                "anaerobic_power_reserve": (
+-                    {
+-                        "apr_ratio": round(apr_band[2], 2),
+-                        "vlamax_band": [round(apr_band[0], 2), round(apr_band[1], 2)],
+-                        "basin_gated_by_apr": apr_gated,
+-                    } if apr_band is not None else None
+-                ),
+-                "confidence_score": round(confidence_effective, 3),
+-                "cross_validation": cv_result.to_dict(),
+-                "expressiveness": expressiveness.to_dict(),
+-                "curve_maximality": maximality_flag,
+-                "unmasked_estimates": unmasked,    # for debugging / audit
+-                "context_used": {
+-                    "gender": self.context.effective_gender(),
+-                    "training_years": self.context.effective_training_years(),
+-                    "discipline": self.context.effective_discipline(),
+-                    "body_fat_pct": round(self.context.effective_body_fat(), 1),
+-                    "resolved_eta": round(fixed_eta, 4),
+-                    "vlamax_initial_guess": round(vla_init, 3),
+-                    "phenotype_thresholds": list(self.context.phenotype_thresholds()),
+-                    "fat_ox_coefficient": self.context.fat_oxidation_coefficient(),
+-                    "cho_ox_coefficient": self.context.cho_oxidation_coefficient(),
+-                    "inferred_fields": self.context.inferred_fields(),
+-                    "mader_constants": self.const.to_dict(),  # for reproducibility
++                    self.fit_policy.minimum_confidence,
++                    self.fit_policy.maximum_confidence,
++                )
++            )
++
++        maximality_flag = None
++        p_short = mmp.get(5) or mmp.get(10) or mmp.get(1)
++        p_long = mmp.get(1200) or mmp.get(1800) or mmp.get(3600) or mmp.get(720)
++        if p_short and p_long and p_long > 0:
++            se_ratio = float(p_short) / float(p_long)
++            if se_ratio < self.fit_policy.curve_maximality_floor:
++                maximality_flag = {
++                    "plausible_maximal": False,
++                    "sprint_endurance_ratio": round(se_ratio, 2),
++                    "reason": (
++                        f"Sprint/endurance ratio {se_ratio:.2f} is below the physical "
++                        f"floor (~{self.fit_policy.curve_maximality_floor:g}): "
++                        "short-duration efforts look sub-maximal. "
++                        "VLamax and VO2max are likely under-estimated; treat the "
++                        "profile as indicative only and obtain a maximal sprint + "
++                        "short CP efforts for a reliable anchor."
++                    ),
++                }
++                confidence_effective = min(
++                    confidence_effective,
++                    self.fit_policy.submaximal_curve_confidence_cap,
++                )
++
++        end_max, all_max = self.context.phenotype_thresholds()
++        apr_band = selection.apr_band
++        snapshot: Dict[str, Any] = {
++            "status": "success",
++            "input_audit": input_audit,
++            "estimated_vo2max": vo2_out,
++            "estimated_vlamax_mmol_L_s": vla_out,
++            "metabolic_phenotype": (
++                self._classify_metabolic_phenotype(vlamax)
++                if expressiveness.vlamax_reliable
++                else None
++            ),
++            "assumed_la_capacity_mmol_L": round(final_lacap, 1),
++            "mlss_power_watts": mlss_out,
++            "mlss_power_wkg": mlss_wkg_out,
++            "fatmax_power_watts": fatmax_out,
++            "map_aerobic_watts": round(map_w, 1),
++            "anaerobic_power_reserve": (
++                {
++                    "apr_ratio": round(apr_band[2], 2),
++                    "vlamax_band": [round(apr_band[0], 2), round(apr_band[1], 2)],
++                    "basin_gated_by_apr": selection.apr_gated,
++                }
++                if apr_band is not None
++                else None
++            ),
++            "confidence_score": round(confidence_effective, 3),
++            "fit_diagnostics": context.fit_diagnostics,
++            "cross_validation": cv_result.to_dict(),
++            "expressiveness": expressiveness.to_dict(),
++            "curve_maximality": maximality_flag,
++            "unmasked_estimates": unmasked,
++            "context_used": {
++                "gender": self.context.effective_gender(),
++                "training_years": self.context.effective_training_years(),
++                "discipline": self.context.effective_discipline(),
++                "body_fat_pct": round(self.body_fat_pct, 1),
++                "resolved_eta": round(context.fixed_eta, 4),
++                "vlamax_initial_guess": round(context.vla_init, 3),
++                "phenotype_thresholds": list(self.context.phenotype_thresholds()),
++                "fat_ox_coefficient": self.context.fat_oxidation_coefficient(),
++                "cho_ox_coefficient": self.context.cho_oxidation_coefficient(),
++                "inferred_fields": self.context.inferred_fields(),
++                "mader_constants": self.const.to_dict(),
++            },
++            "zones": (
++                self._generate_zones(w_mlss, map_w)
++                if expressiveness.mlss_reliable
++                else None
++            ),
++            "combustion_curve": (
++                combustion_curve if expressiveness.vlamax_reliable else None
++            ),
++            "calculated_at": datetime.now().isoformat(),
++        }
++        snapshot["glycolytic_profile"] = build_glycolytic_profile(
++            snapshot,
++            profiler=self,
++            mmp={int(key): float(value) for key, value in mmp.items()},
++            endurance_max=end_max,
++            allrounder_max=all_max,
++        )
++        return snapshot
++
++    def _generate_metabolic_snapshot_impl(
++        self,
++        mmp_raw: Dict[Any, Any],
++        expected_eta: Optional[float] = None,
++        measured_lacap: Optional[float] = None,
