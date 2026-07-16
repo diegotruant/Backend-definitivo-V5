@@ -1,0 +1,299 @@
++The audit reports both the supplied and effective values for:
++
++- `weight_kg`, supported by this model from 40 kg upward;
++- `body_fat_pct`, constrained to the model range 3–55%.
++
++A missing or invalid body-fat input is marked `defaulted` and shows the sex-specific
++value supplied by `AthleteContext`. When body fat is outside the supported range, the
++entry is marked `clipped`. `context_used.body_fat_pct` now reports the same effective
++value that was actually used to calculate active muscle mass.
++
++## Model inputs
++
++The following optional overrides are auditable:
++
++- `expected_eta`, clipped to 0.18–0.28;
++- `measured_lacap_mmol_L`, clipped to 8–30 mmol/L.
++
++When eta is absent, the audit identifies `athlete_context` as its source. When measured
++lactate capacity is absent, the final inferred value is recorded with status
++`inferred_during_fit`.
++
++## MMP normalization
++
++The MMP section contains:
++
++- number of entries supplied;
++- number of valid observations before duplicate resolution;
++- number of accepted unique durations;
++- number of anchors actually passed downstream;
++- invalid anchors and the reason each was discarded;
++- duplicate normalized durations and the previous/replacement power;
++- explicit `last_value_wins` duplicate policy;
++- number of duration keys normalized from forms such as `"60s"` or `"1m"`;
++- optional quality-cleaner removals when `clean_mmp_first=True`.
++
++Invalid anchor reasons are stable strings:
++
++- `missing_power`;
++- `invalid_power`;
++- `non_positive_or_non_finite_power`;
++- `invalid_duration`;
++- `non_positive_duration`.
++
++Detailed lists are capped at 100 entries. `details_truncated` indicates when aggregate
++counts exceed the included details.
++
++## Segmented fitting
++
++A segmented snapshot preserves the audit of the original full MMP, including invalid
++and duplicate keys, while merging the resolved eta/lactate-capacity information from
++the stage that actually performed the full-curve fit. This prevents provenance from
++being lost when the aerobic and full-curve subsets are created.
++
++## Quality flags
++
++Successful snapshots can add these flags to `model_metadata.quality_flags`:
++
++- `input_adjustments_applied`;
++- `input_clipping_applied`;
++- `mmp_anchors_discarded`;
++- `mmp_duplicate_durations_resolved`.
++
++These flags are observational only. They do not independently modify model confidence
++or physiological outputs in this phase.
+diff --git a/docs/METABOLIC_POLICY_AND_CALIBRATION.md b/docs/METABOLIC_POLICY_AND_CALIBRATION.md
+new file mode 100644
+index 0000000..4384eb6
+--- /dev/null
++++ b/docs/METABOLIC_POLICY_AND_CALIBRATION.md
+@@ -0,0 +1,143 @@
++# Metabolic profiler — policy, calibration and model constants
++
++## Purpose
++
++The metabolic profiler now separates three kinds of values that were previously
++embedded directly in `metabolic_profiler.py`:
++
++1. **Physiological model constants** — the Mader model parameters in
++   `engines/metabolic/mader_constants.py`.
++2. **Empirical calibration** — tuning derived from the current production model,
++   stored in `engines/metabolic/metabolic_calibration.py`.
++3. **Software policy** — input limits, strategy gates and output-quality rules,
++   stored in `engines/metabolic/metabolic_fit_policy.py`.
++
++This separation is about transparency and reproducibility. It does not imply that
++an empirical calibration is a universal physiological law or that the profiler's
++`confidence_score` is a statistical confidence interval.
++
++## Default objects
++
++```python
++from engines.metabolic.metabolic_calibration import DEFAULT_METABOLIC_CALIBRATION
++from engines.metabolic.metabolic_fit_policy import DEFAULT_METABOLIC_FIT_POLICY
++```
++
++Both objects are frozen dataclasses. Their default values reproduce the behavior
++of the profiler before this extraction.
++
++## Creating a profiler
++
++The existing constructor remains compatible:
++
++```python
++profiler = MetabolicProfiler(weight=72.0, context=context)
++```
++
++A research or sensitivity run can provide explicit objects:
++
++```python
++from dataclasses import replace
++
++policy = replace(
++    DEFAULT_METABOLIC_FIT_POLICY,
++    version="research-bimodality-4.0",
++    bimodality_threshold=4.0,
++)
++
++profiler = MetabolicProfiler(
++    weight=72.0,
++    context=context,
++    fit_policy=policy,
++)
++```
++
++Changing a default for production should always include:
++
++- a new policy or calibration version;
++- golden-regression tests;
++- sensitivity analysis on representative athletes;
++- documentation of the rationale and validation population.
++
++## Snapshot configuration manifest
++
++Joint and segmented snapshots now contain `model_configuration`:
++
++```json
++{
++  "schema_version": "1.0",
++  "fit_policy": {
++    "version": "1.0.0",
++    "classification": "software_policy"
++  },
++  "empirical_calibration": {
++    "version": "1.0.0",
++    "classification": "empirical_calibration",
++    "validation_status": "internal_empirical_calibration"
++  },
++  "mader_constants": {
++    "classification": "physiological_model_constants"
++  },
++  "regularization_weights": {
++    "classification": "fit_regularization"
++  },
++  "runtime_parameters": {}
++}
++```
++
++Per-call overrides are recorded without mutating the shared policy:
++
++```json
++{
++  "runtime_parameters": {
++    "bimodality_threshold": {
++      "value": 4.0,
++      "source": "argument_override"
++    }
++  }
++}
++```
++
++The segmented aerobic-duration threshold is recorded in the same way.
++
++## What belongs where
++
++### `MaderConstants`
++
++Use for parameters intrinsic to the implemented physiological/numerical Mader
++model and for backward-compatible model configuration.
++
++### `MetabolicCalibration`
++
++Use for production tuning such as:
++
++- APR-to-VLamax mapping;
++- fit weighting and multi-start mesh;
++- VO2/MLSS coherence penalties;
++- inferred lactate-capacity mapping;
++- PCr residual decay;
++- sprint-decomposition assumptions;
++- curve-generation calibration.
++
++These values require empirical validation and must not be described as universal.
++
++### `MetabolicFitPolicy`
++
++Use for operational decisions such as:
++
++- supported input ranges;
++- minimum numbers of anchors;
++- joint-versus-segmented gates;
++- optimizer domain;
++- confidence-score caps;
++- output sampling and audit limits.
++
++## Backward compatibility
++
++- Existing calls that do not pass policy/calibration objects retain the same
++  numerical results.
++- Existing per-call `bimodal_threshold` and `aerobic_min_duration_s` overrides
++  remain supported.
++- The five representative golden profiles produce byte-identical selected
++  scientific outputs before and after this phase.
++- All new snapshot fields are additive.
+diff --git a/docs/METABOLIC_PROFILER_INCREMENTAL_REFACTOR.md b/docs/METABOLIC_PROFILER_INCREMENTAL_REFACTOR.md
+new file mode 100644
+index 0000000..f6668c4
+--- /dev/null
++++ b/docs/METABOLIC_PROFILER_INCREMENTAL_REFACTOR.md
+@@ -0,0 +1,59 @@
++# Metabolic profiler incremental refactor — Phase 5
++
++## Scope
++
++This phase restructures only the joint metabolic snapshot pipeline. It does not
++change physiological equations, fitting thresholds, start points, penalties,
++confidence rules, output masking or public error contracts.
++
++## Extracted stages
++
++`MetabolicProfiler._generate_metabolic_snapshot_impl()` now coordinates five
++focused internal stages:
++
++1. `_prepare_snapshot_inputs()` — MMP normalization, optional cleaning, input
++   audit and expressiveness assessment.
++2. `_build_fit_context()` — arrays, weights, eta/lactate-capacity resolution,
++   observed threshold anchor, grids and diagnostics shell.
++3. `_fit_residuals()` / `_predict_fit_powers()` — model predictions and the
++   fixed-length residual vector used by SciPy.
++4. `_run_multistart_fit()` — deterministic start mesh, optimizer result audit,
++   APR gating and basin selection.
++5. `_build_success_snapshot()` — derived curves, validation, confidence,
++   masking and serialization of the public snapshot body.
++
++Small typed dataclasses carry data between stages:
++
++- `_PreparedSnapshotInputs`
++- `_MetabolicFitContext`
++- `_MetabolicFitSelection`
++
++They are private implementation details and do not alter the API contract.
++
++## Invariance rule
++
++The Phase 4 and Phase 5 implementations were run against five representative
++profiles: endurance, all-rounder, explosive/segmented, incomplete endurance and
++covered-but-submaximal. After removing only `calculated_at`, the complete JSON
++snapshots are byte-identical.
++
++SHA-256 for both outputs:
++
++```text
++3d020c66b814fee23b98fac6d6bd28f6fbb5b8b2c99c651cc05567969e5614a8
++```
++
++## Complexity reduction
++
++- Previous `_generate_metabolic_snapshot_impl`: 799 lines.
++- Refactored orchestration method: 101 lines.
++- Branch nodes in the orchestration method: 2.
++
++The extracted numerical stages remain visible and independently testable rather
++than being hidden inside nested local functions.
++
++## Out of scope
++
++The 337-line `generate_metabolic_snapshot_segmented()` method is intentionally
++unchanged in this phase. Refactoring it should be a separate change protected by
++its existing coherence and golden tests.
+diff --git a/docs/METABOLIC_SEGMENTED_REFACTOR_AND_STATIC_HARDENING.md b/docs/METABOLIC_SEGMENTED_REFACTOR_AND_STATIC_HARDENING.md
+new file mode 100644
+index 0000000..22820c5
+--- /dev/null
++++ b/docs/METABOLIC_SEGMENTED_REFACTOR_AND_STATIC_HARDENING.md
+@@ -0,0 +1,79 @@
++# Segmented metabolic refactor and static hardening
++
++## Scope
++
++This phase is structural. It does not change the default metabolic formulas,
++fit thresholds, basin selection, confidence policy or public segmented payload.
++
++The former `generate_metabolic_snapshot_segmented()` implementation combined
++input preparation, stage execution, error handling, parameter assembly,
++recomputation, confidence calculation and response serialization in one method.
++Those responsibilities are now isolated behind private, typed stages.
++
++## Extracted segmented stages
++
++- `_prepare_segmented_inputs()`
