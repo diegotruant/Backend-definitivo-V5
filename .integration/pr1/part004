@@ -1,0 +1,261 @@
+                     break
+-            
++
+             for skin_field in ("skin_temperature", "skin_temp", "SkinTemp"):
+                 if skin_field in rec and rec[skin_field] is not None:
+                     try:
+@@ -1064,7 +1078,7 @@ def parse_fit_records_enhanced(
+                     except (TypeError, ValueError):
+                         pass
+                     break
+-            
++
+             # FIT records may store balance as 'left_right_balance' (raw 0-255) or
+             # 'left_pedal_smoothness'/'left_power_phase' from cycling dynamics.
+             # Per spec convention: top bit (0x80) flags right-dominant when set,
+@@ -1075,14 +1089,14 @@ def parse_fit_records_enhanced(
+                 try:
+                     # Some firmwares emit dicts {"value": int, "right": bool}
+                     if isinstance(lrb, dict):
+-                        v: Any = lrb.get("value")
+-                        if v is not None:
+-                            stream.left_right_balance[idx] = float(v)
++                        balance_value: Any = lrb.get("value")
++                        if balance_value is not None:
++                            stream.left_right_balance[idx] = float(balance_value)
+                     else:
+-                        v = float(lrb)
++                        balance_value = float(lrb)
+                         # If raw 0-255 with top-bit flag, mask and re-interpret
+-                        if v > 100:
+-                            v_int = int(v)
++                        if balance_value > 100:
++                            v_int = int(balance_value)
+                             pct_right = v_int & 0x7F
+                             # If top bit set, value is right-percent; else left-percent
+                             if v_int & 0x80:
+@@ -1091,7 +1105,7 @@ def parse_fit_records_enhanced(
+                                 stream.left_right_balance[idx] = float(pct_right)
+                         else:
+                             # Already 0-100 (left side), use as-is
+-                            stream.left_right_balance[idx] = v
++                            stream.left_right_balance[idx] = balance_value
+                 except (TypeError, ValueError):
+                     pass
+             # Cycling dynamics and pedal efficiency. Field names differ between
+@@ -1206,7 +1220,7 @@ def parse_fit_records_enhanced(
+                     stream.rr_intervals[idx] = list(rrs)
+                 else:
+                     stream.rr_intervals[idx] = [float(rrs)]
+-    
++
+     # Detect and fill gaps
+     power_filled, quality_p, gap_stats_p = detect_and_fill_gaps(
+         stream.power, stream.quality_power, stream.elapsed_s,
+@@ -1218,17 +1232,17 @@ def parse_fit_records_enhanced(
+         gap_short_s, gap_long_s,
+         zero_is_missing=True,   # 0 bpm = sensor dropout
+     )
+-    
++
+     stream.power = power_filled
+     stream.quality_power = quality_p
+     stream.heart_rate = hr_filled
+     stream.quality_hr = quality_hr
+-    
++
+     stream.gap_summary = {
+         "power": gap_stats_p,
+         "heart_rate": gap_stats_hr,
+     }
+-    
++
+     return stream
+ 
+ 
+@@ -1236,25 +1250,25 @@ if __name__ == "__main__":  # pragma: no cover
+     # Self-test with synthetic data
+     print("FIT Parser — Gap Handling Test")
+     print("=" * 60)
+-    
++
+     # Simulate sensor dropout
+     n = 300
+     power = np.full(n, 200.0)
+     power[100:110] = 0  # 10s gap → interpolate
+     power[150:180] = 0  # 30s gap → forward-fill
+     power[250:280] = 0  # 30s gap → forward-fill
+-    
+-    quality = np.full(n, QUALITY_GOOD, dtype=np.uint8)
+-    elapsed = np.arange(n, dtype=np.float32)
+-    
++
++    quality: np.ndarray = np.full(n, QUALITY_GOOD, dtype=np.uint8)
++    elapsed: np.ndarray = np.arange(n, dtype=np.float32)
++
+     filled, qual, stats = detect_and_fill_gaps(power, quality, elapsed)
+-    
++
+     print(f"Gaps detected: {stats['n_gaps']}")
+     print(f"  Interpolated: {stats['interpolated']}")
+     print(f"  Forward-filled: {stats['forward_filled']}")
+     print(f"  Unreliable: {stats['unreliable']}")
+     print()
+-    
++
+     print("Sample filled values:")
+     print(f"  Before gap [95:105]: {filled[95:105]}")
+     print(f"  Quality [95:105]: {qual[95:105]}")
+diff --git a/engines/metabolic/mader_constants.py b/engines/metabolic/mader_constants.py
+index 1d679c3..60fccef 100644
+--- a/engines/metabolic/mader_constants.py
++++ b/engines/metabolic/mader_constants.py
+@@ -12,6 +12,14 @@ class RegularizationWeights:
+     vo2_vs_expected_heuristic: float = 0.5
+     short_mae_scale: float = 1.8
+ 
++    def to_dict(self) -> Dict[str, Any]:
++        return {
++            "classification": "fit_regularization",
++            "vo2_vs_guess": self.vo2_vs_guess,
++            "vo2_vs_expected_heuristic": self.vo2_vs_expected_heuristic,
++            "short_mae_scale": self.short_mae_scale,
++        }
++
+ 
+ @dataclass(frozen=True)
+ class MaderConstants:
+@@ -38,12 +46,20 @@ class MaderConstants:
+ 
+     def to_dict(self) -> Dict[str, Any]:
+         return {
++            "classification": "physiological_model_constants",
+             "ks1": self.ks1,
+             "ks2": self.ks2,
+             "vo2_basale": self.vo2_basale,
+             "equiv_o2_la": self.equiv_o2_la,
+             "vol_rel": self.vol_rel,
++            "mlss_net_frac": self.mlss_net_frac,
++            "eps": self.eps,
++            "softplus_k": self.softplus_k,
++            "w_step": self.w_step,
++            "w_min": self.w_min,
+             "pcr_multiplier": self.pcr_multiplier,
++            "pcr_prior_min": self.pcr_prior_min,
++            "pcr_prior_max": self.pcr_prior_max,
+             "source": self._source,
+         }
+ 
+diff --git a/engines/metabolic/metabolic_calibration.py b/engines/metabolic/metabolic_calibration.py
+new file mode 100644
+index 0000000..35febf6
+--- /dev/null
++++ b/engines/metabolic/metabolic_calibration.py
+@@ -0,0 +1,201 @@
++"""Versioned empirical calibration used by the metabolic profiler.
++
++The values in this module reproduce the existing production tuning. They are
++kept separate from Mader model constants and from software policy so future
++validation can change one layer without silently changing the others.
++"""
++
++from __future__ import annotations
++
++from dataclasses import dataclass
++from typing import Any, Dict, Tuple
++
++
++@dataclass(frozen=True)
++class MetabolicCalibration:
++    """Empirical tuning parameters for fitting and sprint decomposition."""
++
++    version: str = "1.0.0"
++    schema_version: str = "1.0"
++    source: str = "production_tuning_pre_policy_extraction"
++    validation_status: str = "internal_empirical_calibration"
++
++    # Mechanical power <-> oxygen-demand conversion.
++    watts_to_vo2_coefficient: float = 10.8
++    reference_efficiency: float = 0.23
++    map_power_min_w: float = 50.0
++    map_power_max_w: float = 2500.0
++
++    # Lactate kinetics and duration power cap.
++    tau_vo2_anchor: float = 80.0
++    tau_vo2_span: float = 40.0
++    tau_vo2_slope: float = 0.4
++    tau_vlamax_anchor: float = 0.30
++    tau_vlamax_span: float = 1.0
++    tau_vlamax_slope: float = 15.0
++    tau_min_s: float = 12.0
++    tau_max_s: float = 65.0
++    cap_factor_base: float = 1.5
++    cap_factor_amplitude: float = 2.5
++    cap_factor_decay_s: float = 120.0
++
++    # APR -> admissible VLamax basin mapping.
++    apr_ratio_anchor: float = 0.8
++    apr_vlamax_low_intercept: float = 0.10
++    apr_vlamax_low_slope: float = 0.12
++    apr_vlamax_low_bounds: Tuple[float, float] = (0.10, 0.40)
++    apr_vlamax_high_intercept: float = 0.40
++    apr_vlamax_high_slope: float = 0.38
++    apr_vlamax_high_bounds: Tuple[float, float] = (0.40, 1.20)
++    apr_vlamax_minimum_band_width: float = 0.15
++
++    # Fit weighting and initial conditions.
++    weight_baseline: float = 0.35
++    weight_peak_amplitude: float = 0.65
++    weight_peak_duration_s: float = 360.0
++    weight_log_sigma: float = 0.8
++    weight_short_reference_s: float = 20.0
++    weight_short_min: float = 0.25
++    weight_long_reference_s: float = 900.0
++    weight_long_min: float = 0.60
++    vo2_guess_floor: float = 35.0
++    vo2_guess_ceiling: float = 85.0
++    vo2_guess_power_multiplier: float = 12.0
++    fit_grid_floor_max_w: float = 2000.0
++    fit_grid_power_per_kg_max: float = 30.0
++    short_mae_duration_s: float = 30.0
++
++    # Physiological coherence anchors and regularization penalties.
++    observed_threshold_vo2_margin: float = 1.05
++    mlss_observed_ratio_ceiling: float = 1.10
++    vo2_floor_penalty_scale: float = 5.0
++    mlss_ceiling_penalty_scale: float = 55.0
++    mlss_basin_penalty_scale: float = 1.0e6
++    apr_centre_tiebreak_scale: float = 2.0e3
++
++    # Lactate-capacity and residual PCr contribution.
++    lacap_intercept: float = 10.0
++    lacap_vlamax_anchor: float = 0.20
++    lacap_vlamax_slope: float = 15.0
++    pcr_decay_start_s: float = 20.0
++    pcr_decay_tau_s: float = 35.0
++
++    # Deterministic multi-start mesh.
++    vlamax_starts: Tuple[float, ...] = (0.20, 0.35, 0.50, 0.70, 0.90)
++    apr_midpoint_start_min: float = 0.10
++    apr_midpoint_start_max: float = 1.30
++    vo2_floor_start_offset: float = 5.0
++    vo2_lower_start_offset: float = -6.0
++    vo2_upper_start_offset: float = 8.0
++
++    # Curve/output calibration.
++    curve_power_min_w: float = 50.0
++    curve_power_floor_max_w: float = 700.0
++    curve_power_per_kg_max: float = 12.0
++    curve_power_step_w: float = 5.0
++    curve_vo2_margin: float = 0.10
++    fatmax_peak_fraction: float = 0.98
++
++    # Direct sprint-decomposition calibration.
++    sprint_min_sustain_intercept: float = 0.70
++    sprint_min_sustain_duration_slope: float = 0.012
++    sprint_min_sustain_floor: float = 0.40
++    sprint_neuromuscular_scale: float = 0.98
++    sprint_aerobic_contribution_scale: float = 0.50
++    energy_j_per_mmol_lactate_per_kg: float = 63.0
++    sprint_min_resolved_vlamax: float = 0.08
++    sprint_vlamax_bounds: Tuple[float, float] = (0.05, 1.50)
