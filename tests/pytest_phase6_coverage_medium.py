@@ -459,7 +459,7 @@ class TestPowerSourceAndDataQualityMedium:
         partial = build_data_quality_report({
             "power": [0.0] * 50 + [220.0] * 50,
             "heart_rate": [140.0] * 100,
-            "quality_power": np.array([0] * 80 + [2] * 20),
+            "quality_power": np.array([0] * 80 + [3] * 20),
         })
         assert partial["signals"]["power"]["coverage_pct"] < 90.0
         assert any("power_" in w for w in partial["warnings"])

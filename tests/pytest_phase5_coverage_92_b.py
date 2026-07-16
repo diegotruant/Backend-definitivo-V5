@@ -115,7 +115,7 @@ class TestDataQualityApi92:
         assert any("spike" in issue.lower() for issue in spike_report.issues_detected)
 
         trainer = [220.0 if i % 2 == 0 else 221.0 for i in range(400)]
-        report = assess_data_quality(trainer, hr_stream=[140.0] * 400, cadence_stream=[0.0] * 400)
+        report = assess_data_quality(trainer, hr_stream=[140.0] * 400, cadence_stream=[300.0] * 400)
         assert report.cadence_quality < 1.0
 
         paused = clean_workout_data([220.0] * 60 + [0.0] * 45 + [220.0] * 60, remove_pauses_flag=True)

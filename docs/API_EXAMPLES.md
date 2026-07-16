@@ -272,8 +272,12 @@ Response is a full `twin_state.v1` document — persist it client-side or in you
 {
   "status": "success",
   "statistics_page": {
-    "avg_power_w": 198.4,
-    "avg_power_w_kg": 2.76,
+    "avg_power_w": 176.2,
+    "avg_power_w_kg": 2.45,
+    "avg_power_elapsed_w": 176.2,
+    "avg_power_elapsed_w_kg": 2.45,
+    "avg_power_pedaling_w": 198.4,
+    "avg_power_pedaling_w_kg": 2.76,
     "np_w": 205.1,
     "np_w_kg": 2.85,
     "max_power_w": 420.0,
@@ -293,6 +297,10 @@ Response is a full `twin_state.v1` document — persist it client-side or in you
   }
 }
 ```
+
+`avg_power_w` is the complete recorded-timeline mean including valid 0 W
+coasting samples. `avg_power_pedaling_w` preserves the positive-power-only mean.
+See `docs/ZERO_POWER_AND_AVERAGE_POWER_CONTRACT.md`.
 
 ---
 

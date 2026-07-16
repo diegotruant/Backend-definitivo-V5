@@ -96,15 +96,14 @@ def _assess_power_quality(
     """Assess power data quality"""
     quality = 1.0
     
-    # Check 1: Zeros percentage
-    zeros_pct = (power.count(0) / len(power)) * 100 if power else 100
-    if zeros_pct > 50:
-        quality -= 0.4
-        issues.append(f"Power: {zeros_pct:.0f}% zeros (poor coverage)")
-    elif zeros_pct > 20:
-        quality -= 0.2
-        issues.append(f"Power: {zeros_pct:.0f}% zeros (gaps detected)")
-    
+    # Check 1: Presence of a usable measured signal. Zero watts are valid
+    # coasting/stopping samples and must not be treated as dropouts. A stream
+    # containing no positive sample at all, however, cannot contribute power
+    # analytics and is treated as absent/zero-only.
+    if not power or not any(p > 0 for p in power):
+        quality -= 0.8
+        issues.append("Power: no positive samples (signal absent or zero-only)")
+
     # Check 2: Spikes (>1000W for >3s)
     spikes = _detect_power_spikes(power)
     if spikes > 10:
@@ -179,13 +178,11 @@ def _assess_cadence_quality(
     """Assess cadence quality"""
     quality = 1.0
     
-    # Check: Zeros (coasting vs sensor failure)
-    zeros_pct = (cadence.count(0) / len(cadence)) * 100 if cadence else 0
-    
-    if zeros_pct > 70:
-        quality -= 0.3
-        issues.append(f"Cadence: {zeros_pct:.0f}% zeros (sensor issue?)")
-    
+    # Zero rpm is valid while coasting. Numeric cadence values alone cannot
+    # distinguish coasting from a missing optional sensor, so mixed/all-zero
+    # samples are not penalized as dropouts here. Parser provenance determines
+    # whether cadence was actually measured.
+
     # Check: Unrealistic values
     if any(c > 250 for c in cadence):
         quality -= 0.1

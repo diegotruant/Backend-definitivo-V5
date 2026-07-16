@@ -29,6 +29,8 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 import numpy as np
 
+from engines.performance.power_engine import normalized_power
+
 # Shared design tokens (mirror chart_builder so the UI is consistent).
 COLORS = {
     "primary": "#1F6F54", "secondary": "#2E5A8C", "accent": "#C8783C",
@@ -174,16 +176,13 @@ def chart_power(stream: Any) -> Dict[str, Any]:
     t = np.asarray(t, float)
     t_ds, y_ds = _downsample(t, y)
     avg_power = float(np.mean(y)) if y.size else 0.0
+    positive_power = y[y > 0]
+    avg_pedaling_power = (
+        float(np.mean(positive_power)) if positive_power.size else avg_power
+    )
     max_power = float(np.max(y)) if y.size else 0.0
-    if y.size >= 30:
-        kernel = np.ones(30, dtype=float) / 30.0
-        rolling_30s = np.convolve(y, kernel, mode="valid")
-        normalized_power = float(np.mean(rolling_30s ** 4) ** 0.25)
-    elif y.size > 0:
-        normalized_power = avg_power
-    else:
-        normalized_power = 0.0
-    variability_index = (normalized_power / avg_power) if avg_power > 0 else None
+    np_value = normalized_power(y) if y.size else 0.0
+    variability_index = (np_value / avg_power) if avg_power > 0 else None
     return {
         "type": "line",
         "title": "Power",
@@ -193,9 +192,11 @@ def chart_power(stream: Any) -> Dict[str, Any]:
         "series": [{"name": "Power", "data": y_ds, "color": COLORS["power"]}],
         "summary": {
             "avg_power_w": round(avg_power, 1),
+            "avg_power_elapsed_w": round(avg_power, 1),
+            "avg_power_pedaling_w": round(avg_pedaling_power, 1),
             "max_power_w": int(round(max_power)),
-            "normalized_power_w": round(normalized_power, 1),
-            "np_w": round(normalized_power, 1),
+            "normalized_power_w": round(np_value, 1),
+            "np_w": round(np_value, 1),
             "variability_index": round(float(variability_index), 3) if variability_index is not None else None,
             "vi": round(float(variability_index), 3) if variability_index is not None else None,
             "np_method": "30s_rolling_fourth_power" if y.size >= 30 else "short_stream_mean",
