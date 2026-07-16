@@ -102,7 +102,7 @@ def _assess_power_quality(
     # analytics and is treated as absent/zero-only.
     if not power or not any(p > 0 for p in power):
         quality -= 0.8
-        issues.append("Power: no positive samples (signal absent or zero-only)")
+        issues.append("Power: no usable power; no positive samples (signal absent or zero-only)")
 
     # Check 2: Spikes (>1000W for >3s)
     spikes = _detect_power_spikes(power)

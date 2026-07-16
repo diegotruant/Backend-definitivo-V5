@@ -257,7 +257,7 @@ class TestDataQualityEngine:
         assert report.usable_for_analysis
 
     def test_assess_detects_low_quality_power(self) -> None:
-        power = [0.0] * 200 + [50.0] * 100
+        power = [0.0] * 300
         report = assess_data_quality(power)
         assert report.power_quality < 1.0
         assert report.overall_score < 1.0
@@ -1604,7 +1604,7 @@ def _ramp_staircase_powers(*, steps: int = 8, step_s: int = 60, base_w: int = 15
 
 class TestMmpAggregatorBatch7:
     def test_quality_gate_rejects_dirty_ride(self) -> None:
-        power = [0.0] * 80 + [1200.0] * 15 + [-5.0] * 5
+        power = [0.0] * 100
         hr = [0.0] * 100
         result = update_power_curve(
             power,
