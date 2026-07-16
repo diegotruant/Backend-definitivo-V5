@@ -12,6 +12,14 @@ class RegularizationWeights:
     vo2_vs_expected_heuristic: float = 0.5
     short_mae_scale: float = 1.8
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "classification": "fit_regularization",
+            "vo2_vs_guess": self.vo2_vs_guess,
+            "vo2_vs_expected_heuristic": self.vo2_vs_expected_heuristic,
+            "short_mae_scale": self.short_mae_scale,
+        }
+
 
 @dataclass(frozen=True)
 class MaderConstants:
@@ -38,12 +46,20 @@ class MaderConstants:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "classification": "physiological_model_constants",
             "ks1": self.ks1,
             "ks2": self.ks2,
             "vo2_basale": self.vo2_basale,
             "equiv_o2_la": self.equiv_o2_la,
             "vol_rel": self.vol_rel,
+            "mlss_net_frac": self.mlss_net_frac,
+            "eps": self.eps,
+            "softplus_k": self.softplus_k,
+            "w_step": self.w_step,
+            "w_min": self.w_min,
             "pcr_multiplier": self.pcr_multiplier,
+            "pcr_prior_min": self.pcr_prior_min,
+            "pcr_prior_max": self.pcr_prior_max,
             "source": self._source,
         }
 

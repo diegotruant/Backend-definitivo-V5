@@ -291,7 +291,7 @@ if __name__ == "__main__":  # pragma: no cover
     # Demonstration
     print("Metabolic Profiler — Phenotype-Adaptive PCr Model")
     print("=" * 60)
-    
+
     for phenotype in ["SPRINTER", "TT_CLIMBER", "PURSUITER", "ALL_ROUNDER"]:
         params = get_pcr_params(phenotype)
         print(f"\
@@ -299,7 +299,7 @@ if __name__ == "__main__":  # pragma: no cover
         print(f"  PCr capacity: {params['pcr_capacity_kj']:.1f} kJ")
         print(f"  Recovery τ: {params['recovery_tau_s']:.0f} s")
         print(f"  Anaerobic priority: {params['anaerobic_priority']:.2f}")
-        
+
         # 30s sprint contribution
         contrib = compute_energy_contribution_adaptive(
             duration_s=30.0,
@@ -311,15 +311,17 @@ if __name__ == "__main__":  # pragma: no cover
         print(f"  30s @ 800W contribution: PCr {contrib['pcr_fraction']:.1%}, "
               f"Anaerobic {contrib['anaerobic_fraction']:.1%}, "
               f"Aerobic {contrib['aerobic_fraction']:.1%}")
-    
+
     print("\
 " + "=" * 60)
     print("Recovery curves after 10s maximal sprint:")
-    
+
     import matplotlib.pyplot as plt
-    
+    from pathlib import Path
+    import tempfile
+
     fig, ax = plt.subplots(figsize=(10, 6))
-    
+
     for phenotype in ["SPRINTER", "TT_CLIMBER", "PURSUITER"]:
         recovery = compute_recovery_curve_adaptive(
             max_effort_s=10.0,
@@ -328,13 +330,14 @@ if __name__ == "__main__":  # pragma: no cover
         )
         t = np.arange(len(recovery))
         ax.plot(t, recovery, label=phenotype, linewidth=2)
-    
+
     ax.set_xlabel("Recovery Time (s)", fontsize=12)
     ax.set_ylabel("PCr Recovered (kJ)", fontsize=12)
     ax.set_title("PCr Recovery by Phenotype", fontsize=14, fontweight="bold")
     ax.legend()
     ax.grid(alpha=0.3)
-    
+
     print("Recovery curve plot saved to pcr_recovery_phenotype.png")
-    plt.savefig("/tmp/pcr_recovery_phenotype.png", dpi=150, bbox_inches="tight")
+    output_path = Path(tempfile.gettempdir()) / "pcr_recovery_phenotype.png"
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
     print("(Plot generation would work with matplotlib installed)")

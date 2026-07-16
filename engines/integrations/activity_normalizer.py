@@ -11,8 +11,21 @@ def normalize_external_activity(payload: Dict[str, Any]) -> Dict[str, Any]:
     distance = payload.get("distance_m") or payload.get("distance")
     duration = payload.get("duration_s") or payload.get("elapsed_time") or payload.get("duration")
     source_id = payload.get("source_id") or payload.get("external_id")
-    fingerprint = sha1(f"{start}|{distance}|{duration}|{source_id}".encode("utf-8")).hexdigest()
-    return {"status": "success", "activity": {"activity_id": source_id or fingerprint[:12], "start_time": start, "distance_m": distance, "duration_s": duration, "fingerprint": fingerprint, "raw": payload}}
+    fingerprint = sha1(
+        f"{start}|{distance}|{duration}|{source_id}".encode("utf-8"),
+        usedforsecurity=False,
+    ).hexdigest()
+    return {
+        "status": "success",
+        "activity": {
+            "activity_id": source_id or fingerprint[:12],
+            "start_time": start,
+            "distance_m": distance,
+            "duration_s": duration,
+            "fingerprint": fingerprint,
+            "raw": payload,
+        },
+    }
 
 
 def deduplicate_activities(activities: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -27,4 +40,9 @@ def deduplicate_activities(activities: List[Dict[str, Any]]) -> Dict[str, Any]:
         else:
             seen.add(fp)
             unique.append(norm)
-    return {"status": "success", "unique": unique, "duplicates": duplicates, "duplicate_count": len(duplicates)}
+    return {
+        "status": "success",
+        "unique": unique,
+        "duplicates": duplicates,
+        "duplicate_count": len(duplicates),
+    }
