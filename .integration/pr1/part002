@@ -1,0 +1,210 @@
++- `_segmented_joint_fallback()`
++- `_segmented_aerobic_stage_error()`
++- `_segmented_full_stage_error()`
++- `_resolve_segmented_parameter_pair()`
++- `_segmented_missing_parameter_error()`
++- `_calculate_segmented_confidence()`
++- `_derive_segmented_outputs()`
++- `_build_segmented_success_snapshot()`
++- `_segmented_fit_diagnostics()`
++- `_record_segmented_runtime()`
++
++The public orchestrator is reduced from 337 lines to 63 lines. Its Radon
++cyclomatic-complexity grade is B (7). The more complex confidence logic remains
++in a dedicated method so it can be tested and simplified independently later.
++
++## Invariance contract
++
++Three representative calls were serialized with sorted keys after removing
++only `calculated_at`:
++
++1. normal segmented success;
++2. joint fallback due to insufficient aerobic anchors;
++3. explicit aerobic-duration override.
++
++The Phase 5 and Phase 6 serializations are byte-identical and share SHA-256:
++
++`416eccded4035cecb6402607ca5395f8f7fe8b0412862d174b89b5bb744df491`
++
++The activity-normalizer fingerprint is also unchanged after declaring SHA-1 as
++non-security use.
++
++## Static analysis hardening
++
++- Ruff passes on its configured repository scope and on every modified Python file.
++- Mypy passes on all 75 configured source files.
++- Bandit passes with the medium-or-higher severity threshold.
++- Modified regions/files pass Black.
++- `compileall` passes for `api`, `engines` and `tests`.
++
++Supporting fixes made while closing the static-analysis findings:
++
++- FIT stream arrays now have explicit NumPy array annotations.
++- `_read_file_with_retry()` raises only a real `OSError`, never an optional value.
++- A reused FIT parser local variable was renamed to remove ambiguous typing.
++- SHA-1 activity fingerprints declare `usedforsecurity=False`; digest output is unchanged.
++- GPX parsing uses the required `defusedxml` dependency directly.
++- The phenotype demo builds its output path from `tempfile.gettempdir()`.
++
++## Remaining debt deliberately not mixed into this patch
++
++Bandit still reports 11 low-severity broad `except`/`pass` or `continue`
++patterns in unrelated modules. They should be handled module-by-module with
++logging and narrow exception types.
++
++A repository-wide Black check is not clean: 37 API files, 3 script files and
++123 test files would be reformatted. This is formatting debt, not a functional
++failure, and should be addressed in a dedicated formatting-only commit to avoid
++obscuring scientific changes.
++
++## Validation environment
++
++The package declares Python 3.11. The available execution environment for this
++phase used Python 3.13.5 with Ruff, Mypy and Black configured for Python 3.11.
++A CI run on the declared Python 3.11 target remains recommended before release.
+diff --git a/engines/integrations/activity_normalizer.py b/engines/integrations/activity_normalizer.py
+index 96bc599..ac8b454 100644
+--- a/engines/integrations/activity_normalizer.py
++++ b/engines/integrations/activity_normalizer.py
+@@ -11,8 +11,21 @@ def normalize_external_activity(payload: Dict[str, Any]) -> Dict[str, Any]:
+     distance = payload.get("distance_m") or payload.get("distance")
+     duration = payload.get("duration_s") or payload.get("elapsed_time") or payload.get("duration")
+     source_id = payload.get("source_id") or payload.get("external_id")
+-    fingerprint = sha1(f"{start}|{distance}|{duration}|{source_id}".encode("utf-8")).hexdigest()
+-    return {"status": "success", "activity": {"activity_id": source_id or fingerprint[:12], "start_time": start, "distance_m": distance, "duration_s": duration, "fingerprint": fingerprint, "raw": payload}}
++    fingerprint = sha1(
++        f"{start}|{distance}|{duration}|{source_id}".encode("utf-8"),
++        usedforsecurity=False,
++    ).hexdigest()
++    return {
++        "status": "success",
++        "activity": {
++            "activity_id": source_id or fingerprint[:12],
++            "start_time": start,
++            "distance_m": distance,
++            "duration_s": duration,
++            "fingerprint": fingerprint,
++            "raw": payload,
++        },
++    }
+ 
+ 
+ def deduplicate_activities(activities: List[Dict[str, Any]]) -> Dict[str, Any]:
+@@ -27,4 +40,9 @@ def deduplicate_activities(activities: List[Dict[str, Any]]) -> Dict[str, Any]:
+         else:
+             seen.add(fp)
+             unique.append(norm)
+-    return {"status": "success", "unique": unique, "duplicates": duplicates, "duplicate_count": len(duplicates)}
++    return {
++        "status": "success",
++        "unique": unique,
++        "duplicates": duplicates,
++        "duplicate_count": len(duplicates),
++    }
+diff --git a/engines/io/fit_parser.py b/engines/io/fit_parser.py
+index 34001a1..2f3f3e5 100644
+--- a/engines/io/fit_parser.py
++++ b/engines/io/fit_parser.py
+@@ -149,7 +149,7 @@ def _read_file_with_retry(path: str, attempts: int = 3, delay_s: float = 0.25) -
+     A short retry resolves it without affecting genuinely missing or
+     corrupt files (which raise FileNotFoundError / persistent OSError).
+     """
+-    last_err = None
++    last_err: Optional[OSError] = None
+     for i in range(attempts):
+         try:
+             with open(path, "rb") as fh:
+@@ -160,7 +160,9 @@ def _read_file_with_retry(path: str, attempts: int = 3, delay_s: float = 0.25) -
+             last_err = e
+             if i < attempts - 1:
+                 time.sleep(delay_s * (i + 1))  # linear backoff
+-    raise last_err
++    if last_err is not None:
++        raise last_err
++    raise OSError(f"Unable to read {path!r} after {attempts} attempts")
+ 
+ 
+ # Quality flags
+@@ -173,7 +175,7 @@ QUALITY_UNRELIABLE = 3  # Gap >60s, data missing
+ class ActivityStreamEnhanced:
+     """
+     Activity stream with data quality tracking.
+-    
++
+     Field naming convention:
+       - Direct physical quantities use unambiguous names: `power`, `heart_rate`,
+         `cadence` (no unit suffix — they're conventionally Watts, bpm, rpm)
+@@ -181,17 +183,17 @@ class ActivityStreamEnhanced:
+         `distance_m`, `speed_mps`, `temperature_c`
+       - Computed/derived booleans (has_power, has_heart_rate, has_rr) and
+         aggregates (total_distance_m, total_ascent_m) are properties, not fields
+-    
++
+     Per-sample arrays (length = n_samples):
+         elapsed_s, lat, lon, altitude_m, distance_m,
+         power, heart_rate, cadence, speed_mps, temperature_c,
+         quality_power, quality_hr, rr_intervals
+-    
++
+     Scalars:
+         n_samples, sport, sub_sport, device_name, start_time,
+         total_elapsed_s, gap_summary
+     """
+-    
++
+     def __init__(
+         self,
+         n_samples: int,
+@@ -207,82 +209,82 @@ class ActivityStreamEnhanced:
+         self.device_name = device_name
+         self.start_time = start_time
+         self.total_elapsed_s = total_elapsed_s
+-        
++
+         # Time and position
+-        self.elapsed_s = np.zeros(n_samples, dtype=np.float32)
+-        self.lat = np.full(n_samples, np.nan, dtype=np.float32)
+-        self.lon = np.full(n_samples, np.nan, dtype=np.float32)
+-        self.altitude_m = np.full(n_samples, np.nan, dtype=np.float32)
+-        self.distance_m = np.full(n_samples, np.nan, dtype=np.float32)
+-        
++        self.elapsed_s: np.ndarray = np.zeros(n_samples, dtype=np.float32)
++        self.lat: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++        self.lon: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++        self.altitude_m: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++        self.distance_m: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++
+         # Core metrics (canonical names — no compat aliases)
+-        self.power = np.zeros(n_samples, dtype=np.float32)
+-        self.heart_rate = np.zeros(n_samples, dtype=np.float32)
+-        self.cadence = np.zeros(n_samples, dtype=np.float32)
+-        self.speed_mps = np.full(n_samples, np.nan, dtype=np.float32)
+-        self.temperature_c = np.full(n_samples, np.nan, dtype=np.float32)
+-        
++        self.power: np.ndarray = np.zeros(n_samples, dtype=np.float32)
++        self.heart_rate: np.ndarray = np.zeros(n_samples, dtype=np.float32)
++        self.cadence: np.ndarray = np.zeros(n_samples, dtype=np.float32)
++        self.speed_mps: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++        self.temperature_c: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
++
+         # Left/Right pedaling balance (% of total power generated by LEFT leg)
+         # NaN when not provided by the sensor. Only meaningful when the source
+         # is a dual-side power meter; the parser sets `pedaling_balance_source`
+         # to "dual" | "single_estimated" | "unknown" based on device_info.
+-        self.left_right_balance = np.full(n_samples, np.nan, dtype=np.float32)
++        self.left_right_balance: np.ndarray = np.full(n_samples, np.nan, dtype=np.float32)
+         self.pedaling_balance_source: str = "unknown"
+ 
+         # Cycling dynamics / pedaling efficiency metrics. Values are NaN when
+         # absent. These are parsed as raw scalar time-series so chart builders
+         # can decide how to render them without re-reading the FIT.
+-        self.left_power_phase = np.full(n_samples, np.nan, dtype=np.float32)
+-        self.right_power_phase = np.full(n_samples, np.nan, dtype=np.float32)
+-        self.left_power_phase_peak = np.full(n_samples, np.nan, dtype=np.float32)
+-        self.right_power_phase_peak = np.full(n_samples, np.nan, dtype=np.float32)
+-        self.left_pco = np.full(n_samples, np.nan, dtype=np.float32)
+-        self.right_pco = np.full(n_samples, np.nan, dtype=np.float32)
+-        self.left_pedal_smoothness = np.full(n_samples, np.nan, dtype=np.float32)
+-        self.right_pedal_smoothness = np.full(n_samples, np.nan, dtype=np.float32)
+-        self.left_torque_effectiveness = np.full(n_samples, np.nan, dtype=np.float32)
+-        self.right_torque_effectiveness = np.full(n_samples, np.nan, dtype=np.float32)
