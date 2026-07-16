@@ -1,0 +1,239 @@
++    def _fit_basin_score(
++        self,
++        *,
++        cost: float,
++        vo2: float,
++        vlamax: float,
++        context: _MetabolicFitContext,
++        apr_band: Optional[Tuple[float, float, float]],
++    ) -> float:
++        """Score an optimizer basin against observed threshold and APR anchors."""
++        penalty = 0.0
++        if context.obs_thr is not None and context.obs_thr > 0:
++            w_mlss, _, _, _, _ = self._calculate_curves(
++                vo2,
++                vlamax,
++                context.fixed_eta,
++            )
++            mlss_err = abs(float(w_mlss) - context.obs_thr) / context.obs_thr
++            penalty += (mlss_err ** 2) * self.calibration.mlss_basin_penalty_scale
++        if apr_band is not None:
++            vla_centre = 0.5 * (apr_band[0] + apr_band[1])
++            penalty += (
++                (vlamax - vla_centre) ** 2
++                * self.calibration.apr_centre_tiebreak_scale
++            )
++        return cost + penalty
++
++    def _run_multistart_fit(
++        self,
++        context: _MetabolicFitContext,
++    ) -> _MetabolicFitSelection:
++        """Run deterministic multi-start optimization and select one basin."""
++        map_provisional = self._map_estimate(context.vo2_guess, context.fixed_eta)
++        apr_band = self._apr_vlamax_band(
++            {
++                int(d): float(p)
++                for d, p in zip(context.all_durs, context.all_pows)
++                if p > 0
++            },
++            map_provisional,
++        )
++
++        vla_starts = list(self.calibration.vlamax_starts)
++        if apr_band is not None:
++            vla_lo, vla_hi, _ = apr_band
++            vla_starts.append(
++                float(
++                    np.clip(
++                        (vla_lo + vla_hi) / 2.0,
++                        self.calibration.apr_midpoint_start_min,
++                        self.calibration.apr_midpoint_start_max,
++                    )
++                )
++            )
++        vo2_anchor = float(
++            np.clip(
++                context.vo2_guess,
++                self.fit_policy.optimizer_vo2_min,
++                self.fit_policy.optimizer_vo2_max,
++            )
++        )
++        vo2_floor_start = float(
++            np.clip(
++                max(context.vo2_floor, context.vo2_guess)
++                + self.calibration.vo2_floor_start_offset,
++                self.fit_policy.optimizer_vo2_min,
++                self.fit_policy.optimizer_vo2_max,
++            )
++        )
++        vo2_starts = sorted(
++            set(
++                [
++                    vo2_anchor,
++                    vo2_floor_start,
++                    float(
++                        np.clip(
++                            vo2_anchor + self.calibration.vo2_lower_start_offset,
++                            self.fit_policy.optimizer_vo2_min,
++                            self.fit_policy.optimizer_vo2_max,
++                        )
++                    ),
++                    float(
++                        np.clip(
++                            vo2_anchor + self.calibration.vo2_upper_start_offset,
++                            self.fit_policy.optimizer_vo2_min,
++                            self.fit_policy.optimizer_vo2_max,
++                        )
++                    ),
++                ]
++            )
++        )
++        start_points = [
++            [vo2_start, vlamax_start]
++            for vo2_start in vo2_starts
++            for vlamax_start in vla_starts
++        ]
++        diagnostics = context.fit_diagnostics
++        diagnostics["attempted_starts"] = len(start_points)
++        candidates = []
++
++        for start in start_points:
++            clipped_start = [
++                float(
++                    np.clip(
++                        start[0],
++                        self.fit_policy.optimizer_vo2_min,
++                        self.fit_policy.optimizer_vo2_max,
++                    )
++                ),
++                float(
++                    np.clip(
++                        start[1],
++                        self.fit_policy.optimizer_vlamax_min,
++                        self.fit_policy.optimizer_vlamax_max,
++                    )
++                ),
+             ]
+-            return np.concatenate([resid, np.array(reg)])
++            try:
++                result = least_squares(
++                    lambda x: self._fit_residuals(x, context),
++                    clipped_start,
++                    bounds=(
++                        [
++                            self.fit_policy.optimizer_vo2_min,
++                            self.fit_policy.optimizer_vlamax_min,
++                        ],
++                        [
++                            self.fit_policy.optimizer_vo2_max,
++                            self.fit_policy.optimizer_vlamax_max,
++                        ],
++                    ),
++                    loss="soft_l1",
++                )
++            except Exception as exc:
++                diagnostics["exception_starts"] += 1
++                logger.debug(
++                    "metabolic_fit_start_failed",
++                    exc_info=True,
++                    extra={
++                        "fit_start_vo2": clipped_start[0],
++                        "fit_start_vlamax": clipped_start[1],
++                        "exception_type": type(exc).__name__,
++                    },
++                )
++                continue
++
++            try:
++                result_x = np.asarray(getattr(result, "x", []), dtype=float)
++                result_fun = np.asarray(getattr(result, "fun", []), dtype=float)
++            except (TypeError, ValueError):
++                diagnostics["invalid_result_starts"] += 1
++                logger.warning(
++                    "metabolic_fit_start_returned_unreadable_result",
++                    extra={
++                        "fit_start_vo2": clipped_start[0],
++                        "fit_start_vlamax": clipped_start[1],
++                    },
++                )
++                continue
++            if (
++                result_x.size != 2
++                or result_fun.size == 0
++                or not np.all(np.isfinite(result_x))
++                or not np.all(np.isfinite(result_fun))
++            ):
++                diagnostics["invalid_result_starts"] += 1
++                logger.warning(
++                    "metabolic_fit_start_returned_invalid_result",
++                    extra={
++                        "fit_start_vo2": clipped_start[0],
++                        "fit_start_vlamax": clipped_start[1],
++                    },
++                )
++                continue
+ 
+-        def _fit_from(x0):
+-            return least_squares(
+-                cost_fn, x0, bounds=([25.0, 0.10], [95.0, 1.50]), loss="soft_l1"
++            if bool(getattr(result, "success", False)):
++                diagnostics["converged_starts"] += 1
++            else:
++                diagnostics["nonconverged_starts"] += 1
++            cost = float(np.sum(result.fun ** 2))
++            candidates.append(
++                (cost, float(result.x[1]), float(result.x[0]), result, clipped_start)
+             )
+ 
+-        try:
+-            # APR-based VLamax band. The Anaerobic Power Reserve (sprint power
+-            # minus MAP) tells us which VLamax basin is physiologically
+-            # admissible. We use a provisional MAP from the aerobic guess to
+-            # compute it, then prefer the lowest-cost fit whose VLamax lands
+-            # inside that band — which removes the diesel/sprinter ambiguity
+-            # the plain lowest-cost rule suffered from.
+-            map_provisional = self._map_estimate(vo2_guess, fixed_eta)
+-            apr_band = self._apr_vlamax_band(
+-                {int(d): float(p) for d, p in zip(all_durs, all_pows) if p > 0},
+-                map_provisional,
+-            )
+-
+-            # Dense, deterministic 2-D start mesh (VO2max x VLamax) so the
+-            # optimizer visits every physiological basin regardless of how the
+-            # context-derived guesses land. Without VO2max diversity the fit
+-            # could miss the MLSS-coherent basin when eta shifts the surface.
+-            vla_starts = [0.20, 0.35, 0.50, 0.70, 0.90]
+-            if apr_band is not None:
+-                vla_lo, vla_hi, _ = apr_band
+-                vla_starts.append(float(np.clip((vla_lo + vla_hi) / 2.0, 0.10, 1.30)))
+-            vo2_anchor = float(np.clip(vo2_guess, 25.0, 95.0))
+-            vo2_floor_start = float(np.clip(max(vo2_floor, vo2_guess) + 5.0, 25.0, 95.0))
+-            vo2_starts = sorted(set([
+-                vo2_anchor,
+-                vo2_floor_start,
+-                float(np.clip(vo2_anchor - 6.0, 25.0, 95.0)),
+-                float(np.clip(vo2_anchor + 8.0, 25.0, 95.0)),
+-            ]))
+-            start_points = [[vo2c, vlac] for vo2c in vo2_starts for vlac in vla_starts]
+-
+-            candidates = []  # (cost, vla, vo2, result)
+-            for x0 in start_points:
+-                x0c = [float(np.clip(x0[0], 25.0, 95.0)), float(np.clip(x0[1], 0.10, 1.50))]
+-                try:
+-                    r = _fit_from(x0c)
+-                except Exception:
+-                    continue
+-                c = float(np.sum(r.fun ** 2))
+-                candidates.append((c, float(r.x[1]), float(r.x[0]), r))
+-
+-            if not candidates:
+-                raise RuntimeError("all starts failed")
+-
+-            # Basin selection. Two physiological anchors disambiguate the
+-            # multiple minima of the joint fit:
+-            #   1. APR band  -> which VLamax range is admissible (sprint-driven)
+-            #   2. observed threshold power -> what MLSS the athlete actually
+-            #      sustained, so we reject basins whose predicted MLSS drifts
+-            #      far from a directly-measured long effort.
+-            # We score in-band candidates by fit cost plus an MLSS-incoherence
