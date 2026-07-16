@@ -1,0 +1,239 @@
++            "source": source,
++            "status": status,
++            "supported_range": {"min": minimum, "max": maximum},
++        }
++
++    def _base_input_audit(
++        self,
++        *,
++        mmp_raw: Any,
++        expected_eta: Any,
++        measured_lacap: Any,
++    ) -> Dict[str, Any]:
++        """Create the per-call audit shell before MMP normalization and fitting."""
++        provided_anchor_count = len(mmp_raw) if isinstance(mmp_raw, dict) else None
++        return {
++            "schema_version": "1.0",
++            "has_adjustments": any(
++                item.get("status") == "clipped"
++                for item in self._constructor_input_audit.values()
++            ),
++            "summary": {
++                "clipped_fields": [
++                    field
++                    for field, item in self._constructor_input_audit.items()
++                    if item.get("status") == "clipped"
++                ],
++                "discarded_mmp_anchors": 0,
++                "duplicate_mmp_durations": 0,
++                "quality_cleaner_removed_mmp_anchors": 0,
++            },
++            "athlete": {
++                field: dict(item)
++                for field, item in self._constructor_input_audit.items()
++            },
++            "model_inputs": {
++                "expected_eta": {
++                    "provided": self._json_safe_input_value(expected_eta),
++                    "used": None,
++                    "source": "argument" if expected_eta is not None else "athlete_context",
++                    "status": "pending_resolution",
++                    "supported_range": {
++                        "min": self.fit_policy.minimum_eta,
++                        "max": self.fit_policy.maximum_eta,
++                    },
++                },
++                "measured_lacap_mmol_L": {
++                    "provided": self._json_safe_input_value(measured_lacap),
++                    "used": None,
++                    "source": "argument" if measured_lacap is not None else "model_inferred",
++                    "status": (
++                        "pending_resolution"
++                        if measured_lacap is not None
++                        else "inferred_during_fit"
++                    ),
++                    "supported_range": {
++                        "min": self.fit_policy.minimum_lacap_mmol_l,
++                        "max": self.fit_policy.maximum_lacap_mmol_l,
++                    },
++                },
++            },
++            "mmp": {
++                "input_type": type(mmp_raw).__name__,
++                "provided_anchor_count": provided_anchor_count,
++                "valid_anchor_observations": 0,
++                "accepted_anchor_count": 0,
++                "used_anchor_count": 0,
++                "discarded_anchor_count": 0,
++                "duplicate_duration_count": 0,
++                "normalized_key_count": 0,
++                "duplicate_resolution": "last_value_wins",
++                "clean_mmp_first": False,
++                "quality_cleaner_removed_anchor_count": 0,
++                "discarded_anchors": [],
++                "duplicate_durations": [],
++                "details_truncated": False,
++            },
++        }
++
++    @staticmethod
++    def _refresh_input_audit_summary(input_audit: Dict[str, Any]) -> None:
++        """Synchronize compact summary fields after an audit section changes."""
++        clipped_fields: List[str] = []
++        for section_name in ("athlete", "model_inputs"):
++            for field, item in (input_audit.get(section_name) or {}).items():
++                if isinstance(item, dict) and item.get("status") == "clipped":
++                    clipped_fields.append(field)
++        mmp_audit = input_audit.get("mmp") or {}
++        discarded = int(mmp_audit.get("discarded_anchor_count") or 0)
++        duplicates = int(mmp_audit.get("duplicate_duration_count") or 0)
++        cleaner_removed = int(mmp_audit.get("quality_cleaner_removed_anchor_count") or 0)
++        input_audit["summary"] = {
++            "clipped_fields": clipped_fields,
++            "discarded_mmp_anchors": discarded,
++            "duplicate_mmp_durations": duplicates,
++            "quality_cleaner_removed_mmp_anchors": cleaner_removed,
++        }
++        input_audit["has_adjustments"] = bool(
++            clipped_fields or discarded or duplicates or cleaner_removed
++        )
++
++    @staticmethod
++    def _merge_stage_input_audit(
++        target: Dict[str, Any],
++        stage_audit: Any,
++    ) -> Dict[str, Any]:
++        """Merge resolved model fields into a full-raw audit without losing MMP provenance."""
++        if not isinstance(stage_audit, dict):
++            return target
++        if isinstance(stage_audit.get("model_inputs"), dict):
++            target["model_inputs"] = {
++                field: dict(item) if isinstance(item, dict) else item
++                for field, item in stage_audit["model_inputs"].items()
++            }
++        stage_mmp = stage_audit.get("mmp") or {}
++        target_mmp = target.get("mmp") or {}
++        for field in (
++            "clean_mmp_first",
++            "quality_cleaner_removed_anchor_count",
++            "used_anchor_count",
++        ):
++            if field in stage_mmp:
++                target_mmp[field] = stage_mmp[field]
++        target["mmp"] = target_mmp
++        MetabolicProfiler._refresh_input_audit_summary(target)
++        return target
++
++    @staticmethod
++    def _optimizer_diagnostics(result: Any) -> Dict[str, Any]:
++        """Return a compact, JSON-safe summary of a SciPy least-squares result."""
++
++        def _finite_float(value: Any) -> Optional[float]:
++            try:
++                numeric = float(value)
++            except (TypeError, ValueError):
++                return None
++            return numeric if np.isfinite(numeric) else None
++
++        status = getattr(result, "status", None)
++        nfev = getattr(result, "nfev", None)
++        njev = getattr(result, "njev", None)
++        return {
++            "converged": bool(getattr(result, "success", False)),
++            "status_code": int(status) if status is not None else None,
++            "function_evaluations": int(nfev) if nfev is not None else None,
++            "jacobian_evaluations": int(njev) if njev is not None else None,
++            "optimality": _finite_float(getattr(result, "optimality", None)),
++            "cost": _finite_float(getattr(result, "cost", None)),
++        }
++
++    @staticmethod
++    def _fit_diagnostic_quality_flags(diagnostics: Any) -> List[str]:
++        """Translate joint or segmented fit diagnostics into model quality flags."""
++        if not isinstance(diagnostics, dict):
++            return []
++
++        flags: set[str] = set()
++        selected_optimizer = diagnostics.get("selected_optimizer") or {}
++        if selected_optimizer and selected_optimizer.get("converged") is False:
++            flags.add("selected_optimizer_not_converged")
++
++        if any(
++            int(diagnostics.get(field) or 0) > 0
++            for field in (
++                "exception_starts",
++                "invalid_result_starts",
++                "nonconverged_starts",
++            )
++        ):
++            flags.add("multistart_partial_failures")
++
++        for stage in ("aerobic_stage", "full_curve_stage"):
++            flags.update(MetabolicProfiler._fit_diagnostic_quality_flags(diagnostics.get(stage)))
++        return sorted(flags)
++
++    def _coerce_mmp_dict_with_audit(
++        self,
++        mmp: Dict[Any, Any],
++        input_audit: Optional[Dict[str, Any]] = None,
++    ) -> Dict[int, float]:
++        """Normalize MMP anchors while recording discarded and duplicate inputs."""
++        if not isinstance(mmp, dict):
++            raise TypeError("MMP input must be a dictionary")
+ 
+-    def _coerce_mmp_dict(self, mmp: Dict[Any, Any]) -> Dict[int, float]:
+         out: Dict[int, float] = {}
++        source_keys: Dict[int, str] = {}
++        valid_observations = 0
++        normalized_key_count = 0
++        discarded: List[Dict[str, Any]] = []
++        duplicates: List[Dict[str, Any]] = []
++        detail_limit = self.fit_policy.input_audit_detail_limit
++
++        def _append_limited(target: List[Dict[str, Any]], detail: Dict[str, Any]) -> None:
++            if len(target) < detail_limit:
++                target.append(detail)
++
+         for k, w in mmp.items():
++            key_repr = str(self._json_safe_input_value(k))
+             if w is None:
++                _append_limited(
++                    discarded,
++                    {"key": key_repr, "provided_power": None, "reason": "missing_power"},
++                )
+                 continue
+             try:
+                 wf = float(w)
+-                if wf <= 0.0:
+-                    continue
++            except (TypeError, ValueError):
++                _append_limited(
++                    discarded,
++                    {
++                        "key": key_repr,
++                        "provided_power": self._json_safe_input_value(w),
++                        "reason": "invalid_power",
++                    },
++                )
++                continue
++            if not np.isfinite(wf) or wf <= 0.0:
++                _append_limited(
++                    discarded,
++                    {
++                        "key": key_repr,
++                        "provided_power": self._json_safe_input_value(w),
++                        "reason": "non_positive_or_non_finite_power",
++                    },
++                )
++                continue
++
++            try:
+                 k_str = str(k).strip().lower()
+                 if k_str.endswith("s"):
+                     sec = int(float(k_str[:-1]))
+@@ -70,11 +508,76 @@ class MetabolicProfiler:
+                     sec = int(float(k_str[:-1]) * 60.0)
+                 else:
+                     sec = int(float(k_str))
+-                out[sec] = wf
+             except (TypeError, ValueError):
