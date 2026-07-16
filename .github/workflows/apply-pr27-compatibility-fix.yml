@@ -1,0 +1,83 @@
+name: Apply PR27 compatibility fix
+
+on:
+  push:
+    branches:
+      - integration/metabolic-hardening-phases-1-6
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: integration/metabolic-hardening-phases-1-6
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Apply compatibility correction
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          profiler = Path('engines/metabolic/metabolic_profiler.py')
+          source = profiler.read_text(encoding='utf-8')
+          old = '''            else self._map_estimate(
+                          self.calibration.vo2_guess_floor,
+                          self.context.expected_eta(),
+                      )
+          '''
+          new = '''            else self._map_estimate(
+                          50.0,
+                          self.context.expected_eta(),
+                      )
+          '''
+          if source.count(old) != 1:
+              raise SystemExit(f'unexpected sprint fallback block count: {source.count(old)}')
+          profiler.write_text(source.replace(old, new, 1), encoding='utf-8')
+
+          policy_test = Path('tests/pytest_metabolic_policy_versioning.py')
+          source = policy_test.read_text(encoding='utf-8')
+          old = '''from engines.metabolic.metabolic_calibration import (
+              DEFAULT_METABOLIC_CALIBRATION,
+              MetabolicCalibration,
+          )
+          '''
+          new = 'from engines.metabolic.metabolic_calibration import DEFAULT_METABOLIC_CALIBRATION\n'
+          if source.count(old) != 1:
+              raise SystemExit(f'unexpected unused import block count: {source.count(old)}')
+          policy_test.write_text(source.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Install project dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Validate correction
+        run: |
+          python -m pytest -q \
+            tests/pytest_scientific_hardening.py::test_vlamax_from_sprint_default_map_is_deterministic_50_vo2_fallback \
+            tests/pytest_metabolic_policy_versioning.py
+          python -m ruff check \
+            engines/metabolic/metabolic_profiler.py \
+            tests/pytest_metabolic_policy_versioning.py
+          python -m mypy
+
+      - name: Commit correction and remove one-shot workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/apply-pr27-compatibility-fix.yml
+          git add engines/metabolic/metabolic_profiler.py tests/pytest_metabolic_policy_versioning.py
+          git commit -m 'fix: preserve sprint VO2 fallback after calibration extraction'
+          git push origin HEAD:integration/metabolic-hardening-phases-1-6
