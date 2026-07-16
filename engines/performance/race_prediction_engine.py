@@ -24,28 +24,16 @@ from dataclasses import dataclass
 from math import atan, cos, radians, sin, sqrt
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
-import warnings
-import xml.etree.ElementTree as ET
-
-try:
-    # defusedxml hardens against entity-expansion ("billion laughs"),
-    # external-entity (XXE) and DTD-retrieval attacks on untrusted GPX.
-    from defusedxml.ElementTree import fromstring as _safe_xml_fromstring
-
-    _XML_HARDENED = True
-except ImportError:  # pragma: no cover - falls back if dependency missing
-    warnings.warn(
-        "defusedxml is not installed; GPX parsing falls back to xml.etree and is less hardened.",
-        RuntimeWarning,
-        stacklevel=2,
-    )
-    _safe_xml_fromstring = ET.fromstring  # type: ignore[assignment]
-    _XML_HARDENED = False
 
 import numpy as np
 
+# defusedxml is a required project dependency and hardens GPX parsing against
+# entity expansion, external entities and DTD retrieval.
+from defusedxml.ElementTree import fromstring as _safe_xml_fromstring
+
 from engines.core.metric_contracts import annotate_payload
 
+_XML_HARDENED = True
 
 EARTH_RADIUS_M = 6_371_000.0
 G = 9.80665
@@ -181,7 +169,7 @@ def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2.0 * EARTH_RADIUS_M * atan(sqrt(a) / max(sqrt(1.0 - a), 1e-12))
 
 
-def _xml_namespace(root: ET.Element) -> str:
+def _xml_namespace(root: Any) -> str:
     if root.tag.startswith("{"):
         return root.tag.split("}", 1)[0][1:]
     return ""

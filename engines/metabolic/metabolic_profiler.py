@@ -5,10 +5,13 @@ Backend module for Physiological Reverse Engineering (MMP -> Phenotype).
 No external dependencies beyond numpy and scipy.
 """
 
+from dataclasses import dataclass
+from datetime import datetime
+import logging
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 from scipy.optimize import least_squares
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
 
 from engines.core.athlete_context import AthleteContext
 from engines.core.metric_contracts import annotate_payload
@@ -29,13 +32,117 @@ from engines.metabolic.mader_constants import (
     MaderConstants,
     RegularizationWeights,
 )
+from engines.metabolic.metabolic_calibration import (
+    DEFAULT_METABOLIC_CALIBRATION,
+    MetabolicCalibration,
+)
+from engines.metabolic.metabolic_fit_policy import (
+    DEFAULT_METABOLIC_FIT_POLICY,
+    MetabolicFitPolicy,
+)
 
 __all__ = [
     "ExpressivenessReport",
     "MaderConstants",
+    "MetabolicCalibration",
+    "MetabolicFitPolicy",
     "MetabolicProfiler",
     "RegularizationWeights",
 ]
+
+
+logger = logging.getLogger(__name__)
+
+
+class _MetabolicFitError(RuntimeError):
+    """Internal fitting failure whose public representation must stay stable."""
+
+
+@dataclass
+class _PreparedSnapshotInputs:
+    """Normalized inputs and audits shared by all fitting stages."""
+
+    mmp: Dict[int, float]
+    mmp_quality_audit: Optional[Dict[str, Any]]
+    input_audit: Dict[str, Any]
+    expressiveness: ExpressivenessReport
+
+
+@dataclass
+class _MetabolicFitContext:
+    """Immutable-by-convention numerical inputs for one joint fit."""
+
+    mmp: Dict[int, float]
+    all_durs: np.ndarray
+    all_pows: np.ndarray
+    durs_u: np.ndarray
+    pows_u: np.ndarray
+    weights: np.ndarray
+    sprint_fit_floor_s: float
+    vo2_guess: float
+    fixed_eta: float
+    resolved_measured_lacap: Optional[float]
+    fixed_pcr: float
+    vla_init: float
+    w_grid: np.ndarray
+    obs_thr: Optional[float]
+    vo2_floor: float
+    mlss_ratio_ceiling: float
+    input_audit: Dict[str, Any]
+    fit_diagnostics: Dict[str, Any]
+
+
+@dataclass
+class _MetabolicFitSelection:
+    """Selected optimizer solution and APR metadata."""
+
+    result: Any
+    vo2: float
+    vlamax: float
+    apr_band: Optional[Tuple[float, float, float]]
+    apr_gated: bool
+
+
+@dataclass
+class _PreparedSegmentedInputs:
+    """Normalized inputs and provenance for the two-stage fit."""
+
+    mmp: Dict[int, float]
+    aerobic_mmp: Dict[int, float]
+    input_audit: Dict[str, Any]
+    aerobic_min_duration_s: float
+    aerobic_duration_source: str
+
+
+@dataclass
+class _SegmentedParameterPair:
+    """Final parameter pair assembled from the two fitting domains."""
+
+    vo2max: float
+    vlamax: float
+    fixed_eta: float
+    lactate_capacity: float
+    context_used: Dict[str, Any]
+
+
+@dataclass
+class _SegmentedDerivedOutputs:
+    """Outputs recomputed from the final segmented parameter pair."""
+
+    w_mlss: float
+    w_fat: float
+    map_w: float
+    expressiveness: ExpressivenessReport
+    unmasked: Dict[str, Any]
+    vo2_out: Optional[float]
+    vlamax_out: Optional[float]
+    mlss_out: Optional[float]
+    mlss_wkg_out: Optional[float]
+    fatmax_out: Optional[float]
+    cross_validation: Any
+    confidence: float
+    curve_maximality: Optional[Dict[str, Any]]
+    combustion_curve: List[Dict[str, Any]]
 
 
 class MetabolicProfiler:
@@ -44,25 +151,356 @@ class MetabolicProfiler:
         weight: float,
         context: Optional[AthleteContext] = None,
         mader_constants: Optional[MaderConstants] = None,
+        fit_policy: Optional[MetabolicFitPolicy] = None,
+        calibration: Optional[MetabolicCalibration] = None,
     ):
-        self.weight = max(40.0, float(weight))
+        self.fit_policy = fit_policy if fit_policy is not None else DEFAULT_METABOLIC_FIT_POLICY
+        self.calibration = (
+            calibration if calibration is not None else DEFAULT_METABOLIC_CALIBRATION
+        )
+        provided_weight = float(weight)
+        self.weight = max(self.fit_policy.minimum_weight_kg, provided_weight)
         self.context = context if context is not None else AthleteContext()
         self.const = mader_constants if mader_constants is not None else MaderConstants()
         self.reg = RegularizationWeights()
 
-        fat_pct = float(np.clip(self.context.effective_body_fat(), 3.0, 55.0))
-        ffm = self.weight * (1.0 - fat_pct / 100.0)
+        raw_body_fat = getattr(self.context, "body_fat_pct", None)
+        effective_fat_pct = float(self.context.effective_body_fat())
+        self.body_fat_pct = float(
+            np.clip(
+                effective_fat_pct,
+                self.fit_policy.minimum_body_fat_pct,
+                self.fit_policy.maximum_body_fat_pct,
+            )
+        )
+        ffm = self.weight * (1.0 - self.body_fat_pct / 100.0)
         self.active_muscle_mass = ffm * self.context.active_muscle_fraction()
+        body_fat_audit = self._numeric_input_audit(
+            provided=raw_body_fat,
+            used=self.body_fat_pct,
+            source="athlete_context",
+            minimum=self.fit_policy.minimum_body_fat_pct,
+            maximum=self.fit_policy.maximum_body_fat_pct,
+        )
+        try:
+            raw_body_fat_is_valid = raw_body_fat is not None and np.isfinite(float(raw_body_fat))
+        except (TypeError, ValueError):
+            raw_body_fat_is_valid = False
+        if not raw_body_fat_is_valid:
+            body_fat_audit.update(
+                {
+                    "status": "defaulted",
+                    "source": "athlete_context_default",
+                }
+            )
+        self._constructor_input_audit = {
+            "weight_kg": self._numeric_input_audit(
+                provided=provided_weight,
+                used=self.weight,
+                source="constructor_argument",
+                minimum=self.fit_policy.minimum_weight_kg,
+                maximum=None,
+            ),
+            "body_fat_pct": body_fat_audit,
+        }
 
-    def _coerce_mmp_dict(self, mmp: Dict[Any, Any]) -> Dict[int, float]:
+    def _model_configuration_manifest(self) -> Dict[str, Any]:
+        """Return the versioned configuration needed to reproduce a snapshot."""
+        return {
+            "schema_version": "1.0",
+            "fit_policy": self.fit_policy.to_dict(),
+            "empirical_calibration": self.calibration.to_dict(),
+            "mader_constants": self.const.to_dict(),
+            "regularization_weights": self.reg.to_dict(),
+            "runtime_parameters": {},
+        }
+
+    def _record_runtime_parameter(
+        self,
+        snap: Dict[str, Any],
+        *,
+        name: str,
+        value: Any,
+        source: str,
+    ) -> Dict[str, Any]:
+        """Attach an effective per-call override without mutating shared policy."""
+        configuration = snap.setdefault(
+            "model_configuration",
+            self._model_configuration_manifest(),
+        )
+        runtime = configuration.setdefault("runtime_parameters", {})
+        runtime[name] = {"value": value, "source": source}
+        return snap
+
+    @staticmethod
+    def _json_safe_input_value(value: Any) -> Any:
+        """Return a compact JSON-safe representation for input audit details."""
+        if value is None or isinstance(value, (str, bool, int)):
+            return value
+        if isinstance(value, (float, np.floating)):
+            numeric = float(value)
+            return numeric if np.isfinite(numeric) else repr(numeric)
+        try:
+            text = repr(value)
+        except Exception:
+            text = f"<{type(value).__name__}>"
+        return text if len(text) <= 120 else f"{text[:117]}..."
+
+    @staticmethod
+    def _numeric_input_audit(
+        *,
+        provided: Any,
+        used: Optional[float],
+        source: str,
+        minimum: Optional[float],
+        maximum: Optional[float],
+    ) -> Dict[str, Any]:
+        """Describe whether a numeric input was accepted, clipped or inferred."""
+        if provided is None:
+            status = "resolved" if used is not None else "inferred_during_fit"
+        else:
+            try:
+                provided_numeric = float(provided)
+            except (TypeError, ValueError):
+                provided_numeric = None
+            status = (
+                "accepted"
+                if provided_numeric is not None
+                and used is not None
+                and np.isfinite(provided_numeric)
+                and np.isclose(provided_numeric, used, rtol=0.0, atol=1e-12)
+                else "clipped"
+            )
+        return {
+            "provided": MetabolicProfiler._json_safe_input_value(provided),
+            "used": MetabolicProfiler._json_safe_input_value(used),
+            "source": source,
+            "status": status,
+            "supported_range": {"min": minimum, "max": maximum},
+        }
+
+    def _base_input_audit(
+        self,
+        *,
+        mmp_raw: Any,
+        expected_eta: Any,
+        measured_lacap: Any,
+    ) -> Dict[str, Any]:
+        """Create the per-call audit shell before MMP normalization and fitting."""
+        provided_anchor_count = len(mmp_raw) if isinstance(mmp_raw, dict) else None
+        return {
+            "schema_version": "1.0",
+            "has_adjustments": any(
+                item.get("status") == "clipped"
+                for item in self._constructor_input_audit.values()
+            ),
+            "summary": {
+                "clipped_fields": [
+                    field
+                    for field, item in self._constructor_input_audit.items()
+                    if item.get("status") == "clipped"
+                ],
+                "discarded_mmp_anchors": 0,
+                "duplicate_mmp_durations": 0,
+                "quality_cleaner_removed_mmp_anchors": 0,
+            },
+            "athlete": {
+                field: dict(item)
+                for field, item in self._constructor_input_audit.items()
+            },
+            "model_inputs": {
+                "expected_eta": {
+                    "provided": self._json_safe_input_value(expected_eta),
+                    "used": None,
+                    "source": "argument" if expected_eta is not None else "athlete_context",
+                    "status": "pending_resolution",
+                    "supported_range": {
+                        "min": self.fit_policy.minimum_eta,
+                        "max": self.fit_policy.maximum_eta,
+                    },
+                },
+                "measured_lacap_mmol_L": {
+                    "provided": self._json_safe_input_value(measured_lacap),
+                    "used": None,
+                    "source": "argument" if measured_lacap is not None else "model_inferred",
+                    "status": (
+                        "pending_resolution"
+                        if measured_lacap is not None
+                        else "inferred_during_fit"
+                    ),
+                    "supported_range": {
+                        "min": self.fit_policy.minimum_lacap_mmol_l,
+                        "max": self.fit_policy.maximum_lacap_mmol_l,
+                    },
+                },
+            },
+            "mmp": {
+                "input_type": type(mmp_raw).__name__,
+                "provided_anchor_count": provided_anchor_count,
+                "valid_anchor_observations": 0,
+                "accepted_anchor_count": 0,
+                "used_anchor_count": 0,
+                "discarded_anchor_count": 0,
+                "duplicate_duration_count": 0,
+                "normalized_key_count": 0,
+                "duplicate_resolution": "last_value_wins",
+                "clean_mmp_first": False,
+                "quality_cleaner_removed_anchor_count": 0,
+                "discarded_anchors": [],
+                "duplicate_durations": [],
+                "details_truncated": False,
+            },
+        }
+
+    @staticmethod
+    def _refresh_input_audit_summary(input_audit: Dict[str, Any]) -> None:
+        """Synchronize compact summary fields after an audit section changes."""
+        clipped_fields: List[str] = []
+        for section_name in ("athlete", "model_inputs"):
+            for field, item in (input_audit.get(section_name) or {}).items():
+                if isinstance(item, dict) and item.get("status") == "clipped":
+                    clipped_fields.append(field)
+        mmp_audit = input_audit.get("mmp") or {}
+        discarded = int(mmp_audit.get("discarded_anchor_count") or 0)
+        duplicates = int(mmp_audit.get("duplicate_duration_count") or 0)
+        cleaner_removed = int(mmp_audit.get("quality_cleaner_removed_anchor_count") or 0)
+        input_audit["summary"] = {
+            "clipped_fields": clipped_fields,
+            "discarded_mmp_anchors": discarded,
+            "duplicate_mmp_durations": duplicates,
+            "quality_cleaner_removed_mmp_anchors": cleaner_removed,
+        }
+        input_audit["has_adjustments"] = bool(
+            clipped_fields or discarded or duplicates or cleaner_removed
+        )
+
+    @staticmethod
+    def _merge_stage_input_audit(
+        target: Dict[str, Any],
+        stage_audit: Any,
+    ) -> Dict[str, Any]:
+        """Merge resolved model fields into a full-raw audit without losing MMP provenance."""
+        if not isinstance(stage_audit, dict):
+            return target
+        if isinstance(stage_audit.get("model_inputs"), dict):
+            target["model_inputs"] = {
+                field: dict(item) if isinstance(item, dict) else item
+                for field, item in stage_audit["model_inputs"].items()
+            }
+        stage_mmp = stage_audit.get("mmp") or {}
+        target_mmp = target.get("mmp") or {}
+        for field in (
+            "clean_mmp_first",
+            "quality_cleaner_removed_anchor_count",
+            "used_anchor_count",
+        ):
+            if field in stage_mmp:
+                target_mmp[field] = stage_mmp[field]
+        target["mmp"] = target_mmp
+        MetabolicProfiler._refresh_input_audit_summary(target)
+        return target
+
+    @staticmethod
+    def _optimizer_diagnostics(result: Any) -> Dict[str, Any]:
+        """Return a compact, JSON-safe summary of a SciPy least-squares result."""
+
+        def _finite_float(value: Any) -> Optional[float]:
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                return None
+            return numeric if np.isfinite(numeric) else None
+
+        status = getattr(result, "status", None)
+        nfev = getattr(result, "nfev", None)
+        njev = getattr(result, "njev", None)
+        return {
+            "converged": bool(getattr(result, "success", False)),
+            "status_code": int(status) if status is not None else None,
+            "function_evaluations": int(nfev) if nfev is not None else None,
+            "jacobian_evaluations": int(njev) if njev is not None else None,
+            "optimality": _finite_float(getattr(result, "optimality", None)),
+            "cost": _finite_float(getattr(result, "cost", None)),
+        }
+
+    @staticmethod
+    def _fit_diagnostic_quality_flags(diagnostics: Any) -> List[str]:
+        """Translate joint or segmented fit diagnostics into model quality flags."""
+        if not isinstance(diagnostics, dict):
+            return []
+
+        flags: set[str] = set()
+        selected_optimizer = diagnostics.get("selected_optimizer") or {}
+        if selected_optimizer and selected_optimizer.get("converged") is False:
+            flags.add("selected_optimizer_not_converged")
+
+        if any(
+            int(diagnostics.get(field) or 0) > 0
+            for field in (
+                "exception_starts",
+                "invalid_result_starts",
+                "nonconverged_starts",
+            )
+        ):
+            flags.add("multistart_partial_failures")
+
+        for stage in ("aerobic_stage", "full_curve_stage"):
+            flags.update(MetabolicProfiler._fit_diagnostic_quality_flags(diagnostics.get(stage)))
+        return sorted(flags)
+
+    def _coerce_mmp_dict_with_audit(
+        self,
+        mmp: Dict[Any, Any],
+        input_audit: Optional[Dict[str, Any]] = None,
+    ) -> Dict[int, float]:
+        """Normalize MMP anchors while recording discarded and duplicate inputs."""
+        if not isinstance(mmp, dict):
+            raise TypeError("MMP input must be a dictionary")
+
         out: Dict[int, float] = {}
+        source_keys: Dict[int, str] = {}
+        valid_observations = 0
+        normalized_key_count = 0
+        discarded: List[Dict[str, Any]] = []
+        duplicates: List[Dict[str, Any]] = []
+        detail_limit = self.fit_policy.input_audit_detail_limit
+
+        def _append_limited(target: List[Dict[str, Any]], detail: Dict[str, Any]) -> None:
+            if len(target) < detail_limit:
+                target.append(detail)
+
         for k, w in mmp.items():
+            key_repr = str(self._json_safe_input_value(k))
             if w is None:
+                _append_limited(
+                    discarded,
+                    {"key": key_repr, "provided_power": None, "reason": "missing_power"},
+                )
                 continue
             try:
                 wf = float(w)
-                if wf <= 0.0:
-                    continue
+            except (TypeError, ValueError):
+                _append_limited(
+                    discarded,
+                    {
+                        "key": key_repr,
+                        "provided_power": self._json_safe_input_value(w),
+                        "reason": "invalid_power",
+                    },
+                )
+                continue
+            if not np.isfinite(wf) or wf <= 0.0:
+                _append_limited(
+                    discarded,
+                    {
+                        "key": key_repr,
+                        "provided_power": self._json_safe_input_value(w),
+                        "reason": "non_positive_or_non_finite_power",
+                    },
+                )
+                continue
+
+            try:
                 k_str = str(k).strip().lower()
                 if k_str.endswith("s"):
                     sec = int(float(k_str[:-1]))
@@ -70,10 +508,75 @@ class MetabolicProfiler:
                     sec = int(float(k_str[:-1]) * 60.0)
                 else:
                     sec = int(float(k_str))
-                out[sec] = wf
             except (TypeError, ValueError):
+                _append_limited(
+                    discarded,
+                    {
+                        "key": key_repr,
+                        "provided_power": self._json_safe_input_value(w),
+                        "reason": "invalid_duration",
+                    },
+                )
                 continue
+
+            if sec <= 0:
+                _append_limited(
+                    discarded,
+                    {
+                        "key": key_repr,
+                        "provided_power": self._json_safe_input_value(w),
+                        "normalized_duration_s": sec,
+                        "reason": "non_positive_duration",
+                    },
+                )
+                continue
+
+            valid_observations += 1
+            if not (
+                isinstance(k, int)
+                and not isinstance(k, bool)
+                and int(k) == sec
+            ):
+                normalized_key_count += 1
+
+            if sec in out:
+                _append_limited(
+                    duplicates,
+                    {
+                        "duration_s": sec,
+                        "previous_key": source_keys.get(sec),
+                        "previous_power_w": out[sec],
+                        "replacement_key": key_repr,
+                        "replacement_power_w": wf,
+                        "resolution": "last_value_wins",
+                    },
+                )
+            out[sec] = wf
+            source_keys[sec] = key_repr
+
+        if input_audit is not None:
+            mmp_audit = input_audit["mmp"]
+            mmp_audit.update(
+                {
+                    "valid_anchor_observations": valid_observations,
+                    "accepted_anchor_count": len(out),
+                    "used_anchor_count": len(out),
+                    "discarded_anchor_count": len(mmp) - valid_observations,
+                    "duplicate_duration_count": valid_observations - len(out),
+                    "normalized_key_count": normalized_key_count,
+                    "discarded_anchors": discarded,
+                    "duplicate_durations": duplicates,
+                    "details_truncated": (
+                        (len(mmp) - valid_observations) > len(discarded)
+                        or (valid_observations - len(out)) > len(duplicates)
+                    ),
+                }
+            )
+            self._refresh_input_audit_summary(input_audit)
         return dict(sorted(out.items()))
+
+    def _coerce_mmp_dict(self, mmp: Dict[Any, Any]) -> Dict[int, float]:
+        return self._coerce_mmp_dict_with_audit(mmp)
 
     def _pcr_prior_watts(self) -> float:
         return float(np.clip(
@@ -83,7 +586,10 @@ class MetabolicProfiler:
         ))
 
     def _metabolic_rates(self, w: np.ndarray, vo2: float, vla: float, eta_base: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        coeff_w_to_vo2 = 10.8 * (0.23 / eta_base)
+        coeff_w_to_vo2 = (
+            self.calibration.watts_to_vo2_coefficient
+            * (self.calibration.reference_efficiency / eta_base)
+        )
         vo2_req = self.const.vo2_basale + coeff_w_to_vo2 * (w / self.weight)
         vo2_act = np.minimum(vo2_req, vo2 - self.const.eps)
         denom = np.maximum(self.const.eps, vo2 - vo2_act)
@@ -94,11 +600,31 @@ class MetabolicProfiler:
 
     def _lactate_kin_tau(self, vo2: float, vla: float) -> float:
         floor = self.context.tau_base_floor()
-        tau_base = floor + np.clip(80.0 - vo2, 0.0, 40.0) * 0.4
-        return float(np.clip(tau_base + np.clip(vla - 0.30, 0.0, 1.0) * 15.0, 12.0, 65.0))
+        tau_base = floor + np.clip(
+            self.calibration.tau_vo2_anchor - vo2,
+            0.0,
+            self.calibration.tau_vo2_span,
+        ) * self.calibration.tau_vo2_slope
+        return float(
+            np.clip(
+                tau_base
+                + np.clip(
+                    vla - self.calibration.tau_vlamax_anchor,
+                    0.0,
+                    self.calibration.tau_vlamax_span,
+                )
+                * self.calibration.tau_vlamax_slope,
+                self.calibration.tau_min_s,
+                self.calibration.tau_max_s,
+            )
+        )
 
     def _cap_factor(self, seconds: float) -> float:
-        return float(1.5 + 2.5 * np.exp(-seconds / 120.0))
+        return float(
+            self.calibration.cap_factor_base
+            + self.calibration.cap_factor_amplitude
+            * np.exp(-seconds / self.calibration.cap_factor_decay_s)
+        )
 
     def _solve_root_last_crossing(self, diff: np.ndarray, w: np.ndarray) -> float:
         if diff.size < 2:
@@ -118,10 +644,18 @@ class MetabolicProfiler:
         return float(w[int(np.argmin(np.abs(diff)))])
 
     def _map_estimate(self, vo2: float, eta_base: float) -> float:
-        return float(np.clip((vo2 - self.const.vo2_basale) * self.weight / 10.8 * (eta_base / 0.23), 50.0, 2500.0))
+        return float(
+            np.clip(
+                (vo2 - self.const.vo2_basale)
+                * self.weight
+                / self.calibration.watts_to_vo2_coefficient
+                * (eta_base / self.calibration.reference_efficiency),
+                self.calibration.map_power_min_w,
+                self.calibration.map_power_max_w,
+            )
+        )
 
-    @staticmethod
-    def _apr_vlamax_band(mmp: Dict[int, float], map_provisional: float) -> Optional[Tuple[float, float, float]]:
+    def _apr_vlamax_band(self, mmp: Dict[int, float], map_provisional: float) -> Optional[Tuple[float, float, float]]:
         """
         Expected VLamax band from the Anaerobic Power Reserve.
 
@@ -157,15 +691,28 @@ class MetabolicProfiler:
         # constraint by design — it excludes the impossible corner (high
         # VLamax + low sprint) without forcing a value on genuine diesels,
         # who can sit near the floor even when a virtual platform sprint inflates APR.
-        vla_low = float(np.clip(0.10 + 0.12 * max(0.0, apr_ratio - 0.8), 0.10, 0.40))
-        vla_high = float(np.clip(0.40 + 0.38 * max(0.0, apr_ratio - 0.8), 0.40, 1.20))
+        apr_excess = max(0.0, apr_ratio - self.calibration.apr_ratio_anchor)
+        vla_low = float(
+            np.clip(
+                self.calibration.apr_vlamax_low_intercept
+                + self.calibration.apr_vlamax_low_slope * apr_excess,
+                *self.calibration.apr_vlamax_low_bounds,
+            )
+        )
+        vla_high = float(
+            np.clip(
+                self.calibration.apr_vlamax_high_intercept
+                + self.calibration.apr_vlamax_high_slope * apr_excess,
+                *self.calibration.apr_vlamax_high_bounds,
+            )
+        )
         if vla_high <= vla_low:
-            vla_high = vla_low + 0.15
+            vla_high = vla_low + self.calibration.apr_vlamax_minimum_band_width
         return (vla_low, vla_high, apr_ratio)
 
     def _pred_power(self, t: float, la_cap: float, tau: float, map_est: float, w_grid: np.ndarray, vo2_act_grid: np.ndarray, net_grid: np.ndarray) -> float:
         cap_mask = w_grid <= (map_est * self._cap_factor(t))
-        if np.count_nonzero(cap_mask) < 10:
+        if np.count_nonzero(cap_mask) < self.fit_policy.minimum_prediction_grid_points:
             cap_mask = np.ones_like(w_grid, dtype=bool)
         w, net_w, vo2_gap = w_grid[cap_mask], net_grid[cap_mask], vo2_act_grid[cap_mask] - self.const.vo2_basale
 
@@ -182,11 +729,19 @@ class MetabolicProfiler:
         return tau, map_est, vo2_act, net
 
     def _calculate_curves(self, vo2: float, vla: float, eta_base: float):
-        w: np.ndarray = np.arange(50.0, max(700.0, self.weight * 12.0) + 10.0, 5.0, dtype=float)
-        map_est = self._map_estimate(vo2, eta_base)
+        w: np.ndarray = np.arange(
+            self.calibration.curve_power_min_w,
+            max(
+                self.calibration.curve_power_floor_max_w,
+                self.weight * self.calibration.curve_power_per_kg_max,
+            )
+            + self.calibration.curve_power_step_w * 2.0,
+            self.calibration.curve_power_step_w,
+            dtype=float,
+        )
         vo2_act, p, e = self._metabolic_rates(w, vo2, vla, eta_base)
 
-        valid = vo2_act < (vo2 - 0.1)
+        valid = vo2_act < (vo2 - self.calibration.curve_vo2_margin)
         w, p, e, vo2_act = w[valid], p[valid], e[valid], vo2_act[valid]
 
         # MLSS = Maximal Lactate Steady State: the highest power at which
@@ -209,7 +764,15 @@ class MetabolicProfiler:
         w_mlss = float(w[_above[0]]) if _above.size else float(w[int(np.argmin(np.abs(net_prod)))])
         deficit = np.maximum(0.0, e - p)
         mx = float(np.max(deficit))
-        w_fat = float(np.mean(w[deficit >= 0.98 * mx])) if mx > 0 else float(w[int(np.argmax(deficit))])
+        w_fat = (
+            float(
+                np.mean(
+                    w[deficit >= self.calibration.fatmax_peak_fraction * mx]
+                )
+            )
+            if mx > 0
+            else float(w[int(np.argmax(deficit))])
+        )
 
         fat_coef = self.context.fat_oxidation_coefficient()
         cho_coef = self.context.cho_oxidation_coefficient()
@@ -247,403 +810,923 @@ class MetabolicProfiler:
         effective_cadence_rpm: Optional[float] = None,
         cadence_anchor_status: str = "unknown",
     ) -> Dict[str, Any]:
-        """
-        Generate a metabolic snapshot from a power-duration curve (MMP).
-        
-        Parameters
-        ----------
-        mmp_raw : dict
-            {duration_s_or_str: power_w}. Same as before.
-        expected_eta : float, optional
-            Override the η resolved from athlete context.
-        measured_lacap : float, optional
-            Override the inferred lactate capacity.
-        mmp_samples : list, optional
-            Per-sample provenance: [{duration_s, power_w, filename, date}, ...].
-            Used only when clean_mmp_first=True for rolling-window detection.
-        clean_mmp_first : bool, default False
-            If True, run engines.mmp_quality.clean_mmp() on the input before
-            fitting. Drops identical plateaus and rolling-window redundant
-            anchors. The audit (which anchors were dropped, what warnings
-            remain) is included in the output under "mmp_quality".
-        """
+        """Public, exception-safe entry point for metabolic snapshot generation."""
+        fallback_input_audit = self._base_input_audit(
+            mmp_raw=mmp_raw,
+            expected_eta=expected_eta,
+            measured_lacap=measured_lacap,
+        )
+        try:
+            return self._generate_metabolic_snapshot_impl(
+                mmp_raw,
+                expected_eta=expected_eta,
+                measured_lacap=measured_lacap,
+                mmp_samples=mmp_samples,
+                clean_mmp_first=clean_mmp_first,
+                effective_cadence_rpm=effective_cadence_rpm,
+                cadence_anchor_status=cadence_anchor_status,
+            )
+        except Exception:
+            input_anchor_count = len(mmp_raw) if isinstance(mmp_raw, dict) else None
+            logger.exception(
+                "metabolic_snapshot_input_processing_failed",
+                extra={
+                    "input_type": type(mmp_raw).__name__,
+                    "input_anchor_count": input_anchor_count,
+                    "clean_mmp_first": clean_mmp_first,
+                },
+            )
+            return self._finalize_snapshot(
+                {
+                    "status": "error",
+                    "error_code": "metabolic_input_processing_failed",
+                    "message": "Metabolic snapshot input could not be processed.",
+                    "input_audit": fallback_input_audit,
+                    "fit_diagnostics": {
+                        "fit_method": "joint",
+                        "input_anchor_count": input_anchor_count,
+                        "attempted_starts": 0,
+                        "candidate_starts": 0,
+                        "converged_starts": 0,
+                        "nonconverged_starts": 0,
+                        "exception_starts": 0,
+                        "invalid_result_starts": 0,
+                    },
+                },
+                None,
+                effective_cadence_rpm=effective_cadence_rpm,
+                cadence_anchor_status=cadence_anchor_status,
+            )
+
+    def _prepare_snapshot_inputs(
+        self,
+        mmp_raw: Dict[Any, Any],
+        *,
+        expected_eta: Optional[float],
+        measured_lacap: Optional[float],
+        mmp_samples: Optional[List[Dict[str, Any]]],
+        clean_mmp_first: bool,
+    ) -> _PreparedSnapshotInputs:
+        """Normalize the MMP and build the expressiveness and input audits."""
         mmp_quality_audit: Optional[Dict[str, Any]] = None
-        
+        input_audit = self._base_input_audit(
+            mmp_raw=mmp_raw,
+            expected_eta=expected_eta,
+            measured_lacap=measured_lacap,
+        )
+        normalized_mmp = self._coerce_mmp_dict_with_audit(mmp_raw, input_audit)
+
         if clean_mmp_first:
-            # Local import to avoid hard dependency if user never enables this
+            # Local import to avoid a hard dependency when cleaning is disabled.
             from engines.performance.mmp_quality import analyze_mmp_quality, clean_mmp
+
             cleaned_dict, mmp_quality_audit = clean_mmp(mmp_raw, mmp_samples)
             mmp = cleaned_dict
-            # Add the full report (quality_score, classification, issues)
+            input_audit["mmp"]["clean_mmp_first"] = True
+            input_audit["mmp"]["used_anchor_count"] = len(mmp)
+            input_audit["mmp"]["quality_cleaner_removed_anchor_count"] = max(
+                0,
+                len(normalized_mmp) - len(mmp),
+            )
             full_report = analyze_mmp_quality(mmp_raw, mmp_samples)
             mmp_quality_audit["analysis"] = full_report.to_dict()
         else:
-            mmp = self._coerce_mmp_dict(mmp_raw)
-        
-        # ====================================================================
-        # Expressiveness gate (v3.5.0)
-        # Before fitting, check that the MMP covers the duration windows
-        # required for each parameter. If coverage is missing for a
-        # parameter, the corresponding estimate will be flagged unreliable
-        # in the output, instead of silently producing a number that
-        # depends on a non-existent anchor.
-        # ====================================================================
-        expressiveness = ExpressivenessReport.from_mmp(mmp)
-        
-        if len(mmp) < 3:
-            return self._finalize_snapshot(
-                {"status": "error", "message": "Insufficient MMP anchors. At least 3 durations required."},
-                mmp_quality_audit,
-            )
+            mmp = normalized_mmp
+            input_audit["mmp"]["clean_mmp_first"] = False
 
-        # The Mader model describes the aerobic + glycolytic response; it does
-        # not model the pure-alactic (PCr) sprint, so anchors below ~30 s are
-        # mispredicted by hundreds of watts and, left in the fit, dominate the
-        # residual and drag the optimizer into non-physiological basins. We
-        # keep the full curve for APR (which *needs* the sprint anchor) but fit
-        # only durations >= sprint_fit_floor_s. If too few remain, we relax the
-        # floor so the fit still has >= 3 anchors.
-        sprint_fit_floor_s = 30.0
+        self._refresh_input_audit_summary(input_audit)
+        return _PreparedSnapshotInputs(
+            mmp=mmp,
+            mmp_quality_audit=mmp_quality_audit,
+            input_audit=input_audit,
+            expressiveness=ExpressivenessReport.from_mmp(mmp),
+        )
+
+    def _build_fit_context(
+        self,
+        prepared: _PreparedSnapshotInputs,
+        *,
+        expected_eta: Optional[float],
+        measured_lacap: Optional[float],
+    ) -> _MetabolicFitContext:
+        """Resolve arrays, weights, bounds and observed anchors for one fit."""
+        mmp = prepared.mmp
+        input_audit = prepared.input_audit
+        sprint_fit_floor_s = self.fit_policy.sprint_fit_floor_s
         all_durs = np.array(list(mmp.keys()), dtype=float)
         all_pows = np.array(list(mmp.values()), dtype=float)
         fit_mask = all_durs >= sprint_fit_floor_s
-        if int(np.count_nonzero(fit_mask)) < 3:
-            fit_mask = np.ones_like(all_durs, dtype=bool)  # relax: too little data
+        if int(np.count_nonzero(fit_mask)) < self.fit_policy.minimum_fit_anchors:
+            fit_mask = np.ones_like(all_durs, dtype=bool)
             sprint_fit_floor_s = 0.0
         durs_u = all_durs[fit_mask]
         pows_u = all_pows[fit_mask]
 
         logt = np.log(np.maximum(durs_u, 1.0))
-        weights = 0.35 + 0.65 * (
-            np.exp(-0.5 * ((logt - np.log(360.0)) / 0.8) ** 2)
-            * np.clip(durs_u / 20.0, 0.25, 1.0)
-            * np.clip(900.0 / np.maximum(durs_u, 900.0), 0.6, 1.0)
+        weights = self.calibration.weight_baseline + self.calibration.weight_peak_amplitude * (
+            np.exp(
+                -0.5
+                * (
+                    (logt - np.log(self.calibration.weight_peak_duration_s))
+                    / self.calibration.weight_log_sigma
+                )
+                ** 2
+            )
+            * np.clip(
+                durs_u / self.calibration.weight_short_reference_s,
+                self.calibration.weight_short_min,
+                1.0,
+            )
+            * np.clip(
+                self.calibration.weight_long_reference_s
+                / np.maximum(durs_u, self.calibration.weight_long_reference_s),
+                self.calibration.weight_long_min,
+                1.0,
+            )
         )
         weights /= np.max(weights)
 
-        vo2_guess = float(np.clip(max(35.0, min(85.0, (pows_u[int(np.argmax(weights))] / self.weight) * 12.0)), 25.0, 95.0))
+        vo2_guess = float(
+            np.clip(
+                max(
+                    self.calibration.vo2_guess_floor,
+                    min(
+                        self.calibration.vo2_guess_ceiling,
+                        (pows_u[int(np.argmax(weights))] / self.weight)
+                        * self.calibration.vo2_guess_power_multiplier,
+                    ),
+                ),
+                self.fit_policy.optimizer_vo2_min,
+                self.fit_policy.optimizer_vo2_max,
+            )
+        )
 
-        if expected_eta is None:
-            expected_eta = self.context.expected_eta()
-        fixed_eta = float(np.clip(expected_eta, 0.18, 0.28))
+        eta_provided = expected_eta
+        eta_resolved = (
+            float(self.context.expected_eta())
+            if expected_eta is None
+            else float(expected_eta)
+        )
+        fixed_eta = float(
+            np.clip(
+                eta_resolved,
+                self.fit_policy.minimum_eta,
+                self.fit_policy.maximum_eta,
+            )
+        )
+        input_audit["model_inputs"]["expected_eta"] = self._numeric_input_audit(
+            provided=eta_provided,
+            used=fixed_eta,
+            source="athlete_context" if eta_provided is None else "argument",
+            minimum=self.fit_policy.minimum_eta,
+            maximum=self.fit_policy.maximum_eta,
+        )
+
+        resolved_measured_lacap: Optional[float] = None
+        if measured_lacap is not None:
+            measured_lacap_numeric = float(measured_lacap)
+            resolved_measured_lacap = float(
+                np.clip(
+                    measured_lacap_numeric,
+                    self.fit_policy.minimum_lacap_mmol_l,
+                    self.fit_policy.maximum_lacap_mmol_l,
+                )
+            )
+            input_audit["model_inputs"]["measured_lacap_mmol_L"] = (
+                self._numeric_input_audit(
+                    provided=measured_lacap_numeric,
+                    used=resolved_measured_lacap,
+                    source="argument",
+                    minimum=self.fit_policy.minimum_lacap_mmol_l,
+                    maximum=self.fit_policy.maximum_lacap_mmol_l,
+                )
+            )
+        self._refresh_input_audit_summary(input_audit)
+
         fixed_pcr = self._pcr_prior_watts()
         vla_init = self.context.vlamax_initial_guess()
-
         w_grid: np.ndarray = np.arange(
             self.const.w_min,
-            max(2000.0, self.weight * 30.0) + self.const.w_step,
+            max(
+                self.calibration.fit_grid_floor_max_w,
+                self.weight * self.calibration.fit_grid_power_per_kg_max,
+            )
+            + self.const.w_step,
             self.const.w_step,
             dtype=float,
         )
 
-        # Aerobic floor: the long-duration power the athlete actually
-        # sustained sets a hard physiological lower bound on VO2max. MLSS
-        # power demands a certain aerobic supply, and VO2max must exceed it.
-        # We compute this from the OBSERVED threshold-window power (a direct
-        # measurement, not a model output) and use it to keep the optimizer
-        # out of the degenerate basin where it trades a too-low VO2max
-        # against an inflated VLamax. (This basin exists for some weight/
-        # curve combinations and produced non-physical fits, e.g. an
-        # 88 kg athlete sustaining 265 W for 1 h fitting to VO2max≈30.)
         mmp_for_obs = {int(d): float(p) for d, p in zip(durs_u, pows_u) if p > 0}
         obs_thr = observed_threshold_power(mmp_for_obs)
-        coeff_w_to_vo2 = 10.8 * (0.23 / fixed_eta)
+        coeff_w_to_vo2 = (
+            self.calibration.watts_to_vo2_coefficient
+            * (self.calibration.reference_efficiency / fixed_eta)
+        )
         if obs_thr is not None and obs_thr > 0:
-            # Aerobic demand of sustained threshold power (+ small margin,
-            # since VO2max sits above MLSS). Uses the same observable as
-            # cross_validation_engine (longest threshold-window effort).
-            vo2_floor = self.const.vo2_basale + coeff_w_to_vo2 * (obs_thr / self.weight) * 1.05
+            vo2_floor = (
+                self.const.vo2_basale
+                + coeff_w_to_vo2
+                * (obs_thr / self.weight)
+                * self.calibration.observed_threshold_vo2_margin
+            )
         else:
             vo2_floor = 0.0
-        mlss_ratio_ceiling = 1.10
 
-        def cost_fn(x: np.ndarray) -> np.ndarray:
-            vo2, vla = map(float, x)
-            la_cap = (
-                float(np.clip(10.0 + (vla - 0.2) * 15.0, 8.0, 30.0))
-                if measured_lacap is None
-                else float(np.clip(measured_lacap, 8.0, 30.0))
+        fit_diagnostics: Dict[str, Any] = {
+            "fit_method": "joint",
+            "input_anchor_count": len(mmp),
+            "fit_anchor_count": int(durs_u.size),
+            "sprint_fit_floor_s": sprint_fit_floor_s,
+            "attempted_starts": 0,
+            "candidate_starts": 0,
+            "converged_starts": 0,
+            "nonconverged_starts": 0,
+            "exception_starts": 0,
+            "invalid_result_starts": 0,
+            "apr_gate_applied": False,
+        }
+        return _MetabolicFitContext(
+            mmp=mmp,
+            all_durs=all_durs,
+            all_pows=all_pows,
+            durs_u=durs_u,
+            pows_u=pows_u,
+            weights=weights,
+            sprint_fit_floor_s=sprint_fit_floor_s,
+            vo2_guess=vo2_guess,
+            fixed_eta=fixed_eta,
+            resolved_measured_lacap=resolved_measured_lacap,
+            fixed_pcr=fixed_pcr,
+            vla_init=vla_init,
+            w_grid=w_grid,
+            obs_thr=obs_thr,
+            vo2_floor=vo2_floor,
+            mlss_ratio_ceiling=self.calibration.mlss_observed_ratio_ceiling,
+            input_audit=input_audit,
+            fit_diagnostics=fit_diagnostics,
+        )
+
+    def _resolve_lacap(
+        self,
+        vlamax: float,
+        measured_lacap: Optional[float],
+    ) -> float:
+        """Resolve inferred or measured lactate capacity with policy bounds."""
+        if measured_lacap is not None:
+            return measured_lacap
+        return float(
+            np.clip(
+                self.calibration.lacap_intercept
+                + (vlamax - self.calibration.lacap_vlamax_anchor)
+                * self.calibration.lacap_vlamax_slope,
+                self.fit_policy.minimum_lacap_mmol_l,
+                self.fit_policy.maximum_lacap_mmol_l,
             )
+        )
 
-            tau, map_est, vo2_act, net = self._compute_grid_state(vo2, vla, fixed_eta, w_grid)
-            preds = np.array([
-                self._pred_power(t, la_cap, tau, map_est, w_grid, vo2_act, net)
-                for t in durs_u
-            ]) + (fixed_pcr * np.exp(-np.maximum(0.0, durs_u - 20.0) / 35.0))
-
-            resid = (preds - pows_u) * weights
-            # Fixed-length regularization block: scipy.least_squares requires
-            # the same residual dimension on every cost_fn evaluation.
-            vo2_floor_pen = (
-                (vo2_floor - vo2) * 5.0 if (vo2_floor > 0.0 and vo2 < vo2_floor) else 0.0
+    def _predict_fit_powers(
+        self,
+        context: _MetabolicFitContext,
+        *,
+        vo2: float,
+        vlamax: float,
+        lacap: float,
+    ) -> np.ndarray:
+        """Predict powers at the fit durations using the current model state."""
+        tau, map_est, vo2_act, net = self._compute_grid_state(
+            vo2,
+            vlamax,
+            context.fixed_eta,
+            context.w_grid,
+        )
+        return np.array(
+            [
+                self._pred_power(
+                    t,
+                    lacap,
+                    tau,
+                    map_est,
+                    context.w_grid,
+                    vo2_act,
+                    net,
+                )
+                for t in context.durs_u
+            ]
+        ) + (
+            context.fixed_pcr
+            * np.exp(
+                -np.maximum(
+                    0.0,
+                    context.durs_u - self.calibration.pcr_decay_start_s,
+                )
+                / self.calibration.pcr_decay_tau_s
             )
+        )
 
-            mlss_ceiling_pen = 0.0
-            if obs_thr is not None and obs_thr > 0:
-                w_mlss_pred, _, _, _, _ = self._calculate_curves(vo2, vla, fixed_eta)
-                ratio = float(w_mlss_pred) / obs_thr
-                if ratio > mlss_ratio_ceiling:
-                    mlss_ceiling_pen = (ratio - mlss_ratio_ceiling) * 55.0
+    def _fit_residuals(
+        self,
+        x: np.ndarray,
+        context: _MetabolicFitContext,
+    ) -> np.ndarray:
+        """Return weighted residuals plus fixed-length physiological penalties."""
+        vo2, vlamax = map(float, x)
+        lacap = self._resolve_lacap(vlamax, context.resolved_measured_lacap)
+        preds = self._predict_fit_powers(
+            context,
+            vo2=vo2,
+            vlamax=vlamax,
+            lacap=lacap,
+        )
+        resid = (preds - context.pows_u) * context.weights
+        vo2_floor_pen = (
+            (context.vo2_floor - vo2) * self.calibration.vo2_floor_penalty_scale
+            if context.vo2_floor > 0.0 and vo2 < context.vo2_floor
+            else 0.0
+        )
 
-            short_mae_pen = 0.0
-            if np.any(durs_u <= 30.0):
-                short_mae_pen = (
-                    float(np.mean(np.abs(preds[durs_u <= 30.0] - pows_u[durs_u <= 30.0])))
-                    * self.reg.short_mae_scale
+        mlss_ceiling_pen = 0.0
+        if context.obs_thr is not None and context.obs_thr > 0:
+            w_mlss_pred, _, _, _, _ = self._calculate_curves(
+                vo2,
+                vlamax,
+                context.fixed_eta,
+            )
+            ratio = float(w_mlss_pred) / context.obs_thr
+            if ratio > context.mlss_ratio_ceiling:
+                mlss_ceiling_pen = (
+                    (ratio - context.mlss_ratio_ceiling)
+                    * self.calibration.mlss_ceiling_penalty_scale
                 )
 
-            reg = [
-                (vo2 - vo2_guess) * self.reg.vo2_vs_guess,
-                (vo2 - (3.5 + (10.8 * (0.23 / fixed_eta)) * (pows_u[int(np.argmax(weights))] / self.weight)))
-                * self.reg.vo2_vs_expected_heuristic,
-                vo2_floor_pen,
-                mlss_ceiling_pen,
-                short_mae_pen,
-            ]
-            return np.concatenate([resid, np.array(reg)])
-
-        def _fit_from(x0):
-            return least_squares(
-                cost_fn, x0, bounds=([25.0, 0.10], [95.0, 1.50]), loss="soft_l1"
+        short_mae_pen = 0.0
+        short_mask = context.durs_u <= self.calibration.short_mae_duration_s
+        if np.any(short_mask):
+            short_mae_pen = (
+                float(np.mean(np.abs(preds[short_mask] - context.pows_u[short_mask])))
+                * self.reg.short_mae_scale
             )
 
-        try:
-            # APR-based VLamax band. The Anaerobic Power Reserve (sprint power
-            # minus MAP) tells us which VLamax basin is physiologically
-            # admissible. We use a provisional MAP from the aerobic guess to
-            # compute it, then prefer the lowest-cost fit whose VLamax lands
-            # inside that band — which removes the diesel/sprinter ambiguity
-            # the plain lowest-cost rule suffered from.
-            map_provisional = self._map_estimate(vo2_guess, fixed_eta)
-            apr_band = self._apr_vlamax_band(
-                {int(d): float(p) for d, p in zip(all_durs, all_pows) if p > 0},
-                map_provisional,
+        expected_vo2 = (
+            self.const.vo2_basale
+            + (
+                self.calibration.watts_to_vo2_coefficient
+                * (self.calibration.reference_efficiency / context.fixed_eta)
             )
+            * (context.pows_u[int(np.argmax(context.weights))] / self.weight)
+        )
+        reg = [
+            (vo2 - context.vo2_guess) * self.reg.vo2_vs_guess,
+            (vo2 - expected_vo2) * self.reg.vo2_vs_expected_heuristic,
+            vo2_floor_pen,
+            mlss_ceiling_pen,
+            short_mae_pen,
+        ]
+        return np.concatenate([resid, np.array(reg)])
 
-            # Dense, deterministic 2-D start mesh (VO2max x VLamax) so the
-            # optimizer visits every physiological basin regardless of how the
-            # context-derived guesses land. Without VO2max diversity the fit
-            # could miss the MLSS-coherent basin when eta shifts the surface.
-            vla_starts = [0.20, 0.35, 0.50, 0.70, 0.90]
-            if apr_band is not None:
-                vla_lo, vla_hi, _ = apr_band
-                vla_starts.append(float(np.clip((vla_lo + vla_hi) / 2.0, 0.10, 1.30)))
-            vo2_anchor = float(np.clip(vo2_guess, 25.0, 95.0))
-            vo2_floor_start = float(np.clip(max(vo2_floor, vo2_guess) + 5.0, 25.0, 95.0))
-            vo2_starts = sorted(set([
-                vo2_anchor,
-                vo2_floor_start,
-                float(np.clip(vo2_anchor - 6.0, 25.0, 95.0)),
-                float(np.clip(vo2_anchor + 8.0, 25.0, 95.0)),
-            ]))
-            start_points = [[vo2c, vlac] for vo2c in vo2_starts for vlac in vla_starts]
-
-            candidates = []  # (cost, vla, vo2, result)
-            for x0 in start_points:
-                x0c = [float(np.clip(x0[0], 25.0, 95.0)), float(np.clip(x0[1], 0.10, 1.50))]
-                try:
-                    r = _fit_from(x0c)
-                except Exception:
-                    continue
-                c = float(np.sum(r.fun ** 2))
-                candidates.append((c, float(r.x[1]), float(r.x[0]), r))
-
-            if not candidates:
-                raise RuntimeError("all starts failed")
-
-            # Basin selection. Two physiological anchors disambiguate the
-            # multiple minima of the joint fit:
-            #   1. APR band  -> which VLamax range is admissible (sprint-driven)
-            #   2. observed threshold power -> what MLSS the athlete actually
-            #      sustained, so we reject basins whose predicted MLSS drifts
-            #      far from a directly-measured long effort.
-            # We score in-band candidates by fit cost plus an MLSS-incoherence
-            # penalty, and pick the minimum. This is deterministic and stops
-            # the fit from jumping between a diesel and a sprinter solution on
-            # the same curve.
-            def _basin_score(cost: float, vo2c: float, vlac: float) -> float:
-                penalty = 0.0
-                if obs_thr is not None and obs_thr > 0:
-                    w_mlss_c, _, _, _, _ = self._calculate_curves(vo2c, vlac, fixed_eta)
-                    mlss_err = abs(float(w_mlss_c) - obs_thr) / obs_thr
-                    penalty += (mlss_err ** 2) * 1.0e6  # MLSS must track observed effort
-                # Weak tie-break only: when MLSS and cost genuinely fail to
-                # discriminate, nudge toward the APR band centre. Kept small so
-                # it never overrides a real cost/MLSS signal (which would bias
-                # genuine diesels upward).
-                if apr_band is not None:
-                    vla_centre = 0.5 * (apr_band[0] + apr_band[1])
-                    penalty += ((vlac - vla_centre) ** 2) * 2.0e3
-                return cost + penalty
-
-            apr_gated = False
-            pool = candidates
-            if apr_band is not None:
-                vla_lo, vla_hi, _ = apr_band
-                in_band = [t for t in candidates if vla_lo <= t[1] <= vla_hi]
-                if in_band:
-                    pool = in_band
-                    apr_gated = True
-
-            best_cost, _, _, best_res = min(
-                pool, key=lambda t: _basin_score(t[0], t[2], t[1])
+    def _fit_basin_score(
+        self,
+        *,
+        cost: float,
+        vo2: float,
+        vlamax: float,
+        context: _MetabolicFitContext,
+        apr_band: Optional[Tuple[float, float, float]],
+    ) -> float:
+        """Score an optimizer basin against observed threshold and APR anchors."""
+        penalty = 0.0
+        if context.obs_thr is not None and context.obs_thr > 0:
+            w_mlss, _, _, _, _ = self._calculate_curves(
+                vo2,
+                vlamax,
+                context.fixed_eta,
             )
-            res = best_res
-            vo2, vla = map(float, res.x)
-
-            final_lacap = (
-                float(np.clip(10.0 + (vla - 0.2) * 15.0, 8.0, 30.0))
-                if measured_lacap is None
-                else float(np.clip(measured_lacap, 8.0, 30.0))
+            mlss_err = abs(float(w_mlss) - context.obs_thr) / context.obs_thr
+            penalty += (mlss_err ** 2) * self.calibration.mlss_basin_penalty_scale
+        if apr_band is not None:
+            vla_centre = 0.5 * (apr_band[0] + apr_band[1])
+            penalty += (
+                (vlamax - vla_centre) ** 2
+                * self.calibration.apr_centre_tiebreak_scale
             )
-            w_mlss, w_fat, w_plot, fat_gh, cho_gh = self._calculate_curves(vo2, vla, fixed_eta)
-            map_w = self._map_estimate(vo2, fixed_eta)
+        return cost + penalty
 
-            tau, map_est, vo2_act, net = self._compute_grid_state(vo2, vla, fixed_eta, w_grid)
-            preds = np.array([
-                self._pred_power(t, final_lacap, tau, map_est, w_grid, vo2_act, net)
-                for t in durs_u
-            ]) + (fixed_pcr * np.exp(-np.maximum(0.0, durs_u - 20.0) / 35.0))
+    def _run_multistart_fit(
+        self,
+        context: _MetabolicFitContext,
+    ) -> _MetabolicFitSelection:
+        """Run deterministic multi-start optimization and select one basin."""
+        map_provisional = self._map_estimate(context.vo2_guess, context.fixed_eta)
+        apr_band = self._apr_vlamax_band(
+            {
+                int(d): float(p)
+                for d, p in zip(context.all_durs, context.all_pows)
+                if p > 0
+            },
+            map_provisional,
+        )
 
-            rel_err = float(np.sqrt(np.mean((preds - pows_u) ** 2))) / max(float(np.mean(pows_u)), 1.0)
-            confidence = float(np.clip((1.0 - (np.clip(rel_err, 0.0, 0.25) / 0.25)), 0.05, 1.0))
-
-            step = max(1, len(w_plot) // 40)
-            combustion_curve = [
-                {
-                    "watt": int(w_plot[i]),
-                    "fatOxidation": round(float(fat_gh[i]), 1),
-                    "carbOxidation": round(float(cho_gh[i]), 1)
-                }
-                for i in range(0, len(w_plot), step)
-            ]
-
-            # Apply expressiveness gating to the output values
-            # If the MMP does not cover the window needed for a parameter,
-            # set it to None and add a flag. The estimate is preserved
-            # in the `unmasked_estimates` field for debugging.
-            
-            unmasked = {
-                "estimated_vo2max": round(vo2, 1),
-                "estimated_vlamax_mmol_L_s": round(vla, 4),
-                "mlss_power_watts": round(w_mlss, 1),
-                "mlss_power_wkg": round(w_mlss / self.weight, 2),
-                "fatmax_power_watts": round(w_fat, 1),
-                "map_aerobic_watts": round(map_w, 1),
-            }
-            
-            vo2_out = unmasked["estimated_vo2max"] if expressiveness.vo2max_reliable else None
-            vla_out = unmasked["estimated_vlamax_mmol_L_s"] if expressiveness.vlamax_reliable else None
-            mlss_out = unmasked["mlss_power_watts"] if expressiveness.mlss_reliable else None
-            mlss_wkg_out = unmasked["mlss_power_wkg"] if expressiveness.mlss_reliable else None
-            fatmax_out = unmasked["fatmax_power_watts"] if expressiveness.fatmax_reliable else None
-            
-            # Confidence-of-derivation: if any flagship parameter is unreliable,
-            # global confidence cannot exceed what the weakest produces.
-            if not expressiveness.fully_expressive:
-                # Halve the global confidence to reflect masked outputs
-                confidence_effective = min(confidence, 0.40)
-            else:
-                confidence_effective = confidence
-
-            cv_result = cross_validate_metabolic_profile(
-                self, mmp, vo2, vla, eta_base=fixed_eta,
+        vla_starts = list(self.calibration.vlamax_starts)
+        if apr_band is not None:
+            vla_lo, vla_hi, _ = apr_band
+            vla_starts.append(
+                float(
+                    np.clip(
+                        (vla_lo + vla_hi) / 2.0,
+                        self.calibration.apr_midpoint_start_min,
+                        self.calibration.apr_midpoint_start_max,
+                    )
+                )
             )
-            if cv_result.coherence_penalty > 0:
-                confidence_effective = float(np.clip(
-                    confidence_effective * (1.0 - cv_result.coherence_penalty),
-                    0.05,
-                    1.0,
-                ))
+        vo2_anchor = float(
+            np.clip(
+                context.vo2_guess,
+                self.fit_policy.optimizer_vo2_min,
+                self.fit_policy.optimizer_vo2_max,
+            )
+        )
+        vo2_floor_start = float(
+            np.clip(
+                max(context.vo2_floor, context.vo2_guess)
+                + self.calibration.vo2_floor_start_offset,
+                self.fit_policy.optimizer_vo2_min,
+                self.fit_policy.optimizer_vo2_max,
+            )
+        )
+        vo2_starts = sorted(
+            set(
+                [
+                    vo2_anchor,
+                    vo2_floor_start,
+                    float(
+                        np.clip(
+                            vo2_anchor + self.calibration.vo2_lower_start_offset,
+                            self.fit_policy.optimizer_vo2_min,
+                            self.fit_policy.optimizer_vo2_max,
+                        )
+                    ),
+                    float(
+                        np.clip(
+                            vo2_anchor + self.calibration.vo2_upper_start_offset,
+                            self.fit_policy.optimizer_vo2_min,
+                            self.fit_policy.optimizer_vo2_max,
+                        )
+                    ),
+                ]
+            )
+        )
+        start_points = [
+            [vo2_start, vlamax_start]
+            for vo2_start in vo2_starts
+            for vlamax_start in vla_starts
+        ]
+        diagnostics = context.fit_diagnostics
+        diagnostics["attempted_starts"] = len(start_points)
+        candidates = []
 
-            # Curve-maximality plausibility. Expressiveness checks that the
-            # MMP *covers* the duration windows, but not that the efforts in
-            # them were maximal. A curve can be fully covered yet built
-            # entirely from sub-maximal riding (e.g. long granfondo pacing with
-            # no real sprint or short max effort). The sprint-to-endurance
-            # ratio is a physical floor: even a pure diesel sits above ~2.2.
-            # Below that, the short anchors are almost certainly sub-maximal,
-            # which biases VLamax and VO2max low — so we flag it explicitly
-            # rather than presenting the numbers as solid.
-            maximality_flag = None
-            p_short = mmp.get(5) or mmp.get(10) or mmp.get(1)
-            p_long = mmp.get(1200) or mmp.get(1800) or mmp.get(3600) or mmp.get(720)
-            if p_short and p_long and p_long > 0:
-                se_ratio = float(p_short) / float(p_long)
-                if se_ratio < 2.2:
-                    maximality_flag = {
-                        "plausible_maximal": False,
-                        "sprint_endurance_ratio": round(se_ratio, 2),
-                        "reason": (
-                            f"Sprint/endurance ratio {se_ratio:.2f} is below the physical "
-                            f"floor (~2.2): short-duration efforts look sub-maximal. "
-                            f"VLamax and VO2max are likely under-estimated; treat the "
-                            f"profile as indicative only and obtain a maximal sprint + "
-                            f"short CP efforts for a reliable anchor."
-                        ),
-                    }
-                    # A non-maximal curve cannot reliably anchor the sprint-
-                    # driven parameters; cap confidence hard.
-                    confidence_effective = min(confidence_effective, 0.15)
-
-            end_max, all_max = self.context.phenotype_thresholds()
-            snap_body: Dict[str, Any] = {
-                "status": "success",
-                "estimated_vo2max": vo2_out,
-                "estimated_vlamax_mmol_L_s": vla_out,
-                "metabolic_phenotype": self._classify_metabolic_phenotype(vla)
-                                       if expressiveness.vlamax_reliable else None,
-                "assumed_la_capacity_mmol_L": round(final_lacap, 1),
-                "mlss_power_watts": mlss_out,
-                "mlss_power_wkg": mlss_wkg_out,
-                "fatmax_power_watts": fatmax_out,
-                "map_aerobic_watts": round(map_w, 1),  # always shown; deterministic from MMP
-                "anaerobic_power_reserve": (
-                    {
-                        "apr_ratio": round(apr_band[2], 2),
-                        "vlamax_band": [round(apr_band[0], 2), round(apr_band[1], 2)],
-                        "basin_gated_by_apr": apr_gated,
-                    } if apr_band is not None else None
+        for start in start_points:
+            clipped_start = [
+                float(
+                    np.clip(
+                        start[0],
+                        self.fit_policy.optimizer_vo2_min,
+                        self.fit_policy.optimizer_vo2_max,
+                    )
                 ),
-                "confidence_score": round(confidence_effective, 3),
-                "cross_validation": cv_result.to_dict(),
-                "expressiveness": expressiveness.to_dict(),
-                "curve_maximality": maximality_flag,
-                "unmasked_estimates": unmasked,    # for debugging / audit
-                "context_used": {
-                    "gender": self.context.effective_gender(),
-                    "training_years": self.context.effective_training_years(),
-                    "discipline": self.context.effective_discipline(),
-                    "body_fat_pct": round(self.context.effective_body_fat(), 1),
-                    "resolved_eta": round(fixed_eta, 4),
-                    "vlamax_initial_guess": round(vla_init, 3),
-                    "phenotype_thresholds": list(self.context.phenotype_thresholds()),
-                    "fat_ox_coefficient": self.context.fat_oxidation_coefficient(),
-                    "cho_ox_coefficient": self.context.cho_oxidation_coefficient(),
-                    "inferred_fields": self.context.inferred_fields(),
-                    "mader_constants": self.const.to_dict(),  # for reproducibility
-                },
-                "zones": self._generate_zones(w_mlss, map_w) if expressiveness.mlss_reliable else None,
-                "combustion_curve": combustion_curve if expressiveness.vlamax_reliable else None,
-                "calculated_at": datetime.now().isoformat()
-            }
-            snap_body["glycolytic_profile"] = build_glycolytic_profile(
-                snap_body,
-                profiler=self,
-                mmp={int(k): float(v) for k, v in mmp.items()},
-                endurance_max=end_max,
-                allrounder_max=all_max,
+                float(
+                    np.clip(
+                        start[1],
+                        self.fit_policy.optimizer_vlamax_min,
+                        self.fit_policy.optimizer_vlamax_max,
+                    )
+                ),
+            ]
+            try:
+                result = least_squares(
+                    lambda x: self._fit_residuals(x, context),
+                    clipped_start,
+                    bounds=(
+                        [
+                            self.fit_policy.optimizer_vo2_min,
+                            self.fit_policy.optimizer_vlamax_min,
+                        ],
+                        [
+                            self.fit_policy.optimizer_vo2_max,
+                            self.fit_policy.optimizer_vlamax_max,
+                        ],
+                    ),
+                    loss="soft_l1",
+                )
+            except Exception as exc:
+                diagnostics["exception_starts"] += 1
+                logger.debug(
+                    "metabolic_fit_start_failed",
+                    exc_info=True,
+                    extra={
+                        "fit_start_vo2": clipped_start[0],
+                        "fit_start_vlamax": clipped_start[1],
+                        "exception_type": type(exc).__name__,
+                    },
+                )
+                continue
+
+            try:
+                result_x = np.asarray(getattr(result, "x", []), dtype=float)
+                result_fun = np.asarray(getattr(result, "fun", []), dtype=float)
+            except (TypeError, ValueError):
+                diagnostics["invalid_result_starts"] += 1
+                logger.warning(
+                    "metabolic_fit_start_returned_unreadable_result",
+                    extra={
+                        "fit_start_vo2": clipped_start[0],
+                        "fit_start_vlamax": clipped_start[1],
+                    },
+                )
+                continue
+            if (
+                result_x.size != 2
+                or result_fun.size == 0
+                or not np.all(np.isfinite(result_x))
+                or not np.all(np.isfinite(result_fun))
+            ):
+                diagnostics["invalid_result_starts"] += 1
+                logger.warning(
+                    "metabolic_fit_start_returned_invalid_result",
+                    extra={
+                        "fit_start_vo2": clipped_start[0],
+                        "fit_start_vlamax": clipped_start[1],
+                    },
+                )
+                continue
+
+            if bool(getattr(result, "success", False)):
+                diagnostics["converged_starts"] += 1
+            else:
+                diagnostics["nonconverged_starts"] += 1
+            cost = float(np.sum(result.fun ** 2))
+            candidates.append(
+                (cost, float(result.x[1]), float(result.x[0]), result, clipped_start)
             )
+
+        diagnostics["candidate_starts"] = len(candidates)
+        if (
+            diagnostics["exception_starts"]
+            or diagnostics["invalid_result_starts"]
+            or diagnostics["nonconverged_starts"]
+        ):
+            logger.warning(
+                "metabolic_multistart_fit_completed_with_partial_failures",
+                extra={
+                    "attempted_starts": diagnostics["attempted_starts"],
+                    "candidate_starts": diagnostics["candidate_starts"],
+                    "converged_starts": diagnostics["converged_starts"],
+                    "nonconverged_starts": diagnostics["nonconverged_starts"],
+                    "exception_starts": diagnostics["exception_starts"],
+                    "invalid_result_starts": diagnostics["invalid_result_starts"],
+                },
+            )
+        if not candidates:
+            raise _MetabolicFitError("No finite optimizer candidates were produced.")
+
+        apr_gated = False
+        pool = candidates
+        if apr_band is not None:
+            vla_lo, vla_hi, _ = apr_band
+            in_band = [item for item in candidates if vla_lo <= item[1] <= vla_hi]
+            if in_band:
+                pool = in_band
+                apr_gated = True
+
+        best_cost, best_vla, best_vo2, best_result, best_start = min(
+            pool,
+            key=lambda item: self._fit_basin_score(
+                cost=item[0],
+                vo2=item[2],
+                vlamax=item[1],
+                context=context,
+                apr_band=apr_band,
+            ),
+        )
+        diagnostics.update(
+            {
+                "apr_gate_applied": apr_gated,
+                "candidate_pool_size": len(pool),
+                "selected_start": [round(float(value), 4) for value in best_start],
+                "selected_residual_cost": round(best_cost, 6),
+                "selected_basin_score": round(
+                    self._fit_basin_score(
+                        cost=best_cost,
+                        vo2=best_vo2,
+                        vlamax=best_vla,
+                        context=context,
+                        apr_band=apr_band,
+                    ),
+                    6,
+                ),
+                "selected_optimizer": self._optimizer_diagnostics(best_result),
+            }
+        )
+        return _MetabolicFitSelection(
+            result=best_result,
+            vo2=float(best_result.x[0]),
+            vlamax=float(best_result.x[1]),
+            apr_band=apr_band,
+            apr_gated=apr_gated,
+        )
+
+    def _build_success_snapshot(
+        self,
+        prepared: _PreparedSnapshotInputs,
+        context: _MetabolicFitContext,
+        selection: _MetabolicFitSelection,
+    ) -> Dict[str, Any]:
+        """Derive, validate and serialize outputs from the selected fit."""
+        mmp = prepared.mmp
+        expressiveness = prepared.expressiveness
+        input_audit = prepared.input_audit
+        vo2 = selection.vo2
+        vlamax = selection.vlamax
+        final_lacap = self._resolve_lacap(
+            vlamax,
+            context.resolved_measured_lacap,
+        )
+        if context.resolved_measured_lacap is None:
+            input_audit["model_inputs"]["measured_lacap_mmol_L"].update(
+                {
+                    "used": round(final_lacap, 6),
+                    "status": "inferred_during_fit",
+                }
+            )
+        self._refresh_input_audit_summary(input_audit)
+
+        w_mlss, w_fat, w_plot, fat_gh, cho_gh = self._calculate_curves(
+            vo2,
+            vlamax,
+            context.fixed_eta,
+        )
+        map_w = self._map_estimate(vo2, context.fixed_eta)
+        preds = self._predict_fit_powers(
+            context,
+            vo2=vo2,
+            vlamax=vlamax,
+            lacap=final_lacap,
+        )
+        rel_err = float(np.sqrt(np.mean((preds - context.pows_u) ** 2))) / max(
+            float(np.mean(context.pows_u)),
+            1.0,
+        )
+        confidence = float(
+            np.clip(
+                1.0
+                - (
+                    np.clip(
+                        rel_err,
+                        0.0,
+                        self.fit_policy.relative_error_full_scale,
+                    )
+                    / self.fit_policy.relative_error_full_scale
+                ),
+                self.fit_policy.minimum_confidence,
+                self.fit_policy.maximum_confidence,
+            )
+        )
+        step = max(1, len(w_plot) // self.fit_policy.combustion_curve_max_points)
+        combustion_curve = [
+            {
+                "watt": int(w_plot[index]),
+                "fatOxidation": round(float(fat_gh[index]), 1),
+                "carbOxidation": round(float(cho_gh[index]), 1),
+            }
+            for index in range(0, len(w_plot), step)
+        ]
+
+        unmasked = {
+            "estimated_vo2max": round(vo2, 1),
+            "estimated_vlamax_mmol_L_s": round(vlamax, 4),
+            "mlss_power_watts": round(w_mlss, 1),
+            "mlss_power_wkg": round(w_mlss / self.weight, 2),
+            "fatmax_power_watts": round(w_fat, 1),
+            "map_aerobic_watts": round(map_w, 1),
+        }
+        vo2_out = unmasked["estimated_vo2max"] if expressiveness.vo2max_reliable else None
+        vla_out = (
+            unmasked["estimated_vlamax_mmol_L_s"]
+            if expressiveness.vlamax_reliable
+            else None
+        )
+        mlss_out = unmasked["mlss_power_watts"] if expressiveness.mlss_reliable else None
+        mlss_wkg_out = unmasked["mlss_power_wkg"] if expressiveness.mlss_reliable else None
+        fatmax_out = (
+            unmasked["fatmax_power_watts"] if expressiveness.fatmax_reliable else None
+        )
+        confidence_effective = (
+            min(confidence, self.fit_policy.incomplete_expressiveness_confidence_cap)
+            if not expressiveness.fully_expressive
+            else confidence
+        )
+
+        cv_result = cross_validate_metabolic_profile(
+            self,
+            mmp,
+            vo2,
+            vlamax,
+            eta_base=context.fixed_eta,
+        )
+        if cv_result.coherence_penalty > 0:
+            confidence_effective = float(
+                np.clip(
+                    confidence_effective * (1.0 - cv_result.coherence_penalty),
+                    self.fit_policy.minimum_confidence,
+                    self.fit_policy.maximum_confidence,
+                )
+            )
+
+        maximality_flag = None
+        p_short = mmp.get(5) or mmp.get(10) or mmp.get(1)
+        p_long = mmp.get(1200) or mmp.get(1800) or mmp.get(3600) or mmp.get(720)
+        if p_short and p_long and p_long > 0:
+            se_ratio = float(p_short) / float(p_long)
+            if se_ratio < self.fit_policy.curve_maximality_floor:
+                maximality_flag = {
+                    "plausible_maximal": False,
+                    "sprint_endurance_ratio": round(se_ratio, 2),
+                    "reason": (
+                        f"Sprint/endurance ratio {se_ratio:.2f} is below the physical "
+                        f"floor (~{self.fit_policy.curve_maximality_floor:g}): "
+                        "short-duration efforts look sub-maximal. "
+                        "VLamax and VO2max are likely under-estimated; treat the "
+                        "profile as indicative only and obtain a maximal sprint + "
+                        "short CP efforts for a reliable anchor."
+                    ),
+                }
+                confidence_effective = min(
+                    confidence_effective,
+                    self.fit_policy.submaximal_curve_confidence_cap,
+                )
+
+        end_max, all_max = self.context.phenotype_thresholds()
+        apr_band = selection.apr_band
+        snapshot: Dict[str, Any] = {
+            "status": "success",
+            "input_audit": input_audit,
+            "estimated_vo2max": vo2_out,
+            "estimated_vlamax_mmol_L_s": vla_out,
+            "metabolic_phenotype": (
+                self._classify_metabolic_phenotype(vlamax)
+                if expressiveness.vlamax_reliable
+                else None
+            ),
+            "assumed_la_capacity_mmol_L": round(final_lacap, 1),
+            "mlss_power_watts": mlss_out,
+            "mlss_power_wkg": mlss_wkg_out,
+            "fatmax_power_watts": fatmax_out,
+            "map_aerobic_watts": round(map_w, 1),
+            "anaerobic_power_reserve": (
+                {
+                    "apr_ratio": round(apr_band[2], 2),
+                    "vlamax_band": [round(apr_band[0], 2), round(apr_band[1], 2)],
+                    "basin_gated_by_apr": selection.apr_gated,
+                }
+                if apr_band is not None
+                else None
+            ),
+            "confidence_score": round(confidence_effective, 3),
+            "fit_diagnostics": context.fit_diagnostics,
+            "cross_validation": cv_result.to_dict(),
+            "expressiveness": expressiveness.to_dict(),
+            "curve_maximality": maximality_flag,
+            "unmasked_estimates": unmasked,
+            "context_used": {
+                "gender": self.context.effective_gender(),
+                "training_years": self.context.effective_training_years(),
+                "discipline": self.context.effective_discipline(),
+                "body_fat_pct": round(self.body_fat_pct, 1),
+                "resolved_eta": round(context.fixed_eta, 4),
+                "vlamax_initial_guess": round(context.vla_init, 3),
+                "phenotype_thresholds": list(self.context.phenotype_thresholds()),
+                "fat_ox_coefficient": self.context.fat_oxidation_coefficient(),
+                "cho_ox_coefficient": self.context.cho_oxidation_coefficient(),
+                "inferred_fields": self.context.inferred_fields(),
+                "mader_constants": self.const.to_dict(),
+            },
+            "zones": (
+                self._generate_zones(w_mlss, map_w)
+                if expressiveness.mlss_reliable
+                else None
+            ),
+            "combustion_curve": (
+                combustion_curve if expressiveness.vlamax_reliable else None
+            ),
+            "calculated_at": datetime.now().isoformat(),
+        }
+        snapshot["glycolytic_profile"] = build_glycolytic_profile(
+            snapshot,
+            profiler=self,
+            mmp={int(key): float(value) for key, value in mmp.items()},
+            endurance_max=end_max,
+            allrounder_max=all_max,
+        )
+        return snapshot
+
+    def _generate_metabolic_snapshot_impl(
+        self,
+        mmp_raw: Dict[Any, Any],
+        expected_eta: Optional[float] = None,
+        measured_lacap: Optional[float] = None,
+        mmp_samples: Optional[List[Dict[str, Any]]] = None,
+        clean_mmp_first: bool = False,
+        effective_cadence_rpm: Optional[float] = None,
+        cadence_anchor_status: str = "unknown",
+    ) -> Dict[str, Any]:
+        """Generate a metabolic snapshot by coordinating typed helper stages."""
+        prepared = self._prepare_snapshot_inputs(
+            mmp_raw,
+            expected_eta=expected_eta,
+            measured_lacap=measured_lacap,
+            mmp_samples=mmp_samples,
+            clean_mmp_first=clean_mmp_first,
+        )
+        if len(prepared.mmp) < self.fit_policy.minimum_mmp_anchors:
             return self._finalize_snapshot(
-                snap_body,
-                mmp_quality_audit,
+                {
+                    "status": "error",
+                    "error_code": "insufficient_mmp_anchors",
+                    "message": (
+                        "Insufficient MMP anchors. At least "
+                        f"{self.fit_policy.minimum_mmp_anchors} durations required."
+                    ),
+                    "input_audit": prepared.input_audit,
+                    "fit_diagnostics": {
+                        "fit_method": "joint",
+                        "input_anchor_count": len(prepared.mmp),
+                        "attempted_starts": 0,
+                        "candidate_starts": 0,
+                        "converged_starts": 0,
+                        "nonconverged_starts": 0,
+                        "exception_starts": 0,
+                        "invalid_result_starts": 0,
+                    },
+                },
+                prepared.mmp_quality_audit,
+            )
+
+        context = self._build_fit_context(
+            prepared,
+            expected_eta=expected_eta,
+            measured_lacap=measured_lacap,
+        )
+        try:
+            selection = self._run_multistart_fit(context)
+            snapshot = self._build_success_snapshot(prepared, context, selection)
+            return self._finalize_snapshot(
+                snapshot,
+                prepared.mmp_quality_audit,
                 effective_cadence_rpm=effective_cadence_rpm,
                 cadence_anchor_status=cadence_anchor_status,
             )
-        except Exception as e:
+        except _MetabolicFitError:
+            logger.warning(
+                "metabolic_fit_failed",
+                exc_info=True,
+                extra={
+                    "input_anchor_count": len(prepared.mmp),
+                    "fit_anchor_count": int(context.durs_u.size),
+                    "attempted_starts": context.fit_diagnostics["attempted_starts"],
+                    "candidate_starts": context.fit_diagnostics["candidate_starts"],
+                },
+            )
             return self._finalize_snapshot(
-                {"status": "error", "message": str(e)},
-                mmp_quality_audit,
+                {
+                    "status": "error",
+                    "error_code": "metabolic_fit_failed",
+                    "message": "Metabolic model fitting could not produce a valid solution.",
+                    "input_audit": prepared.input_audit,
+                    "fit_diagnostics": context.fit_diagnostics,
+                },
+                prepared.mmp_quality_audit,
+                effective_cadence_rpm=effective_cadence_rpm,
+                cadence_anchor_status=cadence_anchor_status,
+            )
+        except Exception:
+            logger.exception(
+                "metabolic_snapshot_generation_failed",
+                extra={
+                    "input_anchor_count": len(prepared.mmp),
+                    "fit_anchor_count": int(context.durs_u.size),
+                    "attempted_starts": context.fit_diagnostics["attempted_starts"],
+                    "candidate_starts": context.fit_diagnostics["candidate_starts"],
+                },
+            )
+            return self._finalize_snapshot(
+                {
+                    "status": "error",
+                    "error_code": "metabolic_snapshot_failed",
+                    "message": "Metabolic snapshot generation failed. Check server logs for details.",
+                    "input_audit": prepared.input_audit,
+                    "fit_diagnostics": context.fit_diagnostics,
+                },
+                prepared.mmp_quality_audit,
+                effective_cadence_rpm=effective_cadence_rpm,
+                cadence_anchor_status=cadence_anchor_status,
             )
 
     def vlamax_from_sprint(
@@ -666,7 +1749,7 @@ class MetabolicProfiler:
         """
         Estimate VLamax from an all-out sprint, Mader-based lactate decomposition.
 
-        This is the direct, gold-standard way to get VLamax: a maximal sprint
+        This is a model-based sprint-decomposition estimate of VLamax: a maximal sprint
         of ~15-25 s isolates the glycolytic system. We decompose the mean
         sprint power into three contributions and convert the glycolytic part
         into a lactate-production rate:
@@ -719,13 +1802,20 @@ class MetabolicProfiler:
         # all-out sprint where power is *sustained* near the neuromuscular
         # ceiling (instantaneous 1 s peak for early recruiters; best 3–5 s
         # rolling peak when motor recruitment is delayed).
-        min_sustain = 0.70 - 0.012 * sprint_duration_s  # 10s->0.58, 20s->0.46
-        if sustain_ratio < max(0.40, min_sustain):
+        min_sustain = (
+            self.calibration.sprint_min_sustain_intercept
+            - self.calibration.sprint_min_sustain_duration_slope * sprint_duration_s
+        )
+        required_sustain = max(
+            self.calibration.sprint_min_sustain_floor,
+            min_sustain,
+        )
+        if sustain_ratio < required_sustain:
             return {
                 "status": "insufficient_sprint",
                 "message": (
                     f"Sprint not maximal/sustained enough for VLamax estimation "
-                    f"(mean/peak={sustain_ratio:.2f}, need >= {max(0.40, min_sustain):.2f}). "
+                    f"(mean/peak={sustain_ratio:.2f}, need >= {required_sustain:.2f}). "
                     f"The neuromuscular peak ({p_neuro:.0f} W) likely a momentary spike, not a "
                     f"true all-out effort. Provide a dedicated maximal sprint."
                 ),
@@ -737,23 +1827,33 @@ class MetabolicProfiler:
         vo2_power = (
             float(vo2max_power_w)
             if vo2max_power_w is not None
-            else self._map_estimate(50.0, self.context.expected_eta())
+            else self._map_estimate(
+                50.0,
+                self.context.expected_eta(),
+            )
         )
         eta = self.context.expected_eta()
-        J_PER_MMOL_LACTATE_PER_KG = 63.0  # Mader-consistent energetic equivalent
 
         def _vlamax_for_tau(tau_alac: float) -> float:
             t = sprint_duration_s
             alac_frac_avg = tau_alac / t * (1.0 - np.exp(-t / tau_alac))
-            p_alac_avg = (p_neuro * 0.98) * alac_frac_avg
+            p_alac_avg = (
+                p_neuro * self.calibration.sprint_neuromuscular_scale
+            ) * alac_frac_avg
             aero_frac = 1.0 - tau_aerobic_s / t * (1.0 - np.exp(-t / tau_aerobic_s))
-            p_aero_avg = vo2_power * aero_frac * 0.5  # VO2 not at steady state
+            p_aero_avg = (
+                vo2_power
+                * aero_frac
+                * self.calibration.sprint_aerobic_contribution_scale
+            )  # VO2 not at steady state
             p_glyc = max(0.0, p_mean_sprint - p_alac_avg - p_aero_avg)
             glyc_metabolic_rate = p_glyc / eta
-            return glyc_metabolic_rate / (J_PER_MMOL_LACTATE_PER_KG * amm)
+            return glyc_metabolic_rate / (
+                self.calibration.energy_j_per_mmol_lactate_per_kg * amm
+            )
 
         vlamax_raw = _vlamax_for_tau(tau_alactic_s)
-        if vlamax_raw < 0.08:
+        if vlamax_raw < self.calibration.sprint_min_resolved_vlamax:
             # Decomposition collapsed (glycolytic remainder ~0): the inputs
             # don't isolate the glycolytic system cleanly. Don't fabricate.
             return {
@@ -765,10 +1865,23 @@ class MetabolicProfiler:
                 ),
             }
 
-        vlamax = float(np.clip(vlamax_raw, 0.05, 1.50))
-        # Sensitivity band from plausible tau_alactic range (12-20 s).
-        vla_hi = float(np.clip(_vlamax_for_tau(12.0), 0.05, 1.50))
-        vla_lo = float(np.clip(_vlamax_for_tau(20.0), 0.05, 1.50))
+        vlamax = float(
+            np.clip(vlamax_raw, *self.calibration.sprint_vlamax_bounds)
+        )
+        # Sensitivity band from the configured plausible tau_alactic range.
+        tau_low, tau_high = self.calibration.sprint_tau_sensitivity_bounds_s
+        vla_hi = float(
+            np.clip(
+                _vlamax_for_tau(tau_low),
+                *self.calibration.sprint_vlamax_bounds,
+            )
+        )
+        vla_lo = float(
+            np.clip(
+                _vlamax_for_tau(tau_high),
+                *self.calibration.sprint_vlamax_bounds,
+            )
+        )
 
         payload = {
             "status": "success",
@@ -789,94 +1902,527 @@ class MetabolicProfiler:
             "sustain_ratio": round(sustain_ratio, 3),
             "note": (
                 "VLamax is sensitive to the alactic time constant; the range "
-                "reflects tau_alactic 12-20 s. Delayed motor recruitment uses "
+                f"reflects tau_alactic {tau_low:g}-{tau_high:g} s. "
+                "Delayed motor recruitment uses "
                 "the best 3–5 s rolling peak as the neuromuscular ceiling."
             ),
             "limitations": vlamax_limitations(),
         }
+        payload["model_configuration"] = self._model_configuration_manifest()
         payload.update(vlamax_contract_fields())
         return payload
+
+    def _prepare_segmented_inputs(
+        self,
+        mmp_raw: Dict[Any, Any],
+        aerobic_min_duration_s: Optional[float],
+        kwargs: Dict[str, Any],
+    ) -> _PreparedSegmentedInputs:
+        """Normalize a full MMP and isolate the aerobic fitting domain."""
+        aerobic_duration_source = (
+            "fit_policy" if aerobic_min_duration_s is None else "argument_override"
+        )
+        effective_min_duration = (
+            self.fit_policy.segmented_aerobic_min_duration_s
+            if aerobic_min_duration_s is None
+            else aerobic_min_duration_s
+        )
+        input_audit = self._base_input_audit(
+            mmp_raw=mmp_raw,
+            expected_eta=kwargs.get("expected_eta"),
+            measured_lacap=kwargs.get("measured_lacap"),
+        )
+        mmp = self._coerce_mmp_dict_with_audit(mmp_raw, input_audit)
+        aerobic_mmp = {
+            duration: power for duration, power in mmp.items() if duration >= effective_min_duration
+        }
+        return _PreparedSegmentedInputs(
+            mmp=mmp,
+            aerobic_mmp=aerobic_mmp,
+            input_audit=input_audit,
+            aerobic_min_duration_s=effective_min_duration,
+            aerobic_duration_source=aerobic_duration_source,
+        )
+
+    def _record_segmented_runtime(
+        self,
+        snapshot: Dict[str, Any],
+        prepared: _PreparedSegmentedInputs,
+    ) -> Dict[str, Any]:
+        """Record the effective segmented duration threshold in the manifest."""
+        return self._record_runtime_parameter(
+            snapshot,
+            name="segmented_aerobic_min_duration_s",
+            value=prepared.aerobic_min_duration_s,
+            source=prepared.aerobic_duration_source,
+        )
+
+    @staticmethod
+    def _segmented_fit_diagnostics(
+        aerobic_snapshot: Optional[Dict[str, Any]],
+        full_curve_snapshot: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Build the stable public diagnostic envelope for both stages."""
+        return {
+            "fit_method": "segmented",
+            "aerobic_stage": (
+                aerobic_snapshot.get("fit_diagnostics") if aerobic_snapshot is not None else None
+            ),
+            "full_curve_stage": (
+                full_curve_snapshot.get("fit_diagnostics")
+                if full_curve_snapshot is not None
+                else None
+            ),
+        }
+
+    def _segmented_joint_fallback(
+        self,
+        prepared: _PreparedSegmentedInputs,
+        mmp_raw: Dict[Any, Any],
+        kwargs: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Use the joint fit when the aerobic domain cannot stand alone."""
+        joint = self.generate_metabolic_snapshot(mmp_raw, **kwargs)
+        if isinstance(joint, dict) and joint.get("status") == "success":
+            joint["fit_method"] = "joint_fallback"
+            joint_diagnostics = dict(joint.get("fit_diagnostics") or {})
+            joint_diagnostics["fit_method"] = "joint_fallback"
+            joint["fit_diagnostics"] = joint_diagnostics
+            joint["segmented_detail"] = {
+                "reason": "insufficient_aerobic_anchors",
+                "aerobic_anchors": sorted(prepared.aerobic_mmp.keys()),
+                "aerobic_min_duration_s": prepared.aerobic_min_duration_s,
+            }
+        return self._record_segmented_runtime(joint, prepared)
+
+    def _segmented_aerobic_stage_error(
+        self,
+        prepared: _PreparedSegmentedInputs,
+        aerobic_snapshot: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Preserve an aerobic-stage failure with full raw-input provenance."""
+        aerobic_snapshot.setdefault("error_code", "segmented_aerobic_fit_failed")
+        aerobic_snapshot["input_audit"] = self._merge_stage_input_audit(
+            prepared.input_audit,
+            aerobic_snapshot.get("input_audit"),
+        )
+        aerobic_snapshot["fit_diagnostics"] = self._segmented_fit_diagnostics(
+            aerobic_snapshot,
+            None,
+        )
+        aerobic_snapshot["segmented_detail"] = {
+            "aerobic_stage_status": aerobic_snapshot.get("status", "error"),
+            "full_curve_stage_status": "not_run",
+            "aerobic_anchors": sorted(prepared.aerobic_mmp.keys()),
+            "full_curve_anchors": sorted(prepared.mmp.keys()),
+            "aerobic_min_duration_s": prepared.aerobic_min_duration_s,
+        }
+        return aerobic_snapshot
+
+    def _segmented_full_stage_error(
+        self,
+        prepared: _PreparedSegmentedInputs,
+        aerobic_snapshot: Dict[str, Any],
+        full_curve_snapshot: Dict[str, Any],
+        kwargs: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Return a stable error when the second fitting stage fails."""
+        input_audit = self._merge_stage_input_audit(
+            prepared.input_audit,
+            full_curve_snapshot.get("input_audit"),
+        )
+        return self._finalize_snapshot(
+            {
+                "status": "error",
+                "error_code": "segmented_full_curve_fit_failed",
+                "message": "Segmented metabolic fit could not complete the full-curve stage.",
+                "input_audit": input_audit,
+                "fit_diagnostics": self._segmented_fit_diagnostics(
+                    aerobic_snapshot,
+                    full_curve_snapshot,
+                ),
+                "segmented_detail": {
+                    "aerobic_stage_status": "success",
+                    "full_curve_stage_status": full_curve_snapshot.get("status", "error"),
+                    "aerobic_anchors": sorted(prepared.aerobic_mmp.keys()),
+                    "full_curve_anchors": sorted(prepared.mmp.keys()),
+                    "aerobic_min_duration_s": prepared.aerobic_min_duration_s,
+                },
+            },
+            full_curve_snapshot.get("mmp_quality") or aerobic_snapshot.get("mmp_quality"),
+            effective_cadence_rpm=kwargs.get("effective_cadence_rpm"),
+            cadence_anchor_status=str(kwargs.get("cadence_anchor_status") or "unknown"),
+        )
+
+    def _resolve_segmented_parameter_pair(
+        self,
+        aerobic_snapshot: Dict[str, Any],
+        full_curve_snapshot: Dict[str, Any],
+    ) -> Optional[_SegmentedParameterPair]:
+        """Combine aerobic VO2max and full-curve VLamax into one model pair."""
+        aerobic_unmasked = aerobic_snapshot.get("unmasked_estimates") or {}
+        full_unmasked = full_curve_snapshot.get("unmasked_estimates") or {}
+        vo2_value = aerobic_unmasked.get(
+            "estimated_vo2max",
+            aerobic_snapshot.get("estimated_vo2max"),
+        )
+        vlamax_value = full_unmasked.get(
+            "estimated_vlamax_mmol_L_s",
+            full_curve_snapshot.get("estimated_vlamax_mmol_L_s"),
+        )
+        if vo2_value is None or vlamax_value is None:
+            return None
+
+        vo2max = float(vo2_value)
+        vlamax = float(vlamax_value)
+        context_used = dict(
+            aerobic_snapshot.get("context_used") or full_curve_snapshot.get("context_used") or {}
+        )
+        fixed_eta = float(context_used.get("resolved_eta", self.context.expected_eta()))
+        lactate_capacity = float(
+            full_curve_snapshot.get("assumed_la_capacity_mmol_L")
+            or aerobic_snapshot.get("assumed_la_capacity_mmol_L")
+            or np.clip(
+                self.calibration.lacap_intercept
+                + (vlamax - self.calibration.lacap_vlamax_anchor)
+                * self.calibration.lacap_vlamax_slope,
+                self.fit_policy.minimum_lacap_mmol_l,
+                self.fit_policy.maximum_lacap_mmol_l,
+            )
+        )
+        return _SegmentedParameterPair(
+            vo2max=vo2max,
+            vlamax=vlamax,
+            fixed_eta=fixed_eta,
+            lactate_capacity=lactate_capacity,
+            context_used=context_used,
+        )
+
+    def _segmented_missing_parameter_error(
+        self,
+        prepared: _PreparedSegmentedInputs,
+        aerobic_snapshot: Dict[str, Any],
+        full_curve_snapshot: Dict[str, Any],
+        kwargs: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Report a completed two-stage fit that lacks one final parameter."""
+        aerobic_unmasked = aerobic_snapshot.get("unmasked_estimates") or {}
+        full_unmasked = full_curve_snapshot.get("unmasked_estimates") or {}
+        vo2_available = (
+            aerobic_unmasked.get(
+                "estimated_vo2max",
+                aerobic_snapshot.get("estimated_vo2max"),
+            )
+            is not None
+        )
+        vlamax_available = (
+            full_unmasked.get(
+                "estimated_vlamax_mmol_L_s",
+                full_curve_snapshot.get("estimated_vlamax_mmol_L_s"),
+            )
+            is not None
+        )
+        input_audit = self._merge_stage_input_audit(
+            prepared.input_audit,
+            full_curve_snapshot.get("input_audit"),
+        )
+        return self._finalize_snapshot(
+            {
+                "status": "error",
+                "error_code": "segmented_parameter_missing",
+                "message": "Segmented fit completed but did not produce both model parameters.",
+                "input_audit": input_audit,
+                "fit_diagnostics": self._segmented_fit_diagnostics(
+                    aerobic_snapshot,
+                    full_curve_snapshot,
+                ),
+                "segmented_detail": {
+                    "aerobic_stage_status": "success",
+                    "full_curve_stage_status": "success",
+                    "aerobic_vo2max_available": vo2_available,
+                    "full_curve_vlamax_available": vlamax_available,
+                },
+            },
+            full_curve_snapshot.get("mmp_quality") or aerobic_snapshot.get("mmp_quality"),
+            effective_cadence_rpm=kwargs.get("effective_cadence_rpm"),
+            cadence_anchor_status=str(kwargs.get("cadence_anchor_status") or "unknown"),
+        )
+
+    def _calculate_segmented_confidence(
+        self,
+        *,
+        expressiveness: ExpressivenessReport,
+        cross_validation: Any,
+        aerobic_snapshot: Dict[str, Any],
+        full_curve_snapshot: Dict[str, Any],
+    ) -> float:
+        """Combine stage scores without double-applying coherence penalties."""
+        stage_confidences = [
+            float(value)
+            for value in (
+                aerobic_snapshot.get("confidence_score"),
+                full_curve_snapshot.get("confidence_score"),
+            )
+            if value is not None
+        ]
+        confidence = (
+            min(stage_confidences) if stage_confidences else self.fit_policy.minimum_confidence
+        )
+        if not expressiveness.fully_expressive:
+            confidence = min(
+                confidence,
+                self.fit_policy.incomplete_expressiveness_confidence_cap,
+            )
+
+        stage_penalty = max(
+            float((aerobic_snapshot.get("cross_validation") or {}).get("coherence_penalty") or 0.0),
+            float(
+                (full_curve_snapshot.get("cross_validation") or {}).get("coherence_penalty") or 0.0
+            ),
+        )
+        incremental_penalty = max(
+            0.0,
+            float(cross_validation.coherence_penalty) - stage_penalty,
+        )
+        if incremental_penalty > 0:
+            confidence *= 1.0 - incremental_penalty
+
+        curve_maximality = full_curve_snapshot.get("curve_maximality")
+        if (curve_maximality or {}).get("plausible_maximal") is False:
+            confidence = min(
+                confidence,
+                self.fit_policy.submaximal_curve_confidence_cap,
+            )
+        return float(
+            np.clip(
+                confidence,
+                self.fit_policy.minimum_confidence,
+                self.fit_policy.maximum_confidence,
+            )
+        )
+
+    def _derive_segmented_outputs(
+        self,
+        prepared: _PreparedSegmentedInputs,
+        parameters: _SegmentedParameterPair,
+        aerobic_snapshot: Dict[str, Any],
+        full_curve_snapshot: Dict[str, Any],
+    ) -> _SegmentedDerivedOutputs:
+        """Recompute every coupled output from the final parameter pair."""
+        w_mlss, w_fat, w_plot, fat_gh, cho_gh = self._calculate_curves(
+            parameters.vo2max,
+            parameters.vlamax,
+            parameters.fixed_eta,
+        )
+        map_w = self._map_estimate(parameters.vo2max, parameters.fixed_eta)
+        expressiveness = ExpressivenessReport.from_mmp(prepared.mmp)
+        unmasked = {
+            "estimated_vo2max": round(parameters.vo2max, 1),
+            "estimated_vlamax_mmol_L_s": round(parameters.vlamax, 4),
+            "mlss_power_watts": round(w_mlss, 1),
+            "mlss_power_wkg": round(w_mlss / self.weight, 2),
+            "fatmax_power_watts": round(w_fat, 1),
+            "map_aerobic_watts": round(map_w, 1),
+        }
+        cross_validation = cross_validate_metabolic_profile(
+            self,
+            prepared.mmp,
+            parameters.vo2max,
+            parameters.vlamax,
+            eta_base=parameters.fixed_eta,
+        )
+        confidence = self._calculate_segmented_confidence(
+            expressiveness=expressiveness,
+            cross_validation=cross_validation,
+            aerobic_snapshot=aerobic_snapshot,
+            full_curve_snapshot=full_curve_snapshot,
+        )
+        step = max(
+            1,
+            len(w_plot) // self.fit_policy.combustion_curve_max_points,
+        )
+        combustion_curve = [
+            {
+                "watt": int(w_plot[index]),
+                "fatOxidation": round(float(fat_gh[index]), 1),
+                "carbOxidation": round(float(cho_gh[index]), 1),
+            }
+            for index in range(0, len(w_plot), step)
+        ]
+        return _SegmentedDerivedOutputs(
+            w_mlss=w_mlss,
+            w_fat=w_fat,
+            map_w=map_w,
+            expressiveness=expressiveness,
+            unmasked=unmasked,
+            vo2_out=(unmasked["estimated_vo2max"] if expressiveness.vo2max_reliable else None),
+            vlamax_out=(
+                unmasked["estimated_vlamax_mmol_L_s"] if expressiveness.vlamax_reliable else None
+            ),
+            mlss_out=(unmasked["mlss_power_watts"] if expressiveness.mlss_reliable else None),
+            mlss_wkg_out=(unmasked["mlss_power_wkg"] if expressiveness.mlss_reliable else None),
+            fatmax_out=(unmasked["fatmax_power_watts"] if expressiveness.fatmax_reliable else None),
+            cross_validation=cross_validation,
+            confidence=confidence,
+            curve_maximality=full_curve_snapshot.get("curve_maximality"),
+            combustion_curve=combustion_curve,
+        )
+
+    def _build_segmented_success_snapshot(
+        self,
+        prepared: _PreparedSegmentedInputs,
+        parameters: _SegmentedParameterPair,
+        derived: _SegmentedDerivedOutputs,
+        aerobic_snapshot: Dict[str, Any],
+        full_curve_snapshot: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Assemble the public success payload from recomputed outputs."""
+        end_max, all_max = self.context.phenotype_thresholds()
+        input_audit = self._merge_stage_input_audit(
+            prepared.input_audit,
+            full_curve_snapshot.get("input_audit"),
+        )
+        merged = dict(aerobic_snapshot)
+        merged.pop("mmp_quality", None)
+        merged.update(
+            {
+                "status": "success",
+                "input_audit": input_audit,
+                "estimated_vo2max": derived.vo2_out,
+                "estimated_vlamax_mmol_L_s": derived.vlamax_out,
+                "metabolic_phenotype": (
+                    self._classify_metabolic_phenotype(parameters.vlamax)
+                    if derived.expressiveness.vlamax_reliable
+                    else None
+                ),
+                "assumed_la_capacity_mmol_L": round(parameters.lactate_capacity, 1),
+                "mlss_power_watts": derived.mlss_out,
+                "mlss_power_wkg": derived.mlss_wkg_out,
+                "fatmax_power_watts": derived.fatmax_out,
+                "map_aerobic_watts": round(derived.map_w, 1),
+                "anaerobic_power_reserve": full_curve_snapshot.get("anaerobic_power_reserve"),
+                "confidence_score": round(derived.confidence, 3),
+                "fit_diagnostics": {
+                    **self._segmented_fit_diagnostics(aerobic_snapshot, full_curve_snapshot),
+                    "combined_parameter_sources": {
+                        "vo2max": "aerobic_stage",
+                        "vlamax": "full_curve_stage",
+                    },
+                },
+                "cross_validation": derived.cross_validation.to_dict(),
+                "expressiveness": derived.expressiveness.to_dict(),
+                "curve_maximality": derived.curve_maximality,
+                "unmasked_estimates": derived.unmasked,
+                "context_used": parameters.context_used,
+                "zones": (
+                    self._generate_zones(derived.w_mlss, derived.map_w)
+                    if derived.expressiveness.mlss_reliable
+                    else None
+                ),
+                "combustion_curve": (
+                    derived.combustion_curve if derived.expressiveness.vlamax_reliable else None
+                ),
+                "calculated_at": datetime.now().isoformat(),
+                "fit_method": "segmented",
+                "segmented_detail": {
+                    "aerobic_anchors": sorted(prepared.aerobic_mmp.keys()),
+                    "anaerobic_anchors": sorted(prepared.mmp.keys()),
+                    "full_curve_anchors": sorted(prepared.mmp.keys()),
+                    "aerobic_min_duration_s": prepared.aerobic_min_duration_s,
+                    "aerobic_stage_status": "success",
+                    "full_curve_stage_status": "success",
+                    "aerobic_stage_confidence": float(
+                        aerobic_snapshot.get("confidence_score") or 0.0
+                    ),
+                    "full_curve_stage_confidence": float(
+                        full_curve_snapshot.get("confidence_score") or 0.0
+                    ),
+                    "confidence_strategy": "minimum_of_stage_scores",
+                    "combined_cross_validation_penalty": round(
+                        float(derived.cross_validation.coherence_penalty), 3
+                    ),
+                    "vo2max_source": "aerobic_domain",
+                    "vlamax_source": "full_curve",
+                    "mlss_source": "recomputed_segmented_parameter_pair",
+                    "fatmax_source": "recomputed_segmented_parameter_pair",
+                    "combustion_curve_source": "recomputed_segmented_parameter_pair",
+                    "joint_vo2max": full_curve_snapshot.get("estimated_vo2max"),
+                    "joint_mlss_power_watts": full_curve_snapshot.get("mlss_power_watts"),
+                },
+            }
+        )
+        merged["glycolytic_profile"] = build_glycolytic_profile(
+            merged,
+            profiler=self,
+            mmp={int(key): float(value) for key, value in prepared.mmp.items()},
+            endurance_max=end_max,
+            allrounder_max=all_max,
+        )
+        return merged
 
     def generate_metabolic_snapshot_segmented(
         self,
         mmp_raw: Dict[Any, Any],
-        aerobic_min_duration_s: float = 120.0,
+        aerobic_min_duration_s: Optional[float] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """
-        Domain-separated metabolic snapshot for bimodal phenotypes.
+        Build a domain-separated snapshot for bimodal power-duration curves.
 
-        A single joint fit over the whole power-duration curve forces one
-        VO2max to reconcile both an extreme sprint (e.g. 1000+ W at 5 s) and
-        a long aerobic effort. For riders whose sprint and aerobic systems
-        are very differently developed, that joint fit drags the aerobic
-        estimates (MLSS, VO2max) toward the sprint and produces a misleadingly
-        low threshold.
+        Stage 1 fits the aerobic anchors and supplies VO2max. Stage 2 fits the
+        full curve and supplies VLamax. Because MLSS, FatMax, substrate curves
+        and validation are coupled to both parameters, every dependent output
+        is rebuilt from the final (aerobic VO2max, full-curve VLamax) pair.
 
-        This method fits the two physiological domains separately:
-
-          * Aerobic domain (durations >= aerobic_min_duration_s):
-            determines VO2max, MLSS, FatMax, MAP. These are not contaminated
-            by the alactic/glycolytic excess of the short efforts.
-          * Anaerobic domain (full curve, short anchors dominant):
-            determines VLamax and the phenotype classification.
-
-        The two are then merged: aerobic parameters from stage 1, VLamax and
-        phenotype from stage 2. The output carries `fit_method: "segmented"`
-        and a `segmented_detail` block documenting which anchors fed each
-        stage, so the separation is auditable rather than hidden.
-
-        Falls back transparently to the joint fit if the aerobic region has
-        too few anchors (< 3 durations >= aerobic_min_duration_s).
+        Falls back transparently to the joint fit when fewer than three
+        aerobic anchors are available.
         """
-        mmp = self._coerce_mmp_dict(mmp_raw)
-        aero_mmp = {d: w for d, w in mmp.items() if d >= aerobic_min_duration_s}
+        prepared = self._prepare_segmented_inputs(mmp_raw, aerobic_min_duration_s, kwargs)
+        if len(prepared.aerobic_mmp) < self.fit_policy.minimum_fit_anchors:
+            return self._segmented_joint_fallback(prepared, mmp_raw, kwargs)
 
-        # Not enough long-duration data to isolate the aerobic domain — the
-        # joint fit is the honest answer here.
-        if len(aero_mmp) < 3:
-            joint = self.generate_metabolic_snapshot(mmp_raw, **kwargs)
-            if isinstance(joint, dict) and joint.get("status") == "success":
-                joint["fit_method"] = "joint_fallback"
-                joint["segmented_detail"] = {
-                    "reason": "insufficient_aerobic_anchors",
-                    "aerobic_anchors": sorted(aero_mmp.keys()),
-                    "aerobic_min_duration_s": aerobic_min_duration_s,
-                }
-            return joint
+        aerobic_snapshot = self.generate_metabolic_snapshot(prepared.aerobic_mmp, **kwargs)
+        if aerobic_snapshot.get("status") != "success":
+            return self._segmented_aerobic_stage_error(prepared, aerobic_snapshot)
 
-        # Stage 1 — aerobic domain → VO2max, MLSS, FatMax, MAP
-        aero_snap = self.generate_metabolic_snapshot(aero_mmp, **kwargs)
-        if aero_snap.get("status") != "success":
-            return aero_snap  # propagate the error as-is
+        full_curve_snapshot = self.generate_metabolic_snapshot(prepared.mmp, **kwargs)
+        if full_curve_snapshot.get("status") != "success":
+            return self._segmented_full_stage_error(
+                prepared,
+                aerobic_snapshot,
+                full_curve_snapshot,
+                kwargs,
+            )
 
-        # Stage 2 — full curve → VLamax + phenotype (short anchors dominate)
-        full_snap = self.generate_metabolic_snapshot(mmp, **kwargs)
+        parameters = self._resolve_segmented_parameter_pair(aerobic_snapshot, full_curve_snapshot)
+        if parameters is None:
+            return self._segmented_missing_parameter_error(
+                prepared,
+                aerobic_snapshot,
+                full_curve_snapshot,
+                kwargs,
+            )
 
-        merged = dict(aero_snap)  # aerobic params win for VO2max/MLSS/FatMax/MAP
-        if full_snap.get("status") == "success":
-            merged["estimated_vlamax_mmol_L_s"] = full_snap.get("estimated_vlamax_mmol_L_s")
-            merged["metabolic_phenotype"] = full_snap.get("metabolic_phenotype")
-            merged["assumed_la_capacity_mmol_L"] = full_snap.get("assumed_la_capacity_mmol_L")
-            merged["combustion_curve"] = full_snap.get("combustion_curve")
-
-        merged["fit_method"] = "segmented"
-        merged["segmented_detail"] = {
-            "aerobic_anchors": sorted(aero_mmp.keys()),
-            "anaerobic_anchors": sorted(mmp.keys()),
-            "aerobic_min_duration_s": aerobic_min_duration_s,
-            "vo2max_source": "aerobic_domain",
-            "mlss_source": "aerobic_domain",
-            "vlamax_source": "full_curve",
-            "joint_vo2max": full_snap.get("estimated_vo2max") if full_snap.get("status") == "success" else None,
-            "joint_mlss_power_watts": full_snap.get("mlss_power_watts") if full_snap.get("status") == "success" else None,
-        }
-        return self._finalize_snapshot(
+        derived = self._derive_segmented_outputs(
+            prepared,
+            parameters,
+            aerobic_snapshot,
+            full_curve_snapshot,
+        )
+        merged = self._build_segmented_success_snapshot(
+            prepared,
+            parameters,
+            derived,
+            aerobic_snapshot,
+            full_curve_snapshot,
+        )
+        finalized = self._finalize_snapshot(
             merged,
-            aero_snap.get("mmp_quality"),
+            full_curve_snapshot.get("mmp_quality") or aerobic_snapshot.get("mmp_quality"),
             effective_cadence_rpm=kwargs.get("effective_cadence_rpm"),
             cadence_anchor_status=str(kwargs.get("cadence_anchor_status") or "unknown"),
         )
+        return self._record_segmented_runtime(finalized, prepared)
 
     @staticmethod
     def _bimodality_ratio(mmp: Dict[int, float]) -> Optional[float]:
@@ -901,7 +2447,7 @@ class MetabolicProfiler:
     def generate_metabolic_snapshot_auto(
         self,
         mmp_raw: Dict[Any, Any],
-        bimodal_threshold: float = 4.2,
+        bimodal_threshold: Optional[float] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """
@@ -919,39 +2465,58 @@ class MetabolicProfiler:
         The chosen path and the measured ratio are recorded under
         `fit_method` / `bimodality_ratio` so the decision is transparent.
         """
+        threshold_source = "fit_policy" if bimodal_threshold is None else "argument_override"
+        effective_bimodal_threshold = (
+            self.fit_policy.bimodality_threshold
+            if bimodal_threshold is None
+            else float(bimodal_threshold)
+        )
         mmp = self._coerce_mmp_dict(mmp_raw)
         ratio = self._bimodality_ratio(mmp)
 
-        if ratio is not None and ratio >= bimodal_threshold:
+        if ratio is not None and ratio >= effective_bimodal_threshold:
             snap = self.generate_metabolic_snapshot_segmented(mmp_raw, **kwargs)
             snap["bimodality_ratio"] = round(ratio, 2)
             snap["fit_strategy_reason"] = (
-                f"bimodal (P_short/P_long={ratio:.2f} >= {bimodal_threshold}): "
+                f"bimodal (P_short/P_long={ratio:.2f} >= "
+                f"{effective_bimodal_threshold}): "
                 f"segmented to keep sprint from distorting aerobic estimate"
             )
-            return snap
+            return self._record_runtime_parameter(
+                snap,
+                name="bimodality_threshold",
+                value=effective_bimodal_threshold,
+                source=threshold_source,
+            )
 
         snap = self.generate_metabolic_snapshot(mmp_raw, **kwargs)
         if isinstance(snap, dict) and snap.get("status") == "success":
             snap["fit_method"] = "joint_auto"
             snap["bimodality_ratio"] = round(ratio, 2) if ratio is not None else None
             snap["fit_strategy_reason"] = (
-                f"unimodal (P_short/P_long={ratio:.2f} < {bimodal_threshold}): "
+                f"unimodal (P_short/P_long={ratio:.2f} < "
+                f"{effective_bimodal_threshold}): "
                 f"joint fit already coherent"
                 if ratio is not None else
                 "insufficient anchors to judge bimodality; joint fit used"
             )
-        return snap
+        return self._record_runtime_parameter(
+            snap,
+            name="bimodality_threshold",
+            value=effective_bimodal_threshold,
+            source=threshold_source,
+        )
 
-    @staticmethod
     def _finalize_snapshot(
+        self,
         snap: Dict[str, Any],
         audit: Optional[Dict[str, Any]],
         *,
         effective_cadence_rpm: Optional[float] = None,
         cadence_anchor_status: str = "unknown",
     ) -> Dict[str, Any]:
-        """Attach the MMP quality audit if it was produced."""
+        """Attach model configuration, quality metadata and optional MMP audit."""
+        snap.setdefault("model_configuration", self._model_configuration_manifest())
         extra_limits: List[str] = []
         if snap.get("status") == "success":
             snap.update(vlamax_contract_fields())
@@ -968,6 +2533,24 @@ class MetabolicProfiler:
             curve_maximality = snap.get("curve_maximality") or {}
             if curve_maximality.get("plausible_maximal") is False:
                 quality_flags.append("curve_likely_submaximal")
+            quality_flags.extend(
+                MetabolicProfiler._fit_diagnostic_quality_flags(
+                    snap.get("fit_diagnostics")
+                )
+            )
+            input_audit = snap.get("input_audit") or {}
+            input_summary = input_audit.get("summary") or {}
+            if input_audit.get("has_adjustments"):
+                quality_flags.append("input_adjustments_applied")
+            if input_summary.get("clipped_fields"):
+                quality_flags.append("input_clipping_applied")
+            if (
+                int(input_summary.get("discarded_mmp_anchors") or 0) > 0
+                or int(input_summary.get("quality_cleaner_removed_mmp_anchors") or 0) > 0
+            ):
+                quality_flags.append("mmp_anchors_discarded")
+            if int(input_summary.get("duplicate_mmp_durations") or 0) > 0:
+                quality_flags.append("mmp_duplicate_durations_resolved")
             confidence_score = float(snap.get("confidence_score") or 0.0)
             snap["model_metadata"] = finalize_model_metadata(
                 assumptions=[
@@ -1023,7 +2606,7 @@ class MetabolicProfiler:
             ),
         )
         return snap
-    
+
     def enhance_with_phenotype(
         self,
         snapshot: Dict[str, Any],
