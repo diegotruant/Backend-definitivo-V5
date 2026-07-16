@@ -6,6 +6,7 @@ import numpy as np
 
 from engines.io.activity_charts import chart_power, chart_elevation, chart_power_phase, chart_platform_offset
 from engines.io.fit_parser import parse_fit_records_enhanced
+from engines.performance.power_engine import normalized_power
 
 
 def _records(n: int, power: list[float] | None = None):
@@ -39,8 +40,7 @@ def test_chart_power_uses_correct_np_and_vi_without_changing_chart_contract():
     chart = chart_power(stream)
 
     y = np.asarray([100.0] * 30 + [300.0] * 30)
-    rolling_30s = np.convolve(y, np.ones(30) / 30, mode="valid")
-    expected_np = float(np.mean(rolling_30s ** 4) ** 0.25)
+    expected_np = normalized_power(y)
     expected_vi = expected_np / float(np.mean(y))
 
     assert chart["x_axis"]["data"]

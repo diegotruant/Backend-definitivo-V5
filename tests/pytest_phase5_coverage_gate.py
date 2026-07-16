@@ -432,7 +432,7 @@ class TestDataQualityGate:
         )
         assert cadence_bad.cadence_quality < 1.0
 
-        spiky = assess_data_quality([0.0] * 30 + [220.0] * 40)
+        spiky = assess_data_quality([0.0] * 70)
         assert spiky.power_quality < 1.0 or spiky.issues_detected
 
         paused = clean_workout_data(

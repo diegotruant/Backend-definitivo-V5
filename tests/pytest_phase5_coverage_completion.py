@@ -402,7 +402,7 @@ class TestMetabolicAndQualityCompletion:
         hr_bad = assess_data_quality([220.0] * 100, hr_stream=[0.0] * 40 + [140.0] * 60)
         assert hr_bad.hr_quality < 0.9
 
-        cadence_bad = assess_data_quality([220.0] * 100, cadence_stream=[0.0] * 80 + [95.0] * 20)
+        cadence_bad = assess_data_quality([220.0] * 100, cadence_stream=[0.0] * 80 + [300.0] * 20)
         assert cadence_bad.cadence_quality < 1.0
 
         paused = clean_workout_data([220.0] * 50 + [0.0] * 40 + [220.0] * 50, remove_pauses_flag=True)

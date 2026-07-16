@@ -29,6 +29,7 @@ def _series_quality(
     measured: bool,
     valid_min: Optional[float] = None,
     valid_max: Optional[float] = None,
+    quality_flags: Any = None,
 ) -> Dict[str, Any]:
     if not measured:
         return {
@@ -65,6 +66,15 @@ def _series_quality(
         mask &= arr >= valid_min
     if valid_max is not None:
         mask &= arr <= valid_max
+    if quality_flags is not None:
+        try:
+            quality_arr = np.asarray(quality_flags)
+        except _NUMERIC_CONVERSION_ERRORS:
+            quality_arr = np.array([], dtype=np.uint8)
+        if quality_arr.size == arr.size:
+            # Values explicitly marked unreliable by the parser are true
+            # dropouts even when a placeholder/fill value is numeric.
+            mask &= quality_arr != QUALITY_UNRELIABLE
     coverage = float(mask.sum() / arr.size * 100.0)
     notes = []
     if coverage < 50:
@@ -151,19 +161,28 @@ def build_data_quality_report(stream: Any) -> Dict[str, Any]:
     stream = _coerce_quality_stream(stream)
     measured = measured_signal_flags(stream)
     signals = {
+        # Zero watts are a valid measured state (coasting/stopping), not a
+        # sensor dropout. Missing/unreliable samples are represented by NaN or
+        # parser quality flags, so coverage must include finite zero values.
         "power": _series_quality(
-            getattr(stream, "power", None), measured=measured["power"], valid_min=1
+            getattr(stream, "power", None),
+            measured=measured["power"],
+            valid_min=0,
+            quality_flags=getattr(stream, "quality_power", None),
         ),
         "heart_rate": _series_quality(
             getattr(stream, "heart_rate", None),
             measured=measured["heart_rate"],
             valid_min=30,
             valid_max=240,
+            quality_flags=getattr(stream, "quality_hr", None),
         ),
+        # Zero cadence is valid while coasting. As for power, actual gaps are
+        # represented separately rather than inferred from the numeric value.
         "cadence": _series_quality(
             getattr(stream, "cadence", None),
             measured=measured["cadence"],
-            valid_min=1,
+            valid_min=0,
             valid_max=250,
         ),
         "speed": _series_quality(

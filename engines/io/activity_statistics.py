@@ -134,6 +134,10 @@ def compute_activity_statistics(
     metrics: Dict[str, Optional[float]] = {
         "avg_power_w": None,
         "avg_power_w_kg": None,
+        "avg_power_elapsed_w": None,
+        "avg_power_elapsed_w_kg": None,
+        "avg_power_pedaling_w": None,
+        "avg_power_pedaling_w_kg": None,
         "np_w": None,
         "np_w_kg": None,
         "max_power_w": None,
@@ -151,11 +155,19 @@ def compute_activity_statistics(
 
     if has_power:
         nonzero = power[power > 0]
-        avg_p = float(np.mean(power))
-        avg_moving = float(np.mean(nonzero)) if nonzero.size else avg_p
+        # Canonical average power uses the same complete 1 Hz timeline as
+        # work and Normalized Power, including valid 0 W coasting samples.
+        # The former positive-only value remains available explicitly as the
+        # pedaling average so clients no longer compare different denominators.
+        avg_elapsed = float(np.mean(power))
+        avg_pedaling = float(np.mean(nonzero)) if nonzero.size else avg_elapsed
         np_val = normalized_power(power)
-        metrics["avg_power_w"] = _round_metric(avg_moving, 1)
-        metrics["avg_power_w_kg"] = _round_metric(avg_moving / weight_kg, 2)
+        metrics["avg_power_w"] = _round_metric(avg_elapsed, 1)
+        metrics["avg_power_w_kg"] = _round_metric(avg_elapsed / weight_kg, 2)
+        metrics["avg_power_elapsed_w"] = _round_metric(avg_elapsed, 1)
+        metrics["avg_power_elapsed_w_kg"] = _round_metric(avg_elapsed / weight_kg, 2)
+        metrics["avg_power_pedaling_w"] = _round_metric(avg_pedaling, 1)
+        metrics["avg_power_pedaling_w_kg"] = _round_metric(avg_pedaling / weight_kg, 2)
         metrics["np_w"] = _round_metric(np_val, 1)
         metrics["np_w_kg"] = _round_metric(np_val / weight_kg, 2)
         metrics["max_power_w"] = _round_metric(float(np.max(power)), 1)
@@ -213,6 +225,9 @@ def compute_activity_statistics(
             "lthr_bpm": lthr,
             "duration_s": duration_s,
             "moving_time_s": _moving_time_seconds(power, t) if has_power else None,
+            "pedaling_time_s": _moving_time_seconds(power, t) if has_power else None,
+            "avg_power_w_definition": "elapsed_timeline_including_zero_watts",
+            "avg_power_pedaling_w_definition": "positive_power_samples_only",
         },
         "availability": {
             "power": has_power,
