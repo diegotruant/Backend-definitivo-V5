@@ -1,0 +1,226 @@
+-            Per-sample provenance: [{duration_s, power_w, filename, date}, ...].
+-            Used only when clean_mmp_first=True for rolling-window detection.
+-        clean_mmp_first : bool, default False
+-            If True, run engines.mmp_quality.clean_mmp() on the input before
+-            fitting. Drops identical plateaus and rolling-window redundant
+-            anchors. The audit (which anchors were dropped, what warnings
+-            remain) is included in the output under "mmp_quality".
+-        """
++        """Public, exception-safe entry point for metabolic snapshot generation."""
++        fallback_input_audit = self._base_input_audit(
++            mmp_raw=mmp_raw,
++            expected_eta=expected_eta,
++            measured_lacap=measured_lacap,
++        )
++        try:
++            return self._generate_metabolic_snapshot_impl(
++                mmp_raw,
++                expected_eta=expected_eta,
++                measured_lacap=measured_lacap,
++                mmp_samples=mmp_samples,
++                clean_mmp_first=clean_mmp_first,
++                effective_cadence_rpm=effective_cadence_rpm,
++                cadence_anchor_status=cadence_anchor_status,
++            )
++        except Exception:
++            input_anchor_count = len(mmp_raw) if isinstance(mmp_raw, dict) else None
++            logger.exception(
++                "metabolic_snapshot_input_processing_failed",
++                extra={
++                    "input_type": type(mmp_raw).__name__,
++                    "input_anchor_count": input_anchor_count,
++                    "clean_mmp_first": clean_mmp_first,
++                },
++            )
++            return self._finalize_snapshot(
++                {
++                    "status": "error",
++                    "error_code": "metabolic_input_processing_failed",
++                    "message": "Metabolic snapshot input could not be processed.",
++                    "input_audit": fallback_input_audit,
++                    "fit_diagnostics": {
++                        "fit_method": "joint",
++                        "input_anchor_count": input_anchor_count,
++                        "attempted_starts": 0,
++                        "candidate_starts": 0,
++                        "converged_starts": 0,
++                        "nonconverged_starts": 0,
++                        "exception_starts": 0,
++                        "invalid_result_starts": 0,
++                    },
++                },
++                None,
++                effective_cadence_rpm=effective_cadence_rpm,
++                cadence_anchor_status=cadence_anchor_status,
++            )
++
++    def _prepare_snapshot_inputs(
++        self,
++        mmp_raw: Dict[Any, Any],
++        *,
++        expected_eta: Optional[float],
++        measured_lacap: Optional[float],
++        mmp_samples: Optional[List[Dict[str, Any]]],
++        clean_mmp_first: bool,
++    ) -> _PreparedSnapshotInputs:
++        """Normalize the MMP and build the expressiveness and input audits."""
+         mmp_quality_audit: Optional[Dict[str, Any]] = None
+-        
++        input_audit = self._base_input_audit(
++            mmp_raw=mmp_raw,
++            expected_eta=expected_eta,
++            measured_lacap=measured_lacap,
++        )
++        normalized_mmp = self._coerce_mmp_dict_with_audit(mmp_raw, input_audit)
++
+         if clean_mmp_first:
+-            # Local import to avoid hard dependency if user never enables this
++            # Local import to avoid a hard dependency when cleaning is disabled.
+             from engines.performance.mmp_quality import analyze_mmp_quality, clean_mmp
++
+             cleaned_dict, mmp_quality_audit = clean_mmp(mmp_raw, mmp_samples)
+             mmp = cleaned_dict
+-            # Add the full report (quality_score, classification, issues)
++            input_audit["mmp"]["clean_mmp_first"] = True
++            input_audit["mmp"]["used_anchor_count"] = len(mmp)
++            input_audit["mmp"]["quality_cleaner_removed_anchor_count"] = max(
++                0,
++                len(normalized_mmp) - len(mmp),
++            )
+             full_report = analyze_mmp_quality(mmp_raw, mmp_samples)
+             mmp_quality_audit["analysis"] = full_report.to_dict()
+         else:
+-            mmp = self._coerce_mmp_dict(mmp_raw)
+-        
+-        # ====================================================================
+-        # Expressiveness gate (v3.5.0)
+-        # Before fitting, check that the MMP covers the duration windows
+-        # required for each parameter. If coverage is missing for a
+-        # parameter, the corresponding estimate will be flagged unreliable
+-        # in the output, instead of silently producing a number that
+-        # depends on a non-existent anchor.
+-        # ====================================================================
+-        expressiveness = ExpressivenessReport.from_mmp(mmp)
+-        
+-        if len(mmp) < 3:
+-            return self._finalize_snapshot(
+-                {"status": "error", "message": "Insufficient MMP anchors. At least 3 durations required."},
+-                mmp_quality_audit,
+-            )
+-
+-        # The Mader model describes the aerobic + glycolytic response; it does
+-        # not model the pure-alactic (PCr) sprint, so anchors below ~30 s are
+-        # mispredicted by hundreds of watts and, left in the fit, dominate the
+-        # residual and drag the optimizer into non-physiological basins. We
+-        # keep the full curve for APR (which *needs* the sprint anchor) but fit
+-        # only durations >= sprint_fit_floor_s. If too few remain, we relax the
+-        # floor so the fit still has >= 3 anchors.
+-        sprint_fit_floor_s = 30.0
++            mmp = normalized_mmp
++            input_audit["mmp"]["clean_mmp_first"] = False
++
++        self._refresh_input_audit_summary(input_audit)
++        return _PreparedSnapshotInputs(
++            mmp=mmp,
++            mmp_quality_audit=mmp_quality_audit,
++            input_audit=input_audit,
++            expressiveness=ExpressivenessReport.from_mmp(mmp),
++        )
++
++    def _build_fit_context(
++        self,
++        prepared: _PreparedSnapshotInputs,
++        *,
++        expected_eta: Optional[float],
++        measured_lacap: Optional[float],
++    ) -> _MetabolicFitContext:
++        """Resolve arrays, weights, bounds and observed anchors for one fit."""
++        mmp = prepared.mmp
++        input_audit = prepared.input_audit
++        sprint_fit_floor_s = self.fit_policy.sprint_fit_floor_s
+         all_durs = np.array(list(mmp.keys()), dtype=float)
+         all_pows = np.array(list(mmp.values()), dtype=float)
+         fit_mask = all_durs >= sprint_fit_floor_s
+-        if int(np.count_nonzero(fit_mask)) < 3:
+-            fit_mask = np.ones_like(all_durs, dtype=bool)  # relax: too little data
++        if int(np.count_nonzero(fit_mask)) < self.fit_policy.minimum_fit_anchors:
++            fit_mask = np.ones_like(all_durs, dtype=bool)
+             sprint_fit_floor_s = 0.0
+         durs_u = all_durs[fit_mask]
+         pows_u = all_pows[fit_mask]
+ 
+         logt = np.log(np.maximum(durs_u, 1.0))
+-        weights = 0.35 + 0.65 * (
+-            np.exp(-0.5 * ((logt - np.log(360.0)) / 0.8) ** 2)
+-            * np.clip(durs_u / 20.0, 0.25, 1.0)
+-            * np.clip(900.0 / np.maximum(durs_u, 900.0), 0.6, 1.0)
++        weights = self.calibration.weight_baseline + self.calibration.weight_peak_amplitude * (
++            np.exp(
++                -0.5
++                * (
++                    (logt - np.log(self.calibration.weight_peak_duration_s))
++                    / self.calibration.weight_log_sigma
++                )
++                ** 2
++            )
++            * np.clip(
++                durs_u / self.calibration.weight_short_reference_s,
++                self.calibration.weight_short_min,
++                1.0,
++            )
++            * np.clip(
++                self.calibration.weight_long_reference_s
++                / np.maximum(durs_u, self.calibration.weight_long_reference_s),
++                self.calibration.weight_long_min,
++                1.0,
++            )
+         )
+         weights /= np.max(weights)
+ 
+-        vo2_guess = float(np.clip(max(35.0, min(85.0, (pows_u[int(np.argmax(weights))] / self.weight) * 12.0)), 25.0, 95.0))
++        vo2_guess = float(
++            np.clip(
++                max(
++                    self.calibration.vo2_guess_floor,
++                    min(
++                        self.calibration.vo2_guess_ceiling,
++                        (pows_u[int(np.argmax(weights))] / self.weight)
++                        * self.calibration.vo2_guess_power_multiplier,
++                    ),
++                ),
++                self.fit_policy.optimizer_vo2_min,
++                self.fit_policy.optimizer_vo2_max,
++            )
++        )
++
++        eta_provided = expected_eta
++        eta_resolved = (
++            float(self.context.expected_eta())
++            if expected_eta is None
++            else float(expected_eta)
++        )
++        fixed_eta = float(
++            np.clip(
++                eta_resolved,
++                self.fit_policy.minimum_eta,
++                self.fit_policy.maximum_eta,
++            )
++        )
++        input_audit["model_inputs"]["expected_eta"] = self._numeric_input_audit(
++            provided=eta_provided,
++            used=fixed_eta,
++            source="athlete_context" if eta_provided is None else "argument",
++            minimum=self.fit_policy.minimum_eta,
++            maximum=self.fit_policy.maximum_eta,
++        )
++
++        resolved_measured_lacap: Optional[float] = None
++        if measured_lacap is not None:
++            measured_lacap_numeric = float(measured_lacap)
++            resolved_measured_lacap = float(
++                np.clip(
++                    measured_lacap_numeric,
++                    self.fit_policy.minimum_lacap_mmol_l,
++                    self.fit_policy.maximum_lacap_mmol_l,
++                )
++            )
