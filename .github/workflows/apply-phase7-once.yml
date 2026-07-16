@@ -5,7 +5,7 @@ on:
     branches:
       - integration/zero-power-average-phase-7
     paths:
-      - .automation/phase7.patch
+      - .automation/phase7.part*.b64
       - .github/workflows/apply-phase7-once.yml
 
 permissions:
@@ -27,8 +27,9 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Apply validated phase 7 patch
+      - name: Rebuild and apply validated phase 7 patch
         run: |
+          cat .automation/phase7.part*.b64 | base64 --decode > .automation/phase7.patch
           git apply --check .automation/phase7.patch
           git apply .automation/phase7.patch
 
@@ -47,7 +48,7 @@ jobs:
 
       - name: Commit phase 7 and remove one-shot automation
         run: |
-          rm -f .automation/phase7.patch .github/workflows/apply-phase7-once.yml
+          rm -f .automation/phase7.patch .automation/phase7.part*.b64 .github/workflows/apply-phase7-once.yml
           rmdir .automation 2>/dev/null || true
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
