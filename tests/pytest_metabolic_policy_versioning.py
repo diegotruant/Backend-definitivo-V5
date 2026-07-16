@@ -8,10 +8,7 @@ import json
 import pytest
 
 from engines.core.athlete_context import AthleteContext
-from engines.metabolic.metabolic_calibration import (
-    DEFAULT_METABOLIC_CALIBRATION,
-    MetabolicCalibration,
-)
+from engines.metabolic.metabolic_calibration import DEFAULT_METABOLIC_CALIBRATION
 from engines.metabolic.metabolic_fit_policy import (
     DEFAULT_METABOLIC_FIT_POLICY,
     MetabolicFitPolicy,

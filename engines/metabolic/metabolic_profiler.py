@@ -1828,7 +1828,7 @@ class MetabolicProfiler:
             float(vo2max_power_w)
             if vo2max_power_w is not None
             else self._map_estimate(
-                self.calibration.vo2_guess_floor,
+                50.0,
                 self.context.expected_eta(),
             )
         )
