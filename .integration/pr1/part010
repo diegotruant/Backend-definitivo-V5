@@ -1,0 +1,252 @@
++            input_audit["model_inputs"]["measured_lacap_mmol_L"] = (
++                self._numeric_input_audit(
++                    provided=measured_lacap_numeric,
++                    used=resolved_measured_lacap,
++                    source="argument",
++                    minimum=self.fit_policy.minimum_lacap_mmol_l,
++                    maximum=self.fit_policy.maximum_lacap_mmol_l,
++                )
++            )
++        self._refresh_input_audit_summary(input_audit)
+ 
+-        if expected_eta is None:
+-            expected_eta = self.context.expected_eta()
+-        fixed_eta = float(np.clip(expected_eta, 0.18, 0.28))
+         fixed_pcr = self._pcr_prior_watts()
+         vla_init = self.context.vlamax_initial_guess()
+-
+         w_grid: np.ndarray = np.arange(
+             self.const.w_min,
+-            max(2000.0, self.weight * 30.0) + self.const.w_step,
++            max(
++                self.calibration.fit_grid_floor_max_w,
++                self.weight * self.calibration.fit_grid_power_per_kg_max,
++            )
++            + self.const.w_step,
+             self.const.w_step,
+             dtype=float,
+         )
+ 
+-        # Aerobic floor: the long-duration power the athlete actually
+-        # sustained sets a hard physiological lower bound on VO2max. MLSS
+-        # power demands a certain aerobic supply, and VO2max must exceed it.
+-        # We compute this from the OBSERVED threshold-window power (a direct
+-        # measurement, not a model output) and use it to keep the optimizer
+-        # out of the degenerate basin where it trades a too-low VO2max
+-        # against an inflated VLamax. (This basin exists for some weight/
+-        # curve combinations and produced non-physical fits, e.g. an
+-        # 88 kg athlete sustaining 265 W for 1 h fitting to VO2max≈30.)
+         mmp_for_obs = {int(d): float(p) for d, p in zip(durs_u, pows_u) if p > 0}
+         obs_thr = observed_threshold_power(mmp_for_obs)
+-        coeff_w_to_vo2 = 10.8 * (0.23 / fixed_eta)
++        coeff_w_to_vo2 = (
++            self.calibration.watts_to_vo2_coefficient
++            * (self.calibration.reference_efficiency / fixed_eta)
++        )
+         if obs_thr is not None and obs_thr > 0:
+-            # Aerobic demand of sustained threshold power (+ small margin,
+-            # since VO2max sits above MLSS). Uses the same observable as
+-            # cross_validation_engine (longest threshold-window effort).
+-            vo2_floor = self.const.vo2_basale + coeff_w_to_vo2 * (obs_thr / self.weight) * 1.05
++            vo2_floor = (
++                self.const.vo2_basale
++                + coeff_w_to_vo2
++                * (obs_thr / self.weight)
++                * self.calibration.observed_threshold_vo2_margin
++            )
+         else:
+             vo2_floor = 0.0
+-        mlss_ratio_ceiling = 1.10
+-
+-        def cost_fn(x: np.ndarray) -> np.ndarray:
+-            vo2, vla = map(float, x)
+-            la_cap = (
+-                float(np.clip(10.0 + (vla - 0.2) * 15.0, 8.0, 30.0))
+-                if measured_lacap is None
+-                else float(np.clip(measured_lacap, 8.0, 30.0))
+-            )
+-
+-            tau, map_est, vo2_act, net = self._compute_grid_state(vo2, vla, fixed_eta, w_grid)
+-            preds = np.array([
+-                self._pred_power(t, la_cap, tau, map_est, w_grid, vo2_act, net)
+-                for t in durs_u
+-            ]) + (fixed_pcr * np.exp(-np.maximum(0.0, durs_u - 20.0) / 35.0))
+-
+-            resid = (preds - pows_u) * weights
+-            # Fixed-length regularization block: scipy.least_squares requires
+-            # the same residual dimension on every cost_fn evaluation.
+-            vo2_floor_pen = (
+-                (vo2_floor - vo2) * 5.0 if (vo2_floor > 0.0 and vo2 < vo2_floor) else 0.0
+-            )
+-
+-            mlss_ceiling_pen = 0.0
+-            if obs_thr is not None and obs_thr > 0:
+-                w_mlss_pred, _, _, _, _ = self._calculate_curves(vo2, vla, fixed_eta)
+-                ratio = float(w_mlss_pred) / obs_thr
+-                if ratio > mlss_ratio_ceiling:
+-                    mlss_ceiling_pen = (ratio - mlss_ratio_ceiling) * 55.0
+-
+-            short_mae_pen = 0.0
+-            if np.any(durs_u <= 30.0):
+-                short_mae_pen = (
+-                    float(np.mean(np.abs(preds[durs_u <= 30.0] - pows_u[durs_u <= 30.0])))
+-                    * self.reg.short_mae_scale
++
++        fit_diagnostics: Dict[str, Any] = {
++            "fit_method": "joint",
++            "input_anchor_count": len(mmp),
++            "fit_anchor_count": int(durs_u.size),
++            "sprint_fit_floor_s": sprint_fit_floor_s,
++            "attempted_starts": 0,
++            "candidate_starts": 0,
++            "converged_starts": 0,
++            "nonconverged_starts": 0,
++            "exception_starts": 0,
++            "invalid_result_starts": 0,
++            "apr_gate_applied": False,
++        }
++        return _MetabolicFitContext(
++            mmp=mmp,
++            all_durs=all_durs,
++            all_pows=all_pows,
++            durs_u=durs_u,
++            pows_u=pows_u,
++            weights=weights,
++            sprint_fit_floor_s=sprint_fit_floor_s,
++            vo2_guess=vo2_guess,
++            fixed_eta=fixed_eta,
++            resolved_measured_lacap=resolved_measured_lacap,
++            fixed_pcr=fixed_pcr,
++            vla_init=vla_init,
++            w_grid=w_grid,
++            obs_thr=obs_thr,
++            vo2_floor=vo2_floor,
++            mlss_ratio_ceiling=self.calibration.mlss_observed_ratio_ceiling,
++            input_audit=input_audit,
++            fit_diagnostics=fit_diagnostics,
++        )
++
++    def _resolve_lacap(
++        self,
++        vlamax: float,
++        measured_lacap: Optional[float],
++    ) -> float:
++        """Resolve inferred or measured lactate capacity with policy bounds."""
++        if measured_lacap is not None:
++            return measured_lacap
++        return float(
++            np.clip(
++                self.calibration.lacap_intercept
++                + (vlamax - self.calibration.lacap_vlamax_anchor)
++                * self.calibration.lacap_vlamax_slope,
++                self.fit_policy.minimum_lacap_mmol_l,
++                self.fit_policy.maximum_lacap_mmol_l,
++            )
++        )
++
++    def _predict_fit_powers(
++        self,
++        context: _MetabolicFitContext,
++        *,
++        vo2: float,
++        vlamax: float,
++        lacap: float,
++    ) -> np.ndarray:
++        """Predict powers at the fit durations using the current model state."""
++        tau, map_est, vo2_act, net = self._compute_grid_state(
++            vo2,
++            vlamax,
++            context.fixed_eta,
++            context.w_grid,
++        )
++        return np.array(
++            [
++                self._pred_power(
++                    t,
++                    lacap,
++                    tau,
++                    map_est,
++                    context.w_grid,
++                    vo2_act,
++                    net,
+                 )
++                for t in context.durs_u
++            ]
++        ) + (
++            context.fixed_pcr
++            * np.exp(
++                -np.maximum(
++                    0.0,
++                    context.durs_u - self.calibration.pcr_decay_start_s,
++                )
++                / self.calibration.pcr_decay_tau_s
++            )
++        )
+ 
+-            reg = [
+-                (vo2 - vo2_guess) * self.reg.vo2_vs_guess,
+-                (vo2 - (3.5 + (10.8 * (0.23 / fixed_eta)) * (pows_u[int(np.argmax(weights))] / self.weight)))
+-                * self.reg.vo2_vs_expected_heuristic,
+-                vo2_floor_pen,
+-                mlss_ceiling_pen,
+-                short_mae_pen,
++    def _fit_residuals(
++        self,
++        x: np.ndarray,
++        context: _MetabolicFitContext,
++    ) -> np.ndarray:
++        """Return weighted residuals plus fixed-length physiological penalties."""
++        vo2, vlamax = map(float, x)
++        lacap = self._resolve_lacap(vlamax, context.resolved_measured_lacap)
++        preds = self._predict_fit_powers(
++            context,
++            vo2=vo2,
++            vlamax=vlamax,
++            lacap=lacap,
++        )
++        resid = (preds - context.pows_u) * context.weights
++        vo2_floor_pen = (
++            (context.vo2_floor - vo2) * self.calibration.vo2_floor_penalty_scale
++            if context.vo2_floor > 0.0 and vo2 < context.vo2_floor
++            else 0.0
++        )
++
++        mlss_ceiling_pen = 0.0
++        if context.obs_thr is not None and context.obs_thr > 0:
++            w_mlss_pred, _, _, _, _ = self._calculate_curves(
++                vo2,
++                vlamax,
++                context.fixed_eta,
++            )
++            ratio = float(w_mlss_pred) / context.obs_thr
++            if ratio > context.mlss_ratio_ceiling:
++                mlss_ceiling_pen = (
++                    (ratio - context.mlss_ratio_ceiling)
++                    * self.calibration.mlss_ceiling_penalty_scale
++                )
++
++        short_mae_pen = 0.0
++        short_mask = context.durs_u <= self.calibration.short_mae_duration_s
++        if np.any(short_mask):
++            short_mae_pen = (
++                float(np.mean(np.abs(preds[short_mask] - context.pows_u[short_mask])))
++                * self.reg.short_mae_scale
++            )
++
++        expected_vo2 = (
++            self.const.vo2_basale
++            + (
++                self.calibration.watts_to_vo2_coefficient
++                * (self.calibration.reference_efficiency / context.fixed_eta)
++            )
++            * (context.pows_u[int(np.argmax(context.weights))] / self.weight)
++        )
++        reg = [
++            (vo2 - context.vo2_guess) * self.reg.vo2_vs_guess,
++            (vo2 - expected_vo2) * self.reg.vo2_vs_expected_heuristic,
++            vo2_floor_pen,
++            mlss_ceiling_pen,
++            short_mae_pen,
++        ]
++        return np.concatenate([resid, np.array(reg)])
++
